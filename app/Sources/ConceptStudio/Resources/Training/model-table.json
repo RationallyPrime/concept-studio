@@ -5,11 +5,18 @@
   "trainers": {
     "aitoolkit": {
       "min_cuda": "13.0",
-      "default_model": "flux1-dev"
+      "default_model": "flux1-dev",
+      "resume": true
     },
     "ltx": {
       "min_cuda": "13.0",
-      "default_model": "ltx-2.3"
+      "default_model": "ltx-2.3",
+      "resume": true
+    },
+    "musubi": {
+      "min_cuda": "13.0",
+      "default_model": "krea2",
+      "resume": false
     }
   },
   "models": [
@@ -2711,68 +2718,65 @@
       "id": "krea2",
       "display_name": "Krea 2 (raw)",
       "short_name": "Krea 2 (raw)",
-      "trainer": "aitoolkit",
+      "trainer": "musubi",
       "model_ref": "krea/Krea-2-Raw",
       "source": {
-        "revision": null,
+        "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+        "weight_repos": [
+          "krea/Krea-2-Turbo"
+        ],
         "gated": true,
-        "first_download_gb": 62.0,
-        "download_note": "Hub repository file-size total, including alternative weight formats. This is an upper estimate for repository files, not a measured download; dependencies may add files."
+        "first_download_gb": 61.9,
+        "download_note": "The four files musubi-tuner reads: the Raw and Turbo transformers (26.3 GB each), the text encoder (8.9 GB) and the VAE (0.5 GB), at the pinned revisions."
       },
       "architecture": {
         "arch": "krea2",
         "dtype": "bf16",
-        "quantize": true,
-        "quantize_text_encoder": true,
-        "gradient_checkpointing": true,
-        "model_extra": {
-          "low_vram": true
-        }
+        "quantize": false,
+        "quantize_text_encoder": false,
+        "gradient_checkpointing": false,
+        "model_extra": {}
       },
       "family_match": null,
       "resolution": {
         "choices": [
-          512,
-          768,
           1024
         ],
         "default": [
-          512,
-          768,
           1024
         ],
-        "multiple": true
+        "multiple": false
       },
       "recipe": {
         "length": {
           "unit": "steps",
-          "value": 3000
+          "value": 2000
         },
         "learning_rate": 0.0001,
-        "optimizer": "adamw8bit",
+        "optimizer": "AdamW",
         "lr_scheduler": "constant",
         "lr_warmup_steps": 0,
         "rank": 32,
         "alpha": 32,
         "batch_size": 1,
         "gradient_accumulation": 1,
-        "caption_dropout": 0.05,
+        "caption_dropout": null,
         "checkpoints": {
-          "every": 250,
-          "keep": 4,
-          "dtype": "bf16",
-          "editable": true
+          "every": 100,
+          "keep": 0,
+          "dtype": null,
+          "editable": false
         }
       },
       "gpu": {
-        "min_vram_gb": 80,
+        "min_vram_gb": 96,
         "verify_on_pod": true,
-        "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
+        "note": "The recipe trains the full bf16 transformer without block swap; it was measured on a 96 GB RTX PRO 6000.",
+        "verify_message": "Krea 2 training needs at least 96 GB of memory per GPU. Choose a larger computer."
       },
       "video": null,
       "preview": {
-        "training_samples": false,
+        "training_samples": true,
         "still": false,
         "video": null
       },
@@ -2794,39 +2798,50 @@
         "notice": "Krea 2 Community License. Read the model card and licence before training or sharing adapters. This is a custom community licence with conditions on use and redistribution. Accept access conditions on Hugging Face before downloading with your token.",
         "show_notice": true
       },
+      "usage_note": "Trained on Krea 2 Raw; use the LoRA with Krea 2 Turbo at 8 steps without CFG, which is how the training samples are drawn.",
       "hooks": {},
-      "notes": "Unverified. AI Toolkit f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47: extensions_built_in/diffusion_models/ui.tsx per-arch defaults over ui/src/app/jobs/new/jobConfig.ts. Uses natural-language prose with its modern text encoder. Open AI Toolkit issues #1041, #990, #968 and #954 report backward dtype failures, memory regressions and quantization/offload crashes. The pin is not GPU-tested.",
-      "recipe_status": "unverified",
-      "training_notice": "Known breakage at the AI Toolkit pin: issue #1041 reports backward dtype failures with gradient checkpointing, which these UI defaults enable; missing key/value casts remain in the pinned source. Issues #990, #968 and #954 also report memory and offload failures. No GPU test has been run.",
-      "usage_note": "Uses natural-language prose with its modern text encoder. Comparison generation is unavailable for this unverified recipe.",
       "trainer_options": {
-        "process": {
-          "network": {
-            "network_kwargs": {
-              "ignore_if_contains": []
-            }
+        "weights": {
+          "dit": {
+            "repo": "krea/Krea-2-Raw",
+            "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+            "file": "raw.safetensors"
           },
-          "train": {
-            "bypass_guidance_embedding": true,
-            "noise_scheduler": "flowmatch",
-            "timestep_type": "linear",
-            "optimizer_params": {
-              "weight_decay": 0.0001
-            },
-            "unload_text_encoder": false,
-            "cache_text_embeddings": false,
-            "loss_type": "mse"
+          "sample_dit": {
+            "repo": "krea/Krea-2-Turbo",
+            "revision": "98e0fe118d17c9e3547fbb2e25acdbae2cadf7c7",
+            "file": "turbo.safetensors"
           },
-          "model": {
-            "qtype": "qfloat8",
-            "qtype_te": "qfloat8",
-            "model_kwargs": {}
+          "vae": {
+            "repo": "krea/Krea-2-Raw",
+            "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+            "file": "vae/diffusion_pytorch_model.safetensors"
+          },
+          "text_encoder": {
+            "repo": "krea/Krea-2-Raw",
+            "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+            "file": "text_encoder/model.safetensors"
           }
         },
-        "dataset": {
-          "cache_latents_to_disk": false
+        "args": {
+          "sdpa": true,
+          "mixed_precision": "bf16",
+          "timestep_sampling": "krea2_shift",
+          "weighting_scheme": "none",
+          "network_module": "networks.lora_krea2",
+          "max_data_loader_n_workers": 2,
+          "persistent_data_loader_workers": true
+        },
+        "sample": {
+          "steps": 8,
+          "cfg": 1.0,
+          "args": {
+            "turbo_dit_cache": true
+          }
         }
-      }
+      },
+      "notes": "Measured recipe: musubi-tuner v0.3.4 krea2_train_network.py, trained on Raw with Turbo samples at 8 steps, rank 32, 2000 steps on a 96 GB RTX PRO 6000; likeness plateaued in the last third of the run. musubi-tuner has no caption dropout and cannot continue a run (its step counter restarts on --resume), so the trainer is marked resume false.",
+      "recipe_status": "verified"
     },
     {
       "id": "krea2-turbo",

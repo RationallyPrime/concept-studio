@@ -10,8 +10,8 @@ and otherwise the file in the repository checkout. Wrapper scripts and the agent
 `model_table.py` by path.
 
 Code does not branch on a model's name. Where a model genuinely behaves differently, its row
-names a **hook** (see [Hooks](#hooks)). Code may still branch on the trainer (`aitoolkit`, `ltx`):
-each has its own image, services, launcher and checkpoint layout.
+names a **hook** (see [Hooks](#hooks)). Code may still branch on the trainer (`aitoolkit`, `ltx`,
+`musubi`): each has its own image, services, launcher and checkpoint layout.
 
 ## Format
 
@@ -20,7 +20,7 @@ each has its own image, services, launcher and checkpoint layout.
   "format": "conceptstudio-model-table",
   "version": 1,
   "default_model": "flux1-dev",
-  "trainers": { "aitoolkit": {...}, "ltx": {...} },
+  "trainers": { "aitoolkit": {...}, "ltx": {...}, "musubi": {...} },
   "models": [ row, row, ... ]
 }
 ```
@@ -31,6 +31,7 @@ each has its own image, services, launcher and checkpoint layout.
 | `default_model` | Row id a new project and an unknown caption profile start with. |
 | `trainers.<name>.min_cuda` | Lowest host CUDA the trainer image needs, as `major.minor`. |
 | `trainers.<name>.default_model` | Row selected when the trainer changes, and the row a custom base model on that trainer borrows its defaults from. |
+| `trainers.<name>.resume` | `false`: runs on this trainer cannot be continued from a checkpoint. The app shows no Continue action for them and the agent refuses `resume: true` (musubi-tuner restarts its step counter on `--resume`). |
 | `models` | Rows. Order is the picker order, the order of video formats in the media editor, the order of names in messages and the order of family matching. |
 
 Every row field is required unless marked optional; `null` is written where a field does not
@@ -40,14 +41,14 @@ apply.
 | --- | --- |
 | `id` | Row id, used inside the table. |
 | `display_name`, `short_name` | Names in pickers and messages (`FLUX.1-dev` / `FLUX`). |
-| `trainer` | `aitoolkit` or `ltx`. |
+| `trainer` | `aitoolkit`, `ltx` or `musubi` (kohya-ss musubi-tuner). |
 | `model_ref` | The `base_model` value in run.json, a Hub id. Unique across the table. |
 | `source.revision` | Pinned Hub revision, or `null` when the trainer resolves the name itself. |
 | `source.weight_repos` | Optional. Other Hub repos the trainer downloads this model's weights from (a repack). With an unpinned revision, cached regularisation images are keyed by the current commit of each. |
 | `source.gated` | The Hub repo needs an accepted licence before a token can download it. |
 | `source.first_download_gb` | Size of the first model download on a fresh volume, decimal GB. Shown in the picker for rows whose licence notice is on. |
 | `source.download_note` | What that size covers. |
-| `architecture.arch` | AI Toolkit `model.arch`; `null` for the LTX trainer. |
+| `architecture.arch` | AI Toolkit `model.arch`; `null` for the LTX trainer; for musubi the script prefix (`krea2` runs `krea2_train_network.py`). |
 | `architecture.dtype`, `quantize`, `quantize_text_encoder`, `gradient_checkpointing` | Training precision and memory settings. AI Toolkit: `train.dtype`, `model.quantize`, `model.quantize_te` (written when not `null`), `train.gradient_checkpointing`. For the LTX row they describe the settings in `trainer_options.run_extra`. `gradient_checkpointing` is a trainer setting (below). |
 | `architecture.model_extra` | Further AI Toolkit `model` keys, in order (FLUX: `is_flux: true`). |
 | `family_match` | `substrings` and `tokens` that match a custom base model to this row's AI Toolkit `model` block; `null` for none. Tokens must not touch another letter or digit. |
@@ -59,7 +60,7 @@ apply.
 | `recipe.lr_scheduler`, `lr_warmup_steps` | AI Toolkit `train.lr_scheduler` (`constant`, `constant_with_warmup` or `cosine`) and, for `constant_with_warmup`, `train.lr_scheduler_params.num_warmup_steps` (0 otherwise); `null` for LTX. Trainer settings. |
 | `recipe.caption_dropout` | The share of training images seen without their caption, 0 to 1 (AI Toolkit `caption_dropout_rate` on every dataset); `null` where the trainer has none (LTX). A trainer setting: see below. |
 | `recipe.checkpoints` | `every` (steps), `keep` (`max_step_saves_to_keep`; 0 keeps all), `dtype` (saved precision, `null` when the trainer has none) and `editable` (Advanced shows the three checkpoint controls and the app sends their values). |
-| `trainer_options` | Optional. `run_extra`: the exact `extra` object the app sends for an LTX run (key order matters). `process`: AI Toolkit `process` keys the typed fields do not cover; the pod deep-merges them over the generic config and under run.json `extra`, which still wins. The app does not read `process`. |
+| `trainer_options` | Optional. `run_extra`: the exact `extra` object the app sends for an LTX run (key order matters). `process`: AI Toolkit `process` keys the typed fields do not cover; the pod deep-merges them over the generic config and under run.json `extra`, which still wins. The app does not read `process`. For musubi it is required and read only by the pod (see [musubi rows](#musubi-rows)). |
 | `gpu.min_vram_gb` | GPU offers with less memory are not shown. |
 | `gpu.verify_on_pod`, `verify_message` | Before uploading inputs, training, resuming or generating, ask the agent for the real GPU memory and refuse with `verify_message` when it is below `min_vram_gb`. |
 | `gpu.note` | The sentence after "These have at least N GB of memory per GPU." |
@@ -212,6 +213,23 @@ The row's `architecture.arch` must be one the patch series wires (`qwen_image_2`
 run.json's top-level `repa`, and the launcher writes them as AI Toolkit's `process.repa` block
 before `extra` merges (`extra.repa.enabled: false` turns it off).
 
+## musubi rows
+
+A musubi row trains with kohya-ss musubi-tuner (`pod/images/Dockerfile.musubi`); `launch_musubi.py`
+reads its `trainer_options`:
+
+| Field | Meaning |
+| --- | --- |
+| `weights.<role>` | `{repo, revision, file}` per weight file, each from a pinned Hub revision into `<workspace>/models/huggingface/<repo>/`. Roles: `dit` (trained), `vae`, `text_encoder`, and `sample_dit` (the model training samples are drawn on, fetched only when the run samples). |
+| `args` | musubi-tuner training flags in order (`true` passes a switch). run.json `extra.args` merges over them; the flags the wrapper owns (`musubi_rules.WRAPPER_ARGS`: weights, dataset, output, logging, length, saving, sampling, Resume) cannot be set there. |
+| `sample` | `steps` and `cfg` for each sample prompt line, and `args` added only when the run samples. |
+
+`recipe.optimizer` and `recipe.lr_scheduler` become `--optimizer_type` and `--lr_scheduler` unless
+`extra.args` sets them. `recipe.caption_dropout` is `null` (musubi-tuner has none) and
+`recipe.checkpoints.editable` is `false`: the run saves every `save_every` steps and keeps
+`checkpoints.keep` of them (0 keeps all). There is no custom base model on this trainer: `base_model`
+must be a musubi row's `model_ref`.
+
 ## Adding a model
 
 1. **Check the trainer pin.** For AI Toolkit the `arch` must exist at `AI_TOOLKIT_COMMIT` in
@@ -237,8 +255,8 @@ before `extra` merges (`extra.repa.enabled: false` turns it off).
 
 ## Advanced user recipes
 
-`recipe_status` is `verified` for the five existing recipes and `unverified` for recipes copied
-from AI Toolkit's pinned UI. The app offers unverified rows only while Settings → Advanced user
+`recipe_status` is `verified` for recipes measured end to end (Krea 2 on musubi-tuner among them)
+and `unverified` for recipes copied from AI Toolkit's pinned UI. The app offers unverified rows only while Settings → Advanced user
 is on. Turning it off retains the selected model and all edited values; each affected screen
 reports the overrides still in force. `training_notice` is an optional visible sentence about
 the upstream issue check. An unverified recipe is not a measured training or quality result.

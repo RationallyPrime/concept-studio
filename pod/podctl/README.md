@@ -41,7 +41,7 @@ podctl stop vllm
 | `files RUN_ID` | `GET /runs/RUN_ID/files` | `PATH SIZE SHA256 MODIFIED` for every regular file under the run's `output/` |
 | `pull RUN_ID [--to DIR] [--latest \| --include GLOB …]` | `GET /runs/RUN_ID/files`, then `GET /runs/RUN_ID/files/PATH` per file | default DIR `./RUN_ID`; files keep their listed relative paths. `--latest`: only the newest `*.safetensors` (push-lora's rule for the final LoRA); `--include` (repeatable, `fnmatch`): only matching paths. Each file streams to `<name>.partial` and is renamed only when its size and SHA-256 match the listing; a file already present with the listed digest is not downloaded again. A listed path with `..`, a leading `/` or an empty segment is refused (exit 2) before anything is written. Prints each local path (`--json`: one document with `local_path` added per file) |
 | `tensorboard [PATH] [--session]` | `GET /tensorboard/PATH` (default `data/runs`) | prints TensorBoard's body as-is. `--session` first calls `POST /tensorboard-session`, then sends only the session cookie, no bearer: the request a browser makes |
-| `train aitoolkit\|ltx --config run.json --gpus 1,2 [--wait]` | `POST /services/trainer-<x>/start` | the file (POD-SPEC §4.1) is the params, verbatim; the agent validates it |
+| `train aitoolkit\|ltx\|musubi --config run.json --gpus 1,2 [--wait]` | `POST /services/trainer-<x>/start` | the file (POD-SPEC §4.1) is the params, verbatim; the agent validates it |
 | `caption-up MODEL [--gpus 0] [--params JSON \| --params-file F]` | `POST /services/vllm/start` | params `{"model": MODEL}`; extra vLLM params merge under it |
 
 `--gpus` is a comma-separated list of distinct non-negative indices. `train` requires it; `start`

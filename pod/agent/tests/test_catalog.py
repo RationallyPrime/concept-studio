@@ -23,6 +23,7 @@ from podagent.catalog import (
     DrawRegularizationParams,
     GenerationParams,
     LtxRunConfig,
+    MusubiRunConfig,
     PullDatasetParams,
     PushLoraParams,
     RunConfig,
@@ -73,6 +74,7 @@ def test_catalog_contract() -> None:
         "tensorboard",
         "trainer-aitoolkit",
         "trainer-ltx",
+        "trainer-musubi",
         "cleanup-datasets",
         "pull-dataset",
         "draw-regularization",
@@ -85,6 +87,7 @@ def test_catalog_contract() -> None:
         "tensorboard": ((0, 0), 6006, TensorboardParams),
         "trainer-aitoolkit": ((1, ANY), None, RunConfig),
         "trainer-ltx": ((1, ANY), None, LtxRunConfig),
+        "trainer-musubi": ((1, ANY), None, MusubiRunConfig),
         "cleanup-datasets": ((0, 0), None, ServiceParams),
         "pull-dataset": ((0, 0), None, PullDatasetParams),
         "draw-regularization": ((1, 1), None, DrawRegularizationParams),
@@ -397,7 +400,8 @@ def test_tensorboard_rejects(bad: dict[str, Any]) -> None:
 
 
 @pytest.mark.parametrize(
-    ("name", "trainer"), [("trainer-aitoolkit", "aitoolkit"), ("trainer-ltx", "ltx")]
+    ("name", "trainer"),
+    [("trainer-aitoolkit", "aitoolkit"), ("trainer-ltx", "ltx"), ("trainer-musubi", "musubi")],
 )
 def test_trainer_argv_cwd_log_run_id(paths: Paths, name: str, trainer: str) -> None:
     spec = CATALOG[name]
@@ -414,7 +418,7 @@ def test_trainer_argv_cwd_log_run_id(paths: Paths, name: str, trainer: str) -> N
     assert spec.run_id(cfg) == "nora7-h3-001"
 
 
-@pytest.mark.parametrize("name", ["trainer-aitoolkit", "trainer-ltx"])
+@pytest.mark.parametrize("name", ["trainer-aitoolkit", "trainer-ltx", "trainer-musubi"])
 def test_trainer_env(paths: Paths, agent_settings: Settings, name: str) -> None:
     env = CATALOG[name].env
     assert env(RunConfig.model_validate(run_config(paths)), agent_settings) == {
@@ -804,6 +808,58 @@ def test_ltx_preprocess_is_checked_by_the_ltx_params_model(paths: Paths) -> None
     cfg = LtxRunConfig.model_validate(run_config(paths, extra={"preprocess": good, "lora": {}}))
     assert cfg.extra == {"preprocess": good, "lora": {}}
     assert LtxRunConfig.model_validate(run_config(paths)).extra == {}
+
+
+# --- musubi-tuner: extra holds args only, the row is the recipe, and there is no Resume ----------
+
+
+def musubi_config(paths: Paths, **overrides: Any) -> dict[str, Any]:
+    return run_config(paths, base_model="krea/Krea-2-Raw", **overrides)
+
+
+def test_musubi_extra_holds_only_unreserved_args(paths: Paths) -> None:
+    good = {"args": {"optimizer_type": "AdamW8bit", "fp8_base": False, "blocks_to_swap": None}}
+    assert MusubiRunConfig.model_validate(musubi_config(paths, extra=good)).extra == good
+    assert MusubiRunConfig.model_validate(musubi_config(paths)).extra == {}
+    for bad, reason in (
+        ({"train": {}}, "holds only args"),
+        ({"args": {"dit": "raw.safetensors"}}, "the wrapper sets this"),
+        ({"args": {"output_dir": "x"}}, "the wrapper sets this"),
+        ({"args": {"vae_dtype": "/workspace/elsewhere"}}, "name a path"),
+        ({"args": {"Bad-Flag": 1}}, "not a musubi-tuner flag name"),
+        ({"args": {"network_args": ["a"]}}, "must be a string, number"),
+    ):
+        with pytest.raises(ValidationError, match=reason) as exc:
+            parse_params("trainer-musubi", musubi_config(paths, extra=bad), paths)
+        assert [e["type"] for e in exc.value.errors()] == ["musubi_extra"]
+    # The rule is musubi-tuner's: the AI Toolkit service keeps a free-form extra.
+    assert isinstance(
+        parse_params("trainer-aitoolkit", run_config(paths, extra={"train": {}}), paths), RunConfig
+    )
+
+
+def test_musubi_refuses_ai_toolkit_fields_and_resume(paths: Paths) -> None:
+    with pytest.raises(ValidationError, match="caption_dropout: AI Toolkit settings"):
+        parse_params("trainer-musubi", musubi_config(paths, caption_dropout=0.1), paths)
+    with pytest.raises(ValidationError, match="not available on the musubi-tuner trainer"):
+        parse_params(
+            "trainer-musubi",
+            musubi_config(
+                paths,
+                repa={
+                    "encoder": "facebook/dinov2-giant",
+                    "block_index": 8,
+                    "weight": 0.5,
+                    "projector": "mlp",
+                    "projector_dim": 2048,
+                    "encoder_resolution": 518,
+                },
+            ),
+            paths,
+        )
+    with pytest.raises(ValidationError, match="cannot continue a run") as exc:
+        parse_params("trainer-musubi", musubi_config(paths, resume=True), paths)
+    assert errors_of(exc) == [("resume",)]
 
 
 def test_trainer_settings_are_refused_where_they_cannot_apply(paths: Paths) -> None:

@@ -20,8 +20,9 @@ or matched generation.
 pod/
   agent/        Python package "podagent": FastAPI control agent (port 8800)
   podctl/       Python package "podctl": terminal client over the agent's HTTP API
-  images/       Dockerfiles (base, aitoolkit, ltx, fake), entrypoint, compose for fake mode
-  scripts/      pull_dataset.py, restore_dataset.py, push_lora.py, launch_aitoolkit.py, launch_ltx.py, generate_results.py,
+  images/       Dockerfiles (base, aitoolkit, ltx, musubi, fake), entrypoint, compose for fake mode
+  scripts/      pull_dataset.py, restore_dataset.py, push_lora.py, launch_aitoolkit.py, launch_ltx.py, launch_musubi.py,
+                generate_results.py,
                 model_table.py (reads the model table, 4.4)
   docs/         this spec, POD-STATUS.md
 ```
@@ -212,14 +213,14 @@ Response:
 
 `mode` ∈ `sequential | concurrent | single` (`single` when only one of the two was requested).
 `caption`/`train` are `null` when not requested. `train.service` is the generic `trainer`; the
-app substitutes `trainer-aitoolkit` or `trainer-ltx`. The plan is advisory: the supervisor only
+app substitutes `trainer-aitoolkit`, `trainer-ltx` or `trainer-musubi`. The plan is advisory: the supervisor only
 enforces no-double-booking, so a user who wants all N GPUs for a train-only run can pass
 `gpus: [0..N-1]` to the start call explicitly.
 
 ### 2.6 Services
 
-The current catalog (section 3) has ten names: `vllm`, `tensorboard`, `trainer-aitoolkit`,
-`trainer-ltx`, `pull-dataset`, `draw-regularization`, `push-lora`, `generate-aitoolkit`,
+The current catalog (section 3) has eleven names: `vllm`, `tensorboard`, `trainer-aitoolkit`,
+`trainer-ltx`, `trainer-musubi`, `pull-dataset`, `draw-regularization`, `push-lora`, `generate-aitoolkit`,
 `generate-ltx`, `cleanup-datasets`.
 The upload route is not a GPU service. One instance per name at a time; the name is the
 instance key.
@@ -571,11 +572,13 @@ sends every request; a `port` param is `422 invalid_params`. argv: `[/opt/venvs/
 Pointing it at `/workspace/runs` once shows every run as a TensorBoard "run"
 (`<id>/tensorboard`).
 
-### 3.3 `trainer-aitoolkit` and `trainer-ltx` — GPUs 1..N
+### 3.3 `trainer-aitoolkit`, `trainer-ltx` and `trainer-musubi` — GPUs 1..N
 
-Params: the **run config** of section 4 (`RunConfig`), identical for both except that
-`trainer-ltx` validates with `LtxRunConfig`, which also checks `extra.preprocess` (4.3); `trainer`
-is implied by the service name. `prepare()` creates `/workspace/runs/<run_id>/` and writes `run.json` (the
+Params: the **run config** of section 4 (`RunConfig`), identical for all three except that
+`trainer-ltx` validates with `LtxRunConfig`, which also checks `extra.preprocess` (4.3), and
+`trainer-musubi` with `MusubiRunConfig`, whose `extra` holds only `args` checked against
+`podagent/musubi_rules.py` (4.3); `trainer` is implied by the service name. musubi-tuner trains on
+the first assigned GPU (one accelerate process). `prepare()` creates `/workspace/runs/<run_id>/` and writes `run.json` (the
 validated config, secrets stripped). argv:
 `[/opt/venvs/<trainer>/bin/python, /opt/pod/scripts/launch_<trainer>.py, --config, /workspace/runs/<id>/run.json]`.
 cwd `/workspace/runs/<id>`. log `/workspace/runs/<id>/trainer.log`. Env: `HF_TOKEN` (when
@@ -585,6 +588,8 @@ its assigned GPUs, so inside the process they are `cuda:0..k-1`.
 
 Starting a trainer whose `run_id` directory already contains `output/` is allowed (the wrappers
 resume when the trainer supports it; otherwise they overwrite — see 4.3). The client decides.
+`resume: true` on a trainer whose model-table entry says `resume: false` (musubi) is a 422:
+`This trainer cannot continue a run (its step counter restarts). Use Repeat with more steps.`
 
 ### 3.4 `pull-dataset` — GPUs 0
 
@@ -842,7 +847,8 @@ a second step, what the model and the layout need:
   existing directory and neither is, holds nor sits inside `dataset.path` (the trainer scans
   folders recursively, so either would mix the sets); an `encoder` path resolves under the
   workspace;
-- `trainer-ltx` refuses both: `regularization/repa are not available on the LTX trainer`.
+- `trainer-ltx` refuses both: `regularization/repa are not available on the LTX trainer`;
+  `trainer-musubi` likewise (`… on the musubi-tuner trainer`), and also `initialization`.
 
 `launch_aitoolkit.py` applies the same rules to its own copy of run.json (the launcher does not
 import `podagent`), so a run started by hand through `podctl` or the script gets the same answers.
@@ -856,6 +862,7 @@ list (Repeat may change them). The launcher writes them over the row's recipe an
 which still wins. Refused, by the agent and again by the launchers:
 
 - on `trainer-ltx`: `<keys>: AI Toolkit settings; set the LTX trainer's own through extra`;
+- on `trainer-musubi`: `<keys>: AI Toolkit settings; set musubi-tuner's own flags through extra.args`;
 - for a row whose `trainer_config` hook builds the whole recipe (H3): `<keys>: this model's own
   recipe sets these; change them through extra`.
 
@@ -871,9 +878,11 @@ Hub sources (`base_model: Lightricks/LTX-2.3`, `Lightricks/LTX-2.5`, and `Lightr
 older runs) are downloaded by the wrapper itself at pinned revisions into
 `/workspace/models/<dir>` (4.3) and reach the trainer as those local paths.
 
-Output layout, both trainers: `/workspace/runs/<id>/run.json`, `config.yaml` (native config as
+Output layout, every trainer: `/workspace/runs/<id>/run.json`, `config.yaml` (native config as
 written by the wrapper), `trainer.log`, `tensorboard/` (event files), `output/` (checkpoints and
-the final LoRA), `samples/`.
+the final LoRA), `samples/`. musubi writes `dataset.jsonl`, `dataset.toml` and
+`sample_prompts.txt` in place of `config.yaml`, its latent caches under `cache/`, and its samples
+in `output/samples/`.
 
 ### 4.2 Defaults vs user-supplied, and what is uncertain
 
@@ -901,9 +910,9 @@ preset. None is a universal fit or training-quality promise.
   checks do not establish universal memory capacity. Resume evidence and its exact scope are
   recorded separately in `POD-STATUS.md`.
 
-### 4.3 Launch wrappers (`scripts/launch_aitoolkit.py`, `scripts/launch_ltx.py`)
+### 4.3 Launch wrappers (`scripts/launch_aitoolkit.py`, `scripts/launch_ltx.py`, `scripts/launch_musubi.py`)
 
-Both: `--config <run.json>` → validate (a copy of the `RunConfig` rules, no `podagent` import)
+All three: `--config <run.json>` → validate (a copy of the `RunConfig` rules, no `podagent` import)
 → write the native config to `<run>/config.yaml` → start the trainer as a child with
 stdout/stderr tee'd to the wrapper's stdout (which is `trainer.log`) → on exit, if
 `hub.push_on_finish`, run `push_lora.py` → exit with the trainer's code.
@@ -1116,6 +1125,28 @@ Other LTX sources require explicit local component paths. Wrapper exit codes: `2
 config, `69` model preparation, otherwise the preprocessor's, trainer's or push's own
 (`scripts/README.md`).
 
+`launch_musubi.py` (musubi-tuner v0.3.4 at the commit `images/Dockerfile.musubi` pins) needs
+`base_model` to be a musubi row's `model_ref` and reads the row's `trainer_options`
+(docs/model-table.md, "musubi rows"):
+
+- it refuses `resume`, `initialization`, `regularization`, `repa` and the trainer settings, and an
+  `extra` other than `{"args": {...}}` without the flags the wrapper owns (`musubi_rules.py`, shared
+  with the agent);
+- it fetches the row's weight files at their pinned revisions into
+  `/workspace/models/huggingface/<repo>/` (the sample model only when the run samples; failure
+  exits **69** before any run file is written);
+- it writes `dataset.jsonl` (captioned images; images sharing a file name are refused because the
+  latent cache is named after it), `dataset.toml` (one bucketed dataset per resolution, caches in
+  `cache/<resolution>`) and `sample_prompts.txt` (each prompt with the row's sample steps and CFG,
+  the largest resolution and seed + index);
+- it runs `<arch>_cache_latents.py`, `<arch>_cache_text_encoder_outputs.py`, then
+  `python -m accelerate.commands.launch <arch>_train_network.py` with the row's `args`, `extra.args`
+  over them, and its own flags (weights, dataset, `output_dir=output`, `output_name=<run_id>`,
+  TensorBoard in `tensorboard/`, steps, learning rate, rank, alpha, seed, saving, sampling);
+- its scraper reads musubi-tuner's `avr_loss=` as `scraped/loss`; checkpoints are
+  `output/<run_id>-step00000100.safetensors` and the last `output/<run_id>.safetensors`; the
+  samples folder `output/sample` is renamed `output/samples` when training ends.
+
 `launch_ltx.py` runs `/opt/venvs/ltx/bin/python` against the entrypoints under
 `/opt/ltx-2/packages/ltx-trainer/scripts/`. `process_dataset.py` consumes dataset JSON with
 `caption`/`media_path`, a `<max>x<max>x1` still-image bucket and explicit model/encoder paths,
@@ -1229,6 +1260,7 @@ What the pod does with a row:
 | --- | --- |
 | `launch_aitoolkit.py` `model_block` | `architecture`: `arch`, `model_extra` (in order), `quantize`, `quantize_text_encoder` (written as `quantize_te` when not null) |
 | `launch_aitoolkit.py` `build_native_config` | for an exact row without a `trainer_config` hook: `train.dtype`, `train.gradient_checkpointing`, `train.optimizer`, `train.lr_scheduler` with its warmup (when not null), `save.dtype` (when not null), `save.max_step_saves_to_keep`, every dataset's `caption_dropout_rate` (when not null), then the row's `trainer_options.process` keys deep-merged, written over the skeleton; run.json's trainer settings follow, then `extra` merges (`extra` wins) |
+| `launch_musubi.py` | the exact musubi row: `architecture.arch` (the script prefix), `recipe.optimizer`, `recipe.lr_scheduler`, `recipe.checkpoints.keep`, and `trainer_options` (`weights`, `args`, `sample`) |
 | `generate_results.py` | the exact row with a `generator` hook, else `Generation supports <display names>`; the row's frame law and cadence; for `aitoolkit_image`, the row's model settings; for `aitoolkit_arch_image`, the saved native config; `render_base` (the regularisation images), the row's model settings and `get_model_class` |
 | `push_lora.py` `model_card` | `license`: with `show_notice`, the licence in the front matter (`license: <id>` when `id` is a Hub licence identifier, else `license: other` with `id` as `license_name` and `url` as `license_link`) and a closing `## Licence` section; `usage_note`: the last paragraph of `## Use`; otherwise the card is unchanged |
 | `catalog.py` | the exact row for generation admission (above), external initialization (a `native_recipe` hook), the `trainer_config` / `generator` hooks' preparation, and the `regularization` / `repa` fields, which admit run.json's blocks of the same names (4.1) and the `draw-regularization` service (3.8) |
@@ -1247,8 +1279,8 @@ the registry does not know fails in `hook()`. No other code tests a model's name
 | `generator` | `minimax_h3` | `generate_results.h3_generate` and `h3_manifest`; the agent requires and captures `native-config.json` |
 | `run_extra` | `ltx_video_buckets` | none: the app applies it |
 
-Trainer-level code does not read the table: the launchers' shared block, `launch_ltx.py`,
-`ltx_rules.py`, `h3_recipe.py`, `h3_dataset.py`, `checkpoints.py`, `storage.py`, `plan.py` and the
+Trainer-level code does not read the table, apart from `launch_musubi.py`, which takes its whole
+recipe from its row: the launchers' shared block, `launch_ltx.py`, `ltx_rules.py`, `musubi_rules.py`, `h3_recipe.py`, `h3_dataset.py`, `checkpoints.py`, `storage.py`, `plan.py` and the
 service catalog's trainer entries. The LTX-2 and H3 rows mirror pins and recipes those files own.
 
 ## 5. GPU inventory backend
@@ -1303,13 +1335,16 @@ images/Dockerfile.aitoolkit  FROM base; git clone ostris/ai-toolkit @ pinned com
 images/Dockerfile.ltx        FROM base; git clone Lightricks/LTX-2 @ pinned commit → /opt/ltx-2;
                              /opt/venvs/ltx with the trainer's requirements + TensorBoard 2.21.0 (pinned)
                              and its event-write/read check
+images/Dockerfile.musubi     FROM base; git clone kohya-ss/musubi-tuner @ pinned commit → /opt/musubi-tuner;
+                             /opt/venvs/musubi with its pinned requirements, torch 2.13.0+cu130 and
+                             TensorBoard 2.21.0
 images/Dockerfile.fake       python:3.12-slim + podagent only; for compose (no CUDA, no trainers)
 ```
 
 Separate venvs per workload so vLLM's and each trainer's torch pins never collide; the agent's
 venv has no torch at all except what `tensorboard` needs (none). Image tags carry the trainer:
-`concept-captioner-pod-aitoolkit:<tag>`, `concept-captioner-pod-ltx:<tag>`. A pod runs one
-trainer image; captioning (vLLM) is in both.
+`concept-captioner-pod-aitoolkit:<tag>`, `concept-captioner-pod-ltx:<tag>`,
+`concept-captioner-pod-musubi:<tag>`. A pod runs one trainer image; captioning (vLLM) is in each.
 
 Build hygiene: `--platform=linux/amd64`, pinned base digests where possible, `pip`/`uv` caches
 off, no secrets at build time, `HF_HOME` not baked (it points into `/workspace` at run time).
@@ -1480,7 +1515,7 @@ its checksum, 2 on usage, 3 on connection failure. `--json` prints the raw respo
 | `files RUN_ID` | `GET /runs/RUN_ID/files` |
 | `pull RUN_ID [--to DIR] [--latest \| --include GLOB]` | `GET /runs/RUN_ID/files`, then `GET /runs/RUN_ID/files/PATH` per file; keeps a file only when size and SHA-256 match; never writes outside DIR (default `./RUN_ID`). `--latest`: the newest `*.safetensors` |
 | `tensorboard [PATH] [--session]` | `GET /tensorboard/PATH` (default `data/runs`) with the bearer; `--session` does `POST /tensorboard-session` and then sends only the cookie |
-| `train aitoolkit|ltx --config run.json --gpus 1,2` | sugar for `start trainer-<x>` with the file as params |
+| `train aitoolkit|ltx|musubi --config run.json --gpus 1,2` | sugar for `start trainer-<x>` with the file as params |
 | `caption-up MODEL [--gpus 0]` | sugar for `start vllm` |
 
 Dependencies: `httpx` only. Tests use `httpx.MockTransport` (no network, no agent).

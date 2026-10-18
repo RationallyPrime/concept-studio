@@ -360,6 +360,9 @@ extension GPUWorkspace {
         return max(1, Int((Double(ownSteps) * Double(max(1, accumulation)) / Double(batches)).rounded()))
     }
 
+    nonisolated static let cannotContinue =
+        "This model's trainer cannot continue a run. Use these settings for a new run."
+
     func resumeRun(
         _ run: TrainingRun, totalSteps: Int, captureLocal: (@MainActor () async throws -> LocalTrainingDataset)? = nil
     ) async {
@@ -368,6 +371,7 @@ extension GPUWorkspace {
                   self.currentVolumeID == run.volumeID else {
                 throw StudioError.message("Resume needs the same trainer and this run's saved storage.")
             }
+            guard self.modelTable.canResume(run.trainer) else { throw StudioError.message(Self.cannotContinue) }
             try Self.validateH3Guidance(run, table: self.modelTable)
             guard totalSteps > run.latestStep, !self.resultNeedsSaving else {
                 throw StudioError.message("Retrieve pending outputs first, then choose a total above the latest step.")

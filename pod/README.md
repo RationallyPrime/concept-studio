@@ -15,10 +15,12 @@ agent/     podagent: FastAPI control agent on port 8800 (PID 1 in the image). /h
            start without one.
 podctl/    podctl: one subcommand per endpoint plus `train`, `caption-up` and `pull`; httpx only.
 images/    Dockerfile.base (CUDA + vLLM + agent + concept-captioner), Dockerfile.aitoolkit,
-           Dockerfile.ltx (trainers layered on base), Dockerfile.fake + compose.fake.yaml (no GPU),
+           Dockerfile.ltx, Dockerfile.musubi (trainers layered on base), Dockerfile.fake +
+           compose.fake.yaml (no GPU),
            entrypoint.sh (starts the agent and nothing else).
 scripts/   pull_dataset.py (Hub dataset -> /workspace/datasets/<name>), push_lora.py (run ->
-           model repo), launch_aitoolkit.py / launch_ltx.py (run.json -> native trainer config).
+           model repo), launch_aitoolkit.py / launch_ltx.py / launch_musubi.py (run.json -> native
+           trainer config).
 docs/      POD-SPEC.md (the contract), POD-STATUS.md (state, test counts, spec drift, pod checks).
 ```
 
@@ -62,9 +64,9 @@ GPU, Docker or the network. Counts are in `docs/POD-STATUS.md`.
 ## How the app creates a pod against these images
 
 1. Build and push from the repo root (BuildKit; `images/README.md` has the exact commands):
-   `-f pod/images/Dockerfile.base`, then `Dockerfile.aitoolkit` or `Dockerfile.ltx` with
+   `-f pod/images/Dockerfile.base`, then `Dockerfile.aitoolkit`, `Dockerfile.ltx` or `Dockerfile.musubi` with
    `--build-arg BASE_IMAGE=…`, tagged `ghcr.io/<owner>/concept-captioner-pod-<trainer>:<tag>`.
-   One pod runs one trainer image; vLLM for captioning is in both.
+   One pod runs one trainer image; vLLM for captioning is in each.
 2. Create the pod with that image, N GPUs, a network volume mounted at `/workspace`, HTTP ports
    `8800,8000` exposed (agent and vLLM; TensorBoard stays internal), env
    `PODAGENT_TOKEN` (16+ characters, generated per pod) and `HF_TOKEN`. The trainer images are
@@ -78,7 +80,7 @@ GPU, Docker or the network. Counts are in `docs/POD-STATUS.md`.
    12-hour cookie scoped to `/tensorboard`, which the browser then sends.
 4. `POST /plan {"caption": true, "train": true}` → start `pull-dataset`, `vllm` on its GPUs,
    caption through `vllm:<model>` on port 8000 (same bearer as the agent), then
-   `trainer-aitoolkit` or `trainer-ltx` with a `run.json` (POD-SPEC §4.1) on the plan's GPUs,
+   `trainer-aitoolkit`, `trainer-ltx` or `trainer-musubi` with a `run.json` (POD-SPEC §4.1) on the plan's GPUs,
    `tensorboard` (always loopback port 6006), and watch `/services/{name}/logs` and
    `/runs/{id}/events`.
 5. Take the LoRA: `push-lora` to a model repo, or, without a Hub account, download it with

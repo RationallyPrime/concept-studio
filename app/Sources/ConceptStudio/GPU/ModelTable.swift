@@ -66,6 +66,8 @@ struct ModelTable: Sendable {
         let minimumCUDA: String
         /// The row selected when the trainer changes, and the one a custom base model on it borrows.
         let defaultModel: String
+        /// Whether a run on this trainer can continue from its latest checkpoint.
+        let resume: Bool
     }
 
     static let format = "conceptstudio-model-table"
@@ -105,7 +107,8 @@ struct ModelTable: Sendable {
         trainers = try trainerTable.object.keys.map { name in
             let trainer = try trainerTable.child(name)
             return try Trainer(
-                name: name, minimumCUDA: trainer.string("min_cuda"), defaultModel: trainer.string("default_model")
+                name: name, minimumCUDA: trainer.string("min_cuda"), defaultModel: trainer.string("default_model"),
+                resume: trainer.bool("resume")
             )
         }
         guard let rows = try root.raw("models").arrayValue else { throw ModelTableError("models must be a list") }
@@ -168,6 +171,11 @@ struct ModelTable: Sendable {
     /// The precision a row saves checkpoints in: its own, else the default model's (LTX has none of its own).
     func checkpointPrecision(for row: ModelRow) -> String {
         row.recipe.checkpoints.dtype ?? defaultRow.recipe.checkpoints.dtype ?? "float16"
+    }
+
+    /// Whether runs on this trainer can be continued; a trainer the table does not know can.
+    func canResume(_ trainer: String) -> Bool {
+        trainers.first { $0.name == trainer }?.resume ?? true
     }
 
     /// Host CUDA floor for a trainer's image; 13.0 for a trainer the table does not know.

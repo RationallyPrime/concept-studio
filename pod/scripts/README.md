@@ -6,7 +6,9 @@ image at `/opt/pod/scripts/` and must stay standalone: argparse, standard librar
 They never import `podagent`, and nothing heavy is imported at module level, so
 `python -I <script> --help` works from any interpreter. One exception to "standalone":
 `launch_ltx.py` reads the LTX rules it shares with the agent (preprocess allowlist, pinned
-LTX Hub sources) from `../agent/src/podagent/ltx_rules.py` at import, by path with runpy.
+LTX Hub sources) from `../agent/src/podagent/ltx_rules.py` at import, by path with runpy, and
+`launch_musubi.py` reads `../agent/src/podagent/musubi_rules.py` (what `extra.args` may set) the
+same way.
 The image recreates that layout under `/opt/pod`, and the build's `--help` check fails if the
 copy is missing. H3 helpers read the single native/pod recipe field-and-asset JSON
 resource, copied beside scripts; they also remain stdlib-only at import. `model_table.py`
@@ -23,6 +25,7 @@ checkout); see "The model table" below.
 | `generate_results.py` | selected trainer venv | actual matched base/LoRA inference for each model whose table row names a generator; incremental manifest and private checkpoint cleanup |
 | `regularization.py` | `/opt/venvs/aitoolkit` (the `draw-regularization` service runs `draw`; the launcher loads the module) | the regularisation set of an AI Toolkit run: class-only prompts from the subject captions, the drawn pictures in the shared cache `/workspace/regsets`, the run's copy with the app's captions, or a provided folder checked for triggers |
 | `launch_ltx.py` | `/opt/venvs/ltx` | `run.json` → preprocess + LTX-2 trainer config → train; same tee and scraper (POD-SPEC §4.3) |
+| `launch_musubi.py` | `/opt/venvs/musubi` | `run.json` + its musubi row → pinned weights, `dataset.jsonl`/`dataset.toml`, latent and text-encoder caches → musubi-tuner LoRA training; same tee, scraper reading `avr_loss` (POD-SPEC §4.3) |
 
 `docs/POD-STATUS.md` says which of these are implemented. The agent builds each argv from the
 service catalog (`podagent.catalog`); the flags below are that contract.
@@ -133,15 +136,15 @@ launcher only logs where the encoder weights come from.
 
 ## Launch wrappers: exit codes (POD-SPEC §4.3)
 
-`launch_aitoolkit.py --config <run>/run.json` and `launch_ltx.py --config <run>/run.json`
+`launch_aitoolkit.py`, `launch_ltx.py` and `launch_musubi.py`, each `--config <run>/run.json`
 (`--dry-run` writes the native config and stops; `--reprocess` forces LTX preprocessing).
 
 | code | meaning |
 | --- | --- |
 | `0` | the trainer finished (and, with `hub.push_on_finish`, the push landed); with `--dry-run`, the config was written |
 | `2` | invalid run config, or `extra` tried to leave the workspace; one line says why, nothing is written |
-| `69` | `launch_ltx.py` only: preparing a pinned Hub source (`base_model: Lightricks/LTX-2.3`, `Lightricks/LTX-2.5`) failed (unreachable, gated, licence not accepted, disk full). The line names the exception, the HTTP status when there is one, and its message. Nothing is written to the run directory, so a retry starts clean |
-| other | the preprocessor's (LTX), the trainer's or `push_lora.py`'s own code; a signal-killed trainer is `128 + signal` |
+| `69` | `launch_ltx.py` and `launch_musubi.py`: preparing a pinned Hub source (`base_model: Lightricks/LTX-2.3`, `Lightricks/LTX-2.5`, or a musubi row's weight files) failed (unreachable, gated, licence not accepted, disk full). The line names the exception, the HTTP status when there is one, and its message. Nothing is written to the run directory, so a retry starts clean |
+| other | the preprocessor's (LTX), a cache step's (musubi), the trainer's or `push_lora.py`'s own code; a signal-killed trainer is `128 + signal` |
 
 `69` is sysexits' `EX_UNAVAILABLE`, chosen because no trainer or Python itself exits with it.
 The LTX downloads are pinned in `LTX_HUB_SOURCES` in `ltx_rules.py`; changing a revision is a

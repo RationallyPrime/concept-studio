@@ -541,3 +541,21 @@ extension GPURunHistoryTests {
         #expect(pull.params["revision"]?.stringValue == "project-sha")
     }
 }
+
+/// A trainer the model table marks resume: false (musubi-tuner) offers no Continue.
+extension GPURunHistoryTests {
+    @MainActor @Test
+    func musubiRunsAreNotContinued() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let folder = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let agent = HistoryAgent()
+        let workspace = connected(folder, preferences: preferences, agent: agent)
+        workspace.trainer = "musubi"
+        #expect(!workspace.modelTable.canResume("musubi") && workspace.modelTable.canResume("aitoolkit"))
+        await workspace.resumeRun(fixtureRun(trainer: "musubi"), totalSteps: 400)
+        #expect(await agent.starts.isEmpty)
+        #expect(workspace.message.contains("cannot continue a run"))
+    }
+}

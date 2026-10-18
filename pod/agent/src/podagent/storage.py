@@ -158,7 +158,7 @@ def cleanup_candidates(
                 and state.get("state") == "exited"
                 and state.get("exit_code") == 0
                 and state.get("group_alive") is False
-                and trainer in {"aitoolkit", "ltx"}
+                and trainer in {"aitoolkit", "ltx", "musubi"}
             ):
                 protected.update(filter(None, (folder, reg_folder)))
                 continue

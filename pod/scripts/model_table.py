@@ -116,6 +116,12 @@ def trainer_default_row(trainer: str, table: dict[str, Any] | None = None) -> di
     return row_by_id(default, document)
 
 
+def trainer_resumes(trainer: str, table: dict[str, Any] | None = None) -> bool:
+    """``trainers[trainer].resume``: whether a run on this trainer can continue from a checkpoint."""
+    settings = _table(table)["trainers"].get(trainer)
+    return bool(settings["resume"]) if settings else True
+
+
 def effective_row(
     trainer: str, base_model: Any, table: dict[str, Any] | None = None
 ) -> dict[str, Any]:

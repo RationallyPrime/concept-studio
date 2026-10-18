@@ -275,7 +275,7 @@ extension GPUWorkspace {
 
     /// The batches one pass over `items` images and clips takes. AI Toolkit splits a dataset into one copy per
     /// resolution bucket and fills each copy's last batch on its own, so a pass is `ceil(items / batch)` batches at
-    /// every chosen size; the LTX trainer uses one bucket.
+    /// every chosen size; the LTX trainer and musubi-tuner use one bucket.
     nonisolated static func batchesPerPass(items: Int, trainer: String, buckets: Int, batchSize: Int) -> Int {
         let batch = max(1, batchSize)
         let perBucket = items / batch + (items % batch == 0 ? 0 : 1)
@@ -314,6 +314,11 @@ extension GPUWorkspace {
         if trainer == "ltx" {
             let extra = row.runExtra ?? [:]
             params["extra"] = .object(row.hooks.runExtra?.apply(to: extra, containsVideo: inputFacts.video) ?? extra)
+        } else if trainer == "musubi" {
+            // musubi-tuner: the row's recipe is the launcher's; extra only carries a repeated run's own overrides.
+            params["extra"] = .object(
+                runHistory.first(where: { $0.runID == repeatSourceRunID })?.params["extra"]?.objectValue ?? [:]
+            )
         } else {
             var extra = nativeRecipe?.settings
                 ?? runHistory.first(where: { $0.runID == repeatSourceRunID })?.params["extra"]?.objectValue ?? [:]

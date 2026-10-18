@@ -1,0 +1,62 @@
+# concept-captioner pod image with kohya-ss/musubi-tuner (the Krea 2 path). POD-SPEC §6.1.
+# Build context: the repository root (nothing is copied from it; the base image carries everything).
+#
+#   docker buildx build --platform=linux/amd64 -f pod/images/Dockerfile.musubi \
+#       --build-arg BASE_IMAGE=concept-captioner-pod-base:dev \
+#       -t concept-captioner-pod-musubi:dev .
+#
+# Entry points used by scripts/launch_musubi.py (present at the pinned commit, checked below), with
+# <arch> from the model row (krea2):
+#   /opt/venvs/musubi/bin/python /opt/musubi-tuner/src/musubi_tuner/<arch>_cache_latents.py …
+#   /opt/venvs/musubi/bin/python /opt/musubi-tuner/src/musubi_tuner/<arch>_cache_text_encoder_outputs.py …
+#   /opt/venvs/musubi/bin/python -m accelerate.commands.launch …/<arch>_train_network.py …
+ARG BASE_IMAGE=concept-captioner-pod-base:dev
+# amd64 like the base (see Dockerfile.base for why the platform is stated on the FROM itself).
+FROM --platform=linux/amd64 ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="concept-captioner-pod-musubi" \
+      org.opencontainers.image.description="concept-captioner pod base plus kohya-ss/musubi-tuner in /opt/venvs/musubi"
+
+# --- pins (images/README.md keeps the record) -------------------------------------------------------
+# kohya-ss/musubi-tuner v0.3.4 at 30c658c4f4b0bf05038b3346eff9670259b10fc7 ("Merge pull request #982",
+# 2026-06-24): the release the Krea 2 recipe in the model table was measured on. Its pyproject pins
+# every dependency exactly except torch, which comes from its `cu130` extra's range (torch>=2.9.1);
+# this image takes the same torch 2.13.0 / torchvision 0.28.0 cu130 build as Dockerfile.aitoolkit
+# (CUDA 13 wheels: the pod's driver must be R580 or newer — see images/README.md). The PyTorch index
+# is an extra index searched with unsafe-best-match, so the exact PyPI pins still resolve from PyPI.
+ARG MUSUBI_REPO=https://github.com/kohya-ss/musubi-tuner.git
+ARG MUSUBI_COMMIT=30c658c4f4b0bf05038b3346eff9670259b10fc7
+ARG MUSUBI_CUDA=cu130
+ARG TORCH_VERSION=2.13.0
+ARG TORCHVISION_VERSION=0.28.0
+# The wrapper and musubi-tuner (--log_with tensorboard) write curves through this venv's
+# torch.utils.tensorboard; musubi-tuner lists TensorBoard only in its dev group. 2.21.0 as in
+# Dockerfile.ltx.
+ARG MUSUBI_TENSORBOARD_VERSION=2.21.0
+
+# Where scripts/launch_musubi.py finds the trainer. The agent passes its own environment through to
+# every service it starts (podagent.supervisor.child_env), so this is what the wrapper sees.
+ENV MUSUBI_TUNER_DIR=/opt/musubi-tuner
+
+# A shallow fetch of exactly the pinned commit (GitHub serves reachable commits by sha). The build
+# asserts that the scripts the wrapper computes for every musubi row in the model table exist.
+RUN git init -q /opt/musubi-tuner \
+ && git -C /opt/musubi-tuner remote add origin "${MUSUBI_REPO}" \
+ && git -C /opt/musubi-tuner fetch -q --depth 1 origin "${MUSUBI_COMMIT}" \
+ && git -C /opt/musubi-tuner checkout -q --detach FETCH_HEAD \
+ && git -C /opt/musubi-tuner log -1 --format='musubi-tuner %H %cs %s' \
+ && test -f /opt/musubi-tuner/pyproject.toml \
+ && /opt/venvs/agent/bin/python -I -c "import importlib.util as u; s = u.spec_from_file_location('launch_musubi', '/opt/pod/scripts/launch_musubi.py'); m = u.module_from_spec(s); s.loader.exec_module(m); rows = [r for r in m._TABLE['models']() if r['trainer'] == 'musubi']; paths = [m.musubi_script(r['architecture']['arch'], t) for r in rows for t in ('cache_latents', 'cache_text_encoder_outputs', 'train_network')]; missing = [str(p) for p in paths if not p.is_file()]; assert rows and not missing, f'launch_musubi.py resolves missing entrypoints: {missing}'; print('launch_musubi.py entrypoints:', *paths)"
+
+# torch first, then musubi-tuner (editable, so the code at /opt/musubi-tuner is what runs) with torch
+# held at the pin, plus TensorBoard. The check at the end asserts the torch build and imports what the
+# wrapper calls (accelerate's launcher, huggingface_hub for the weights); it needs no GPU.
+RUN set -eux \
+ && PIP="uv pip install --python /opt/venvs/musubi/bin/python --extra-index-url https://download.pytorch.org/whl/${MUSUBI_CUDA} --index-strategy unsafe-best-match" \
+ && TORCH="torch==${TORCH_VERSION}+${MUSUBI_CUDA} torchvision==${TORCHVISION_VERSION}+${MUSUBI_CUDA}" \
+ && uv venv --python "${POD_PYTHON}" /opt/venvs/musubi \
+ && $PIP $TORCH \
+ && $PIP $TORCH -e /opt/musubi-tuner "tensorboard==${MUSUBI_TENSORBOARD_VERSION}" \
+ && /opt/venvs/musubi/bin/python -c "import torch, importlib.metadata as m, accelerate.commands.launch, huggingface_hub, musubi_tuner.krea2_train_network; v = torch.__version__; assert v == '${TORCH_VERSION}+${MUSUBI_CUDA}', v; assert m.version('tensorboard') == '${MUSUBI_TENSORBOARD_VERSION}'; print('musubi-tuner', m.version('musubi-tuner'), 'torch', v, 'accelerate', m.version('accelerate'), 'huggingface_hub', m.version('huggingface-hub'), 'tensorboard', m.version('tensorboard'))" \
+ && /opt/venvs/musubi/bin/python -m accelerate.commands.launch --help > /dev/null \
+ && uv pip freeze --python /opt/venvs/musubi/bin/python > /opt/venvs/musubi/freeze.txt

@@ -67,6 +67,28 @@ struct RunHistoryView: View {
             }
             Text(run.newRunExplanation)
                 .font(.callout).foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
+            continueSection(run)
+            exactDetails(run)
+            Divider()
+            HStack {
+                Button("Save trained model to this Mac", systemImage: "arrow.down.doc") {
+                    Task { await workspace.downloadRun(run) }
+                }
+                .disabled(workspace.isBusy || workspace.isStopping || !run.hasFinishedModel)
+                .help("Downloads this run's trained model and run files from its saved storage, verifying each file.")
+                if let folder = run.localSavedFolder {
+                    Button("Reveal saved folder", systemImage: "folder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: folder)])
+                    }.help("Shows this run's downloaded model folder in Finder.")
+                }
+            }
+            Text("Saving requires a running computer connected to this run's saved storage.")
+                .font(.callout).foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder private func continueSection(_ run: TrainingRun) -> some View {
+        if workspace.modelTable.canResume(run.trainer) {
             Divider()
             Text("Continue this run").font(.headline)
             Text("A checkpoint is a saved version of the model during training. Continuing resumes the latest "
@@ -100,21 +122,11 @@ struct RunHistoryView: View {
                 Text("Connect a running computer to this run's saved storage to find checkpoints or continue training.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
-            exactDetails(run)
+        } else {
             Divider()
-            HStack {
-                Button("Save trained model to this Mac", systemImage: "arrow.down.doc") {
-                    Task { await workspace.downloadRun(run) }
-                }
-                .disabled(workspace.isBusy || workspace.isStopping || !run.hasFinishedModel)
-                .help("Downloads this run's trained model and run files from its saved storage, verifying each file.")
-                if let folder = run.localSavedFolder {
-                    Button("Reveal saved folder", systemImage: "folder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: folder)])
-                    }.help("Shows this run's downloaded model folder in Finder.")
-                }
-            }
-            Text("Saving requires a running computer connected to this run's saved storage.")
+            Text("Continue this run").font(.headline)
+            Text("This model's trainer cannot continue a run from a checkpoint. To train longer, use these "
+                + "settings for a new run with more steps.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
         }
     }

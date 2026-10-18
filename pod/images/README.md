@@ -58,10 +58,11 @@ are distinguished in [POD-STATUS](../docs/POD-STATUS.md).
 /opt/venvs/vllm/                    vllm 0.31.0+cu129, torch 2.13.0+cu129       (freeze.txt)
 /opt/venvs/aitoolkit/               ai-toolkit stack, torch 2.13.0+cu130        (aitoolkit image; freeze.txt)
 /opt/venvs/ltx/                     LTX-2 workspace, torch 2.13.0+cu132         (ltx image; freeze.txt)
-/opt/ai-toolkit/  /opt/ltx-2/       the trainers' checkouts (ltx-2 also holds the uv.lock the build resolved; ai-toolkit's git log lists the patch series on top of the pin)
+/opt/venvs/musubi/                  musubi-tuner v0.3.4, torch 2.13.0+cu130     (musubi image; freeze.txt)
+/opt/ai-toolkit/  /opt/ltx-2/  /opt/musubi-tuner/  the trainers' checkouts (ltx-2 also holds the uv.lock the build resolved; ai-toolkit's git log lists the patch series on top of the pin)
 /opt/ai-toolkit-patches/            the patch series the aitoolkit image applied (record only)
 /opt/src/{concept-captioner,podagent}  the sources the agent venv was installed from (record only)
-/opt/pod/scripts/*.py               pull_dataset.py, push_lora.py, launch_aitoolkit.py, launch_ltx.py, generate_results.py, model_table.py
+/opt/pod/scripts/*.py               pull_dataset.py, push_lora.py, launch_aitoolkit.py, launch_ltx.py, launch_musubi.py, generate_results.py, model_table.py
 /opt/pod/scripts/model-table.json    the model table (copied from app/Sources/ConceptStudio/Resources/Training/)
 /opt/pod/entrypoint.sh
 /workspace                          the network volume (POD-SPEC §6.4); nothing of value lives elsewhere

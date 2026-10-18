@@ -13,7 +13,7 @@ private actor ImageChoiceTransport: HTTPTransport {
         if url.host() != "api.runpod.io" {
             body = #"{"services":[]}"#
         } else if url.path().contains("catalog/gpus") {
-            body = #"{"gpus":[{"id":"test","name":"Test GPU","memory":80,"secure":true,"#
+            body = #"{"gpus":[{"id":"test","name":"Test GPU","memory":96,"secure":true,"#
                 + #""price":{"secure":1},"maxCount":{"secure":4},"#
                 + #""dataCenters":[{"id":"test","availability":"HIGH"}]}]}"#
         } else if url.path().hasSuffix("network-volumes") {
@@ -37,7 +37,10 @@ private actor ImageChoiceTransport: HTTPTransport {
 @Suite("studio offline actions")
 @MainActor
 struct StudioSessionTests {
-    @Test(arguments: [nil, "", " \n\t", "ghcr.io/example/custom-{trainer}:chosen"] as [String?], ["aitoolkit", "ltx"])
+    @Test(
+        arguments: [nil, "", " \n\t", "ghcr.io/example/custom-{trainer}:chosen"] as [String?],
+        ["aitoolkit", "ltx", "musubi"]
+    )
     func savedTrainingImageReachesTheSelectedTrainer(saved: String?, trainer: String) async throws {
         let suite = "StudioSessionTests." + UUID().uuidString
         let preferences = try #require(UserDefaults(suiteName: suite))

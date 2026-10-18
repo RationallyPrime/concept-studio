@@ -17,6 +17,9 @@ def latest_checkpoint(run_dir: Path, trainer: str, run_id: str) -> Path | None:
         candidates = [
             p for p in weights if not any(s in p.name for s in ("_LoRA", "_refiner", "_t2i", "_cn"))
         ]
+    elif trainer == "musubi":
+        # <run_id>-step00000100.safetensors and the last <run_id>.safetensors, beside output/samples.
+        candidates = list(output.glob(f"{run_id}*.safetensors"))
     else:
         candidates = list(output.rglob("*.safetensors"))
     candidates = [
@@ -35,6 +38,8 @@ def latest_checkpoint(run_dir: Path, trainer: str, run_id: str) -> Path | None:
 
 
 def checkpoint_step(checkpoint: Path, trainer: str) -> int:
+    if trainer == "musubi":
+        raise ValueError("musubi-tuner runs cannot be resumed")
     if trainer == "ltx":
         match = re.search(r"step_(\d+)\.safetensors$", checkpoint.name)
         step = match.group(1) if match else ""
