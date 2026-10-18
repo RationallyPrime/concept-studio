@@ -1,6 +1,21 @@
 # images
 
-Current public release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx}:v0.3.4-20261015`,
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.5-20261019`,
+a **clean build from commit `c058bdf`** (the musubi-tuner trainer: `Dockerfile.musubi` at musubi-tuner
+`30c658c` / v0.3.4, `launch_musubi.py`, `musubi_rules.py`, and the agent's `trainer-musubi`), the four
+Dockerfiles as committed, built on cx53 with `docker buildx build` and no overlay, pushed 2026-10-19.
+Digests: base `sha256:d2556d465a6e7684463811e1c198d8bb2c9cd4748c2f648732f496ceda32cfa0`,
+aitoolkit `sha256:a5eebe9ddb27ab06908dadecd390a7df2b130c810f77201e850912544daa6487`,
+ltx `sha256:27f65abc079704c8d80c964ebbe2f460e83e05bc425434eb734dbeb44faf0c55`,
+musubi `sha256:8dfe1cded038b78b68bdbfa3ce01b43ece90d06c9a8afe0cd923baf17d1a42d0`. Base, aitoolkit and
+ltx resolve anonymously; the musubi package was created private by GHCR and resolves anonymously once
+its visibility is set to public. The musubi stage printed musubi-tuner 0.3.4, torch 2.13.0+cu130,
+accelerate 1.6.0, huggingface_hub 0.34.3 and TensorBoard 2.21.0, and its build check found the three
+`krea2_*` entrypoints `launch_musubi.py` computes. A dry run inside the musubi image wrote the dataset
+files and a trainer command whose 30 flags all appear in the pinned `krea2_train_network.py --help` or
+accelerate's launcher. No GPU run has used this tag yet.
+
+The previous release, `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx}:v0.3.4-20261015`,
 a **clean build from commit `1adc7c8`** (PR #21: LTX-2.3 and LTX-2.5 Hub sources, the LTX trainer at `be6d6d0`, and
 PRs #19/#20's trainer settings and log push): the three Dockerfiles as committed, built on cx53 with
 `docker buildx build` and no overlay, pushed 2026-10-15. Digests: base `sha256:3226b5eefa6b7a5edb18564b746ec479694546071ef188757f7a3c343b29e2e9`,
