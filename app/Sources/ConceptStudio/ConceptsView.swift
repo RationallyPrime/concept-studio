@@ -211,7 +211,7 @@ struct ConceptEditor: View {
         VStack(alignment: .leading, spacing: 20) {
             Text(existing == nil ? "Add concept" : "Edit concept")
                 .font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
-            StudioTermsHelp(terms: [.concept, .conceptBoundary, .trigger, .classNoun])
+            StudioTermsHelp(terms: [.concept, .conceptBoundary, .trigger, .classNoun] + choices.map(\.term))
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     Picker("Concept category", selection: $target) {

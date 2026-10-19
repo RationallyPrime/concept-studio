@@ -272,5 +272,138 @@
     "source_ids": [],
     "definition_scope": "concept_studio",
     "display_order": 195
+  },
+  {
+    "id": "concept-type-person",
+    "term": "Person",
+    "section_id": "concept-types",
+    "aliases": [
+      "facial identity",
+      "person concept"
+    ],
+    "plain_language": "Teaches the model one person’s face. Captions describe everything that can change, such as clothing, hair, expression, pose, setting and light, so you can still choose those in your prompts.",
+    "good_stuff": "Target concept facial_identity with the class word “person”; the learning target is distinctive facial identity. Captions pair the trigger with the class word and describe clothing and removable accessories, hair presentation, expression and gaze, pose, setting, lighting, framing and image treatment, so those attributes stay promptable instead of being absorbed into the trigger. Images can be assigned to the person on this Mac by comparing faces with a reference photo; the captioning model can do it instead.",
+    "related_terms": [
+      "concept-type-whole-person",
+      "concept-type-character",
+      "class-word",
+      "concept-boundary",
+      "subject-mapping"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 196
+  },
+  {
+    "id": "concept-type-whole-person",
+    "term": "Whole-person identity",
+    "section_id": "concept-types",
+    "aliases": [
+      "full identity"
+    ],
+    "plain_language": "Teaches the model a person’s face and build together. Their hairstyle is treated as part of who they are; clothing, expression, pose, setting and light stay changeable.",
+    "good_stuff": "Target concept full_identity with the class word “person”; the learning target is the person’s enduring face and physique. Captions describe expression and gaze, pose and action, permitted clothing changes, setting, lighting and framing. Unlike Person they do not describe hair presentation, so a consistent hairstyle tends to be learned with the identity. Mapping works as for Person, including face comparison on this Mac. The concept editor offers this category when a project already uses it.",
+    "related_terms": [
+      "concept-type-person",
+      "concept-type-character",
+      "concept-boundary"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 197
+  },
+  {
+    "id": "concept-type-character",
+    "term": "Character",
+    "section_id": "concept-types",
+    "aliases": [
+      "character design"
+    ],
+    "plain_language": "Teaches the model a character’s whole look, such as an illustrated, animated or invented figure, including its costume and signature details. Captions describe what changes from picture to picture: pose, expression, setting and light.",
+    "good_stuff": "Target concept character_design with the class word “character”; the learning target is the character’s distinctive appearance and design, costume included. Captions describe expression and gaze, pose and action, permitted clothing changes, setting, lighting and framing, so design features the captions leave out (a costume, hair, markings) are learned as part of the trigger. Choose Person instead when the subject is a real person whose outfits should stay promptable. Face comparison is not used: the captioning model or a typed location assigns the character in each image.",
+    "related_terms": [
+      "concept-type-person",
+      "concept-type-object",
+      "locator",
+      "concept-boundary"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 198
+  },
+  {
+    "id": "concept-type-object",
+    "term": "Object",
+    "section_id": "concept-types",
+    "aliases": [
+      "product",
+      "object concept"
+    ],
+    "plain_language": "Teaches the model one particular thing, such as a mug, a car or a piece of jewellery, so it can draw that exact design in new scenes.",
+    "good_stuff": "Target concept object with the class word “object” (an advanced user can name a more specific noun, such as “mug”). The learning target is the object’s distinctive design. Captions describe its placement, orientation, use, surroundings, lighting and occlusion, which the model should learn as variable. Each image needs a location for the object, from the captioning model or typed by you.",
+    "related_terms": [
+      "concept-type-character",
+      "locator",
+      "class-word"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 199
+  },
+  {
+    "id": "concept-type-style",
+    "term": "Visual style",
+    "section_id": "concept-types",
+    "aliases": [
+      "style",
+      "art style"
+    ],
+    "plain_language": "Teaches the model a way of looking, such as a painter’s brushwork, a film stock or an illustration style, which you can then apply to any subject.",
+    "good_stuff": "Target concept style with the class word “style”. The trigger stands for the rendering, texture and palette shared by the images, so captions describe only the content (subject matter, objects, actions, spatial arrangement and visible scene content) and leave out the stylistic qualities to be learned. The style applies to the whole image or clip, so no per-image location is needed.",
+    "related_terms": [
+      "concept-type-motion",
+      "concept-boundary",
+      "caption"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 200
+  },
+  {
+    "id": "concept-type-motion",
+    "term": "Motion or activity",
+    "section_id": "concept-types",
+    "aliases": [
+      "motion",
+      "movement"
+    ],
+    "plain_language": "Teaches a video model a movement, such as a dance, a gesture or a camera move. It needs video clips, because a still picture cannot show how a movement unfolds.",
+    "good_stuff": "Target concept motion with the class word “motion”; the learning target is the defining movement pattern. Captions describe the performer, clothing, scene, framing, lighting and the start and end states, so the movement can transfer to other performers and settings. The motion applies to the whole clip, so no per-clip location is needed.",
+    "related_terms": [
+      "concept-type-style",
+      "frame-rate",
+      "concept-boundary"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 201
+  },
+  {
+    "id": "concept-type-custom",
+    "term": "Custom concept",
+    "section_id": "concept-types",
+    "aliases": [
+      "custom"
+    ],
+    "plain_language": "Anything that doesn’t fit the other categories. You describe the concept yourself, and captions describe the visible details outside it.",
+    "good_stuff": "Target concept custom with the class word “concept”. The learning target is the concept as you state it, and captions describe observable details outside that boundary. Each image needs a location for the concept. The concept editor offers this category when a project already uses it.",
+    "related_terms": [
+      "concept",
+      "concept-boundary",
+      "locator"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 202
   }
 ]
