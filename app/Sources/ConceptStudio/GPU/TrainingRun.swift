@@ -103,6 +103,13 @@ struct TrainingRun: Codable, Equatable, Identifiable {
 
     static let defaultGenerationFrameRate = 24
 
+    /// The steps and guidance a comparison of this run starts with: the model's own, else 20 steps at 4.
+    func generationDefaults(in table: ModelTable) -> ModelRow.GenerationDefaults {
+        effectiveModelRow(in: table).preview.generation ?? Self.defaultGeneration
+    }
+
+    static let defaultGeneration = ModelRow.GenerationDefaults(steps: 20, guidanceScale: 4)
+
     var supportsGeneration: Bool {
         supportsGeneration(in: .shared)
     }
@@ -121,6 +128,10 @@ struct TrainingRun: Codable, Equatable, Identifiable {
 
     var generationFrameRate: Int {
         generationFrameRate(in: .shared)
+    }
+
+    var generationDefaults: ModelRow.GenerationDefaults {
+        generationDefaults(in: .shared)
     }
 
     var generationFrameChoices: [Int] {

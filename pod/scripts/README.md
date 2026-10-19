@@ -191,7 +191,8 @@ working. What each script reads:
 - `generate_results.py`: the exact row must name a `generator` hook (`aitoolkit_image` is
   `flux_generate`, reading the row's model settings; `aitoolkit_arch_image` is `arch_generate`, for a
   model AI Toolkit registers as its own class, built from the saved native config; `ltx_one_stage`;
-  `minimax_h3`), else
+  `minimax_h3`; `musubi_krea2_image` is `musubi_krea2_generate`, musubi-tuner's Krea 2 inference on
+  the row's `trainer_options.generate` weights and settings), else
   `Generation supports <display names>`. Frame count and rate are checked against the row's
   `video` law and fixed cadence before any model loads.
 - `regularization.py` and `launch_aitoolkit.py`: a row's `regularization` and `repa` fields only

@@ -2778,7 +2778,11 @@
       "preview": {
         "training_samples": true,
         "still": false,
-        "video": null
+        "video": null,
+        "generation": {
+          "steps": 8,
+          "guidance_scale": 1.0
+        }
       },
       "captions": {
         "image_profile": "plain",
@@ -2798,8 +2802,10 @@
         "notice": "Krea 2 Community License. Read the model card and licence before training or sharing adapters. This is a custom community licence with conditions on use and redistribution. Accept access conditions on Hugging Face before downloading with your token.",
         "show_notice": true
       },
-      "usage_note": "Trained on Krea 2 Raw; use the LoRA with Krea 2 Turbo at 8 steps without CFG, which is how the training samples are drawn.",
-      "hooks": {},
+      "usage_note": "Trained on Krea 2 Raw; use the LoRA with Krea 2 Turbo at 8 steps without CFG, which is how the training samples and comparisons are drawn.",
+      "hooks": {
+        "generator": "musubi_krea2_image"
+      },
       "trainer_options": {
         "weights": {
           "dit": {
@@ -2838,132 +2844,16 @@
           "args": {
             "turbo_dit_cache": true
           }
+        },
+        "generate": {
+          "dit": "sample_dit",
+          "args": {
+            "mu": 1.15
+          }
         }
       },
       "notes": "Measured recipe: musubi-tuner v0.3.4 krea2_train_network.py, trained on Raw with Turbo samples at 8 steps, rank 32, 2000 steps on a 96 GB RTX PRO 6000; likeness plateaued in the last third of the run. musubi-tuner has no caption dropout and cannot continue a run (its step counter restarts on --resume), so the trainer is marked resume false.",
       "recipe_status": "verified"
-    },
-    {
-      "id": "krea2-turbo",
-      "display_name": "Krea 2 Turbo (w/ Training Adapter)",
-      "short_name": "Krea 2 Turbo (w/ Training Adapter)",
-      "trainer": "aitoolkit",
-      "model_ref": "krea/Krea-2-Turbo",
-      "source": {
-        "revision": null,
-        "gated": true,
-        "first_download_gb": 62.0,
-        "download_note": "Hub repository file-size total, including alternative weight formats. This is an upper estimate for repository files, not a measured download; dependencies may add files."
-      },
-      "architecture": {
-        "arch": "krea2:turbo",
-        "dtype": "bf16",
-        "quantize": true,
-        "quantize_text_encoder": true,
-        "gradient_checkpointing": true,
-        "model_extra": {
-          "low_vram": true,
-          "assistant_lora_path": "ostris/krea2_turbo_training_adapter/krea2_turbo_training_adapter_v1.safetensors"
-        }
-      },
-      "family_match": null,
-      "resolution": {
-        "choices": [
-          512,
-          768,
-          1024
-        ],
-        "default": [
-          512,
-          768,
-          1024
-        ],
-        "multiple": true
-      },
-      "recipe": {
-        "length": {
-          "unit": "steps",
-          "value": 3000
-        },
-        "learning_rate": 0.0001,
-        "optimizer": "adamw8bit",
-        "lr_scheduler": "constant",
-        "lr_warmup_steps": 0,
-        "rank": 32,
-        "alpha": 32,
-        "batch_size": 1,
-        "gradient_accumulation": 1,
-        "caption_dropout": 0.05,
-        "checkpoints": {
-          "every": 250,
-          "keep": 4,
-          "dtype": "bf16",
-          "editable": true
-        }
-      },
-      "gpu": {
-        "min_vram_gb": 80,
-        "verify_on_pod": true,
-        "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
-      },
-      "video": null,
-      "preview": {
-        "training_samples": false,
-        "still": false,
-        "video": null
-      },
-      "captions": {
-        "image_profile": "plain",
-        "video_profile": null,
-        "profile_prefix": null,
-        "titles": {
-          "plain": "Plain prose"
-        }
-      },
-      "selection": {
-        "follows_project_profile": false
-      },
-      "license": {
-        "id": "krea-2-community-license",
-        "name": "Krea 2 Community License",
-        "url": "https://huggingface.co/krea/Krea-2-Turbo",
-        "notice": "Krea 2 Community License. Read the model card and licence before training or sharing adapters. This is a custom community licence with conditions on use and redistribution. Accept access conditions on Hugging Face before downloading with your token.",
-        "show_notice": true
-      },
-      "hooks": {},
-      "notes": "Unverified. AI Toolkit f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47: extensions_built_in/diffusion_models/ui.tsx per-arch defaults over ui/src/app/jobs/new/jobConfig.ts. Uses natural-language prose with its modern text encoder. Open AI Toolkit issues #1041, #990, #968 and #954 report Krea-family backward, memory and quantization/offload failures. Turbo is not GPU-tested at the pin.",
-      "recipe_status": "unverified",
-      "training_notice": "Known breakage at the AI Toolkit pin: issue #1041 reports backward dtype failures with gradient checkpointing, which these UI defaults enable; missing key/value casts remain in the pinned source. Issues #990, #968 and #954 also report memory and offload failures. No GPU test has been run.",
-      "usage_note": "Uses natural-language prose with its modern text encoder. Comparison generation is unavailable for this unverified recipe.",
-      "trainer_options": {
-        "process": {
-          "network": {
-            "network_kwargs": {
-              "ignore_if_contains": []
-            }
-          },
-          "train": {
-            "bypass_guidance_embedding": true,
-            "noise_scheduler": "flowmatch",
-            "timestep_type": "linear",
-            "optimizer_params": {
-              "weight_decay": 0.0001
-            },
-            "unload_text_encoder": false,
-            "cache_text_embeddings": false,
-            "loss_type": "mse"
-          },
-          "model": {
-            "qtype": "qfloat8",
-            "qtype_te": "qfloat8",
-            "model_kwargs": {}
-          }
-        },
-        "dataset": {
-          "cache_latents_to_disk": false
-        }
-      }
     },
     {
       "id": "boogu-image",

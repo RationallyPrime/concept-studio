@@ -219,9 +219,9 @@ enforces no-double-booking, so a user who wants all N GPUs for a train-only run 
 
 ### 2.6 Services
 
-The current catalog (section 3) has eleven names: `vllm`, `tensorboard`, `trainer-aitoolkit`,
+The current catalog (section 3) has twelve names: `vllm`, `tensorboard`, `trainer-aitoolkit`,
 `trainer-ltx`, `trainer-musubi`, `pull-dataset`, `draw-regularization`, `push-lora`, `generate-aitoolkit`,
-`generate-ltx`, `cleanup-datasets`.
+`generate-ltx`, `generate-musubi`, `cleanup-datasets`.
 The upload route is not a GPU service. One instance per name at a time; the name is the
 instance key.
 
@@ -637,7 +637,7 @@ Params (`PushLoraParams`): `run_id`, `repo_id`, `private` (true), `include_sampl
 (--private), (--no-samples), (--all-checkpoints), (--commit-message, …)]`.
 log `/workspace/logs/push-lora.log`. Exit 0 = the model repo has the LoRA.
 
-### 3.6 `generate-aitoolkit` and `generate-ltx` — GPUs 1
+### 3.6 `generate-aitoolkit`, `generate-ltx` and `generate-musubi` — GPUs 1
 
 These fixed services run `generate_results.py` in the corresponding trainer interpreter;
 they expose no port and use the same supervisor/GPU reservation as training. The typed
@@ -662,8 +662,9 @@ requested settings for both arms; prompts are argv values, never shell input.
 
 A source run is admitted when the model table (4.4) has a row for its `base_model` on this
 trainer that names a `generator` hook: today `black-forest-labs/FLUX.1-dev`,
-`Comfy-Org/MiniMax-H3` and `Tongyi-MAI/Z-Image` on AI Toolkit, and `Lightricks/LTX-2.3` and
-`Lightricks/LTX-2.5` on LTX.
+`Comfy-Org/MiniMax-H3` and `Tongyi-MAI/Z-Image` on AI Toolkit, `Lightricks/LTX-2.3` and
+`Lightricks/LTX-2.5` on LTX, and `krea/Krea-2-Raw` on musubi-tuner (rendered on Krea 2 Turbo, the
+row's `trainer_options.generate.dit`).
 Other models return `422 invalid_params` before creating a generation run, naming the trainer's
 default model (`This generation path supports <model_ref> checkpoints only`). The frame count and frame
 rate are then checked against the row's `video` law and fixed cadence, in this order: an
@@ -1260,7 +1261,7 @@ What the pod does with a row:
 | --- | --- |
 | `launch_aitoolkit.py` `model_block` | `architecture`: `arch`, `model_extra` (in order), `quantize`, `quantize_text_encoder` (written as `quantize_te` when not null) |
 | `launch_aitoolkit.py` `build_native_config` | for an exact row without a `trainer_config` hook: `train.dtype`, `train.gradient_checkpointing`, `train.optimizer`, `train.lr_scheduler` with its warmup (when not null), `save.dtype` (when not null), `save.max_step_saves_to_keep`, every dataset's `caption_dropout_rate` (when not null), then the row's `trainer_options.process` keys deep-merged, written over the skeleton; run.json's trainer settings follow, then `extra` merges (`extra` wins) |
-| `launch_musubi.py` | the exact musubi row: `architecture.arch` (the script prefix), `recipe.optimizer`, `recipe.lr_scheduler`, `recipe.checkpoints.keep`, and `trainer_options` (`weights`, `args`, `sample`) |
+| `launch_musubi.py` | the exact musubi row: `architecture.arch` (the script prefix), `recipe.optimizer`, `recipe.lr_scheduler`, `recipe.checkpoints.keep`, and `trainer_options` (`weights`, `args`, `sample`; `generate` for comparisons) |
 | `generate_results.py` | the exact row with a `generator` hook, else `Generation supports <display names>`; the row's frame law and cadence; for `aitoolkit_image`, the row's model settings; for `aitoolkit_arch_image`, the saved native config; `render_base` (the regularisation images), the row's model settings and `get_model_class` |
 | `push_lora.py` `model_card` | `license`: with `show_notice`, the licence in the front matter (`license: <id>` when `id` is a Hub licence identifier, else `license: other` with `id` as `license_name` and `url` as `license_link`) and a closing `## Licence` section; `usage_note`: the last paragraph of `## Use`; otherwise the card is unchanged |
 | `catalog.py` | the exact row for generation admission (above), external initialization (a `native_recipe` hook), the `trainer_config` / `generator` hooks' preparation, and the `regularization` / `repa` fields, which admit run.json's blocks of the same names (4.1) and the `draw-regularization` service (3.8) |
@@ -1277,6 +1278,7 @@ the registry does not know fails in `hook()`. No other code tests a model's name
 | `generator` | `aitoolkit_arch_image` | `generate_results.arch_generate`: still images from the model class `get_model_class` returns for the row's `arch`, with the trained LoRA bound as a network (`bind_h3_network`, the trainer's own construction) from the saved native config; base side at network multiplier 0. The agent requires and captures `native-config.json`. Z-Image and Qwen-Image-2.1 name it; a row's `regularization` field needs a generator hook because `render_base` draws the set with the same model class |
 | `generator` | `ltx_one_stage` | `generate_results.ltx_generate` / `ltx_command` |
 | `generator` | `minimax_h3` | `generate_results.h3_generate` and `h3_manifest`; the agent requires and captures `native-config.json` |
+| `generator` | `musubi_krea2_image` | `generate_results.musubi_krea2_generate`: musubi-tuner's Krea 2 inference functions on the `trainer_options.generate.dit` weights (fetched through `launch_musubi.download_weights`), plain and with the trained LoRA merged at load, with the row's `generate.args` |
 | `run_extra` | `ltx_video_buckets` | none: the app applies it |
 
 Trainer-level code does not read the table, apart from `launch_musubi.py`, which takes its whole

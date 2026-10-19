@@ -21,6 +21,7 @@ enum ModelHooks {
         case aitoolkitArchImage = "aitoolkit_arch_image"
         case ltxOneStage = "ltx_one_stage"
         case minimaxH3 = "minimax_h3"
+        case musubiKrea2Image = "musubi_krea2_image"
     }
 
     /// A change to the trainer's `extra` object depending on the inputs.

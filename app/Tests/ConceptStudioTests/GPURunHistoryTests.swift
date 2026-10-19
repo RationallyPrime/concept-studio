@@ -30,7 +30,9 @@ struct GPURunHistoryTests {
         return folder
     }
 
-    private func fixtureRun(trainer: String = "aitoolkit", datasetRepo: String = "me/old-data") -> TrainingRun {
+    private func fixtureRun(
+        trainer: String = "aitoolkit", datasetRepo: String = "me/old-data", baseModel: String? = nil
+    ) -> TrainingRun {
         var params: JSONObject = [
             "run_id": .string("saved-run"), "dataset": .object(["path": .string("/workspace/datasets/saved-run")]),
             "base_model": .string("black-forest-labs/FLUX.1-dev"), "steps": .int(200), "rank": .int(16),
@@ -43,6 +45,10 @@ struct GPURunHistoryTests {
             params["extra"] = .object([
                 "preprocess": .object(["resolution_buckets": .string("512x512x33;512x512x1")]),
             ])
+        }
+        if let baseModel {
+            params["base_model"] = .string(baseModel)
+            params["resolution"] = .int(1024)
         }
         return TrainingRun(
             runID: "saved-run", trainer: trainer, datasetRepo: datasetRepo, datasetRevision: "old-sha",
@@ -557,5 +563,26 @@ extension GPURunHistoryTests {
         await workspace.resumeRun(fixtureRun(trainer: "musubi"), totalSteps: 400)
         #expect(await agent.starts.isEmpty)
         #expect(workspace.message.contains("cannot continue a run"))
+    }
+
+    @MainActor @Test
+    func krea2ComparisonStartsWithTheRowsTurboSettings() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let folder = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let agent = H3TestAgent() // reports a 96 GB GPU, which the row's memory check asks for
+        let workspace = H3TrainingTests.connected(preferences, folder: folder, agent: agent)
+        workspace.trainer = "musubi"
+        let run = fixtureRun(trainer: "musubi", baseModel: "krea/Krea-2-Raw")
+        workspace.runHistory = [run]
+        await workspace.generateComparison(
+            run: run, checkpoint: run.checkpoints[0], prompts: ["NORA7 outdoors"], seeds: [42]
+        )
+        let start = try #require(await agent.starts.first { $0.service.hasPrefix("generate-") })
+        #expect(start.service == "generate-musubi")
+        #expect(start.params["inference_steps"] == .int(8) && start.params["guidance_scale"] == .double(1))
+        #expect(start.params["width"] == .int(1024))
+        #expect(fixtureRun().generationDefaults(in: workspace.modelTable) == TrainingRun.defaultGeneration)
     }
 }

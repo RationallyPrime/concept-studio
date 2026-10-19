@@ -65,7 +65,7 @@ apply.
 | `gpu.verify_on_pod`, `verify_message` | Before uploading inputs, training, resuming or generating, ask the agent for the real GPU memory and refuse with `verify_message` when it is below `min_vram_gb`. |
 | `gpu.note` | The sentence after "These have at least N GB of memory per GPU." |
 | `video` | `null` for an image-only model, else the clip training support: `title` (media editor), `frame_law` (`first + k × step` frames), `fixed_fps` (or `null` for any constant rate), `min_frames`, `initial_frames`, `duration_choices` (a fixed list, or `null` for every count on the law) and `select_whole_clip`. |
-| `preview` | `training_samples` (the launcher can sample during training), `still` (comparison may produce one still frame) and `video` (`min_frames`, `max_frames`, `choices`, `default_frames`; `null` for images only). |
+| `preview` | `training_samples` (the launcher can sample during training), `still` (comparison may produce one still frame) and `video` (`min_frames`, `max_frames`, `choices`, `default_frames`; `null` for images only). Optional `generation`: the `steps` and `guidance_scale` a comparison starts with, for a model whose own differ from the generic 20 steps at guidance 4 (a distilled model run without CFG). |
 | `captions` | `image_profile`, `video_profile`, `profile_prefix` (a project caption profile starting with it selects this model) and `titles` (display names of this row's profiles). |
 | `selection.follows_project_profile` | The selection may move to the project's profile model when the project's caption profile changes. |
 | `license` | `id`, `name`, `url`, `notice`, `show_notice`. With `show_notice` the picker shows the notice, a link and the download size, and the pushed model card carries the licence. `id` is the Hub's licence identifier when the Hub lists one (the card says `license: <id>`); otherwise the card says `license: other` with `id` as `license_name`, which the Hub accepts only as lowercase letters, digits, `-` and `.`. |
@@ -123,6 +123,7 @@ error.
 | `generator` | `aitoolkit_arch_image` | Comparison stills from the model class AI Toolkit registers for the row's `arch`, with the trained LoRA bound as a network; for architectures that are their own class (Z-Image, Qwen-Image-2.1). Needs the source run's saved `native-config.json`. |
 | `generator` | `ltx_one_stage` | LTX's official one-stage CLI. |
 | `generator` | `minimax_h3` | H3's registered model with the trained network recipe. Needs the source run's saved `native-config.json`. |
+| `generator` | `musubi_krea2_image` | Comparison stills through musubi-tuner's own Krea 2 inference (`krea2_generate_image.py`) on the DiT `trainer_options.generate.dit` names, with the trained LoRA merged at load on the trained side. |
 | `run_extra` | `ltx_video_buckets` | When the inputs contain video, the app sets `preprocess` to `{"buckets_from_media": true, "args": ...}`. |
 
 A row without a `generator` hook does not support comparison generation.
@@ -223,6 +224,7 @@ reads its `trainer_options`:
 | `weights.<role>` | `{repo, revision, file}` per weight file, each from a pinned Hub revision into `<workspace>/models/huggingface/<repo>/`. Roles: `dit` (trained), `vae`, `text_encoder`, and `sample_dit` (the model training samples are drawn on, fetched only when the run samples). |
 | `args` | musubi-tuner training flags in order (`true` passes a switch). run.json `extra.args` merges over them; the flags the wrapper owns (`musubi_rules.WRAPPER_ARGS`: weights, dataset, output, logging, length, saving, sampling, Resume) cannot be set there. |
 | `sample` | `steps` and `cfg` for each sample prompt line, and `args` added only when the run samples. |
+| `generate` | For the row's `generator` hook: `dit`, the weight role comparisons render on, and `args`, generation settings the inference script takes beyond the request's size, steps and guidance (Krea 2 Turbo's fixed `mu`). |
 
 `recipe.optimizer` and `recipe.lr_scheduler` become `--optimizer_type` and `--lr_scheduler` unless
 `extra.args` sets them. `recipe.caption_dropout` is `null` (musubi-tuner has none) and

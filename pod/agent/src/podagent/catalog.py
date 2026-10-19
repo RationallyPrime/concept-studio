@@ -1,6 +1,6 @@
 """The service catalog: fixed argv builders over validated params (POD-SPEC §3, §4.1).
 
-Eleven services, one ``ServiceSpec`` each. Everything a client sends arrives as ``params`` and
+Twelve services, one ``ServiceSpec`` each. Everything a client sends arrives as ``params`` and
 passes two checks before anything is built:
 
 1. ``spec.params_model.model_validate(raw)``: shape, patterns and ranges, including the rules
@@ -1089,6 +1089,7 @@ _GENERATOR_HOOKS: dict[str, _GeneratorHook] = {
     "minimax_h3": _GeneratorHook(
         precondition=_require_native_config, capture=_capture_native_config
     ),
+    "musubi_krea2_image": _GeneratorHook(),
 }
 
 # native_recipe hook name -> loader of the rules that read its recipe and initial weights.
@@ -1624,7 +1625,7 @@ CATALOG: dict[str, ServiceSpec] = {
     ),
 }
 
-for _trainer in ("aitoolkit", "ltx"):
+for _trainer in ("aitoolkit", "ltx", "musubi"):
     _name = f"generate-{_trainer}"
     CATALOG[_name] = ServiceSpec(
         name=_name,

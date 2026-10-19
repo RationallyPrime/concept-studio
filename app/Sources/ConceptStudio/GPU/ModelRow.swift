@@ -100,10 +100,17 @@ struct ModelRow: Sendable, Identifiable, Equatable {
         let defaultFrames: Int
     }
 
+    /// The steps and guidance a comparison starts with when the model's own differ from the generic ones.
+    struct GenerationDefaults: Sendable, Equatable {
+        let steps: Int
+        let guidanceScale: Double
+    }
+
     struct Preview: Sendable, Equatable {
         let trainingSamples: Bool
         let still: Bool
         let video: PreviewClips?
+        let generation: GenerationDefaults?
     }
 
     struct CaptionTitle: Sendable, Equatable {
@@ -444,6 +451,11 @@ extension ModelRow.Preview {
             try ModelRow.PreviewClips(
                 minFrames: clips.int("min_frames"), maxFrames: clips.int("max_frames"),
                 choices: clips.ints("choices"), defaultFrames: clips.int("default_frames")
+            )
+        }
+        generation = try object.childIfPresent("generation").map { settings in
+            try ModelRow.GenerationDefaults(
+                steps: settings.int("steps"), guidanceScale: settings.double("guidance_scale")
             )
         }
     }

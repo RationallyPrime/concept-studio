@@ -828,27 +828,35 @@ def weight_path(spec: dict[str, Any]) -> Path:
     return workspace_root() / "models" / "huggingface" / spec["repo"] / spec["file"]
 
 
-def weight_paths(cfg: dict[str, Any], row: dict[str, Any]) -> dict[str, Path]:
+def weight_paths(
+    cfg: dict[str, Any], row: dict[str, Any], roles: tuple[str, ...] | None = None
+) -> dict[str, Path]:
+    """Local path of each weight role (the run's roles unless ``roles`` names others)."""
     weights = row["trainer_options"]["weights"]
-    return {role: weight_path(weights[role]) for role in weight_roles(cfg)}
+    return {role: weight_path(weights[role]) for role in roles or weight_roles(cfg)}
 
 
-def source_label(cfg: dict[str, Any], row: dict[str, Any]) -> str:
+def source_label(roles: tuple[str, ...], row: dict[str, Any]) -> str:
     """``repo@revision:file`` of each download, for log lines."""
     weights = row["trainer_options"]["weights"]
     return ", ".join(
-        f"{weights[r]['repo']}@{weights[r]['revision'][:12]}:{weights[r]['file']}"
-        for r in weight_roles(cfg)
+        f"{weights[r]['repo']}@{weights[r]['revision'][:12]}:{weights[r]['file']}" for r in roles
     )
 
 
-def download_weights(cfg: dict[str, Any], row: dict[str, Any]) -> None:
-    """Fetch each weight file from its pinned revision; files already in place are reused."""
+def download_weights(
+    cfg: dict[str, Any], row: dict[str, Any], roles: tuple[str, ...] | None = None
+) -> None:
+    """Fetch each weight file from its pinned revision; files already in place are reused.
+
+    ``roles`` defaults to the run's own (``weight_roles``); comparison generation names its own.
+    """
     from huggingface_hub import hf_hub_download
 
     weights = row["trainer_options"]["weights"]
-    say(f"preparing {cfg['base_model']} ({source_label(cfg, row)}); existing files are reused")
-    for role in weight_roles(cfg):
+    roles = roles or weight_roles(cfg)
+    say(f"preparing {cfg['base_model']} ({source_label(roles, row)}); existing files are reused")
+    for role in roles:
         spec = weights[role]
         hf_hub_download(
             repo_id=spec["repo"],
@@ -1063,7 +1071,7 @@ def main(argv: list[str] | None = None) -> int:
             detail = f" (HTTP {status})" if status is not None else ""
             reason = " ".join(str(error).split())[:300]
             say(
-                f"model preparation failed for {source_label(cfg, row)}: "
+                f"model preparation failed for {source_label(weight_roles(cfg), row)}: "
                 f"{type(error).__name__}{detail}" + (f": {reason}" if reason else "")
             )
             return EXIT_MODEL_PREPARATION

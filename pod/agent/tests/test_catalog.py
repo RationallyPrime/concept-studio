@@ -81,6 +81,7 @@ def test_catalog_contract() -> None:
         "push-lora",
         "generate-aitoolkit",
         "generate-ltx",
+        "generate-musubi",
     )
     expected = {
         "vllm": ((1, 1), 8000, VllmParams),
@@ -94,6 +95,7 @@ def test_catalog_contract() -> None:
         "push-lora": ((0, 0), None, PushLoraParams),
         "generate-aitoolkit": ((1, 1), None, GenerationParams),
         "generate-ltx": ((1, 1), None, GenerationParams),
+        "generate-musubi": ((1, 1), None, GenerationParams),
     }
     for name, (gpus, port, model) in expected.items():
         spec = CATALOG[name]

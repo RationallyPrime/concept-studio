@@ -60,6 +60,7 @@ HOOKS: dict[str, dict[str, str | None]] = {
         "aitoolkit_arch_image": "generate_results.py",
         "ltx_one_stage": "generate_results.py",
         "minimax_h3": "generate_results.py",
+        "musubi_krea2_image": "generate_results.py",
     },
     "run_extra": {"ltx_video_buckets": None},
 }
