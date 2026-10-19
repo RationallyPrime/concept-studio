@@ -58,10 +58,38 @@ struct StudioSessionTests {
         let expected = if let saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             saved.replacingOccurrences(of: "{trainer}", with: trainer)
         } else {
-            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.5-20261019"
+            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.6-20261019"
         }
         #expect(await transport.createdImages == [expected])
         await session.gpu.stopEverything()
+    }
+
+    @Test func onlyTheCaptioningRentalCarriesTheCaptionServer() async throws {
+        let suite = "StudioSessionTests." + UUID().uuidString
+        let preferences = try #require(UserDefaults(suiteName: suite))
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let session = StudioSession(preferences: preferences)
+        let transport = ImageChoiceTransport()
+        session.gpu = GPUWorkspace(
+            demoMode: false, transport: transport, preferences: preferences, saveAgentToken: { _, _ in }
+        )
+        try session.gpu.configure(runpodKey: "fake", hubToken: "fake", imageName: "")
+        session.gpu.trainer = "musubi"
+        session.gpu.rentsCaptionServer = true
+        await session.gpu.refreshOffers()
+        await session.gpu.rent()
+        #expect(await transport.createdImages
+            == ["ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.6-20261019-captioning"])
+        #expect(!session.gpu.rentsCaptionServer)
+        #expect(session.gpu.podImage == "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.6-20261019")
+        await session.gpu.stopEverything()
+
+        session.gpu.updateCaptionServerState([AgentService(
+            name: "vllm", state: "idle", groupAlive: false, runID: nil, available: false
+        )])
+        #expect(!session.gpu.captionServerInstalled)
+        session.gpu.updateCaptionServerState([AgentService(name: "vllm", state: "idle", groupAlive: false)])
+        #expect(session.gpu.captionServerInstalled)
     }
 
     @Test(arguments: [

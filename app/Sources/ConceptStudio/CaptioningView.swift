@@ -208,28 +208,7 @@ struct CaptioningView: View {
                         }
                     }
                     Divider()
-                    VStack {
-                        DisclosureGroup("Optional: caption on a rented computer") {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Hosted captioning needs no rented GPU. To use a local model, rent a computer, "
-                                    + "caption on GPU 0, then review and publish before training.")
-                                    .foregroundStyle(StudioStyle.supportingText)
-                                Button("Rent or choose a captioning computer") { session.step = .pods }
-                                Button("Start caption server and use this computer") { session.usePodCaptionServer() }
-                                    .disabled(session.busy || !session.gpu.hasRunningPod)
-                                if session.usingPodCaptioner {
-                                    StudioNotice(
-                                        "Using your authenticated computer’s caption server.",
-                                        symbol: "server.rack"
-                                    )
-                                    Button("Use my Settings server instead") {
-                                        session.usingPodCaptioner = false
-                                        session.requestBaseURL = ""
-                                    }
-                                }
-                            }.padding(.top, 12)
-                        }.disabled(session.busy)
-                    }
+                    VStack { podCaptioning }
                 }.padding(.bottom, 4)
             }
             .frame(width: 370)
@@ -496,5 +475,39 @@ private extension CaptioningView {
             }
         }
         if !started { testingConnection = false }
+    }
+}
+
+extension CaptioningView {
+    /// The optional pod caption server: rent a computer that carries it, then start it on GPU 0.
+    var podCaptioning: some View {
+        DisclosureGroup("Optional: caption on a rented computer") {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Hosted captioning needs no rented GPU. To use a local model, rent a computer, "
+                    + "caption on GPU 0, then review and publish before training.")
+                    .foregroundStyle(StudioStyle.supportingText)
+                Button("Rent or choose a captioning computer") {
+                    session.gpu.rentsCaptionServer = true
+                    session.step = .pods
+                }
+                Button("Start caption server and use this computer") { session.usePodCaptionServer() }
+                    .disabled(session.busy || !session.gpu.hasRunningPod
+                        || !session.gpu.captionServerInstalled)
+                if session.gpu.hasRunningPod, !session.gpu.captionServerInstalled {
+                    Text(GPUWorkspace.noCaptionServer)
+                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                }
+                if session.usingPodCaptioner {
+                    StudioNotice(
+                        "Using your authenticated computer’s caption server.",
+                        symbol: "server.rack"
+                    )
+                    Button("Use my Settings server instead") {
+                        session.usingPodCaptioner = false
+                        session.requestBaseURL = ""
+                    }
+                }
+            }.padding(.top, 12)
+        }.disabled(session.busy)
     }
 }

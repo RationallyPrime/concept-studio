@@ -47,6 +47,7 @@ extension GPUWorkspace {
 
     func updateCaptionServerState(_ services: [AgentService]) {
         captionServerActive = services.contains { $0.name == "vllm" && $0.active }
+        captionServerInstalled = services.first { $0.name == "vllm" }?.available ?? true
     }
 
     /// Starts a run on the rented computer. `output` is the open project's training destination: a
@@ -351,6 +352,7 @@ extension GPUWorkspace {
             self.plan = plan
             let services = try await agent.services()
             self.updateCaptionServerState(services)
+            guard self.captionServerInstalled else { throw StudioError.message(Self.noCaptionServer) }
             if plan.mode == "sequential",
                services.contains(where: { $0.name.hasPrefix("trainer-") && $0.active }) {
                 throw StudioError.message("Finish training before captioning on this single-GPU computer.")
