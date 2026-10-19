@@ -38,9 +38,10 @@ hash and billing bucket, is in
   (FLUX/H3) and LTX launchers, LoRA push. H3 still-image training has the owner/Claude runtime acceptance above;
   clip training, external warm-start, Resume and matched generation remain unexercised live.
 - **podctl** (`pod/podctl`): command-line client for the agent.
-- **Images** on GHCR under tag `v0.3.5-20261019` (clean build from commit `c058bdf`; digests in
+- **Images** on GHCR under tag `v0.3.6-20261019` (clean build from commit `2eb68e1`; digests in
   [images/README](../images/README.md)): `concept-captioner-pod-base`, `-aitoolkit`, `-ltx`,
-  `-musubi`; plus a fake image for compose tests. No GPU run has used this tag yet. Public RunPod template
+  `-musubi`, each trainer also as `-captioning` with vLLM; plus a fake image for compose tests.
+  No GPU run has used this tag yet. Public RunPod template
   `87fxs5v8fn` points at the base image; it carries no token, and the agent refuses to start
   without one.
 

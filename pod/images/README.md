@@ -1,6 +1,32 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.5-20261019`,
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.6-20261019`
+and the trainers' `-captioning` tags, a **clean build from commit `2eb68e1`**: vLLM moves out of the
+base into `Dockerfile.captioning`, which adds it on top of each finished trainer image; the musubi
+comparison generator (`generate-musubi`), the 1600-step Krea 2 recipe and the agent's
+`available` / `409 unavailable` report are in it. Built on cx53 with `docker build` from the
+committed Dockerfiles and no overlay, pushed 2026-10-19. Every tag resolves anonymously.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.6-20261019` | `sha256:e94b3863fc52e6c1213b65d998c5def3ea113b34857f34bdde48c17120d1eaad` | 3.35 GB |
+| `aitoolkit:v0.3.6-20261019` | `sha256:ff19fea081414ba46d6e83d2bde5298797498d40a27696c9f1dd77a5c4558245` | 7.21 GB |
+| `ltx:v0.3.6-20261019` | `sha256:dea1ff19a677ae3240f94dfd02176c73a7e97c7aee2c89e3cbd56b034f433038` | 6.96 GB |
+| `musubi:v0.3.6-20261019` | `sha256:04e1ff6183d22d0e53adc81d0d698cd759ab478bf59ff565d9a9dac7c7dd7035` | 6.40 GB |
+| `aitoolkit:v0.3.6-20261019-captioning` | `sha256:b232b3c7ebfa5499e7f285afd344f0d66df4b89e787b9441a3ffa59de31b3a5c` | 14.15 GB |
+| `ltx:v0.3.6-20261019-captioning` | `sha256:a5e10eef7e29566feb677946bab0b103c7d22b800e8944b2aa8506ace468b76a` | 13.90 GB |
+| `musubi:v0.3.6-20261019-captioning` | `sha256:c3f3dcd0b64ec3379de2dedf7c8633fdd71fe5ba332e664eeb397ec479beda6b` | 13.34 GB |
+
+Each trainer image is about half its v0.3.5 download (aitoolkit 14.15, ltx 13.90, musubi 13.34 GB
+then). The vLLM layer (`sha256:1fa02f6f6039…`, 6.9 GB compressed) is the same blob in all three
+`-captioning` tags, so the registry holds it once and a variant costs only that layer plus a few
+small ones over its slim tag. Build checks: vLLM 0.31.0+cu129 with torch 2.13.0+cu129 and
+FlashInfer 0.7.0.post1, and the flag allowlist (23 flags) in each variant; musubi-tuner 0.3.4 at
+`30c658c` with its `krea2_*` entrypoints. A CPU smoke on cx53 ran both musubi tags: the slim one
+reports `vllm` unavailable and answers a start with `409 unavailable`, the variant reports it
+available; both answer 401 without the bearer. No GPU run has used this tag yet.
+
+The previous release, `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.5-20261019`,
 a **clean build from commit `c058bdf`** (the musubi-tuner trainer: `Dockerfile.musubi` at musubi-tuner
 `30c658c` / v0.3.4, `launch_musubi.py`, `musubi_rules.py`, and the agent's `trainer-musubi`), the four
 Dockerfiles as committed, built on cx53 with `docker buildx build` and no overlay, pushed 2026-10-19.
@@ -58,7 +84,8 @@ are distinguished in [POD-STATUS](../docs/POD-STATUS.md).
 
 | file | purpose |
 | --- | --- |
-| `Dockerfile.base` | CUDA 12.8 runtime + CPython 3.12 + uv; `/opt/venvs/vllm` (vLLM and its torch), `/opt/venvs/agent` (podagent[pod], concept-captioner[hf], tensorboard, huggingface_hub, datasets, Pillow); `/opt/pod/scripts/*.py` plus `model-table.json` (the model table) and `ltx_rules.py`; entrypoint. The build fails if a flag in the agent's vLLM allowlist is absent from the installed vLLM (`check_vllm_flags.py`) |
+| `Dockerfile.base` | CUDA 12.8 runtime + CPython 3.12 + uv; `/opt/venvs/agent` (podagent[pod], concept-captioner[hf], tensorboard, huggingface_hub, datasets, Pillow); `/opt/pod/scripts/*.py` plus `model-table.json` (the model table), `ltx_rules.py` and `musubi_rules.py`; entrypoint. No vLLM |
+| `Dockerfile.captioning` | a finished trainer image + `/opt/venvs/vllm` (vLLM and its torch, built once in a stage on the base and copied with `COPY --link`), tagged `<tag>-captioning`. The build fails if a flag in the agent's vLLM allowlist is absent from the installed vLLM (`check_vllm_flags.py`) |
 | `Dockerfile.aitoolkit` | base + `ostris/ai-toolkit` at a pinned commit in `/opt/ai-toolkit` with the local patch series applied on top (`git am`; `patches/ai-toolkit/`), venv `/opt/venvs/aitoolkit` with upstream's own torch/flash-attn/NATTEN stack. The build fails if a patch does not apply |
 | `Dockerfile.ltx` | base + `Lightricks/LTX-2` at a pinned commit in `/opt/ltx-2` (uv workspace), venv `/opt/venvs/ltx` plus TensorBoard 2.21.0 (pinned, with an event write/read check) |
 | `Dockerfile.fake` | `python:3.12-slim` + podagent only, for `compose.fake.yaml` (no CUDA, no trainers) |
@@ -70,7 +97,7 @@ are distinguished in [POD-STATUS](../docs/POD-STATUS.md).
 ```
 /opt/python/cpython-3.12.14-…/      one managed interpreter, shared by every venv
 /opt/venvs/agent/                   podagent + concept-captioner; no torch       (freeze.txt = what landed)
-/opt/venvs/vllm/                    vllm 0.31.0+cu129, torch 2.13.0+cu129       (freeze.txt)
+/opt/venvs/vllm/                    vllm 0.31.0+cu129, torch 2.13.0+cu129       (-captioning tags only; freeze.txt)
 /opt/venvs/aitoolkit/               ai-toolkit stack, torch 2.13.0+cu130        (aitoolkit image; freeze.txt)
 /opt/venvs/ltx/                     LTX-2 workspace, torch 2.13.0+cu132         (ltx image; freeze.txt)
 /opt/venvs/musubi/                  musubi-tuner v0.3.4, torch 2.13.0+cu130     (musubi image; freeze.txt)
@@ -138,7 +165,8 @@ index and NATTEN cu132. So:
 
 | image | wheels | host driver | RunPod |
 | --- | --- | --- | --- |
-| `…-pod-base` | vLLM cu129 | CUDA 12.x driver (R570+; R525+ via minor-version compatibility, unverified) | any GPU host |
+| `…-pod-base` | none (agent only) | any | any GPU host |
+| vLLM in the `-captioning` tags | cu129 | CUDA 12.x driver (R570+; R525+ via minor-version compatibility, unverified); the trainer below needs more | as its trainer |
 | `…-pod-aitoolkit`, `…-pod-ltx` | base + CUDA 13.0 / 13.2 | **R580 or newer** | filter the pod's CUDA version to 13.0+ when creating it (`gpu.minCudaVersion` in the REST v2 pod create; the console's "CUDA version" filter) |
 
 Mixing cu129 and cu13x venvs in one image is fine: each venv has its own `nvidia-*` libraries, and
@@ -154,13 +182,16 @@ docker buildx build --platform=linux/amd64 -f pod/images/Dockerfile.aitoolkit -t
     --build-arg BASE_IMAGE=concept-captioner-pod-base:dev .
 docker buildx build --platform=linux/amd64 -f pod/images/Dockerfile.ltx       -t concept-captioner-pod-ltx:dev \
     --build-arg BASE_IMAGE=concept-captioner-pod-base:dev .
+# the "-captioning" variant of a trainer image: the same vLLM layer on top of it
+docker buildx build --platform=linux/amd64 -f pod/images/Dockerfile.captioning -t concept-captioner-pod-ltx:dev-captioning \
+    --build-arg BASE_IMAGE=concept-captioner-pod-base:dev --build-arg TRAINER_IMAGE=concept-captioner-pod-ltx:dev .
 
 # push for RunPod (the app references ghcr.io/<owner>/concept-captioner-pod-<trainer>:<tag>)
 docker tag concept-captioner-pod-aitoolkit:dev ghcr.io/<owner>/concept-captioner-pod-aitoolkit:<tag>
 docker push ghcr.io/<owner>/concept-captioner-pod-aitoolkit:<tag>
 ```
 
-Build args worth knowing: `CUDA_JIT_TOOLCHAIN=1` on the base adds the CUDA 12.9 compiler (`cuda-nvcc-12-9`
+Build args worth knowing: `CUDA_JIT_TOOLCHAIN=1` on `Dockerfile.captioning` adds the CUDA 12.9 compiler (`cuda-nvcc-12-9`
 and the `-dev` packages vLLM's own image installs, about a gigabyte) and repoints `/usr/local/cuda`
 at 12.9 for FlashInfer kernels missing from the prebuilt cache; `FLASHINFER_JIT_CACHE_VERSION=""`
 skips the cache; `VLLM_VERSION`, `AI_TOOLKIT_COMMIT`, `LTX2_COMMIT` and the torch versions are all
@@ -171,8 +202,8 @@ Every venv's build ends with an import check that needs no GPU (vLLM: torch buil
 package versions; ai-toolkit: `import flash_attn, natten, torchcodec, diffusers, transformers`,
 the same check upstream's Dockerfile runs; LTX-2: the exact torch build and that the `natten` extra
 landed) and writes `/opt/venvs/<name>/freeze.txt`, so a broken pin fails the build rather than the
-first service start. Expect the base to be around 10 GB and each trainer image a few GB more; the
-builds download several gigabytes of wheels.
+first service start. Expect the base to download as about 3.4 GB, each trainer image as 6.4–7.2 GB, and
+each `-captioning` tag as 6.9 GB more; the builds download several gigabytes of wheels.
 
 There is no `.dockerignore` in the repository root yet, so the build context carries `.git`, the
 local `.venv`s and `app/`. The Dockerfiles only `COPY` what they need, so this costs upload time, not

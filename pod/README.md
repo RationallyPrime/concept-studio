@@ -14,8 +14,9 @@ agent/     podagent: FastAPI control agent on port 8800 (PID 1 in the image). /h
            /tensorboard-session). Bearer token from PODAGENT_TOKEN on every call; refuses to
            start without one.
 podctl/    podctl: one subcommand per endpoint plus `train`, `caption-up` and `pull`; httpx only.
-images/    Dockerfile.base (CUDA + vLLM + agent + concept-captioner), Dockerfile.aitoolkit,
-           Dockerfile.ltx, Dockerfile.musubi (trainers layered on base), Dockerfile.fake +
+images/    Dockerfile.base (CUDA + agent + concept-captioner), Dockerfile.aitoolkit,
+           Dockerfile.ltx, Dockerfile.musubi (trainers layered on base), Dockerfile.captioning
+           (vLLM on top of a trainer image, its `-captioning` tag), Dockerfile.fake +
            compose.fake.yaml (no GPU),
            entrypoint.sh (starts the agent and nothing else).
 scripts/   pull_dataset.py (Hub dataset -> /workspace/datasets/<name>), push_lora.py (run ->
@@ -65,8 +66,9 @@ GPU, Docker or the network. Counts are in `docs/POD-STATUS.md`.
 
 1. Build and push from the repo root (BuildKit; `images/README.md` has the exact commands):
    `-f pod/images/Dockerfile.base`, then `Dockerfile.aitoolkit`, `Dockerfile.ltx` or `Dockerfile.musubi` with
-   `--build-arg BASE_IMAGE=…`, tagged `ghcr.io/<owner>/concept-captioner-pod-<trainer>:<tag>`.
-   One pod runs one trainer image; vLLM for captioning is in each.
+   `--build-arg BASE_IMAGE=…`, tagged `ghcr.io/<owner>/concept-captioner-pod-<trainer>:<tag>`;
+   then `Dockerfile.captioning` with `--build-arg TRAINER_IMAGE=…`, tagged `<tag>-captioning`.
+   One pod runs one trainer image; only the `-captioning` tag has vLLM for captioning on the pod.
 2. Create the pod with that image, N GPUs, a network volume mounted at `/workspace`, HTTP ports
    `8800,8000` exposed (agent and vLLM; TensorBoard stays internal), env
    `PODAGENT_TOKEN` (16+ characters, generated per pod) and `HF_TOKEN`. The trainer images are

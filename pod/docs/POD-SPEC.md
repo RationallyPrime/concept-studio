@@ -139,6 +139,7 @@ All errors, including FastAPI validation errors, use one envelope:
 | 409 | `already_running` | start of a service that is running |
 | 409 | `gpu_busy` | requested GPU is held by a running service |
 | 409 | `not_running` | stop of a service that is not running; `/tensorboard/…` while nothing listens on TensorBoard's port |
+| 409 | `unavailable` | start of a service whose program this image does not carry: `vllm` on a trainer image without its `-captioning` tag (6.1). `detail`: `{"service": "vllm"}` |
 | 413 | `payload_too_large` | request body above 1 MiB, or sent chunked (2.1); `detail`: `{"content_length": n, "max_bytes": 1048576}` |
 | 422 | `invalid_params` | pydantic rejects `params` (detail: pydantic's `errors()`) |
 | 422 | `gpu_count` | number of GPUs outside the service's range |
@@ -241,7 +242,8 @@ Service state object (returned by every service endpoint):
   "ended_at": null,
   "log_path": "/workspace/logs/vllm.log",
   "port": 8000,
-  "run_id": null
+  "run_id": null,
+  "available": true
 }
 ```
 
@@ -252,6 +254,9 @@ completed training run looks like), `stuck` (a stop's SIGKILL did not end the ch
 uninterruptible sleep in the driver, Xid fault; `pid` is still set, the GPUs stay booked, a later
 poll files it as `stopped` once it is gone). `params` never echoes secrets (`hf_token`,
 `api_key` are redacted to `"***"`). `run_id` is set for the trainers, generators and `push-lora`.
+`available` is false when this image does not carry the service's program; only `vllm` can be
+absent (a trainer image without its `-captioning` tag, 6.1), and its start is then
+`409 unavailable` before any other check. Fake mode reports every service available.
 
 `group_alive` is set when the direct child has exited (`failed` / `exited` / `stopped`) but its
 process group has not: a trainer whose launch wrapper died, vLLM engine workers after the API
@@ -543,6 +548,9 @@ the child inherits the agent's `HF_TOKEN` / `PODAGENT_TOKEN`. They are redacted 
 response and never logged.
 
 ### 3.1 `vllm` — GPUs exactly 1, port 8000
+
+Present only in the `-captioning` images (6.1); elsewhere its state says `available: false` and a
+start is `409 unavailable`.
 
 Params (`VllmParams`):
 
@@ -1327,11 +1335,8 @@ images/Dockerfile.base       nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
                              + python3.12, uv
                              + /opt/venvs/agent   : podagent, concept-captioner (from this repo), tensorboard,
                                                     huggingface_hub, datasets, Pillow
-                             + /opt/venvs/vllm    : vllm (pinned), its torch; build fails unless every
-                                                    VLLM_EXTRA_FLAGS flag is in its source
-                                                    (images/check_vllm_flags.py)
                              + /opt/pod/scripts/*, /opt/pod/entrypoint.sh
-                             EXPOSE 8800 8000; ENTRYPOINT /opt/pod/entrypoint.sh
+                             EXPOSE 8800; ENTRYPOINT /opt/pod/entrypoint.sh
 images/Dockerfile.aitoolkit  FROM base; git clone ostris/ai-toolkit @ pinned commit → /opt/ai-toolkit;
                              /opt/venvs/aitoolkit with its requirements (own torch)
 images/Dockerfile.ltx        FROM base; git clone Lightricks/LTX-2 @ pinned commit → /opt/ltx-2;
@@ -1340,13 +1345,20 @@ images/Dockerfile.ltx        FROM base; git clone Lightricks/LTX-2 @ pinned comm
 images/Dockerfile.musubi     FROM base; git clone kohya-ss/musubi-tuner @ pinned commit → /opt/musubi-tuner;
                              /opt/venvs/musubi with its pinned requirements, torch 2.13.0+cu130 and
                              TensorBoard 2.21.0
+images/Dockerfile.captioning stage vllm: FROM base; /opt/venvs/vllm : vllm (pinned), its torch
+                             final: FROM a trainer image; COPY --link the vllm venv; build fails unless
+                             every VLLM_EXTRA_FLAGS flag is in its source (images/check_vllm_flags.py);
+                             EXPOSE 8000. Tagged <trainer tag>-captioning
 images/Dockerfile.fake       python:3.12-slim + podagent only; for compose (no CUDA, no trainers)
 ```
 
 Separate venvs per workload so vLLM's and each trainer's torch pins never collide; the agent's
 venv has no torch at all except what `tensorboard` needs (none). Image tags carry the trainer:
 `concept-captioner-pod-aitoolkit:<tag>`, `concept-captioner-pod-ltx:<tag>`,
-`concept-captioner-pod-musubi:<tag>`. A pod runs one trainer image; captioning (vLLM) is in each.
+`concept-captioner-pod-musubi:<tag>`, each also as `<tag>-captioning` with vLLM. A pod runs one
+trainer image; the app rents the `-captioning` tag only when the person asks to caption on the
+rented computer. `COPY --link` makes the vLLM layer independent of the trainer below it, so it is
+byte-identical in the three variants and the registry stores it once.
 
 Build hygiene: `--platform=linux/amd64`, pinned base digests where possible, `pip`/`uv` caches
 off, no secrets at build time, `HF_HOME` not baked (it points into `/workspace` at run time).
