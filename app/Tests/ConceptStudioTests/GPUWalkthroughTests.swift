@@ -177,7 +177,7 @@ struct GPUWalkthroughTests {
         #expect(workspace.trainer == "musubi")
         let params = workspace.trainingParams(dataset: "concept-source", inputFacts: ("plain", "NORA7", false))
         #expect(params["base_model"] == .string("krea/Krea-2-Raw"))
-        #expect(params["steps"] == .int(2000) && params["rank"] == .int(32) && params["alpha"] == .int(32))
+        #expect(params["steps"] == .int(1600) && params["rank"] == .int(32) && params["alpha"] == .int(32))
         #expect(params["resolution"] == .int(1024))
         #expect(params["save_every"] == .int(100))
         // The launcher owns the recipe; extra carries only a repeated run's own args.
