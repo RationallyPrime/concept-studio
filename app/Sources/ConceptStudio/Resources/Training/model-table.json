@@ -113,7 +113,7 @@
       "hooks": {
         "generator": "aitoolkit_image"
       },
-      "notes": "Default model. Image-only. AI Toolkit FLUX settings: 8-bit quantised transformer, bf16 training, gradient checkpointing, AdamW8bit, flowmatch.",
+      "notes": "Default model. Image-only. AI Toolkit FLUX settings: 8-bit quantised transformer, bf16 training, gradient checkpointing, AdamW8bit, flowmatch. The 200-step length is a placeholder, not a measured recipe length; set the length for the dataset.",
       "recipe_status": "verified"
     },
     {
@@ -255,7 +255,7 @@
         "generator": "ltx_one_stage",
         "run_extra": "ltx_video_buckets"
       },
-      "notes": "LTX trainer image (launch_ltx.py), unified checkpoint. Images and 8n+1-frame clips. The pinned Hub sources and preprocess allowlist live in pod/agent/src/podagent/ltx_rules.py; this row mirrors them.",
+      "notes": "LTX trainer image (launch_ltx.py), unified checkpoint. Images and 8n+1-frame clips. The pinned Hub sources and preprocess allowlist live in pod/agent/src/podagent/ltx_rules.py; this row mirrors them. The 200-step length is a placeholder, not a measured recipe length; set the length for the dataset.",
       "recipe_status": "verified"
     },
     {
@@ -394,7 +394,7 @@
         "generator": "ltx_one_stage",
         "run_extra": "ltx_video_buckets"
       },
-      "notes": "LTX trainer image (launch_ltx.py), split pack: transformer, text encoder and both VAEs are separate paths. Images and 8n+1-frame clips. Pinned in pod/agent/src/podagent/ltx_rules.py; this row mirrors it.",
+      "notes": "LTX trainer image (launch_ltx.py), split pack: transformer, text encoder and both VAEs are separate paths. Images and 8n+1-frame clips. Pinned in pod/agent/src/podagent/ltx_rules.py; this row mirrors it. The 200-step length is a placeholder, not a measured recipe length; set the length for the dataset.",
       "recipe_status": "verified",
       "usage_note": "Gated on Hugging Face: before renting, sign in at huggingface.co/Lightricks/LTX-2.5 with the account whose token is in Settings and accept the licence. Without it the first download fails before training starts."
     },
@@ -442,7 +442,7 @@
       "recipe": {
         "length": {
           "unit": "steps",
-          "value": 200
+          "value": 3000
         },
         "learning_rate": 0.0001,
         "optimizer": "adamw",
@@ -520,7 +520,7 @@
         "native_recipe": "minimax_h3",
         "generator": "minimax_h3"
       },
-      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, frozen Circlestone image-training adapter (guidance preservation loss must stay off while it is used). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it.",
+      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, frozen Circlestone image-training adapter (guidance preservation loss must stay off while it is used). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it. Length: 3000 steps, where the measured likeness runs (20–30 images, an earlier adapter recipe) peaked or were still at their best; checkpoints every 300 keep all ten saves.",
       "recipe_status": "verified"
     },
     {
