@@ -418,8 +418,9 @@ struct GPURunHistoryTests {
     }
 }
 
+@MainActor
 extension GPURunHistoryTests {
-    @MainActor @Test
+    @Test
     func selectedPublishedRunDownloadsWithoutReplacingAnotherPendingResultAndReopens() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -459,7 +460,7 @@ extension GPURunHistoryTests {
         #expect(reopened.runHistory.first?.result?.state == .pushed(repo: "me/published-model"))
     }
 
-    @MainActor @Test
+    @Test
     func selectedRunChecksumFailureDoesNotRecordALocalCopy() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -479,7 +480,7 @@ extension GPURunHistoryTests {
         #expect(workspace.runHistory.first?.result?.state == .pushed(repo: "me/published-model"))
     }
 
-    @MainActor @Test
+    @Test
     func selectedRunRecordFailureDoesNotClaimPersistentLocalCopy() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -501,7 +502,7 @@ extension GPURunHistoryTests {
         #expect(workspace.runHistory.first?.result?.state == .pushed(repo: "me/published-model"))
     }
 
-    @MainActor @Test
+    @Test
     func selectedRunDownloadRejectsOtherProjectsAndMismatchedStorageBeforeListingFiles() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -522,8 +523,9 @@ extension GPURunHistoryTests {
     }
 }
 
+@MainActor
 extension GPURunHistoryTests {
-    @MainActor @Test
+    @Test
     func repeatOfADirectUploadRunTrainsOnTheProjectsPublishedDataset() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }

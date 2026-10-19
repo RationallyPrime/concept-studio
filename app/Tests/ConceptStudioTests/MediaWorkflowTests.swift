@@ -123,7 +123,7 @@ struct MediaWorkflowTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         var project = try StudioProject.create(at: directory)
         let data = try MediaFixtures.encoded(MediaFixtures.image(), type: type)
-        let id = try project.importData(data, name: "portrait." + type.preferredFilenameExtension!)
+        let id = try project.importData(data, name: "portrait." + #require(type.preferredFilenameExtension))
         #expect(id == "portrait.png")
         let source = try LocalFolderSource(directory: project.imagesDirectory)
         #expect(source.files.map(\.lastPathComponent) == [id])

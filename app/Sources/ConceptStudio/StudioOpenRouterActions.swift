@@ -5,8 +5,8 @@ extension StudioSession {
     func connectOpenRouter() async {
         guard !demoMode, !busy else { return }
         let generation = chatGPTWorkGeneration
-        guard await openRouter.connect() else { return }
-        guard generation == chatGPTWorkGeneration, !demoMode, !busy, !Task.isCancelled else { return }
+        guard await openRouter.connect(), generation == chatGPTWorkGeneration, !demoMode, !busy,
+              !Task.isCancelled else { return }
         let changedProvider = endpointKind != "openrouter"
         endpointKind = "openrouter"
         if changedProvider || modelName.isEmpty { modelName = ProviderChoices.defaultModel(for: "openrouter") }

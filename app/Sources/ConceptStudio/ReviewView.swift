@@ -479,8 +479,7 @@ extension ReviewView {
                 session.comparison = ""
                 session.compare(id: id, model: side.model, kind: side.kind)
                 await session.task?.value
-                guard comparingImage?.id == id else { return }
-                guard session.errorMessage == nil, !session.comparison.isEmpty else { return }
+                guard comparingImage?.id == id, session.errorMessage == nil, !session.comparison.isEmpty else { return }
                 if index == 0 { resultA = session.comparison } else { resultB = session.comparison }
             }
             session.message = "Comparison ready. Your saved caption is unchanged."

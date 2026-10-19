@@ -133,8 +133,10 @@ struct ProjectTrainingRecord: Codable, Equatable {
     }
 
     static func load(from project: URL) -> ProjectTrainingRecord {
-        guard let data = try? Data(contentsOf: url(in: project)) else { return ProjectTrainingRecord() }
-        guard var record = try? JSONDecoder().decode(Self.self, from: data) else { return ProjectTrainingRecord() }
+        guard let data = try? Data(contentsOf: url(in: project)), var record = try? JSONDecoder().decode(
+            Self.self,
+            from: data
+        ) else { return ProjectTrainingRecord() }
         func confined(_ folder: String, runID: String) -> Bool {
             let expected = project.resolvingSymlinksInPath().appendingPathComponent("results/\(runID)")
             let actual = URL(fileURLWithPath: folder).standardizedFileURL

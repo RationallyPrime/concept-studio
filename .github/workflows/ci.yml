@@ -5,7 +5,7 @@ on:
   pull_request:
 env:
   # Tool versions come from mise.toml; mise's own version and Xcode's (swift job) are pinned here.
-  MISE_VERSION: 2026.10.10
+  MISE_VERSION: 2026.10.14
 jobs:
   test:
     runs-on: ubuntu-latest
