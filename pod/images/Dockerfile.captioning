@@ -1,0 +1,100 @@
+# The "-captioning" variant of a concept-captioner trainer image: the trainer image plus vLLM, for
+# a pod that also captions on its own GPU (the app's "caption on a rented computer"). POD-SPEC §6.1.
+# Build context: the repository root.
+#
+#   docker buildx build --platform=linux/amd64 -f pod/images/Dockerfile.captioning \
+#       --build-arg BASE_IMAGE=concept-captioner-pod-base:dev \
+#       --build-arg TRAINER_IMAGE=concept-captioner-pod-musubi:dev \
+#       -t concept-captioner-pod-musubi:dev-captioning .
+#
+# vLLM is built once, in its own stage on the base image, and copied in with COPY --link: the
+# copied layer does not depend on the trainer image below it, so it is byte-identical in every
+# trainer's variant and the registry stores it once. A pod that captions through a hosted
+# provider (OpenRouter, Gemini, …) rents the plain trainer image and never downloads it.
+ARG BASE_IMAGE=concept-captioner-pod-base:dev
+ARG TRAINER_IMAGE=concept-captioner-pod-aitoolkit:dev
+
+# amd64 like the base (see Dockerfile.base for why the platform is stated on the FROM itself).
+FROM --platform=linux/amd64 ${BASE_IMAGE} AS vllm
+
+# --- /opt/venvs/vllm -------------------------------------------------------------------------------
+# vLLM 0.31.0 (2026-10-05, the newest release). Its PyPI wheel is built against CUDA 13, which needs
+# an R580+ driver. Every release since 0.20 also ships a +cu129 build, and that is the newest CUDA 12
+# build vLLM publishes: there has never been a +cu128 variant and torch 2.13 is not on the cu128
+# index at all, so cu129 is what "its cu128 torch" in the contract resolves to. It runs on CUDA 12.x
+# drivers and matches the CUDA 12 base. The torch family is pinned to exactly what the wheel
+# requires, with the +cu129 local version so those four can only come from the cu129 index; the
+# extra index is searched with unsafe-best-match (the way vLLM's docs install from the PyTorch
+# index), so everything else resolves from PyPI as usual.
+ARG VLLM_VERSION=0.31.0
+ARG VLLM_CUDA=cu129
+ARG TORCH_VERSION=2.13.0
+ARG TORCHVISION_VERSION=0.28.0
+ARG TORCHAUDIO_VERSION=2.11.0
+ARG TORCHCODEC_VERSION=0.15.0
+# FlashInfer 0.7.0.post1 is the version vllm 0.31.0 depends on. flashinfer-jit-cache is the matching
+# set of prebuilt kernels that vLLM's own image installs from flashinfer.ai, so FlashInfer does not
+# need nvcc for the kernels it ships. VERIFY on a pod that the install is real (the release asset
+# answered a tiny body to a ranged request on 2026-10-10) and that captioning never falls into a JIT
+# compile; set the ARG to "" to skip the install, or CUDA_JIT_TOOLCHAIN=1 below to add the compiler.
+ARG FLASHINFER_JIT_CACHE_VERSION=0.7.0.post1
+RUN uv venv --python "${POD_PYTHON}" /opt/venvs/vllm \
+ && uv pip install --python /opt/venvs/vllm/bin/python \
+      --extra-index-url "https://download.pytorch.org/whl/${VLLM_CUDA}" \
+      --index-strategy unsafe-best-match \
+      "https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+${VLLM_CUDA}-cp38-abi3-manylinux_2_28_x86_64.whl" \
+      "torch==${TORCH_VERSION}+${VLLM_CUDA}" \
+      "torchvision==${TORCHVISION_VERSION}+${VLLM_CUDA}" \
+      "torchaudio==${TORCHAUDIO_VERSION}+${VLLM_CUDA}" \
+      "torchcodec==${TORCHCODEC_VERSION}+${VLLM_CUDA}" \
+ && if [ -n "${FLASHINFER_JIT_CACHE_VERSION}" ]; then \
+      uv pip install --python /opt/venvs/vllm/bin/python \
+        --index-url "https://flashinfer.ai/whl/${VLLM_CUDA}" \
+        "flashinfer-jit-cache==${FLASHINFER_JIT_CACHE_VERSION}"; \
+    fi \
+ && /opt/venvs/vllm/bin/python -c "import torch, importlib.metadata as m; v = torch.__version__; assert v == '${TORCH_VERSION}+${VLLM_CUDA}', v; print('vllm', m.version('vllm'), 'torch', v, 'flashinfer', m.version('flashinfer-python'))" \
+ && uv pip freeze --python /opt/venvs/vllm/bin/python > /opt/venvs/vllm/freeze.txt
+
+FROM --platform=linux/amd64 ${TRAINER_IMAGE}
+
+LABEL org.opencontainers.image.description="concept-captioner trainer image with vLLM for captioning on the pod"
+
+# Build-time only, for the optional apt install below.
+ARG DEBIAN_FRONTEND=noninteractive
+
+COPY --link --from=vllm /opt/venvs/vllm /opt/venvs/vllm
+
+# Optional: the CUDA 12.9 compiler for FlashInfer kernels that are not in the prebuilt cache (the
+# same package set vLLM's own image installs). Off by default: it adds about a gigabyte and is only
+# needed when a pod log shows FlashInfer trying to JIT-compile. Build with
+# --build-arg CUDA_JIT_TOOLCHAIN=1. The packages come from the NVIDIA apt repository the base image
+# already configures and install beside the base's 12.8 toolkit; /usr/local/cuda is then repointed
+# at 12.9 so `which nvcc` (the base puts /usr/local/cuda/bin on PATH) and the /usr/local/cuda
+# fallback both agree with the cu129 wheels. The trainer venvs are CUDA 13 and never use the system
+# toolkit, so this does not affect them.
+ARG CUDA_JIT_TOOLCHAIN=0
+RUN if [ "${CUDA_JIT_TOOLCHAIN}" = "1" ]; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends --allow-change-held-packages \
+           cuda-nvcc-12-9 \
+           cuda-cudart-dev-12-9 \
+           cuda-nvrtc-dev-12-9 \
+           cuda-cuobjdump-12-9 \
+           libcublas-dev-12-9 \
+           libcurand-dev-12-9 \
+      && rm -rf /var/lib/apt/lists/* \
+      && ln -sfn /usr/local/cuda-12.9 /usr/local/cuda \
+      && /usr/local/cuda/bin/nvcc --version; \
+    fi
+
+# The vLLM extra_args allowlist (VLLM_EXTRA_FLAGS in podagent/catalog.py) against the vLLM just
+# installed: a flag the pinned release removed fails the build here instead of passing the agent's
+# 422 check and killing vLLM at startup. A source probe; it needs no GPU and never imports vllm.
+# It imports podagent.catalog, which (through podagent.uploads) reads /opt/pod/scripts/dataset_stage.py
+# at import time; the trainer image already has the scripts in place.
+COPY pod/images/check_vllm_flags.py /opt/pod/checks/check_vllm_flags.py
+RUN /opt/venvs/agent/bin/python -I /opt/pod/checks/check_vllm_flags.py \
+      "$(/opt/venvs/vllm/bin/python -I -c "import importlib.util as u; print(u.find_spec('vllm').submodule_search_locations[0])")"
+
+# 8000: vLLM, beside the trainer image's 8800 (the agent).
+EXPOSE 8000

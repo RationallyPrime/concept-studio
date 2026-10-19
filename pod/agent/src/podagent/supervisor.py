@@ -48,6 +48,7 @@ from .errors import (
     InvalidParams,
     NotFound,
     NotRunning,
+    Unavailable,
     UnknownGpu,
 )
 from .gpus import GpuBackend, GpuInfo, InventoryUnavailable
@@ -101,6 +102,9 @@ class ServiceState(BaseModel):
     log_path: str | None = None
     port: int | None = None
     run_id: str | None = None
+    # False when this image does not carry the service's program (vLLM on a trainer image
+    # rented without captioning); a start is then refused with 409 unavailable.
+    available: bool = True
 
     def holds_gpus(self) -> bool:
         return self.state in ("running", "stuck") or self.group_alive
@@ -281,13 +285,20 @@ class Supervisor:
 
     def states(self) -> list[ServiceState]:
         with self._lock:
-            return [self._poll(name).model_copy(deep=True) for name in CATALOG]
+            return [self._reported(name) for name in CATALOG]
 
     def state(self, name: str) -> ServiceState:
         """Raises ``NotFound`` for an unknown name; polls the child so exits are reflected."""
         self._spec(name)
         with self._lock:
-            return self._poll(name).model_copy(deep=True)
+            return self._reported(name)
+
+    def _available(self, name: str) -> bool:
+        return self.settings.fake or CATALOG[name].available(self.settings.paths)
+
+    def _reported(self, name: str) -> ServiceState:
+        """A copy of the polled state with ``available`` filled in. Call with the lock held."""
+        return self._poll(name).model_copy(deep=True, update={"available": self._available(name)})
 
     def logs(self, name: str, tail: int = 200) -> LogTail:
         """Last ``tail`` lines of the service's log; ``NotFound`` when none exists.
@@ -349,6 +360,12 @@ class Supervisor:
         open the log, spawn, return.
         """
         spec = self._spec(name)
+        if not self._available(name):
+            raise Unavailable(
+                f"This computer's image has no {name}. Rent the computer with captioning "
+                "(the image tag ending in -captioning) to caption on its GPU.",
+                detail={"service": name},
+            )
         try:
             parsed = parse_params(name, params, self.settings.paths, fake=self.settings.fake)
         except ValidationError as error:

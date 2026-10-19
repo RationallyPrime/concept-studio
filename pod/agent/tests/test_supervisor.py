@@ -579,6 +579,25 @@ def test_spawn_failure_is_reported_not_swallowed(settings: Settings) -> None:
     sup.shutdown()
 
 
+def test_vllm_is_reported_unavailable_and_refused_on_an_image_without_it(
+    settings: Settings,
+) -> None:
+    """A trainer image rented without captioning has no /opt/venvs/vllm; the variant adds it."""
+    real = replace(settings, fake_gpus=None)
+    sup = Supervisor(real, FakeBackend(2))
+    assert sup.state("vllm").available is False
+    assert {s.name for s in sup.states() if not s.available} == {"vllm"}
+    with pytest.raises(AgentError) as excinfo:
+        sup.start("vllm", [0], {"model": "Qwen/Qwen3-VL-8B-Instruct"})
+    assert excinfo.value.code == "unavailable" and excinfo.value.status == 409
+    assert "-captioning" in excinfo.value.message
+    executable = Path(real.paths.venv_bin("vllm", "vllm"))
+    executable.parent.mkdir(parents=True)
+    executable.write_text("")
+    assert sup.state("vllm").available is True
+    sup.shutdown()
+
+
 # --- the child environment ------------------------------------------------------------------------------
 
 

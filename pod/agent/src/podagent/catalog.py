@@ -1143,6 +1143,9 @@ class ServiceSpec:
     env: Callable[[ServiceParams, Settings], dict[str, str]]
     prepare: Callable[[ServiceParams, Paths], None]
     run_id: Callable[[ServiceParams], str | None]
+    # Whether this image carries the service's program. Only vLLM can be absent: the trainer
+    # images ship without it, and their "-captioning" variants add it (images/README.md).
+    available: Callable[[Paths], bool] = lambda _paths: True
 
     def gpu_count_ok(self, count: int) -> bool:
         low, high = self.gpus
@@ -1525,6 +1528,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_vllm_env,
         prepare=_noop_prepare,
         run_id=_no_run_id,
+        available=lambda paths: Path(paths.venv_bin("vllm", "vllm")).is_file(),
     ),
     "tensorboard": ServiceSpec(
         name="tensorboard",

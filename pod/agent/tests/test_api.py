@@ -55,6 +55,7 @@ STATE_KEYS = {
     "log_path",
     "port",
     "run_id",
+    "available",
 }
 GPU_KEYS = {"index", "name", "memory_total_mib", "memory_used_mib", "uuid", "in_use_by"}
 HEALTH_KEYS = {"status", "version", "workspace", "gpu_backend", "gpu_count", "runpod", "time"}
