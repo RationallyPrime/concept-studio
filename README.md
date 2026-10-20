@@ -119,8 +119,8 @@ You need **macOS 15 or later** and a current Xcode with its Swift toolchain. Dev
 used Apple Silicon Macs. Open Xcode once to finish its setup, then:
 
 ```sh
-git clone https://github.com/RationallyPrime/concept-captioner.git
-cd concept-captioner
+git clone https://github.com/RationallyPrime/concept-studio.git
+cd concept-studio
 scripts/build-app.sh debug
 open app/dist/ConceptStudio.app
 ```
