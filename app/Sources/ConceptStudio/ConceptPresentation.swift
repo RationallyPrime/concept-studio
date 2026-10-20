@@ -15,6 +15,19 @@ extension TargetConcept {
         }
     }
 
+    /// The glossary entry that explains this category.
+    var term: StudioTerm {
+        switch self {
+        case .facialIdentity: .personConcept
+        case .fullIdentity: .wholePersonConcept
+        case .object: .objectConcept
+        case .characterDesign: .characterConcept
+        case .style: .styleConcept
+        case .motion: .motionConcept
+        case .custom: .customConcept
+        }
+    }
+
     var question: String {
         switch self {
         case .facialIdentity, .fullIdentity: "Who should the model be able to portray?"

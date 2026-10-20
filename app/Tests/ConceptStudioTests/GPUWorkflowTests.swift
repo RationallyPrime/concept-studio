@@ -310,7 +310,7 @@ struct GPUWorkflowTests {
             .isFromThisApp)
     }
 
-    @Test(arguments: ["aitoolkit", "ltx"])
+    @Test(arguments: ["aitoolkit", "ltx", "musubi"])
     func creationUsesV2GPUFieldsAndOnlyAuthenticatedPublishedPorts(_ trainer: String) async throws {
         let transport = GPUTransport(#"{"id":"pod1","status":"STARTING","cost":1,"gpu":{"count":2}}"#)
         let provider = RunPodProvider(key: "runpod-key", transport: transport)

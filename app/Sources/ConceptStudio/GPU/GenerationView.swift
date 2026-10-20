@@ -47,7 +47,10 @@ struct GenerationView: View {
                 }
             }
         }
-        .onChange(of: workspace.selectedHistoryRunID, initial: true) { _, _ in chooseCheckpoint() }
+        .onChange(of: workspace.selectedHistoryRunID, initial: true) { _, _ in
+            chooseCheckpoint()
+            inferenceSteps = selectedRun?.generationDefaults.steps ?? TrainingRun.defaultGeneration.steps
+        }
         .onChange(of: selectedRun?.checkpoints) { _, _ in chooseCheckpoint() }
         .onAppear { if prompts.isEmpty { prompts = workspace.triggerWords } }
     }

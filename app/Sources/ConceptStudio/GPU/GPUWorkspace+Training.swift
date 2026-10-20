@@ -47,6 +47,7 @@ extension GPUWorkspace {
 
     func updateCaptionServerState(_ services: [AgentService]) {
         captionServerActive = services.contains { $0.name == "vllm" && $0.active }
+        captionServerInstalled = services.first { $0.name == "vllm" }?.available ?? true
     }
 
     /// Starts a run on the rented computer. `output` is the open project's training destination: a
@@ -275,7 +276,7 @@ extension GPUWorkspace {
 
     /// The batches one pass over `items` images and clips takes. AI Toolkit splits a dataset into one copy per
     /// resolution bucket and fills each copy's last batch on its own, so a pass is `ceil(items / batch)` batches at
-    /// every chosen size; the LTX trainer uses one bucket.
+    /// every chosen size; the LTX trainer and musubi-tuner use one bucket.
     nonisolated static func batchesPerPass(items: Int, trainer: String, buckets: Int, batchSize: Int) -> Int {
         let batch = max(1, batchSize)
         let perBucket = items / batch + (items % batch == 0 ? 0 : 1)
@@ -314,6 +315,11 @@ extension GPUWorkspace {
         if trainer == "ltx" {
             let extra = row.runExtra ?? [:]
             params["extra"] = .object(row.hooks.runExtra?.apply(to: extra, containsVideo: inputFacts.video) ?? extra)
+        } else if trainer == "musubi" {
+            // musubi-tuner: the row's recipe is the launcher's; extra only carries a repeated run's own overrides.
+            params["extra"] = .object(
+                runHistory.first(where: { $0.runID == repeatSourceRunID })?.params["extra"]?.objectValue ?? [:]
+            )
         } else {
             var extra = nativeRecipe?.settings
                 ?? runHistory.first(where: { $0.runID == repeatSourceRunID })?.params["extra"]?.objectValue ?? [:]
@@ -346,6 +352,7 @@ extension GPUWorkspace {
             self.plan = plan
             let services = try await agent.services()
             self.updateCaptionServerState(services)
+            guard self.captionServerInstalled else { throw StudioError.message(Self.noCaptionServer) }
             if plan.mode == "sequential",
                services.contains(where: { $0.name.hasPrefix("trainer-") && $0.active }) {
                 throw StudioError.message("Finish training before captioning on this single-GPU computer.")

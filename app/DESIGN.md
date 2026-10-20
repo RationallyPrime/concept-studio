@@ -72,8 +72,10 @@ film back around them. Tokens live in `InstantPrint.swift`.
   learning curve in ink, and base and trained outputs as print pairs.
 - **Sections stay flat** under the owner's layout grammar below; paper is for prints and for the
   training plan, which is a receipt. Notices sit on a light grey slip.
-- **App icon.** A developing print on the charcoal tile, with the orange trigger mark in its margin.
-  It is drawn by `scripts/draw-app-icon.swift`; `Packaging/ConceptStudio.icns` is made from it.
+- **App icon** (owner's choice, 2026-10-20). A glowing eight-petalled flower, blue outer petals around
+  an orange-gold centre, on a near-black indigo rounded-square plate with a faint lighter rim.
+  `scripts/make-app-icon.py` composes it from `Packaging/icon-art.png` into the Icon Composer file
+  `Packaging/ConceptStudio.icon`, which `scripts/build-app.sh` compiles into the app.
 
 ## Interface rules (fix round 2026-10-11)
 

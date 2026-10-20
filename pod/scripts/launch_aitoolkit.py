@@ -72,7 +72,7 @@ from typing import Any, NamedTuple, TextIO
 
 SCRIPT_NAME = "launch_aitoolkit"
 
-# --- shared: byte-identical in launch_aitoolkit.py and launch_ltx.py --------------------------
+# --- shared: byte-identical in every launch_<trainer>.py --------------------------------------
 
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 REPO_ID_RE = re.compile(r"^[\w.-]+/[\w.-]+$")

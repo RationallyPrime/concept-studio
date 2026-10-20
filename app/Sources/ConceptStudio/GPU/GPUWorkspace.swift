@@ -22,7 +22,7 @@ final class GPUWorkspace {
     var pod: RentedPod? {
         didSet {
             sleepGuard.hold(!demoMode && pod?.isRunning == true)
-            if oldValue?.id != pod?.id { captionServerActive = nil }
+            if oldValue?.id != pod?.id { (captionServerActive, captionServerInstalled) = (nil, true) }
             if pod?.isRunning == false { captionServerActive = false }
         }
     }
@@ -30,6 +30,8 @@ final class GPUWorkspace {
     var plan: TrainingPlan?
     /// nil until this computer's service list has been read; never inferred from the GPU count.
     var captionServerActive: Bool?
+    var captionServerInstalled = true // false once the agent reports no caption server in this image
+    var rentsCaptionServer = false // the next rental takes the "-captioning" tag (Captioning screen)
     var storage: AgentStorageUsage?
     var message = "Refresh available computers to see current prices."
     var isBusy = false

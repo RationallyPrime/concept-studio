@@ -14,8 +14,10 @@ struct AgentService: Decodable {
     let state: String
     let groupAlive: Bool?
     var runID: String?
+    /// Whether this computer's image carries the service's program; images before v0.3.6 omit it (all present).
+    var available: Bool?
     enum CodingKeys: String, CodingKey {
-        case name, state
+        case name, state, available
         case groupAlive = "group_alive"
         case runID = "run_id"
     }

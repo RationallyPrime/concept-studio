@@ -1,4 +1,5 @@
-"""Tests for scripts/launch_aitoolkit.py and scripts/launch_ltx.py (POD-SPEC §4.3).
+"""Tests for scripts/launch_aitoolkit.py and scripts/launch_ltx.py (POD-SPEC §4.3); launch_musubi.py
+shares the block checked here and has its own tests in test_launch_musubi.py.
 
 No GPU, no trainer, no network: the trainer and push commands are replaced by small
 ``python -c`` programs, the TensorBoard writer by a recording fake. PyYAML is exercised when
@@ -38,6 +39,8 @@ def load_script(name: str) -> ModuleType:
 aitoolkit = load_script("launch_aitoolkit")
 ltx = load_script("launch_ltx")
 WRAPPERS = {"aitoolkit": aitoolkit, "ltx": ltx}
+# Every launch_<trainer>.py; WRAPPERS holds the two the behaviour tests in this file exercise.
+ALL_WRAPPERS = ("aitoolkit", "ltx", "musubi")
 
 
 class FakeWriter:
@@ -163,10 +166,11 @@ def shared_block(path: Path) -> str:
 
 
 def test_shared_block_identical_between_wrappers() -> None:
-    assert shared_block(SCRIPTS / "launch_aitoolkit.py") == shared_block(SCRIPTS / "launch_ltx.py")
+    blocks = {name: shared_block(SCRIPTS / f"launch_{name}.py") for name in ALL_WRAPPERS}
+    assert len(set(blocks.values())) == 1, sorted(blocks)
 
 
-@pytest.mark.parametrize("name", sorted(WRAPPERS))
+@pytest.mark.parametrize("name", ALL_WRAPPERS)
 def test_help_runs_in_isolated_mode(name: str) -> None:
     """`python -I script --help` needs nothing beyond the standard library (scripts/README)."""
     result = subprocess.run(

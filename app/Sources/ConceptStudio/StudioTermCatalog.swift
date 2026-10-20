@@ -46,6 +46,9 @@ struct StudioGlossaryCatalog: Decodable, Sendable {
     static let allEntries = supplied.entries + operations
     static let byID = Dictionary(uniqueKeysWithValues: allEntries.map { ($0.id, $0) })
     static let allSections = supplied.sections + [GlossarySection(
+        id: "concept-types", title: "Concept types",
+        description: "What each kind of concept teaches the model, and how its captions and mapping work."
+    ), GlossarySection(
         id: "using-conceptstudio", title: "Using ConceptStudio",
         description: "Accounts, project settings and rented computers in this application."
     )]
@@ -126,6 +129,13 @@ struct StudioTerm: RawRepresentable, Hashable, Identifiable, CaseIterable, Senda
     static let regularizationImages = Self("regularization-images")
     static let priorPreservation = Self("prior-preservation")
     static let representationAlignment = Self("representation-alignment")
+    static let personConcept = Self("concept-type-person")
+    static let wholePersonConcept = Self("concept-type-whole-person")
+    static let characterConcept = Self("concept-type-character")
+    static let objectConcept = Self("concept-type-object")
+    static let styleConcept = Self("concept-type-style")
+    static let motionConcept = Self("concept-type-motion")
+    static let customConcept = Self("concept-type-custom")
 
     static let introductory: [Self] = [
         .train, .diffusionModels, .baseModel, .concept, .trainingData,

@@ -258,3 +258,28 @@ def test_ltx_resume_accepts_explicit_native_state_restoration(settings):
     (run / "run.json").write_text(json.dumps(cfg))
     (run / "output/training_state_step_00002.pt").write_bytes(b"native state")
     assert parse_params("trainer-ltx", {**cfg, "steps": 4, "resume": True}, settings.paths).resume
+
+
+def test_musubi_generation_runs_in_the_musubi_venv(settings):
+    paths = settings.paths
+    run = paths.run_dir("source-run")
+    (run / "output").mkdir(parents=True)
+    (paths.datasets / "source-run").mkdir(parents=True, exist_ok=True)
+    cfg = {
+        "run_id": "source-run",
+        "dataset": {"path": str(paths.datasets / "source-run")},
+        "triggers": ["NORA7"],
+        "base_model": "krea/Krea-2-Raw",
+        "steps": 200,
+    }
+    (run / "run.json").write_text(json.dumps(cfg))
+    (run / "output/source-run-step00000100.safetensors").write_bytes(CHECKPOINT)
+    raw = {**request(), "checkpoint": "source-run-step00000100.safetensors"}
+    params = parse_params("generate-musubi", raw, paths)
+    spec = CATALOG["generate-musubi"]
+    spec.prepare(params, paths)
+    argv = spec.argv(params, [0], paths)
+    assert argv[0] == paths.venv_bin("musubi", "python")
+    assert argv[2:4] == ["--trainer", "musubi"]
+    with pytest.raises(ValidationError, match="num_frames must be 1"):
+        parse_params("generate-musubi", {**raw, "run_id": "other", "num_frames": 49}, paths)

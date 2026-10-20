@@ -1,6 +1,6 @@
 # The scripts have no project of their own: they run in the agent venv (`uv sync --extra pod` in
-# pod/agent), and the trainer scripts also import torch and AI Toolkit, which exist only in the
-# pod images.
+# pod/agent), and the trainer scripts also import torch, AI Toolkit and musubi-tuner, which exist
+# only in the pod images.
 [environment]
 python = "../agent/.venv"
 
@@ -9,4 +9,4 @@ python = "../agent/.venv"
 exclude = ["tests"]
 
 [analysis]
-allowed-unresolved-imports = ["torch.**", "toolkit.**"]
+allowed-unresolved-imports = ["torch.**", "toolkit.**", "musubi_tuner.**"]

@@ -4,10 +4,13 @@
 #       -t concept-captioner-pod-base:dev .
 #
 # Layers, least- to most-frequently changing, so a code change never rebuilds the heavy ones:
-#   1. nvidia/cuda runtime (pinned by digest)      5. /opt/venvs/vllm  : vLLM and its own torch
-#   2. apt: git, curl, gcc, ffmpeg, libGL          6. /opt/venvs/agent : podagent[pod] + concept-captioner[hf]
-#   3. uv (pinned)                                 7. /opt/pod/scripts/*.py, /opt/pod/entrypoint.sh
+#   1. nvidia/cuda runtime (pinned by digest)      5. /opt/venvs/agent : podagent[pod] + concept-captioner[hf]
+#   2. apt: git, curl, gcc, ffmpeg, libGL          6. /opt/pod/scripts/*.py, /opt/pod/entrypoint.sh
+#   3. uv (pinned)
 #   4. CPython 3.12 under /opt/python (one interpreter for every venv, trainer images included)
+#
+# No vLLM here: a trainer image built on this base has no caption server. Dockerfile.captioning
+# adds /opt/venvs/vllm on top of a finished trainer image, as that image's "-captioning" tag.
 #
 # Rules kept here: every version is pinned and every pin says what it is and why; nothing secret is
 # read at build time; HF_HOME is not baked (the entrypoint points it into /workspace); package
@@ -18,7 +21,8 @@
 # --- pins (images/README.md says how each was chosen) ---------------------------------------------
 # nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04: the manifest-list digest Docker Hub served on
 # 2026-10-10 (the amd64 image inside it is sha256:59e0e4376a0f16d1…). The system CUDA is used for
-# nvidia-smi and the optional JIT toolchain only; every venv carries its own CUDA libraries via pip.
+# nvidia-smi and the captioning variant's optional JIT toolchain only; every venv carries its own
+# CUDA libraries via pip.
 ARG CUDA_IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04@sha256:17e2934e1fa96152b14f78078bfbafd0f00f391df995dc6c641a720fce1202bb
 # uv 0.12.21 (2026-09-29): more than a week old at the time of writing, and its bundled interpreter
 # registry (crates/uv-python/download-metadata.json at that tag) lists CPython 3.12.14 below.
@@ -31,7 +35,7 @@ FROM --platform=linux/amd64 ${UV_IMAGE} AS uv
 FROM --platform=linux/amd64 ${CUDA_IMAGE} AS base
 
 LABEL org.opencontainers.image.title="concept-captioner-pod-base" \
-      org.opencontainers.image.description="CUDA runtime, podagent, concept-captioner and vLLM for concept-captioner GPU pods" \
+      org.opencontainers.image.description="CUDA runtime, podagent and concept-captioner for concept-captioner GPU pods" \
       org.opencontainers.image.source="https://github.com/RationallyPrime/concept-captioner" \
       org.opencontainers.image.licenses="MIT"
 
@@ -84,67 +88,6 @@ ARG PYTHON_VERSION=3.12.14
 ENV POD_PYTHON=${PYTHON_VERSION}
 RUN uv python install "${PYTHON_VERSION}"
 
-# --- /opt/venvs/vllm -------------------------------------------------------------------------------
-# vLLM 0.31.0 (2026-10-05, the newest release). Its PyPI wheel is built against CUDA 13, which needs
-# an R580+ driver. Every release since 0.20 also ships a +cu129 build, and that is the newest CUDA 12
-# build vLLM publishes: there has never been a +cu128 variant and torch 2.13 is not on the cu128
-# index at all, so cu129 is what "its cu128 torch" in the contract resolves to. It runs on CUDA 12.x
-# drivers and matches the CUDA 12 base. The torch family is pinned to exactly what the wheel
-# requires, with the +cu129 local version so those four can only come from the cu129 index; the
-# extra index is searched with unsafe-best-match (the way vLLM's docs install from the PyTorch
-# index), so everything else resolves from PyPI as usual.
-ARG VLLM_VERSION=0.31.0
-ARG VLLM_CUDA=cu129
-ARG TORCH_VERSION=2.13.0
-ARG TORCHVISION_VERSION=0.28.0
-ARG TORCHAUDIO_VERSION=2.11.0
-ARG TORCHCODEC_VERSION=0.15.0
-# FlashInfer 0.7.0.post1 is the version vllm 0.31.0 depends on. flashinfer-jit-cache is the matching
-# set of prebuilt kernels that vLLM's own image installs from flashinfer.ai, so FlashInfer does not
-# need nvcc for the kernels it ships. VERIFY on a pod that the install is real (the release asset
-# answered a tiny body to a ranged request on 2026-10-10) and that captioning never falls into a JIT
-# compile; set the ARG to "" to skip the install, or CUDA_JIT_TOOLCHAIN=1 below to add the compiler.
-ARG FLASHINFER_JIT_CACHE_VERSION=0.7.0.post1
-RUN uv venv --python "${PYTHON_VERSION}" /opt/venvs/vllm \
- && uv pip install --python /opt/venvs/vllm/bin/python \
-      --extra-index-url "https://download.pytorch.org/whl/${VLLM_CUDA}" \
-      --index-strategy unsafe-best-match \
-      "https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+${VLLM_CUDA}-cp38-abi3-manylinux_2_28_x86_64.whl" \
-      "torch==${TORCH_VERSION}+${VLLM_CUDA}" \
-      "torchvision==${TORCHVISION_VERSION}+${VLLM_CUDA}" \
-      "torchaudio==${TORCHAUDIO_VERSION}+${VLLM_CUDA}" \
-      "torchcodec==${TORCHCODEC_VERSION}+${VLLM_CUDA}" \
- && if [ -n "${FLASHINFER_JIT_CACHE_VERSION}" ]; then \
-      uv pip install --python /opt/venvs/vllm/bin/python \
-        --index-url "https://flashinfer.ai/whl/${VLLM_CUDA}" \
-        "flashinfer-jit-cache==${FLASHINFER_JIT_CACHE_VERSION}"; \
-    fi \
- && /opt/venvs/vllm/bin/python -c "import torch, importlib.metadata as m; v = torch.__version__; assert v == '${TORCH_VERSION}+${VLLM_CUDA}', v; print('vllm', m.version('vllm'), 'torch', v, 'flashinfer', m.version('flashinfer-python'))" \
- && uv pip freeze --python /opt/venvs/vllm/bin/python > /opt/venvs/vllm/freeze.txt
-
-# Optional: the CUDA 12.9 compiler for FlashInfer kernels that are not in the prebuilt cache (the
-# same package set vLLM's own image installs). Off by default: it adds about a gigabyte and is only
-# needed when a pod log shows FlashInfer trying to JIT-compile. Build with
-# --build-arg CUDA_JIT_TOOLCHAIN=1. The packages come from the NVIDIA apt repository the base image
-# already configures and install beside the base's 12.8 toolkit; /usr/local/cuda is then repointed
-# at 12.9 so `which nvcc` (the base puts /usr/local/cuda/bin on PATH) and the /usr/local/cuda
-# fallback both agree with the cu129 wheels. The trainer venvs are CUDA 13 and never use the system
-# toolkit, so this does not affect them.
-ARG CUDA_JIT_TOOLCHAIN=0
-RUN if [ "${CUDA_JIT_TOOLCHAIN}" = "1" ]; then \
-      apt-get update \
-      && apt-get install -y --no-install-recommends --allow-change-held-packages \
-           cuda-nvcc-12-9 \
-           cuda-cudart-dev-12-9 \
-           cuda-nvrtc-dev-12-9 \
-           cuda-cuobjdump-12-9 \
-           libcublas-dev-12-9 \
-           libcurand-dev-12-9 \
-      && rm -rf /var/lib/apt/lists/* \
-      && ln -sfn /usr/local/cuda-12.9 /usr/local/cuda \
-      && /usr/local/cuda/bin/nvcc --version; \
-    fi
-
 # --- /opt/venvs/agent ------------------------------------------------------------------------------
 # podagent with its [pod] extra (tensorboard, huggingface_hub, datasets, Pillow) and
 # concept-captioner[hf], both from this checkout and both installed as regular (non-editable)
@@ -173,25 +116,19 @@ COPY app/Sources/ConceptStudio/Resources/Training/h3-recipe-fields.json /opt/pod
 COPY app/Sources/ConceptStudio/Resources/Training/model-table.json /opt/pod/scripts/model-table.json
 # One LTX rule file (preprocess allowlist, pinned Hub source) for the API and the isolated wrapper.
 COPY pod/agent/src/podagent/ltx_rules.py /opt/pod/agent/src/podagent/ltx_rules.py
+# One musubi-tuner rule file (what extra.args may set) for the API and the isolated wrapper.
+COPY pod/agent/src/podagent/musubi_rules.py /opt/pod/agent/src/podagent/musubi_rules.py
 COPY --chmod=0755 pod/images/entrypoint.sh /opt/pod/entrypoint.sh
 RUN for script in /opt/pod/scripts/*.py; do \
       /opt/venvs/agent/bin/python -I "$script" --help > /dev/null || exit 1; \
     done
 
-# The vLLM extra_args allowlist (VLLM_EXTRA_FLAGS in podagent/catalog.py) against the vLLM just
-# installed: a flag the pinned release removed fails the build here instead of passing the agent's
-# 422 check and killing vLLM at startup. A source probe; it needs no GPU and never imports vllm.
-# It imports podagent.catalog, which (through podagent.uploads) reads /opt/pod/scripts/dataset_stage.py
-# at import time, so it runs after the scripts are in place.
-COPY pod/images/check_vllm_flags.py /opt/pod/checks/check_vllm_flags.py
-RUN /opt/venvs/agent/bin/python -I /opt/pod/checks/check_vllm_flags.py \
-      "$(/opt/venvs/vllm/bin/python -I -c "import importlib.util as u; print(u.find_spec('vllm').submodule_search_locations[0])")"
-
 # The network volume is mounted here on RunPod; the entrypoint creates the layout (POD-SPEC §6.4).
 WORKDIR /workspace
 
-# 8800 agent, 8000 vLLM: the public HTTP ports. TensorBoard is behind /tensorboard/.
-EXPOSE 8800 8000
+# 8800 agent: the public HTTP port (the captioning variant adds 8000, vLLM). TensorBoard is behind
+# /tensorboard/.
+EXPOSE 8800
 
 # Starts the agent and nothing else (POD-SPEC §6.2). Services are started by the app through it.
 ENTRYPOINT ["/opt/pod/entrypoint.sh"]

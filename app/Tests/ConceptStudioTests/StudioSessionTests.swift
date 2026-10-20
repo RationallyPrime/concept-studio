@@ -13,7 +13,7 @@ private actor ImageChoiceTransport: HTTPTransport {
         if url.host() != "api.runpod.io" {
             body = #"{"services":[]}"#
         } else if url.path().contains("catalog/gpus") {
-            body = #"{"gpus":[{"id":"test","name":"Test GPU","memory":80,"secure":true,"#
+            body = #"{"gpus":[{"id":"test","name":"Test GPU","memory":96,"secure":true,"#
                 + #""price":{"secure":1},"maxCount":{"secure":4},"#
                 + #""dataCenters":[{"id":"test","availability":"HIGH"}]}]}"#
         } else if url.path().hasSuffix("network-volumes") {
@@ -37,7 +37,10 @@ private actor ImageChoiceTransport: HTTPTransport {
 @Suite("studio offline actions")
 @MainActor
 struct StudioSessionTests {
-    @Test(arguments: [nil, "", " \n\t", "ghcr.io/example/custom-{trainer}:chosen"] as [String?], ["aitoolkit", "ltx"])
+    @Test(
+        arguments: [nil, "", " \n\t", "ghcr.io/example/custom-{trainer}:chosen"] as [String?],
+        ["aitoolkit", "ltx", "musubi"]
+    )
     func savedTrainingImageReachesTheSelectedTrainer(saved: String?, trainer: String) async throws {
         let suite = "StudioSessionTests." + UUID().uuidString
         let preferences = try #require(UserDefaults(suiteName: suite))
@@ -55,10 +58,38 @@ struct StudioSessionTests {
         let expected = if let saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             saved.replacingOccurrences(of: "{trainer}", with: trainer)
         } else {
-            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.4-20261015"
+            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.6-20261019"
         }
         #expect(await transport.createdImages == [expected])
         await session.gpu.stopEverything()
+    }
+
+    @Test func onlyTheCaptioningRentalCarriesTheCaptionServer() async throws {
+        let suite = "StudioSessionTests." + UUID().uuidString
+        let preferences = try #require(UserDefaults(suiteName: suite))
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let session = StudioSession(preferences: preferences)
+        let transport = ImageChoiceTransport()
+        session.gpu = GPUWorkspace(
+            demoMode: false, transport: transport, preferences: preferences, saveAgentToken: { _, _ in }
+        )
+        try session.gpu.configure(runpodKey: "fake", hubToken: "fake", imageName: "")
+        session.gpu.trainer = "musubi"
+        session.gpu.rentsCaptionServer = true
+        await session.gpu.refreshOffers()
+        await session.gpu.rent()
+        #expect(await transport.createdImages
+            == ["ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.6-20261019-captioning"])
+        #expect(!session.gpu.rentsCaptionServer)
+        #expect(session.gpu.podImage == "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.6-20261019")
+        await session.gpu.stopEverything()
+
+        session.gpu.updateCaptionServerState([AgentService(
+            name: "vllm", state: "idle", groupAlive: false, runID: nil, available: false
+        )])
+        #expect(!session.gpu.captionServerInstalled)
+        session.gpu.updateCaptionServerState([AgentService(name: "vllm", state: "idle", groupAlive: false)])
+        #expect(session.gpu.captionServerInstalled)
     }
 
     @Test(arguments: [

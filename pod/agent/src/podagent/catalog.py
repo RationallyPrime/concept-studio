@@ -1,10 +1,11 @@
 """The service catalog: fixed argv builders over validated params (POD-SPEC §3, §4.1).
 
-Ten services, one ``ServiceSpec`` each. Everything a client sends arrives as ``params`` and
+Twelve services, one ``ServiceSpec`` each. Everything a client sends arrives as ``params`` and
 passes two checks before anything is built:
 
 1. ``spec.params_model.model_validate(raw)``: shape, patterns and ranges, including the rules
-   only one service has (``LtxRunConfig`` checks ``extra.preprocess``). Pure pydantic; raises
+   only one service has (``LtxRunConfig`` checks ``extra.preprocess``, ``MusubiRunConfig``
+   ``extra.args``). Pure pydantic; raises
    ``pydantic.ValidationError``.
 2. ``validate(params, paths)``: the checks that need the workspace layout (``dataset.path`` under
    ``<workspace>/datasets``, ``logdir`` under ``<workspace>``, local model paths under
@@ -49,6 +50,7 @@ from .artifacts import resolve_run_file
 from .checkpoints import checkpoint_step, latest_checkpoint
 from .errors import AgentError
 from .ltx_rules import check_preprocess
+from .musubi_rules import check_extra as check_musubi_extra
 from .settings import Paths, Settings
 from .storage import RUN_STATE_FILE, cleanup_datasets
 from .uploads import claim_initialization, claim_stage, release_stage, upload_folder
@@ -71,6 +73,11 @@ UNSUPPORTED_REGULARIZATION = (
 NO_REGULARIZATION_HERE = "Regularisation images are not available for this model."
 UNSUPPORTED_REPA = "Representation alignment is not available for this model."
 LTX_NO_REGULARIZATION = "regularization/repa are not available on the LTX trainer"
+MUSUBI_NO_REGULARIZATION = "regularization/repa are not available on the musubi-tuner trainer"
+NO_INITIALIZATION_HERE = "External initial LoRA weights currently support AI Toolkit H3 only"
+NO_RESUME_HERE = (
+    "This trainer cannot continue a run (its step counter restarts). Use Repeat with more steps."
+)
 # RunConfig fields that override the model row's recipe; null keeps the recipe's value (POD-SPEC 4.1).
 TRAINER_SETTINGS = (
     "caption_dropout",
@@ -81,6 +88,7 @@ TRAINER_SETTINGS = (
 )
 WARMUP_SCHEDULER = "constant_with_warmup"
 LTX_TRAINER_SETTINGS = "AI Toolkit settings; set the LTX trainer's own through extra"
+MUSUBI_TRAINER_SETTINGS = "AI Toolkit settings; set musubi-tuner's own flags through extra.args"
 RECIPE_SETS_THESE = "this model's own recipe sets these; change them through extra"
 
 Port = Annotated[int, Field(ge=1024, le=65535)]
@@ -555,6 +563,33 @@ class LtxRunConfig(RunConfig):
         return self
 
 
+def _musubi_extra(value: Any) -> Any:
+    try:
+        check_musubi_extra(value)
+    except ValueError as error:
+        raise PydanticCustomError("musubi_extra", "{reason}", {"reason": str(error)}) from None
+    return value
+
+
+class MusubiRunConfig(RunConfig):
+    """``RunConfig`` for ``trainer-musubi``: ``extra`` holds only ``args``, checked against the shared
+    rules (``musubi_rules.py``, which the isolated wrapper loads too); the model row's recipe is the
+    rest, so the AI Toolkit fields are refused."""
+
+    extra: Annotated[Mapping[str, Any], AfterValidator(_musubi_extra)] = {}
+
+    @model_validator(mode="after")
+    def _musubi_only(self) -> MusubiRunConfig:
+        if self.regularization is not None or self.repa is not None:
+            raise ValueError(MUSUBI_NO_REGULARIZATION)
+        if self.initialization is not None:
+            raise ValueError(NO_INITIALIZATION_HERE)
+        settings = self.trainer_settings()
+        if settings:
+            raise ValueError(", ".join(settings) + ": " + MUSUBI_TRAINER_SETTINGS)
+        return self
+
+
 class PullDatasetParams(ServiceParams):
     repo_id: str | None = Field(default=None, pattern=REPO_ID_PATTERN)
     local_name: str | None = Field(default=None, pattern=NAME_PATTERN)
@@ -944,6 +979,8 @@ def _validate_training_start(name: str, params: RunConfig, paths: Paths) -> None
         # Preserve the existing start/restart contract. The native Resume action opts into
         # stricter checkpoint/settings validation; Repeat always allocates a new run_id.
         return
+    if not _model_table(paths)["trainer_resumes"](name.removeprefix("trainer-")):
+        _invalid(params, NO_RESUME_HERE, ("resume",))
     if not previous.is_file():
         _invalid(params, "No saved run to resume on this storage")
     old = type(params).model_validate_json(previous.read_text())
@@ -1052,6 +1089,7 @@ _GENERATOR_HOOKS: dict[str, _GeneratorHook] = {
     "minimax_h3": _GeneratorHook(
         precondition=_require_native_config, capture=_capture_native_config
     ),
+    "musubi_krea2_image": _GeneratorHook(),
 }
 
 # native_recipe hook name -> loader of the rules that read its recipe and initial weights.
@@ -1105,6 +1143,9 @@ class ServiceSpec:
     env: Callable[[ServiceParams, Settings], dict[str, str]]
     prepare: Callable[[ServiceParams, Paths], None]
     run_id: Callable[[ServiceParams], str | None]
+    # Whether this image carries the service's program. Only vLLM can be absent: the trainer
+    # images ship without it, and their "-captioning" variants add it (images/README.md).
+    available: Callable[[Paths], bool] = lambda _paths: True
 
     def gpu_count_ok(self, count: int) -> bool:
         low, high = self.gpus
@@ -1487,6 +1528,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_vllm_env,
         prepare=_noop_prepare,
         run_id=_no_run_id,
+        available=lambda paths: Path(paths.venv_bin("vllm", "vllm")).is_file(),
     ),
     "tensorboard": ServiceSpec(
         name="tensorboard",
@@ -1518,6 +1560,19 @@ CATALOG: dict[str, ServiceSpec] = {
         gpus=(1, ANY),
         port=None,
         argv=_trainer_argv("ltx"),
+        cwd=_run_dir,
+        log_path=_trainer_log,
+        env=_trainer_env,
+        prepare=_trainer_prepare,
+        run_id=_params_run_id,
+    ),
+    "trainer-musubi": ServiceSpec(
+        name="trainer-musubi",
+        params_model=MusubiRunConfig,
+        # Any GPUs the plan gives it, like the other trainers; one accelerate process uses the first.
+        gpus=(1, ANY),
+        port=None,
+        argv=_trainer_argv("musubi"),
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
@@ -1574,7 +1629,7 @@ CATALOG: dict[str, ServiceSpec] = {
     ),
 }
 
-for _trainer in ("aitoolkit", "ltx"):
+for _trainer in ("aitoolkit", "ltx", "musubi"):
     _name = f"generate-{_trainer}"
     CATALOG[_name] = ServiceSpec(
         name=_name,

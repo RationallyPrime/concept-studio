@@ -102,7 +102,7 @@ flowchart LR
     HF[("Hugging Face<br/>datasets and adapters")]
     subgraph Pod["Rented GPU computer"]
         Agent["Control agent<br/>authenticated HTTP"]
-        Trainer["Trainer<br/>AI Toolkit · LTX"]
+        Trainer["Trainer<br/>AI Toolkit · LTX · musubi-tuner"]
         Agent --> Trainer
     end
     App --- Folder
