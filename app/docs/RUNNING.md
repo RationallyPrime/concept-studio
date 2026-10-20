@@ -314,7 +314,15 @@ CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' sc
 # signed and notarised, with a notarytool keychain profile stored once:
 CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
   CONCEPTSTUDIO_NOTARY_PROFILE=<profile> scripts/build-app.sh release
+# then the shareable disk image (same two variables): app/dist/ConceptStudio-<version>-<date>.dmg
+CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
+  CONCEPTSTUDIO_NOTARY_PROFILE=<profile> scripts/build-dmg.sh
 ```
+
+`build-dmg.sh` refuses an app that is not a notarized Developer ID build. The image holds the app
+and a link to Applications, uses the app icon as its volume icon, and is itself signed, notarized
+and stapled. The app icon is compiled from `app/Packaging/ConceptStudio.icon` with `xcrun actool`,
+so the build needs Xcode, not only the command-line tools.
 
 The script copies the executable and SwiftPM resource bundles and writes the app Info.plist.
 Debug builds remain unsigned unless a signing identity is supplied. Release builds require the
