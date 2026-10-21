@@ -415,7 +415,7 @@
         "dtype": "bf16",
         "quantize": false,
         "quantize_text_encoder": false,
-        "gradient_checkpointing": true,
+        "gradient_checkpointing": false,
         "model_extra": {}
       },
       "family_match": {
@@ -520,7 +520,7 @@
         "native_recipe": "minimax_h3",
         "generator": "minimax_h3"
       },
-      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, a frozen training adapter left out at inference: Circlestone's for stills, Ostris's v3 once clips are among the inputs, or either chosen in Advanced (guidance preservation loss must stay off on Circlestone's). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it. Length: 3000 steps, where the measured likeness runs (20–30 images, an earlier adapter recipe) peaked or were still at their best; checkpoints every 300 keep all ten saves.",
+      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, a frozen training adapter left out at inference: Circlestone's for stills, Ostris's v3 once clips are among the inputs, or either chosen in Advanced (guidance preservation loss must stay off on Circlestone's). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it. Length: 3000 steps, where the measured likeness runs (20–30 images, an earlier adapter recipe) peaked or were still at their best; checkpoints every 300 keep all ten saves. Stills train without gradient checkpointing: a measured 768/1024 px stills run peaked at 55 GB in training without it (43 GB with it), well inside the 96 GB the row requires. Runs with clips keep it on until measured.",
       "recipe_status": "verified"
     },
     {

@@ -318,7 +318,9 @@ def quality_settings(*, video: bool = False) -> dict[str, Any]:
             "optimizer_params": {"weight_decay": 0.01},
             "lr_scheduler": "constant_with_warmup",
             "lr_scheduler_params": {"num_warmup_steps": 35},
-            "gradient_checkpointing": True,
+            # Stills measured 55 GB peak in training without it (43 GB with it) of the 96 GB the row
+            # requires; clips hold far more tokens per step and keep it on until measured.
+            "gradient_checkpointing": video,
             "train_unet": True,
             "train_text_encoder": False,
             "cache_text_embeddings": True,
