@@ -125,19 +125,34 @@ struct AdvancedTrainingControls: View {
         }
     }
 
-    /// The `native_recipe` hook's guidance rules.
+    /// The `native_recipe` hook's training adapter and guidance rules.
     @ViewBuilder private var guidanceControls: some View {
-        if workspace.h3UsesTrainingAdapter {
-            LabeledContent("Guidance preservation loss", value: "Off required · Circlestone adapter")
-            Text("The included Circlestone adapter requires ordinary training with guidance preservation "
-                + "loss off. Import a native recipe without this adapter to edit guidance settings.")
-                .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                .fixedSize(horizontal: false, vertical: true)
-        } else {
+        Picker("Training adapter", selection: $workspace.h3TrainingAdapter) {
+            Text(automaticAdapterLabel).tag(H3TrainingAdapter.automatic)
+            ForEach(H3TrainingAdapter.policy.files.map(\.name), id: \.self) { name in
+                Text(H3TrainingAdapter.label(name)).tag(H3TrainingAdapter.named(name))
+            }
+            if workspace.h3TrainingAdapter == .off { Text("None · imported recipe").tag(H3TrainingAdapter.off) }
+        }
+        .help("A frozen add-on that absorbs the model's undistillation while your LoRA trains, and is left out "
+            + "when you generate. Circlestone's suits photographs; Ostris's keeps the model's video knowledge.")
+        if workspace.h3GuidanceLossAllowed {
             Toggle("Guidance preservation loss", isOn: $workspace.guidanceLoss)
-                .help("Adds guidance-preservation training work when no training adapter is used.")
+                .help("Adds guidance-preservation training work to protect the model's distilled behaviour.")
             TextField("Guidance loss target", text: $workspace.guidanceTargetText)
                 .help("A number from 0 to 20, such as 3.5. Imported two-value ranges are also preserved.")
+        } else {
+            LabeledContent("Guidance preservation loss", value: "Off required · Circlestone adapter")
+            Text("The Circlestone adapter requires ordinary training with guidance preservation loss off. "
+                + "Choose the Ostris adapter to edit guidance settings.")
+                .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var automaticAdapterLabel: String {
+        let policy = H3TrainingAdapter.policy
+        return "Automatic · \(H3TrainingAdapter.label(policy.imageDefault)) for photos, "
+            + "\(H3TrainingAdapter.label(policy.videoDefault)) with clips"
     }
 }

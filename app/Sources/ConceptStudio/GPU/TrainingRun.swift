@@ -326,6 +326,7 @@ extension GPUWorkspace {
         trainerSettings = TrainerSettings(restoring: run.params, row: row)
         restoreTrainingAids(from: run)
         nativeRecipe = nil
+        trainingAdapterChoice = nil
         nativeRecipeOriginal = nil
         initialCheckpoint = nil
         learningRate = run.params["learning_rate"]?.doubleValue ?? learningRate

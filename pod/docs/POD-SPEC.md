@@ -1047,7 +1047,8 @@ copied unchanged into pod scripts. No raw job/meta/output/Hub/credentials, old p
 counters or start-step settings cross this contract. The native original recipe remains a
 private project artifact. Its model must identify `Comfy-Org/MiniMax-H3` / `minimax_h3` /
 `fl2va_pruned`; supplied components must be known BF16 assets. `use_training_adapter` is a
-boolean, not an arbitrary assistant path.
+boolean and `training_adapter` names one of the pinned adapters the policy lists
+(`circlestone`, `ostris`), never an arbitrary assistant path.
 
 The request’s `initialization: {name,lora_sha256,recipe_sha256}` binds both fixed uploads by
 lowercase SHA-256. Agent admission requires a NEW run directory and a matching actual H3
@@ -1058,13 +1059,19 @@ The native import retains supported `save.save_every`, `save.max_step_saves_to_k
 `dtype`, `train.do_guidance_loss`, `train.guidance_loss_target`, and all image-resolution
 buckets. Advanced controls edit these values and positive training step/rank/batch values
 directly. H3 app defaults are 300-step saves, 40 retained checkpoints, float32 saved weights,
-768 and 1024 image buckets and guidance off. The current Circlestone training adapter
-requires guidance preservation loss to remain off; Advanced shows this requirement. Only
-an imported native recipe with explicit `model.use_training_adapter: false` exposes the
-guidance toggle and target (default 3.5). App import, training and resume reject adapter-on
-(or omitted/default-on) plus guidance-on before transferring inputs. A native recipe that
-omits `use_training_adapter` used the adapter only if it names `assistant_lora_path`; the
-import writes that actual choice explicitly into the canonical settings. The pod wrapper
+768 and 1024 image buckets and guidance off. The frozen training adapter is Circlestone's
+image adapter for stills and Ostris's v3 adapter once clips are among the inputs (the policy's
+`training_adapter_default.*`); Advanced can choose either, and the app writes the resolved
+`model.training_adapter` into every run's `extra` so a Repeat trains on the same one. A recipe
+that names no adapter and does not turn it off predates the choice and means Circlestone's.
+Circlestone's adapter requires guidance preservation loss to remain off; Advanced shows this
+requirement. Ostris's adapter, or an imported native recipe with explicit
+`model.use_training_adapter: false`, exposes the guidance toggle and target (default 3.5). App
+import, training and resume reject Circlestone plus guidance-on before transferring inputs. A
+native recipe that omits `use_training_adapter` used an adapter only if it names
+`assistant_lora_path`, whose file name must be one of the pinned adapters; the import writes
+that actual choice explicitly into the canonical settings, and an exported comparison recipe
+records it the same way. The pod wrapper
 checks the effective merged recipe before downloading model assets. Zero retention keeps all
 checkpoints. FLUX/LTX defaults stay unchanged. Saved precision affects exported weights,
 independently of BF16 training precision. The previous v1 recipe/runtime enabled guidance

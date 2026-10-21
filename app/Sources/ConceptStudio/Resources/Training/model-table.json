@@ -408,7 +408,7 @@
         "revision": "e5eb578a89295337b8ff433a035929ce0279e0b6",
         "gated": false,
         "first_download_gb": 98.2,
-        "download_note": "The four BF16 components named in h3-recipe-fields.json at the pinned revision (DiT 40.2 GB, Qwen3-VL text encoder 51.5 GB, video and audio VAEs), plus the 0.6 GB Circlestone training adapter."
+        "download_note": "The four BF16 components named in h3-recipe-fields.json at the pinned revision (DiT 40.2 GB, Qwen3-VL text encoder 51.5 GB, video and audio VAEs), plus the training adapter the run uses: Circlestone's 0.6 GB or Ostris's 0.3 GB."
       },
       "architecture": {
         "arch": "minimax_h3",
@@ -512,7 +512,7 @@
         "id": "minimax-h3-community-license-agreement",
         "name": "MiniMax H3 Community License Agreement",
         "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
-        "notice": "MiniMax H3 and the Circlestone training adapter are released under the MiniMax H3 Community License Agreement. Read its terms before using this model, a LoRA trained on it, or their outputs commercially.",
+        "notice": "MiniMax H3 and the Circlestone training adapter are released under the MiniMax H3 Community License Agreement; the Ostris adapter's repository names no licence of its own. Read its terms before using this model, a LoRA trained on it, or their outputs commercially.",
         "show_notice": false
       },
       "hooks": {
@@ -520,7 +520,7 @@
         "native_recipe": "minimax_h3",
         "generator": "minimax_h3"
       },
-      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, frozen Circlestone image-training adapter (guidance preservation loss must stay off while it is used). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it. Length: 3000 steps, where the measured likeness runs (20–30 images, an earlier adapter recipe) peaked or were still at their best; checkpoints every 300 keep all ten saves.",
+      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, a frozen training adapter left out at inference: Circlestone's for stills, Ostris's v3 once clips are among the inputs, or either chosen in Advanced (guidance preservation loss must stay off on Circlestone's). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it. Length: 3000 steps, where the measured likeness runs (20–30 images, an earlier adapter recipe) peaked or were still at their best; checkpoints every 300 keep all ten saves.",
       "recipe_status": "verified"
     },
     {

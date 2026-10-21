@@ -73,14 +73,38 @@ extension GPUWorkspace {
             ?? runHistory.first(where: { $0.runID == repeatSourceRunID })?.params["extra"]?.objectValue ?? [:]
     }
 
-    var h3UsesTrainingAdapter: Bool {
-        h3RecipeSettings["model"]?.objectValue?["use_training_adapter"]?.boolValue ?? true
+    /// The adapter the next run trains on: Advanced's choice, else the imported recipe's or the repeated
+    /// run's, else automatic.
+    var h3TrainingAdapter: H3TrainingAdapter {
+        get {
+            let saved = h3RecipeSettings
+            return trainingAdapterChoice ?? (saved.isEmpty ? .automatic : H3TrainingAdapter(settings: saved))
+        }
+        set { trainingAdapterChoice = newValue }
     }
 
-    nonisolated static func validateH3Guidance(settings: JSONObject, guidanceLoss: Bool) throws {
-        guard !guidanceLoss || settings["model"]?.objectValue?["use_training_adapter"]?.boolValue == false else {
+    var guidanceTarget: JSONValue {
+        (try? JSONValue(parsing: Data(guidanceTargetText.utf8))) ?? .null
+    }
+
+    /// The next run's guidance rule for the inputs it trains on.
+    func validateNextRunGuidance(containsVideo: Bool) throws {
+        try nativeRecipeHook?.validateGuidance(
+            adapter: h3TrainingAdapter, containsVideo: containsVideo, guidanceLoss: guidanceLoss
+        )
+    }
+
+    var h3GuidanceLossAllowed: Bool {
+        !h3TrainingAdapter.refusesGuidanceLoss(containsVideo: trainingDatasetContainsVideo)
+    }
+
+    nonisolated static func validateH3Guidance(
+        adapter: H3TrainingAdapter, containsVideo: Bool, guidanceLoss: Bool
+    ) throws {
+        guard !guidanceLoss || !adapter.refusesGuidanceLoss(containsVideo: containsVideo) else {
             throw StudioError.message("The Circlestone H3 training adapter requires guidance preservation loss "
-                + "to stay off. Import a native recipe with use_training_adapter: false to train without it.")
+                + "to stay off. Choose the Ostris adapter in Advanced, or import a native recipe with "
+                + "use_training_adapter: false, to train with it.")
         }
     }
 
@@ -88,7 +112,8 @@ extension GPUWorkspace {
         guard let hook = run.modelRow(in: table)?.hooks.nativeRecipe else { return }
         let settings = run.params["extra"]?.objectValue ?? [:]
         try hook.validateGuidance(
-            settings: settings,
+            adapter: H3TrainingAdapter(settings: settings),
+            containsVideo: run.datasetContainsVideo,
             guidanceLoss: settings["train"]?.objectValue?["do_guidance_loss"]?.boolValue ?? false
         )
     }
@@ -229,6 +254,7 @@ extension GPUWorkspace {
         nativeRecipe = nil
         nativeRecipeOriginal = nil
         initialCheckpoint = nil
+        trainingAdapterChoice = nil
         let row = effectiveModelRow
         adoptDefaults(from: previous, to: row.recipe)
         trainerSettings.adopt(from: previousRow, to: row)
@@ -283,6 +309,7 @@ extension GPUWorkspace {
         nativeRecipe = recipe
         nativeRecipeOriginal = original
         initialCheckpoint = nil
+        trainingAdapterChoice = nil
         rank = recipe.rank
         alpha = recipe.alpha
         learningRate = recipe.learningRate
@@ -365,10 +392,12 @@ extension ModelHooks.NativeRecipe {
         }
     }
 
-    /// The model's guidance rules: guidance preservation loss may only be on when no training adapter is used.
-    func validateGuidance(settings: JSONObject, guidanceLoss: Bool) throws {
+    /// The model's guidance rules: guidance preservation loss stays off on an adapter that refuses it.
+    func validateGuidance(adapter: H3TrainingAdapter, containsVideo: Bool, guidanceLoss: Bool) throws {
         switch self {
-        case .minimaxH3: try GPUWorkspace.validateH3Guidance(settings: settings, guidanceLoss: guidanceLoss)
+        case .minimaxH3: try GPUWorkspace.validateH3Guidance(
+                adapter: adapter, containsVideo: containsVideo, guidanceLoss: guidanceLoss
+            )
         }
     }
 

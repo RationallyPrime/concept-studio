@@ -264,7 +264,7 @@
       "do_guidance_loss"
     ],
     "plain_language": "An optional training objective that uses an extra prediction without the caption to adjust what the model learns. It adds GPU work; the target controls the strength of that training adjustment.",
-    "good_stuff": "AI Toolkit’s do_guidance_loss computes an unconditional prediction u without gradients and replaces training target t with u + g × (t − u), where g is guidance_loss_target. A two-value target samples g uniformly per example. This is a training objective; the generation guidance_scale setting is independent. The Circlestone training adapter used by ConceptStudio must not be combined with this objective.",
+    "good_stuff": "AI Toolkit’s do_guidance_loss computes an unconditional prediction u without gradients and replaces training target t with u + g × (t − u), where g is guidance_loss_target. A two-value target samples g uniformly per example. This is a training objective; the generation guidance_scale setting is independent. The Circlestone H3 training adapter must not be combined with this objective; the Ostris adapter may be.",
     "related_terms": [
       "loss",
       "training-step"

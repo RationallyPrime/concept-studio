@@ -46,12 +46,7 @@ struct NativeTrainingRecipe {
         }
         var effective = process
         effective["dataset"] = datasets?.first ?? process["dataset"] ?? .object([:])
-        var sourceModel = model
-        // A native AI Toolkit recipe names its adapter by path; without one it trained without an
-        // adapter, and the import keeps that rather than adding Circlestone.
-        sourceModel["use_training_adapter"] = model["use_training_adapter"]
-            ?? .bool(model["assistant_lora_path"]?.stringValue?.isEmpty == false)
-        effective["model"] = .object(sourceModel)
+        effective["model"] = try .object(withNamedAdapter(model))
         let settings = try projectedSettings(effective, model: model)
         let network = process["network"]?.objectValue ?? [:]
         let train = process["train"]?.objectValue ?? [:]
@@ -72,7 +67,9 @@ struct NativeTrainingRecipe {
         let checkpointPrecision = save["dtype"]?.stringValue ?? table.checkpointPrecision(for: row)
         let guidanceLoss = train["do_guidance_loss"]?.boolValue ?? false
         let guidanceTarget = train["guidance_loss_target"] ?? .double(3.5)
-        try hook.validateGuidance(settings: settings, guidanceLoss: guidanceLoss)
+        try hook.validateGuidance(
+            adapter: H3TrainingAdapter(settings: settings), containsVideo: false, guidanceLoss: guidanceLoss
+        )
         guard checkpointEvery > 0, checkpointRetention >= 0,
               ["float16", "float32", "bfloat16", "fp16", "fp32", "bf16"].contains(checkpointPrecision),
               hook.validGuidanceTarget(guidanceTarget) else {
@@ -106,6 +103,24 @@ struct NativeTrainingRecipe {
             guidanceTarget: guidanceTarget,
             resolutions: resolutions
         )
+    }
+
+    /// A native AI Toolkit recipe names its adapter by path; without one it trained without an adapter,
+    /// and the import keeps that rather than adding one.
+    private static func withNamedAdapter(_ model: JSONObject) throws -> JSONObject {
+        var adapter: String?
+        if let path = model["assistant_lora_path"]?.stringValue, !path.isEmpty {
+            guard case let .named(name)? = H3TrainingAdapter.named(file: path) else {
+                throw StudioError.message("model.assistant_lora_path uses an unsupported training adapter. Choose "
+                    + H3TrainingAdapter.policy.files.map(\.file)
+                    .joined(separator: " or ") + ". No replacement was made.")
+            }
+            adapter = name
+        }
+        var result = model
+        result["use_training_adapter"] = model["use_training_adapter"] ?? .bool(adapter != nil)
+        if result["training_adapter"] == nil, let adapter { result["training_adapter"] = .string(adapter) }
+        return result
     }
 
     /// The one training process a native recipe holds: its `config.process` entry, else the document itself.

@@ -169,6 +169,8 @@ def test_full_mixed_approved_inputs_grouped_without_global_trigger(tmp_path, mon
     assert process["train"]["gradient_accumulation"] == 2
     assert "gradient_accumulation_steps" not in process["train"]
     assert process["train"]["audio_loss_multiplier"] == 1.0
+    # Clips train on Ostris's adapter; Circlestone's has already given up video knowledge.
+    assert Path(process["model"]["assistant_lora_path"]).name == recipe.ADAPTERS["ostris"]
     assert [d["num_frames"] for d in process["datasets"]] == [1, 22, 39]
     assert process["datasets"][0]["resolution"] == [768, 1024]
     for row in process["datasets"][1:]:
@@ -320,7 +322,7 @@ def test_h3_pair_binds_actual_trained_network_recipe_and_no_assistant(tmp_path, 
 
     monkeypatch.setattr(generation.runpy, "run_path", offline_rules)
     assert generation.generate(path, "aitoolkit") == 0
-    assert len(calls["models"]) == 1 and calls["download"] == {"training_adapter": False}
+    assert len(calls["models"]) == 1 and calls["download"] == {"training_adapter": None}
     assert "assistant_lora_path" not in vars(calls["models"][0]["model_config"])
     assert "lora_path" not in vars(calls["models"][0]["model_config"])
     binding = calls["networks"][0]
@@ -388,9 +390,18 @@ def test_h3_save_guidance_and_buckets_reach_native_config_and_generation_receipt
     assert receipt["datasets"][0]["resolution"] == [768, 1024]
 
 
-@pytest.mark.parametrize("adapter", [None, True, False])
-def test_effective_guidance_rejects_circlestone_before_model_download(
-    tmp_path, monkeypatch, adapter
+@pytest.mark.parametrize(
+    ("model", "adapter"),
+    [
+        (None, "circlestone"),
+        ({"use_training_adapter": True}, "circlestone"),
+        ({"training_adapter": "circlestone"}, "circlestone"),
+        ({"training_adapter": "ostris"}, "ostris"),
+        ({"use_training_adapter": False, "training_adapter": "ostris"}, None),
+    ],
+)
+def test_guidance_loss_is_refused_only_with_circlestone_before_model_download(
+    tmp_path, monkeypatch, model, adapter
 ):
     monkeypatch.setenv("PODAGENT_WORKSPACE", str(tmp_path))
     root = tmp_path / "datasets/approved"
@@ -400,8 +411,8 @@ def test_effective_guidance_rejects_circlestone_before_model_download(
     run = tmp_path / "runs/new"
     run.mkdir(parents=True)
     extra = {"train": {"do_guidance_loss": True, "guidance_loss_target": 3.5}}
-    if adapter is not None:
-        extra["model"] = {"use_training_adapter": adapter}
+    if model is not None:
+        extra["model"] = model
     cfg = wrapper.validate_run_config(
         {
             "run_id": "new",
@@ -413,13 +424,32 @@ def test_effective_guidance_rejects_circlestone_before_model_download(
         },
         tmp_path,
     )
-    if adapter is False:
-        process = wrapper.build_native_config(cfg, run)["config"]["process"][0]
-        assert "assistant_lora_path" not in process["model"]
-        assert process["train"]["do_guidance_loss"] is True
-    else:
+    if adapter == "circlestone":
         with pytest.raises(ValueError, match="Circlestone"):
             wrapper.build_native_config(cfg, run)
+        return
+    process = wrapper.build_native_config(cfg, run)["config"]["process"][0]
+    assert process["train"]["do_guidance_loss"] is True
+    path = process["model"].get("assistant_lora_path")
+    assert (Path(path).name if path else None) == (adapter and recipe.ADAPTERS[adapter])
+    assert "training_adapter" not in process["model"]
+    receipt = recipe.comparison_recipe(process)["model"]
+    assert receipt["use_training_adapter"] is (adapter is not None)
+    assert receipt.get("training_adapter") == adapter
+    # The exported receipt warm-starts a later run on the same adapter.
+    again = canonical()
+    again["model"] = receipt
+    again["train"]["do_guidance_loss"] = True
+    assert recipe.effective_adapter(recipe.validate_recipe(again)) == adapter
+
+
+def test_unknown_adapter_is_refused():
+    settings = canonical()
+    settings["model"]["training_adapter"] = "someone-else"
+    with pytest.raises(ValueError, match="training_adapter"):
+        recipe.validate_recipe(settings)
+    with pytest.raises(ValueError, match="not a supported"):
+        recipe.adapter_named("/old/other_adapter.safetensors")
 
 
 def test_initializer_rejects_guidance_on_with_circlestone():

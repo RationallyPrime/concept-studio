@@ -459,6 +459,48 @@ struct H3TrainingTests {
             )
         let withAdapter = try NativeTrainingRecipe.load(Data(named.utf8), row: Self.h3Row)
         #expect(withAdapter.settings["model"]?.objectValue?["use_training_adapter"] == .bool(true))
+        #expect(withAdapter.settings["model"]?.objectValue?["training_adapter"] == .string("circlestone"))
         #expect(!withAdapter.guidanceLoss)
+    }
+
+    /// AI Toolkit's own H3 default: Ostris's v3 adapter, here with guidance preservation loss on.
+    @Test func nativeRecipeOnTheOstrisAdapterKeepsItsGuidanceLoss() throws {
+        let text = Self.recipe.replacingOccurrences(
+            of: "use_training_adapter: false",
+            with: "assistant_lora_path: ostris/minimax_h3_training_adapter/minimax_h3_training_adapter_v3.safetensors"
+        )
+        let recipe = try NativeTrainingRecipe.load(Data(text.utf8), row: Self.h3Row)
+        #expect(recipe.settings["model"]?.objectValue?["training_adapter"] == .string("ostris"))
+        #expect(recipe.guidanceLoss)
+        let unknown = text.replacingOccurrences(of: "_v3.safetensors", with: "_v2.safetensors")
+        #expect(throws: StudioError.self) { try NativeTrainingRecipe.load(Data(unknown.utf8), row: Self.h3Row) }
+    }
+
+    @MainActor @Test func runsRecordTheAdapterTheyTrainOnAndRepeatKeepsIt() throws {
+        let workspace = GPUWorkspace(demoMode: true)
+        workspace.chooseTrainingModel(GPUWorkspace.h3BaseModel)
+        func model(video: Bool) -> JSONObject? {
+            workspace.trainingParams(dataset: "concept-new", inputFacts: ("h3-still", "NORA7", video))["extra"]?
+                .objectValue?["model"]?.objectValue
+        }
+        #expect(model(video: false)?["training_adapter"] == .string("circlestone"))
+        #expect(model(video: true)?["training_adapter"] == .string("ostris"))
+        #expect(!workspace.h3GuidanceLossAllowed)
+        workspace.h3TrainingAdapter = .named("ostris")
+        #expect(workspace.h3GuidanceLossAllowed)
+        workspace.guidanceLoss = true
+        let params = workspace.trainingParams(dataset: "concept-new", inputFacts: ("h3-still", "NORA7", false))
+        #expect(params["extra"]?.objectValue?["model"]?.objectValue?["training_adapter"] == .string("ostris"))
+        let run = TrainingRun(
+            runID: "concept-new", trainer: "aitoolkit", datasetRepo: "fixture/data", datasetContainsVideo: false,
+            paramsJSON: JSONValue.object(params).pythonDumpsData(), volumeID: "fixture-storage",
+            startedAt: Date(), updatedAt: Date(), podSpendAtStart: 0
+        )
+        try GPUWorkspace.validateH3Guidance(run)
+        workspace.h3TrainingAdapter = .named("circlestone")
+        workspace.guidanceLoss = false
+        workspace.runHistory = [run]
+        workspace.repeatSettings(from: run)
+        #expect(workspace.h3TrainingAdapter == .named("ostris") && workspace.guidanceLoss)
     }
 }
