@@ -1,6 +1,29 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.6-20261019`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.8-20261021`
+and the trainers' `-captioning` tags, a **clean build from commit `fd40c60`**: H3 trains on a chosen frozen
+adapter (Circlestone's image adapter or Ostris's v3, `model.training_adapter`), stills default to
+Circlestone and runs with clips to Ostris; H3 stills train without gradient checkpointing; `push-lora`
+no longer uploads H3's `h3-inputs/` caches. Built on cx53 with `docker build` from the committed
+Dockerfiles and no overlay, pushed 2026-10-21. Every tag resolves anonymously.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.8-20261021` | `sha256:5019d59053d7845b54f4b9598eae71f6e2f9f083d67004b8e92a3d9700adf8e7` | 3.35 GB |
+| `aitoolkit:v0.3.8-20261021` | `sha256:875a6da7fd5ac7e6bb8c0745fbc59762c86cab9c886b759f74be4b8f03acf2ab` | 7.21 GB |
+| `ltx:v0.3.8-20261021` | `sha256:1966f5064b315d9e64674fb312e5133a1360432965c81b775f6a8460635c1c5c` | 6.96 GB |
+| `musubi:v0.3.8-20261021` | `sha256:7e524339cc3220e6cac92cfae96d67dacd4b6d81875992c81548b9e24b2e42a6` | 6.40 GB |
+| `aitoolkit:v0.3.8-20261021-captioning` | `sha256:adcd03233aa31f5f6241b74b1a848c1cd23749172e4c08a1e3139e9e41c8750b` | 14.15 GB |
+| `ltx:v0.3.8-20261021-captioning` | `sha256:bb0984329be40c095df693e76cdc86fee8c965ccf32fc654ac376094e7c85ef7` | 13.90 GB |
+| `musubi:v0.3.8-20261021-captioning` | `sha256:16f12e84367f3d17c13556decc76af79d885ffef291c82e17ac44873113e3642` | 13.34 GB |
+
+An A/B of the two adapters on one 33-photo still set (same recipe, seed and steps) found likeness level
+(ArcFace about 0.37 for both at step 2100), less bleed into a no-trigger prompt and more photographic
+renders on Circlestone's, and about 20% faster steps on Ostris's; hence the stills default. The
+`v0.3.7-20261021` tags are a test build from `a0e0fa7` that predates the `push-lora` fix; that A/B ran on
+it, and no GPU run has used `v0.3.8` yet.
+
+The previous release, `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.6-20261019`
 and the trainers' `-captioning` tags, a **clean build from commit `2eb68e1`**: vLLM moves out of the
 base into `Dockerfile.captioning`, which adds it on top of each finished trainer image; the musubi
 comparison generator (`generate-musubi`), the 1600-step Krea 2 recipe and the agent's

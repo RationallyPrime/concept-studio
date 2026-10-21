@@ -58,7 +58,7 @@ struct StudioSessionTests {
         let expected = if let saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             saved.replacingOccurrences(of: "{trainer}", with: trainer)
         } else {
-            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.6-20261019"
+            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.8-20261021"
         }
         #expect(await transport.createdImages == [expected])
         await session.gpu.stopEverything()
@@ -79,9 +79,9 @@ struct StudioSessionTests {
         await session.gpu.refreshOffers()
         await session.gpu.rent()
         #expect(await transport.createdImages
-            == ["ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.6-20261019-captioning"])
+            == ["ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.8-20261021-captioning"])
         #expect(!session.gpu.rentsCaptionServer)
-        #expect(session.gpu.podImage == "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.6-20261019")
+        #expect(session.gpu.podImage == "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.8-20261021")
         await session.gpu.stopEverything()
 
         session.gpu.updateCaptionServerState([AgentService(
