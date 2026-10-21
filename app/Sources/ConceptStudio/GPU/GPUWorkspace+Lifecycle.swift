@@ -118,7 +118,7 @@ extension GPUWorkspace {
     }
 
     /// Drops every local trace of `pod`: the record, its agent token and its agent secret.
-    private func forgetPod(_ pod: RentedPod) async {
+    func forgetPod(_ pod: RentedPod) async {
         let agentSecret = saved?.agentSecret ?? ""
         self.pod = nil
         saved = nil

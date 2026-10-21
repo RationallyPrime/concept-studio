@@ -78,21 +78,22 @@ struct GPUJourneyView: View {
 
     private var pods: some View {
         VStack(alignment: .leading, spacing: StudioStyle.contentSpacing) {
-            costFigures
             StudioSection(
-                title: "Choose a training computer",
+                title: "Choose a cloud GPU",
                 subtitle: workspace.computerSubtitle
             ) {
                 Form {
                     trainerPicker
                     Picker("Number of GPUs", selection: $workspace.gpuCount) {
-                        Text("1 · caption, then train").tag(1)
-                        Text("2 · caption and train together").tag(2)
-                        Text("4 · caption and train together").tag(4)
+                        ForEach([1, 2, 4], id: \.self) { Text("\($0)").tag($0) }
                     }
                     .disabled(workspace.hasRunningPod || workspace.isBusy)
                     .onChange(of: workspace.gpuCount) { _, _ in Task { await workspace.refreshOffers() } }
-                    Picker("Computer", selection: $workspace.selectedGPU) {
+                    Text(workspace.gpuCount == 1
+                        ? "Captioning and training share this GPU, one after the other."
+                        : "One GPU captions while the others train.")
+                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                    Picker("Cloud GPU", selection: $workspace.selectedGPU) {
                         ForEach(workspace.availableOffers) { offer in
                             Text(offer.summary).tag(offer.id)
                         }
@@ -105,15 +106,17 @@ struct GPUJourneyView: View {
             Divider()
             StudioSection(
                 title: "Training storage",
-                subtitle: "Choose reusable network storage or a disk that stays with this computer. "
-                    + "Storage is billed separately, including while stopped."
+                subtitle: "Your training files (the base model, your images and the trained result) live on "
+                    + "RunPod while you train. Keep them on the cloud GPU's own disk, or on saved storage you can "
+                    + "reuse with any cloud GPU in the same data centre. RunPod bills storage directly to your "
+                    + "RunPod account, including while the cloud GPU is stopped."
             ) {
                 Form {
-                    Picker("Saved storage", selection: Binding(
+                    Picker("Storage", selection: Binding(
                         get: { workspace.selectedVolume },
                         set: { workspace.chooseStorage($0) }
                     )) {
-                        Text("No saved storage · use this computer’s disk").tag("")
+                        Text("The cloud GPU's own disk · 300 GB").tag("")
                         ForEach(workspace.volumes) { volume in
                             Text("\(volume.name) · \(volume.size) GB · \(volume.dataCenter)").tag(volume.id)
                         }
@@ -122,20 +125,19 @@ struct GPUJourneyView: View {
                     .onChange(of: workspace.selectedVolume) { _, _ in workspace.selectAvailableOffer() }
                 }.formStyle(.columns)
                 if workspace.selectedVolume.isEmpty, !workspace.hasRunningPod {
-                    Text("A 300 GB disk stays with this computer. Stopping keeps your training files; "
-                        + "removing the computer deletes them. The result is pushed "
-                        + "when training finishes if a Hugging Face destination is available, or saved to your Mac. "
-                        + "Temporary system files are cleared when the computer restarts.")
+                    Text("The disk comes with the cloud GPU. Stopping the cloud GPU keeps your files; removing it "
+                        + "deletes them. When training finishes, the trained model is published to your Hugging Face "
+                        + "account if you chose a destination there, or saved to your Mac.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let volume = workspace.volumes.first(where: { $0.id == workspace.selectedVolume }) {
-                    Text("Computer availability is limited to \(volume.dataCenter), where this storage lives.")
+                    Text("Only cloud GPUs in \(volume.dataCenter), where this storage lives, can use it.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 }
                 if workspace.volumes.isEmpty, !workspace.demoMode,
                    let url = URL(string: "https://console.runpod.io/storage") {
-                    Link("Create project storage in RunPod", destination: url)
+                    Link("Create saved storage in RunPod", destination: url)
                 }
                 if workspace.hasRunningPod {
                     if let storage = workspace.storage {
@@ -166,25 +168,26 @@ struct GPUJourneyView: View {
     private var spending: some View {
         StudioSection(
             title: "Control your spending",
-            subtitle: "ConceptStudio keeps your Mac awake and enforces the spending limit and idle stop while a "
-                + "computer runs. Stop also works if the agent fails."
+            subtitle: "All charges are RunPod's, billed to your RunPod account. ConceptStudio doesn't charge you "
+                + "anything. While a cloud GPU runs, ConceptStudio keeps your Mac awake and stops the GPU at your "
+                + "spending limit or when it sits idle."
         ) {
             Form {
                 if workspace.quotedHourlyRate > 0 || workspace.hasRunningPod {
-                    LabeledContent("Computer price") {
+                    LabeledContent("Price") {
                         Text(StudioMoney.perHour(workspace.hasRunningPod
                                 ? workspace.pod?.cost ?? workspace.quotedHourlyRate
-                                : workspace.saved?.hourlyRate ?? workspace.quotedHourlyRate))
+                                : workspace.quotedHourlyRate))
                             .font(.headline).monospacedDigit()
                     }
                 }
                 if workspace.hasRunningPod {
-                    LabeledContent("Whole-computer spending limit") {
+                    LabeledContent("Spending limit") {
                         Text(StudioMoney.format(workspace.activeBudget ?? workspace.budget)).monospacedDigit()
                     }
                     TextField("Raise the limit to (USD)", value: $newBudget, format: .number)
                 } else {
-                    TextField("Whole-computer GPU budget (USD)", value: $workspace.budget, format: .number)
+                    TextField("Spending limit (USD)", value: $workspace.budget, format: .number)
                 }
                 Stepper("Stop after \(workspace.idleMinutes) idle minutes", value: $workspace.idleMinutes, in: 1 ... 60)
             }.formStyle(.columns)

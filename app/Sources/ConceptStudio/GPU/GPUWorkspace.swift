@@ -272,9 +272,13 @@ final class GPUWorkspace {
             }
             self.hasLoadedVolumes = true
             self.selectAvailableOffer()
-            self.message = self.availableOffers.isEmpty
-                ? "No computers are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
-                : "Choose a computer and storage, then check the price before renting."
+            self.message = if self.pod != nil, !self.hasRunningPod {
+                "Your cloud GPU is stopped. Start it to continue, or remove it to rent another."
+            } else if self.availableOffers.isEmpty {
+                "No cloud GPUs are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
+            } else {
+                "Choose a cloud GPU and storage, then check the price before renting."
+            }
         }
     }
 

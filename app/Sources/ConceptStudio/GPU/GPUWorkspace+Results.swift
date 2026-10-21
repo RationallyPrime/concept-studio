@@ -229,6 +229,14 @@ extension GPUWorkspace {
             failure = warning
             return
         }
+        // A saved cloud GPU removed outside the app (RunPod console, another tool) would otherwise sit here as
+        // "stopped", keeping Rent disabled until someone presses Remove for a pod that no longer exists.
+        if !demoMode, let saved = pod, !found.contains(where: { $0.id == saved.id }),
+           await (try? provider.exists(id: saved.id)) == false {
+            await forgetPod(saved)
+            message = "RunPod has no cloud GPU \(saved.id) under the current key, so this app no longer tracks it. "
+                + "If you changed RunPod accounts, it may still exist and bill storage in the other account."
+        }
         let running = found.filter(\.isRunning)
         if pod == nil, let adopted = running.first {
             saved = SavedPod(

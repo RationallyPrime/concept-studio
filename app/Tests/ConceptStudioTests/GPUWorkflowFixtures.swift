@@ -37,6 +37,7 @@ actor UnreachableAgentTransport: HTTPTransport {
     private var runIDs: [String: String] = [:]
     private var servedModel = "Qwen/Qwen3-VL-8B-Instruct"
     private var listedPods: [String] = []
+    private var podRemovedOutside = false
     private var runFiles: [RunFile] = []
     private var filesFail = false
     private var listFails = false
@@ -61,6 +62,11 @@ actor UnreachableAgentTransport: HTTPTransport {
         self.agentAvailable = agentAvailable
         self.inferenceReady = inferenceReady
         self.gpuCount = gpuCount
+    }
+
+    /// RunPod no longer has the pod: someone removed it in the console or with another tool.
+    func removePodOutside() {
+        podRemovedOutside = true
     }
 
     func list(_ pods: [String]) {
@@ -154,6 +160,9 @@ actor UnreachableAgentTransport: HTTPTransport {
                 return HTTPResponse(status: 503)
             }
             if url.deletingLastPathComponent().lastPathComponent == "test" { stopped = true }
+        }
+        if podRemovedOutside, url.path().contains("/v2/pods/"), request.httpMethod == "GET" {
+            return HTTPResponse(status: 404)
         }
         if listFails, url.path().hasSuffix("/v2/pods"), request.httpMethod != "POST" {
             return HTTPResponse(status: 500)

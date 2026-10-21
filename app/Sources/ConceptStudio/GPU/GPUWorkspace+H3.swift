@@ -132,11 +132,10 @@ extension GPUWorkspace {
         effectiveModelRow.gpu.minVRAMGB
     }
 
-    /// The sentence under "Choose a training computer".
+    /// The sentence under "Choose a cloud GPU".
     var computerSubtitle: String {
-        let row = effectiveModelRow
-        return "A GPU is the part that does the training. These have at least "
-            + "\(row.gpu.minVRAMGB) GB of memory per GPU. " + row.gpu.note
+        "Training runs on a cloud GPU you rent by the hour. The list only shows GPUs with enough graphics memory "
+            + "for the model you picked."
     }
 
     /// The Run settings field and the words around it: steps, or epochs for a model that counts those.
