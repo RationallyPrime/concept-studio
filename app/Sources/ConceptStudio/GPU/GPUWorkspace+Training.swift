@@ -69,9 +69,7 @@ extension GPUWorkspace {
             let baseline = self.estimatedPodCost
             let selectedTrainer = self.trainer
             let selectedModel = self.baseModel
-            if let hook = self.nativeRecipeHook {
-                try hook.validateGuidance(settings: self.h3RecipeSettings, guidanceLoss: self.guidanceLoss)
-            }
+            try self.validateNextRunGuidance(containsVideo: self.trainingDatasetContainsVideo)
             if let row = self.exactModelRow, row.gpu.verifyOnPod {
                 let plan = try await agent.plan()
                 try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: row)
@@ -159,9 +157,7 @@ extension GPUWorkspace {
                 "\(row.shortName) image training does not accept video clips. Choose \(capable) training."
             )
         }
-        if let hook = nativeRecipeHook {
-            try hook.validateGuidance(settings: h3RecipeSettings, guidanceLoss: guidanceLoss)
-        }
+        try validateNextRunGuidance(containsVideo: containsVideo)
         guard seed >= 0, learningRate.isFinite, learningRate > 0, learningRate <= 1,
               alpha > 0, batchSize > 0, accumulation > 0 else {
             throw StudioError.message("Choose positive training values and a nonnegative seed.")
@@ -335,6 +331,7 @@ extension GPUWorkspace {
                 train["do_guidance_loss"] = .bool(guidanceLoss)
                 train["guidance_loss_target"] = guidanceTarget
                 extra["train"] = .object(train)
+                h3TrainingAdapter.write(into: &extra, containsVideo: inputFacts.video)
             }
             extra["training_seed"] = .int(seed)
             params["extra"] = .object(extra)

@@ -14,8 +14,14 @@ from typing import Any
 
 MODEL = "Comfy-Org/MiniMax-H3"
 MODEL_REVISION = "e5eb578a89295337b8ff433a035929ce0279e0b6"
-ADAPTER_REPO = "circlestone-labs/MiniMax-H3-Image-Training-Adapter"
-ADAPTER_REVISION = "7c6c04f75ba597232d4ce2bb4a14709948ec723a"
+# The frozen training adapters a recipe can name, pinned; their file names live in the field policy.
+ADAPTER_SOURCES = {
+    "circlestone": (
+        "circlestone-labs/MiniMax-H3-Image-Training-Adapter",
+        "7c6c04f75ba597232d4ce2bb4a14709948ec723a",
+    ),
+    "ostris": ("ostris/minimax_h3_training_adapter", "2d793bfb8f215e68f0e2251623c262c744991e2a"),
+}
 INITIAL_FILES = frozenset({"initial-lora.safetensors", "initial-recipe.json"})
 NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
@@ -36,7 +42,34 @@ ASSETS = {
     for key, value in field_policy().items()
     if key.startswith("asset.")
 }
-ADAPTER_FILE = ASSETS.pop("assistant_lora_path")
+ADAPTERS = {name: field_policy()[f"training_adapter.{name}"][0] for name in ADAPTER_SOURCES}
+
+
+def adapter_default(*, video: bool) -> str:
+    return field_policy()["training_adapter_default." + ("video" if video else "image")][0]
+
+
+def adapter_named(path: str | None) -> str | None:
+    """The pinned adapter a native config's ``assistant_lora_path`` points at, or None."""
+    if not path:
+        return None
+    for name, filename in ADAPTERS.items():
+        if Path(path).name == filename:
+            return name
+    raise ValueError(
+        f"assistant_lora_path {Path(path).name} is not a supported H3 training adapter"
+    )
+
+
+def effective_adapter(settings: dict[str, Any]) -> str | None:
+    """The adapter a merged recipe trains with; recipes from before the choice used Circlestone."""
+    model = settings.get("model", {})
+    if not model.get("use_training_adapter", True):
+        return None
+    name = model.get("training_adapter", "circlestone")
+    if name not in ADAPTERS:
+        raise ValueError(f"training_adapter must be one of {sorted(ADAPTERS)}")
+    return name
 
 
 def comparison_recipe(process: dict[str, Any]) -> dict[str, Any]:
@@ -50,8 +83,14 @@ def comparison_recipe(process: dict[str, Any]) -> dict[str, Any]:
             if key in policy[scope]
         }
 
+    adapter = adapter_named(process["model"].get("assistant_lora_path"))
+    model = {
+        **selected(process["model"], "model"),
+        "use_training_adapter": adapter is not None,
+        **({"training_adapter": adapter} if adapter else {}),
+    }
     return {
-        "model": selected(process["model"], "model"),
+        "model": model,
         "network": selected(process["network"], "network"),
         "train": selected(process["train"], "train"),
         "save": selected(process["save"], "save"),
@@ -96,6 +135,7 @@ def validate_recipe(raw: Any) -> dict[str, Any]:
         raise ValueError("Initial recipe currently supports the fl2va_pruned H3 partition")
     if "use_training_adapter" in model and type(model["use_training_adapter"]) is not bool:
         raise ValueError("use_training_adapter must be a boolean")
+    effective_adapter(raw)
     validate_guidance(raw)
     network = raw["network"]
     if network.get("type", "lora") != "lora":
@@ -112,13 +152,13 @@ def validate_recipe(raw: Any) -> dict[str, Any]:
 
 
 def validate_guidance(settings: dict[str, Any]) -> None:
-    """The pinned Circlestone adapter requires ordinary, non-CFG-augmented training."""
-    if settings.get("model", {}).get("use_training_adapter", True) and settings.get(
-        "train", {}
-    ).get("do_guidance_loss", False):
+    """Circlestone's adapter requires ordinary, non-CFG-augmented training; Ostris's allows it."""
+    adapter = effective_adapter(settings)
+    refused = field_policy()["training_adapter_refuses_guidance_loss"]
+    if adapter in refused and settings.get("train", {}).get("do_guidance_loss", False):
         raise ValueError(
             "Circlestone H3 training adapter requires do_guidance_loss=false; "
-            "use an explicit use_training_adapter=false recipe to train without it"
+            "choose training_adapter=ostris or use_training_adapter=false for guidance loss"
         )
 
 
@@ -224,7 +264,7 @@ def read_initialization(folder: Path, value: dict[str, str], rank: int) -> dict[
     return recipe
 
 
-def model_config(workspace: Path, *, training_adapter: bool = True) -> dict[str, Any]:
+def model_config(workspace: Path, *, training_adapter: str | None = None) -> dict[str, Any]:
     root = workspace / "models/h3-bf16-quality"
     config = {
         "name_or_path": MODEL,
@@ -239,7 +279,7 @@ def model_config(workspace: Path, *, training_adapter: bool = True) -> dict[str,
         },
     }
     if training_adapter:
-        config["assistant_lora_path"] = str(root / ADAPTER_FILE)
+        config["assistant_lora_path"] = str(root / ADAPTERS[training_adapter])
     return config
 
 
@@ -253,6 +293,7 @@ def quality_settings(*, video: bool = False) -> dict[str, Any]:
             "quantize_te": False,
             "low_vram": False,
             "use_training_adapter": True,
+            "training_adapter": adapter_default(video=video),
             "model_kwargs": {"partition": "fl2va_pruned"},
         },
         "network": {
@@ -277,7 +318,9 @@ def quality_settings(*, video: bool = False) -> dict[str, Any]:
             "optimizer_params": {"weight_decay": 0.01},
             "lr_scheduler": "constant_with_warmup",
             "lr_scheduler_params": {"num_warmup_steps": 35},
-            "gradient_checkpointing": True,
+            # Stills measured 55 GB peak in training without it (43 GB with it) of the 96 GB the row
+            # requires; clips hold far more tokens per step and keep it on until measured.
+            "gradient_checkpointing": video,
             "train_unet": True,
             "train_text_encoder": False,
             "cache_text_embeddings": True,
@@ -298,7 +341,7 @@ def quality_settings(*, video: bool = False) -> dict[str, Any]:
     }
 
 
-def download_assets(workspace: Path, *, training_adapter: bool = True) -> None:
+def download_assets(workspace: Path, *, training_adapter: str | None = None) -> None:
     # Pinned controlled destinations. No old pod path or client-supplied download location.
     from huggingface_hub import hf_hub_download
 
@@ -312,10 +355,11 @@ def download_assets(workspace: Path, *, training_adapter: bool = True) -> None:
             token=os.environ.get("HF_TOKEN") or None,
         )
     if training_adapter:
+        repo_id, revision = ADAPTER_SOURCES[training_adapter]
         hf_hub_download(
-            repo_id=ADAPTER_REPO,
-            filename=ADAPTER_FILE,
-            revision=ADAPTER_REVISION,
+            repo_id=repo_id,
+            filename=ADAPTERS[training_adapter],
+            revision=revision,
             local_dir=str(root),
             token=os.environ.get("HF_TOKEN") or None,
         )

@@ -36,8 +36,8 @@ related-term navigation and the complete original introduction.
 GPU offers respect network-volume location; optional persistent pod disks survive Stop but not
 Remove. Unsettled results prevent removal, including lost start acknowledgements. A stale refresh
 cannot declare a newly started training/generation action failed. H3 exposes checkpoint cadence,
-retention, saved precision and multiple buckets; Circlestone guidance loss stays off and invalid
-imports/runs are refused. New valid requests use the published image’s existing parameter contract.
+retention, saved precision, multiple buckets and the training adapter; Circlestone guidance loss
+stays off and invalid imports/runs are refused. New valid requests use the published image’s existing parameter contract.
 
 Current offline gates: **550 Swift tests** (289 app and 261 Core), **118 Python reference tests**
 and **315 pod-script tests** passed. Strict SwiftLint reports zero violations; SwiftFormat and

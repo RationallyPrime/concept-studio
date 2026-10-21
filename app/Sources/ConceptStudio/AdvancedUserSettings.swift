@@ -84,6 +84,11 @@ extension GPUWorkspace {
         var values: [String] = []
         if seed != Self.defaultSeed { values.append("Training seed: \(seed)") }
         if nativeRecipeHook != nil {
+            switch trainingAdapterChoice {
+            case let .named(name)?: values.append("Training adapter: \(H3TrainingAdapter.label(name))")
+            case .off?: values.append("No training adapter")
+            case .automatic?, nil: break
+            }
             if guidanceLoss { values.append("Guidance preservation loss on") }
             if guidanceTargetText != nativeRecipeHook?.defaultGuidanceTarget {
                 values.append("Guidance target: \(guidanceTargetText)")

@@ -65,10 +65,9 @@ final class GPUWorkspace {
     /// Advanced's trainer settings, defaulting to the selected row's values.
     var trainerSettings: TrainerSettings
     var guidanceLoss = false
+    /// Advanced's H3 training adapter; nil follows the imported recipe, the repeated run or automatic.
+    var trainingAdapterChoice: H3TrainingAdapter?
     var guidanceTargetText = GPUWorkspace.defaultGuidanceTarget
-    var guidanceTarget: JSONValue {
-        (try? JSONValue(parsing: Data(guidanceTargetText.utf8))) ?? .null
-    }
 
     /// Training resolution in pixels; one of `resolutionChoices`. Shown under Advanced.
     var trainingResolutions: [Int]
@@ -334,15 +333,7 @@ final class GPUWorkspace {
         }
     }
 
-    func refresh() async {
-        if let refreshTask { await refreshTask.value; return }
-        let work = Task { await self.refreshState() }
-        refreshTask = work
-        await work.value
-        refreshTask = nil
-    }
-
-    private func refreshState() async {
+    func refreshState() async {
         guard let provider, let current = pod, hasRunningPod else { return }
         let resultBefore = result
         let settlementRevision = isBusy ? nil : operationRevision

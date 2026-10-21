@@ -80,6 +80,8 @@ def make_run(tmp_path: Path, *, run: dict | None = RUN, samples: bool = True) ->
     _touch(output / "nora7-h3-001.safetensors", 3_000)
     _touch(output / "optimizer.pt", 3_000)
     _touch(run_dir / "preprocessed" / "latents.safetensors", 9_000)  # LTX cache: never a weight
+    # H3's input group caches: latents of the training photos, never a weight
+    _touch(run_dir / "h3-inputs" / "frames-1" / "_latent_cache" / "a.safetensors", 9_000)
     _touch(run_dir / ".cache" / "x.safetensors", 9_000)
     if samples:
         _touch(run_dir / "samples" / "nora7-h3-001_000000250_0.jpg", 1_000)
@@ -315,7 +317,7 @@ def test_main_flags_no_samples_all_checkpoints_commit_message(tmp_path: Path):
 def test_main_exits_1_without_weights_and_touches_nothing(tmp_path: Path, capsys):
     run_dir = make_run(tmp_path)
     for path in run_dir.rglob("*.safetensors"):
-        if "preprocessed" not in path.parts and ".cache" not in path.parts:
+        if not {"preprocessed", "h3-inputs", ".cache"} & set(path.parts):
             path.unlink()
     hub = FakeHub()
     assert push.main(["--run-dir", str(run_dir), "--repo", "someone/x"], hub=hub) == 1

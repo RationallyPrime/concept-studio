@@ -349,7 +349,7 @@ def h3_generate(
         model_values.pop(key, None)
     rules = runpy.run_path(str(Path(__file__).with_name("h3_recipe.py")))
     rules["download_assets"](
-        Path(os.environ.get("PODAGENT_WORKSPACE", "/workspace")), training_adapter=False
+        Path(os.environ.get("PODAGENT_WORKSPACE", "/workspace")), training_adapter=None
     )
     model = ModelConfig(**model_values)
     cls = get_model_class(model)

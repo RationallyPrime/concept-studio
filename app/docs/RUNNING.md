@@ -198,9 +198,10 @@ and the result of an upstream issue check, and no GPU-measured recipe behind the
 pod image built from a table that includes them.
 
 Training steps have a number field. For H3, Advanced exposes checkpoint cadence and retention,
-saved precision and image resolution buckets. The current Circlestone adapter requires
-guidance preservation loss to remain off; the app explains that constraint and rejects
-incompatible imports. Guidance controls apply only to an explicit recipe without that adapter. A new H3
+saved precision, image resolution buckets and the training adapter: automatic (Circlestone's for
+stills, Ostris's v3 once clips are among the inputs), either one, or none from an imported recipe.
+Circlestone's adapter requires guidance preservation loss to remain off; the app explains that
+constraint and rejects incompatible imports. Guidance controls apply on Ostris's adapter or without one. A new H3
 selection starts with 300-step checkpoints, 40 retained, float32 saves, 768/1024 buckets and
 guidance loss off (target 3.5). Imported recipes and saved-run repeats retain their actual
 settings. The earlier v1 recipe enabled guidance loss; v2 and the successful v3 run disabled

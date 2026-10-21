@@ -4,6 +4,18 @@ import Foundation
 // MARK: - Cost guards and stopping
 
 extension GPUWorkspace {
+    func refresh() async {
+        if let refreshTask { await refreshTask.value; return }
+        // The task clears itself as it finishes: a caller that joined it and resumes first must not find
+        // the finished task still recorded, or its next refresh returns without refreshing anything.
+        let work = Task {
+            await self.refreshState()
+            self.refreshTask = nil
+        }
+        refreshTask = work
+        await work.value
+    }
+
     func enforceLimits(now: Date = Date()) async throws {
         guard let saved, hasRunningPod else { return }
         elapsedCost = saved.accruedGPUCostUSD + max(0, now.timeIntervalSince(saved.started)) / 3600 * saved.hourlyRate
