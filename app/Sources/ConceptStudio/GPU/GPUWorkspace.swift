@@ -333,15 +333,7 @@ final class GPUWorkspace {
         }
     }
 
-    func refresh() async {
-        if let refreshTask { await refreshTask.value; return }
-        let work = Task { await self.refreshState() }
-        refreshTask = work
-        await work.value
-        refreshTask = nil
-    }
-
-    private func refreshState() async {
+    func refreshState() async {
         guard let provider, let current = pod, hasRunningPod else { return }
         let resultBefore = result
         let settlementRevision = isBusy ? nil : operationRevision
