@@ -45,7 +45,9 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-SKIPPED_DIRS = frozenset({"preprocessed", "regularization"})
+# Training inputs and their caches, never weights: LTX's preprocessed latents, the regularisation
+# set, and H3's per-run input groups, whose latent and text caches decode back to the photos.
+SKIPPED_DIRS = frozenset({"preprocessed", "regularization", "h3-inputs"})
 SIDE_FILES = ("run.json", "config.yaml")
 LOG_FILE = "trainer.log"
 EVENTS_DIR = "tensorboard"
