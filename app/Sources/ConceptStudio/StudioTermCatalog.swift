@@ -104,7 +104,7 @@ struct StudioTerm: RawRepresentable, Hashable, Identifiable, CaseIterable, Senda
     static let datasetRevision = Self("dataset-revision")
     static let gpu = Self("gpu")
     static let vram = Self("gpu-memory")
-    static let pod = Self("pod")
+    static let cloudGPU = Self("cloud-gpu")
     static let networkStorage = Self("network-storage")
     static let containerImage = Self("container-image")
     static let budget = Self("budget")

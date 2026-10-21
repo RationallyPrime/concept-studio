@@ -3247,7 +3247,8 @@
       "aliases": [
         "VRAM",
         "video RAM",
-        "GPU memory"
+        "GPU memory",
+        "Graphics memory"
       ],
       "plain_language": "The working memory used by the graphics processor while running a model. Model files are not the only things that need space there.",
       "good_stuff": "Device-accessible memory occupied by weights, activations, intermediate buffers, and—during training—gradients and optimizer state. On a discrete GPU this is typically dedicated VRAM. Peak requirements depend on execution and tensor shapes, so a model’s file size does not directly equal its training memory requirement.",

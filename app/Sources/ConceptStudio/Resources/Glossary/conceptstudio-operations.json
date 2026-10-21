@@ -151,9 +151,10 @@
     "term": "GPU",
     "section_id": "using-conceptstudio",
     "aliases": [],
-    "plain_language": "The processor in the rented computer that runs your training model.",
-    "good_stuff": "A graphics processing unit: the processor that runs the large caption and training models. ConceptStudio rents it in a remote computer. One GPU captions then trains; with several, GPU 0 can caption while the remaining GPUs train.",
+    "plain_language": "The processor that does the training. In ConceptStudio it is always a cloud GPU, never the one in your Mac.",
+    "good_stuff": "A graphics processing unit: the processor that runs the large caption and training models. ConceptStudio rents one or more as a cloud GPU. With one GPU, captioning and training take turns on it; with several, GPU 0 can caption while the others train.",
     "related_terms": [
+      "cloud-gpu",
       "gpu-memory",
       "out-of-memory"
     ],
@@ -162,14 +163,19 @@
     "display_order": 188
   },
   {
-    "id": "pod",
-    "term": "Pod",
+    "id": "cloud-gpu",
+    "term": "Cloud GPU",
     "section_id": "using-conceptstudio",
-    "aliases": [],
-    "plain_language": "A rented RunPod computer. It costs money while it is running.",
-    "good_stuff": "A rented RunPod computer running the selected container image. GPU charges continue while it runs. Stopping preserves network storage and persistent pod disk; removing the computer deletes its pod disk. Network storage remains separately billed after removal.",
+    "aliases": [
+      "Pod",
+      "Rented GPU",
+      "Cloud GPUs"
+    ],
+    "plain_language": "A graphics processor in a data centre that you rent by the hour to train your model. ConceptStudio rents it from RunPod, starts it for you, and stops it when it sits idle or reaches your spending limit. RunPod calls it a pod.",
+    "good_stuff": "A RunPod pod running ConceptStudio's container image on one or more GPUs. RunPod bills it to your RunPod account while it runs. Its graphics memory, separate from your Mac's RAM, decides which models it can train. Stopping keeps its disk and any saved storage; removing it deletes its own disk. Saved storage stays, and is billed, until you delete it in RunPod.",
     "related_terms": [
       "gpu",
+      "gpu-memory",
       "network-storage",
       "budget"
     ],
@@ -179,11 +185,14 @@
   },
   {
     "id": "network-storage",
-    "term": "Network storage",
+    "term": "Saved storage",
     "section_id": "using-conceptstudio",
-    "aliases": [],
-    "plain_language": "Saved storage you can attach to compatible rented computers in the same data center.",
-    "good_stuff": "A separately billed drive attached to a rented computer in the same data center. It preserves datasets, checkpoints and results across stops and replacement computers. Without a network volume, ConceptStudio uses a persistent pod disk that survives stopping but is deleted when that computer is removed.",
+    "aliases": [
+      "Network storage",
+      "Network volume"
+    ],
+    "plain_language": "Storage on RunPod that you can reuse with any cloud GPU in the same data centre.",
+    "good_stuff": "A RunPod network volume, billed separately to your RunPod account. It keeps datasets, checkpoints and results across stops and replacement cloud GPUs, and only cloud GPUs in its data centre can use it. Without it, ConceptStudio uses the cloud GPU's own disk, which survives stopping but is deleted when that cloud GPU is removed.",
     "related_terms": [
       "checkpoint",
       "resume-training"
@@ -212,10 +221,10 @@
     "term": "Budget",
     "section_id": "using-conceptstudio",
     "aliases": [],
-    "plain_language": "The spending limit you set for a rented computer or an individual training run.",
-    "good_stuff": "A GPU spending cap. The whole-computer cap covers the rental; the training-run cap covers preparation, transfer and that run's continuations. Reaching either stops the computer. Estimates exclude separately billed storage, and checks require this Mac awake with the app open.",
+    "plain_language": "The spending limit you set for a cloud GPU or an individual training run.",
+    "good_stuff": "A GPU spending cap. The cloud GPU's limit covers the whole rental; a training run's limit covers preparation, transfer and that run's continuations. Reaching either stops the cloud GPU. Estimates exclude separately billed storage, and checks require this Mac awake with the app open.",
     "related_terms": [
-      "pod",
+      "cloud-gpu",
       "training-run"
     ],
     "source_ids": [],
