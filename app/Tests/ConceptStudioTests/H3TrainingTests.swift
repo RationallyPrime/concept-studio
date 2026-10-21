@@ -474,6 +474,10 @@ struct H3TrainingTests {
         #expect(recipe.guidanceLoss)
         let unknown = text.replacingOccurrences(of: "_v3.safetensors", with: "_v2.safetensors")
         #expect(throws: StudioError.self) { try NativeTrainingRecipe.load(Data(unknown.utf8), row: Self.h3Row) }
+        let unknownName = Self.recipe.replacingOccurrences(
+            of: "use_training_adapter: false", with: "use_training_adapter: true\n        training_adapter: other"
+        )
+        #expect(throws: StudioError.self) { try NativeTrainingRecipe.load(Data(unknownName.utf8), row: Self.h3Row) }
     }
 
     @MainActor @Test func runsRecordTheAdapterTheyTrainOnAndRepeatKeepsIt() throws {
@@ -498,7 +502,7 @@ struct H3TrainingTests {
         )
         try GPUWorkspace.validateH3Guidance(run)
         workspace.h3TrainingAdapter = .named("circlestone")
-        workspace.guidanceLoss = false
+        #expect(!workspace.guidanceLoss)
         workspace.runHistory = [run]
         workspace.repeatSettings(from: run)
         #expect(workspace.h3TrainingAdapter == .named("ostris") && workspace.guidanceLoss)

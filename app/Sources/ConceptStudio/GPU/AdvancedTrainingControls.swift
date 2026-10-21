@@ -132,7 +132,9 @@ struct AdvancedTrainingControls: View {
             ForEach(H3TrainingAdapter.policy.files.map(\.name), id: \.self) { name in
                 Text(H3TrainingAdapter.label(name)).tag(H3TrainingAdapter.named(name))
             }
-            if workspace.h3TrainingAdapter == .off { Text("None · imported recipe").tag(H3TrainingAdapter.off) }
+            if workspace.h3SavedRecipeHasNoAdapter || workspace.h3TrainingAdapter == .off {
+                Text("None · imported recipe").tag(H3TrainingAdapter.off)
+            }
         }
         .help("A frozen add-on that absorbs the model's undistillation while your LoRA trains, and is left out "
             + "when you generate. Circlestone's suits photographs; Ostris's keeps the model's video knowledge.")

@@ -117,6 +117,12 @@ struct NativeTrainingRecipe {
             }
             adapter = name
         }
+        if let named = model["training_adapter"], !H3TrainingAdapter.policy.files.contains(where: {
+            .string($0.name) == named
+        }) {
+            throw StudioError.message("model.training_adapter must be one of "
+                + H3TrainingAdapter.policy.files.map(\.name).joined(separator: " or ") + ". No replacement was made.")
+        }
         var result = model
         result["use_training_adapter"] = model["use_training_adapter"] ?? .bool(adapter != nil)
         if result["training_adapter"] == nil, let adapter { result["training_adapter"] = .string(adapter) }

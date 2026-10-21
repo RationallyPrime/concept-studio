@@ -80,7 +80,16 @@ extension GPUWorkspace {
             let saved = h3RecipeSettings
             return trainingAdapterChoice ?? (saved.isEmpty ? .automatic : H3TrainingAdapter(settings: saved))
         }
-        set { trainingAdapterChoice = newValue }
+        set {
+            trainingAdapterChoice = newValue
+            if newValue.refusesGuidanceLoss(containsVideo: trainingDatasetContainsVideo) { guidanceLoss = false }
+        }
+    }
+
+    /// Whether the imported recipe or repeated run trained without an adapter, so Advanced can offer that again.
+    var h3SavedRecipeHasNoAdapter: Bool {
+        let saved = h3RecipeSettings
+        return !saved.isEmpty && H3TrainingAdapter(settings: saved) == .off
     }
 
     var guidanceTarget: JSONValue {
