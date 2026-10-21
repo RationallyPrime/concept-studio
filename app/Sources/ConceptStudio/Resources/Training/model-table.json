@@ -481,6 +481,10 @@
       "preview": {
         "training_samples": true,
         "still": true,
+        "generation": {
+          "steps": 28,
+          "guidance_scale": 1.0
+        },
         "video": {
           "min_frames": 5,
           "max_frames": 257,
