@@ -633,6 +633,18 @@ def generate(config_path: Path, trainer: str) -> int:
             raise ValueError(
                 "Inference ended without the expected output files: " + ", ".join(missing)
             )
+        if request.get("style_references"):
+            try:
+                scorer = runpy.run_path(str(Path(__file__).with_name("style_embedding.py")))
+                manifest["style"] = scorer["score_outputs"](
+                    request["style_references"]["groups"],
+                    config_path.parent / "style-references",
+                    [out / row[key] for row in rows for key in ("base_path", "lora_path")],
+                    workspace,
+                )
+            except Exception as error:
+                # Keep completed renders; the report displays missing style scores with this reason.
+                manifest["style_error"] = f"Style scoring did not complete: {error}"
         manifest["state"] = "complete"
         return 0
     except BaseException:

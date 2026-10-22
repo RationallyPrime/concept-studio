@@ -83,6 +83,7 @@ class Entry:
     data: bytes | None = None  # ... or write these bytes (datasets)
     caption: str | None = None
     record: str | None = None  # JSON text of the response record -> <stem>.json
+    training_mask: Path | None = None
 
     @property
     def stem(self) -> str:
@@ -294,11 +295,24 @@ def collect_imagefolder(
                     f"{meta}: {raw!r} is not an image ({' '.join(sorted(IMAGE_SUFFIXES))})"
                 )
             caption = caption_of(row, caption_keys) or sidecar_caption(source)
+            mask = None
+            if raw_mask := row.get("training_mask"):
+                if not isinstance(raw_mask, str) or PurePosixPath(raw_mask).is_absolute():
+                    raise PullError(f"{meta}: training_mask must be a relative PNG path")
+                mask = Path(os.path.normpath(meta.parent / raw_mask))
+                if (
+                    not mask.is_relative_to(snapshot)
+                    or mask.suffix.lower() != ".png"
+                    or not mask.is_file()
+                ):
+                    raise PullError(f"{meta}: training_mask must name a PNG inside this dataset")
+                seen.add(mask)
             entries.append(
                 Entry(
                     file_name=flatten(raw),
                     source=source,
                     caption=caption,
+                    training_mask=mask,
                     record=source.with_suffix(".json").read_text(encoding="utf-8")
                     if source.with_suffix(".json").is_file()
                     else None,
@@ -312,6 +326,7 @@ def collect_imagefolder(
                 or not path.is_file()
                 or _hidden(path, snapshot)
                 or path in seen
+                or "training_masks" in path.relative_to(snapshot).parts
             ):
                 continue
             seen.add(path)
@@ -390,12 +405,28 @@ def write_entries(entries: Iterable[Entry], out: Path) -> list[Entry]:
             (out / f"{entry.stem}.txt").write_text(entry.caption, encoding="utf-8")
         if entry.record is not None:
             (out / f"{entry.stem}.json").write_text(entry.record, encoding="utf-8")
-        written.append(Entry(file_name=entry.file_name, caption=entry.caption))
+        mask_path = None
+        if entry.training_mask is not None:
+            mask_path = Path("training_masks") / f"{entry.stem}.png"
+            (out / mask_path.parent).mkdir(exist_ok=True)
+            shutil.copyfile(entry.training_mask, out / mask_path)
+        written.append(
+            Entry(file_name=entry.file_name, caption=entry.caption, training_mask=mask_path)
+        )
     with (out / "metadata.jsonl").open("w", encoding="utf-8") as handle:
         for entry in written:
             handle.write(
                 json.dumps(
-                    {"file_name": entry.file_name, "caption": entry.caption}, ensure_ascii=False
+                    {
+                        "file_name": entry.file_name,
+                        "caption": entry.caption,
+                        **(
+                            {"training_mask": entry.training_mask.as_posix()}
+                            if entry.training_mask
+                            else {}
+                        ),
+                    },
+                    ensure_ascii=False,
                 )
             )
             handle.write("\n")

@@ -126,6 +126,12 @@
           "seconds_per_image": 20
         },
         "note": "Draw 40 class images with the base FLUX model. Reuse the cached images on this storage."
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -275,6 +281,12 @@
         "weight": 1.0,
         "note": "The pinned LTX trainer has no separate class/prior-preservation loss or class-loss weight. Mixing ordinary examples is not this training mode.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": false,
+        "square_symmetry": false,
+        "loss_mask": false,
+        "note": "This trainer caches fixed inputs and exposes no supported per-sample flips or spatial loss masks. Exclude unwanted people instead."
       }
     },
     {
@@ -422,6 +434,12 @@
         "weight": 1.0,
         "note": "The pinned LTX trainer has no separate class/prior-preservation loss or class-loss weight. Mixing ordinary examples is not this training mode.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": false,
+        "square_symmetry": false,
+        "loss_mask": false,
+        "note": "This trainer caches fixed inputs and exposes no supported per-sample flips or spatial loss masks. Exclude unwanted people instead."
       }
     },
     {
@@ -563,6 +581,12 @@
           "seconds_per_image": 50
         },
         "note": "Draw 16 still class images, including for video training. Stills keep preparation practical; cached images are reused on this storage."
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -665,6 +689,12 @@
           "seconds_per_image": 15
         },
         "note": "Draw 40 class images with the base Z-Image model. Reuse the cached images on this storage."
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -788,7 +818,13 @@
         "encoder_resolution": 518,
         "note": "SimpleTuner's Qwen-Image-2.1 preset (ViT-g/14, block 8, lambda 0.5) with the paper's MLP projector."
       },
-      "recipe_status": "verified"
+      "recipe_status": "verified",
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
+      }
     },
     {
       "id": "anima",
@@ -918,6 +954,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1047,6 +1089,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1176,6 +1224,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1308,6 +1362,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1437,6 +1497,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1566,6 +1632,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1698,6 +1770,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1829,6 +1907,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -1960,6 +2044,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2092,6 +2182,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2222,6 +2318,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2354,6 +2456,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2486,6 +2594,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2623,6 +2737,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2751,6 +2871,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -2879,6 +3005,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -3027,6 +3159,12 @@
         "weight": 1.0,
         "note": "The pinned musubi-tuner has no separate class/prior-preservation loss or class-loss weight. Mixing ordinary examples is not this training mode.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": false,
+        "square_symmetry": false,
+        "loss_mask": false,
+        "note": "This trainer caches fixed inputs and exposes no supported per-sample flips or spatial loss masks. Exclude unwanted people instead."
       }
     },
     {
@@ -3155,6 +3293,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     },
     {
@@ -3293,6 +3437,12 @@
         "weight": 1.0,
         "note": "Use your own class images. AI Toolkit supports weighted prior-preservation training for this model; automatic class-image generation is not connected for this row.",
         "images": null
+      },
+      "training_transforms": {
+        "horizontal_flip": true,
+        "square_symmetry": true,
+        "loss_mask": true,
+        "note": "Horizontal flips preserve loss-mask alignment. Square, unmasked style images can use all eight symmetries. Other samples use horizontal flips only."
       }
     }
   ]

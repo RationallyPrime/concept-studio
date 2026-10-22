@@ -336,3 +336,27 @@ or publish images and does not run rented-GPU smoke tests.
 Models a strictly better successor has replaced get no row (owner decision, 2026-10-14):
 Qwen-Image and Qwen-Image-2512 (Qwen-Image-2.1), Qwen-Image-Edit, -2509 and -2511, Wan 2.1,
 HiDream-I1 (HiDream-O1) and Flex.1 (Flex.2).
+
+## Training-time transforms and loss masks
+
+Every row declares `training_transforms` with `horizontal_flip`, `square_symmetry`, `loss_mask`
+and a user-visible `note`. AI Toolkit rows support these native loader features. The pinned
+musubi and LTX trainers do not expose per-sample training flips or spatial loss masks; their
+Advanced controls explain that limit, and their launchers refuse datasets containing masks.
+
+Augmentation starts **off**. Person concepts offer horizontal flips only. Style concepts also
+offer all eight square symmetries: `RandomRotate90` plus `HorizontalFlip` on square, unmasked
+stills. Rectangular images and masked samples use horizontal flips; clips do not rotate.
+Captions containing the standalone word `left` or `right`, in any case, always remain unflipped.
+The launcher creates native JSON file lists pointing at the original media, splitting those
+caption-sensitive samples from augmented inputs. It creates no transformed media copies.
+Eight-way augmentation disables latent caching for that group, as required by the native loader.
+
+Spatial masks are grayscale PNGs: white trains, black ignores. The app keeps them at
+`.conceptstudio/training-masks/<stem>.png`; their embedded source digest prevents an old mask
+from following edited pixels, while Undo can restore the exact original and its valid mask.
+Published metadata carries a `training_mask` path under `training_masks/`. Direct upload uses
+flat mask filenames and the same metadata field; the installer restores
+`training_masks/<stem>.png`. Masks are never metadata-listed training samples.
+AI Toolkit receives `mask_path`, `mask_min_value: 0` and `inverted_mask_prior: false`.
+Regularisation datasets clear subject masks and augmentation settings.

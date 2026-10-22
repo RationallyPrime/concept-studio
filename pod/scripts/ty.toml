@@ -9,4 +9,4 @@ python = "../agent/.venv"
 exclude = ["tests"]
 
 [analysis]
-allowed-unresolved-imports = ["torch.**", "toolkit.**", "musubi_tuner.**"]
+allowed-unresolved-imports = ["torch.**", "torchvision.**", "toolkit.**", "musubi_tuner.**"]

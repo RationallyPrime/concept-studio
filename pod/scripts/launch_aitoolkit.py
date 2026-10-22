@@ -124,6 +124,7 @@ _TOP_KEYS = frozenset(
         "initialization",
         "regularization",
         "repa",
+        "augmentation",
     }
 )
 _REQUIRED_KEYS = ("run_id", "dataset", "triggers", "base_model")
@@ -285,6 +286,12 @@ def validate_run_config(
     if profile is not None and not isinstance(profile, str):
         errors.append("profile: must be a string or null")
     cfg["profile"] = profile
+    augmentation = raw.get("augmentation", "none")
+    if augmentation not in ("none", "horizontal", "square"):
+        errors.append("augmentation: must be none, horizontal or square")
+    if augmentation != "none" and SCRIPT_NAME != "launch_aitoolkit":
+        errors.append("augmentation: this trainer does not support training-time transforms")
+    cfg["augmentation"] = augmentation
     base_model = raw.get("base_model")
     if not isinstance(base_model, str) or not base_model.strip():
         errors.append("base_model: must be a non-empty string")
@@ -1036,6 +1043,12 @@ def build_native_config(cfg: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     document = deep_merge(document, {k: v for k, v in extra.items() if k in ROOT_KEYS})
     if hook is not None:
         TRAINER_CONFIG_HOOKS[hook].build(cfg, run_dir, document, extra)
+    check_native_paths(document, run_dir)
+    transforms = runpy.run_path(str(Path(__file__).with_name("training_transforms.py")))
+    try:
+        transforms["native_transforms"](cfg, run_dir, document["config"]["process"][0])
+    except ValueError as error:
+        raise ConfigError(str(error)) from error
     if regularization is not None:
         add_regularization_dataset(document["config"]["process"][0], run_dir)
     check_native_paths(document, run_dir)
@@ -1067,6 +1080,10 @@ def add_regularization_dataset(process: dict[str, Any], run_dir: Path) -> None:
             "mask_path": None,
             "alpha_mask": False,
             "invert_mask": False,
+            "flip_x": False,
+            "flip_y": False,
+            "augments": [],
+            "augmentations": [],
         },
     ]
 

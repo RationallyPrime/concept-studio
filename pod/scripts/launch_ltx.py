@@ -155,6 +155,7 @@ _TOP_KEYS = frozenset(
         "initialization",
         "regularization",
         "repa",
+        "augmentation",
     }
 )
 _REQUIRED_KEYS = ("run_id", "dataset", "triggers", "base_model")
@@ -316,6 +317,12 @@ def validate_run_config(
     if profile is not None and not isinstance(profile, str):
         errors.append("profile: must be a string or null")
     cfg["profile"] = profile
+    augmentation = raw.get("augmentation", "none")
+    if augmentation not in ("none", "horizontal", "square"):
+        errors.append("augmentation: must be none, horizontal or square")
+    if augmentation != "none" and SCRIPT_NAME != "launch_aitoolkit":
+        errors.append("augmentation: this trainer does not support training-time transforms")
+    cfg["augmentation"] = augmentation
     base_model = raw.get("base_model")
     if not isinstance(base_model, str) or not base_model.strip():
         errors.append("base_model: must be a non-empty string")
@@ -911,6 +918,11 @@ def train_script() -> Path:
 
 def build_dataset_entries(dataset_dir: Path, caption_ext: str) -> tuple[list[dict[str, str]], int]:
     """``(entries, skipped)``: one entry per media file with a non-empty caption sidecar."""
+    rules = runpy.run_path(str(Path(__file__).with_name("training_transforms.py")))
+    try:
+        rules["reject_unsupported_masks"](dataset_dir, "LTX")
+    except ValueError as error:
+        raise ConfigError(str(error)) from error
     entries: list[dict[str, str]] = []
     skipped = 0
     for media in sorted(p for p in dataset_dir.rglob("*") if p.is_file()):
