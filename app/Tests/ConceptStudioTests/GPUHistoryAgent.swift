@@ -36,6 +36,10 @@ actor HistoryAgent: PodAgent {
         loseStartReply = true
     }
 
+    func gpus() -> [AgentGPU] {
+        (0 ... 1).map { .init(index: $0, name: "Synthetic 80 GB GPU", memoryTotalMiB: 81920) }
+    }
+
     func plan() -> TrainingPlan {
         TrainingPlan(mode: "concurrent", caption: .init(gpus: [0]), train: .init(gpus: [1]))
     }

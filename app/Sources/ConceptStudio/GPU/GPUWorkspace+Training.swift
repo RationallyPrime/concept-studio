@@ -83,10 +83,8 @@ extension GPUWorkspace {
             let selectedTrainer = self.trainer
             let selectedModel = self.baseModel
             try self.validateNextRunGuidance(containsVideo: self.trainingDatasetContainsVideo)
-            if let row = self.exactModelRow, row.gpu.verifyOnPod {
-                let plan = try await agent.plan()
-                try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: row)
-            }
+            let plan = try await agent.plan()
+            try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: self.effectiveModelRow)
             let local = try await self.currentLocalDataset(capture: captureLocal)
             defer { local?.remove() }
             guard self.trainer == selectedTrainer, self.baseModel == selectedModel else {
@@ -114,7 +112,6 @@ extension GPUWorkspace {
                     || $0.name.hasPrefix("generate-")) }) else {
                 throw StudioError.message("A training run is active. Stop it before starting another.")
             }
-            let plan = try await agent.plan()
             self.plan = plan
             params = self.admitNewRun(
                 dataset, params: params, repo: repo, local: local, revision: revision,
