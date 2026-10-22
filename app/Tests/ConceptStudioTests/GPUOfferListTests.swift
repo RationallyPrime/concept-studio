@@ -100,6 +100,21 @@ struct GPUOfferListTests {
         #expect(workspace.selectedGPU == "SECURE/beside")
     }
 
+    @MainActor @Test func aGatedModelGreysOutCommunityCloudUnlessTheRentalIsForCaptioning() throws {
+        let workspace = GPUWorkspace(demoMode: true)
+        workspace.hubToken = "hf_test"
+        workspace.includeCommunityCloud = true
+        workspace.chooseTrainingModel("black-forest-labs/FLUX.1-dev")
+        let needed = workspace.requiredGPUMemoryGB
+        workspace.offers = [offer("gpu", memory: needed), offer("gpu", memory: needed, cloud: .community)]
+        #expect(workspace.availableOffers.map(\.id) == ["SECURE/gpu"])
+        let model = try #require(workspace.exactModelRow).shortName
+        #expect(workspace.gpuChoices.last?.unavailability == .gatedModelNeedsHubToken(model: model))
+
+        workspace.rentsCaptionServer = true
+        #expect(workspace.availableOffers.map(\.id) == ["SECURE/gpu", "COMMUNITY/gpu"])
+    }
+
     @MainActor @Test func listSortsByTheChosenColumnWithChoosableGPUsFirst() {
         let workspace = GPUWorkspace(demoMode: true)
         let needed = workspace.requiredGPUMemoryGB

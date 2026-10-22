@@ -104,6 +104,8 @@ struct GPUSecretsTests {
         await workspace.refreshOffers()
         // Community Cloud GPUs cannot use saved storage, so both rentals use the GPU's own disk.
         workspace.chooseStorage("")
+        // A gated model would grey out Community Cloud, so train an ungated one.
+        workspace.chooseTrainingModel("Alpha-VLLM/Lumina-Image-2.0")
         workspace.selectedGPU = "\(cloud.rawValue)/test"
         await workspace.rent()
         #expect(workspace.hasRunningPod)
