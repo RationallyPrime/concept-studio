@@ -18,11 +18,13 @@ struct CaptionServerSettings: Equatable {
 }
 
 extension GPUWorkspace {
-    /// Measured, not universal: each row is what fit and served captions on the GPUs it was tried
-    /// on (Qwen3-VL-8B on the 32 GB RTX PRO 4500 pods, POD-STATUS 2026-10-10). A different model or
-    /// GPU size needs its own measured row; until then it gets the 8B row, the smallest footprint
-    /// known to work, rather than the agent's generic defaults (POD-SPEC 3.1).
+    /// Caption launch recipes verified on 32 GB RTX PRO 4500 pods. CapQwen served four concurrent
+    /// requests on 2026-10-22; the earlier 8B recipe remains the fallback for custom model choices.
     nonisolated static let measuredCaptionServers: [String: CaptionServerSettings] = [
+        ProviderChoices.defaultSelfHostedModel: CaptionServerSettings(
+            maxModelLen: 16384, maxNumSeqs: 4, gpuMemoryUtilization: 0.90,
+            extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
+        ),
         "Qwen/Qwen3-VL-8B-Instruct": CaptionServerSettings(
             maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
             extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]

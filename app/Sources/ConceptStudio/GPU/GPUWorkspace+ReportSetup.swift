@@ -45,7 +45,9 @@ extension GPUWorkspace {
                 : (row.video == nil || row.preview.still ? 1 : (row.preview.video?.minFrames ?? 9)),
             frameRate: row.video?.fixedFPS ?? 24, judgeModel: captionModel,
             judgeExtraBodyJSON: JSONValue.object(RequestSettings(
-                settings: project.job.endpoints?.captioner.settings ?? [:], thinking: .none
+                settings: ProviderChoices.captionSettings(
+                    kind: "vllm", model: captionModel, settings: project.job.endpoints?.captioner.settings ?? [:]
+                ), thinking: .none
             ).extraBody).pythonDumpsData()
         )
         let state = ProjectAppState.load(from: projectFolder)

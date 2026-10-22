@@ -68,6 +68,13 @@ For a custom vLLM server, set its URL in Advanced settings. The app sends your s
 only to that origin: the same scheme, host and port. An imported project pointing to a different
 origin needs its own authorization. Paths on the configured origin share the saved key.
 
+Fresh self-hosted captioning uses
+**RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4** and offers GPUs with
+at least **32 GB**. The measured launch recipe uses a 16,384-token context, four concurrent
+requests and 90% GPU memory utilisation. Requests disable thinking for this distilled caption
+model. Saved custom model choices, memory requirements and explicit request overrides remain
+yours; changing providers does not carry an automatically derived CapQwen setting into that provider.
+
 ### Caption with your ChatGPT plan
 
 Choose **Continue with ChatGPT** in Settings, read the access explanation and approve sign-in

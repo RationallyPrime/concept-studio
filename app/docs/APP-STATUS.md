@@ -63,10 +63,14 @@ The first synthetic-image request took 122 seconds while the runtime warmed. A s
 of four concurrent requests on the same synthetic image took 22.3 seconds. Across the full
 native-action run, observed memory peaked at 28,554 MiB of 32,623 MiB. The GPU ran for 26.7
 minutes and was verified stopped; estimated compute and running storage cost was $0.33.
-These are capacity and functional measurements, not a
-caption-quality ranking. The owner's default-model and minimum-memory decision remains separate.
-The native actions used real services; the interactive-window check paused at macOS Keychain
-authorization for the development build.
+These are capacity and functional measurements, not a caption-quality ranking. Following this
+run, the owner selected this checkpoint as the default self-hosted captioner with a **32 GB**
+caption GPU minimum. Explicit custom model and memory choices remain intact.
+
+After macOS Keychain approval, the native window reopened the saved project, showed eight
+captioned samples selected and the uncaptioned sample excluded, and published successfully
+with **Private dataset** on. A fresh Hub read verified the private destination and all eight
+captioned metadata rows. Both the native actions and the window publication used real services.
 
 ## Recent completed work, 2026-10-21–22
 

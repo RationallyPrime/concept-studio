@@ -6,6 +6,95 @@ import Testing
 @MainActor
 @Suite("Self-hosted caption model")
 struct SelfHostedCaptionModelTests {
+    @Test func freshSelfHostedChoiceUsesCapQwenAndPlainCaptionRequests() throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let session = makeTestSession(preferences: preferences)
+        session.endpointKind = "vllm"
+        session.providerChanged(from: "openrouter", to: "vllm")
+        session.customBaseURL = "https://caption.example/v1"
+        #expect(session.modelName == "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4")
+        #expect(session.gpu.captionModel == session.modelName)
+        #expect(session.gpu.captionMemoryGB == 32)
+        let endpoint = try session.endpoint(keys: StaticKeyStore([.vllm: "fixture"]))
+        #expect(endpoint.settings.extraBody["chat_template_kwargs"] == .object(["enable_thinking": .bool(false)]))
+    }
+
+    @Test func rememberedSelfHostedChoiceSurvivesFreshProviderAndAppDefaults() throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        preferences.set("vllm", forKey: "endpointKind")
+        preferences.set("someone/custom-captioner", forKey: GPUWorkspace.captionModelKey)
+        let session = makeTestSession(preferences: preferences)
+        #expect(session.modelName == "someone/custom-captioner")
+        #expect(session.gpu.captionModel == "someone/custom-captioner")
+        preferences.set("Qwen/Qwen3-VL-8B-Instruct", forKey: "modelName")
+        session.loadSavedChoices()
+        #expect(session.modelName == "Qwen/Qwen3-VL-8B-Instruct")
+        #expect(session.gpu.captionModel == "Qwen/Qwen3-VL-8B-Instruct")
+    }
+
+    @Test func capQwenRequestDefaultsPreserveExplicitNestedOverridesAndOtherModels() {
+        let settings: JSONObject = ["max_tokens": .int(123), "extra_body": .object([
+            "top_k": .int(20),
+            "chat_template_kwargs": .object(["enable_thinking": .bool(true), "custom_template_option": .int(1)]),
+        ])]
+        #expect(ProviderChoices.captionSettings(
+            kind: "vllm", model: ProviderChoices.defaultSelfHostedModel, settings: settings
+        ) == settings)
+        let custom: JSONObject = ["extra_body": .object(["top_k": .int(20)])]
+        #expect(ProviderChoices.captionSettings(kind: "vllm", model: "someone/custom", settings: custom) == custom)
+        #expect(ProviderChoices.captionSettings(
+            kind: "openrouter", model: ProviderChoices.defaultSelfHostedModel, settings: custom
+        ) == custom)
+        let defaults = ProviderChoices.captionSettings(
+            kind: "vllm", model: ProviderChoices.defaultSelfHostedModel,
+            settings: ["extra_body": .object(["chat_template_kwargs": .object(["custom_template_option": .int(1)])])]
+        )
+        #expect(defaults["extra_body"]?.objectValue?["chat_template_kwargs"] == .object([
+            "custom_template_option": .int(1), "enable_thinking": .bool(false),
+        ]))
+    }
+
+    @Test func freshReportDraftFreezesTheSamePlainCaptionRequestDefault() async throws {
+        let project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let preferences = IsolatedDefaults()
+        defer { preferences.remove() }
+        let workspace = makeWorkspace(GPUTransport(), preferences.defaults)
+        workspace.chooseTrainingModel("black-forest-labs/FLUX.1-dev")
+        workspace.projectFolder = project.directory
+        try await workspace.prepareReportDraft()
+        let group = try #require(workspace.selectedReportGroup)
+        #expect(group.settings.judgeModel == ProviderChoices.defaultSelfHostedModel)
+        #expect(group.settings.judgeRequestSettings.extraBody["chat_template_kwargs"] == .object([
+            "enable_thinking": .bool(false),
+        ]))
+    }
+
+    @Test func derivedCapQwenDefaultsDoNotLeakThroughJobSaveIntoAnotherProvider() async throws {
+        let directory = temporaryTestDirectory("caption-default-switch")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferences = IsolatedDefaults()
+        defer { preferences.remove() }
+        let session = makeTestSession(preferences: preferences.defaults)
+        session.project = try StudioProject.create(at: directory)
+        session.endpointKind = "vllm"
+        session.providerChanged(from: "openrouter", to: "vllm")
+        session.customBaseURL = "https://caption.example/v1"
+        let first = try session.endpoint(keys: StaticKeyStore([.vllm: "fixture"]))
+        #expect(first.settings.extraBody["chat_template_kwargs"] != nil)
+        let saved = try session.jobForCaptioning()
+        try saved.save(to: directory.appendingPathComponent("job.yaml"))
+        session.project = try await StudioProject.open(at: directory)
+        session.endpointKind = "openai"
+        session.providerChanged(from: "vllm", to: "openai")
+        let switched = try session.endpoint(keys: StaticKeyStore([.openai: "fixture"]))
+        #expect(switched.settings.extraBody["chat_template_kwargs"] == nil)
+        #expect(session.project?.job.endpoints?.captioner.settings["extra_body"] == nil)
+        #expect(try session.jobForCaptioning().endpoints?.captioner.settings["extra_body"] == nil)
+    }
+
     private func vllmStarts(_ transport: UnreachableAgentTransport) async -> [String?] {
         await transport.starts.filter { $0.url?.path() == "/services/vllm/start" }.map { request in
             try? JSONValue(parsing: request.httpBody ?? Data()).objectValue?["params"]?
@@ -62,7 +151,7 @@ struct SelfHostedCaptionModelTests {
         session.providerChanged(from: "openrouter", to: "vllm")
         #expect(session.modelName == "someone/unmeasured-vl")
         // An unmeasured model starts with the measured Qwen3-VL-8B server settings.
-        let measured = GPUWorkspace.captionServerSettings(for: ProviderChoices.defaultModel(for: "vllm"))
+        let measured = GPUWorkspace.captionServerSettings(for: "Qwen/Qwen3-VL-8B-Instruct")
         #expect(session.gpu.captionStartParams == measured.params(model: "someone/unmeasured-vl"))
     }
 }
