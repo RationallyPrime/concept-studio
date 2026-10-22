@@ -155,6 +155,8 @@ struct GPUJourneyView: View {
             TrainingInitializationView(workspace: workspace)
             Divider()
             TrainingAidsView(session: session, workspace: workspace)
+            ReportPlanView(workspace: workspace)
+            Divider()
             StudioSection(title: "Run settings", subtitle: workspace.trainingLengthSubtitle) {
                 Form {
                     TextField(workspace.trainingLengthLabel, value: $workspace.steps, format: .number.grouping(.never))

@@ -47,6 +47,8 @@ extension StudioSession {
             try AtomicFile.write(data, to: target)
             PhotoThumbnails.removeAll()
             referenceRevision += 1
+            invalidateFaceRecognition(referencesChanged: true)
+            inspectReferenceFaces()
             mappingProposals = [:]
             mappingDescriptions = [:]
             message = "Reference saved. Suggestions always need your confirmation."
@@ -342,8 +344,7 @@ extension StudioSession {
         } catch { errorMessage = Self.describe(error) }
     }
 
-    func proposeMappings(useModel: Bool) {
-        guard useModel else { return }
+    func proposeMappings() {
         perform("Requesting concept assignments…") {
             try await self.requestMappingSuggestions()
         }

@@ -16,7 +16,7 @@ credentials and incurs no charges. Its Demo badge stays visible; Apple Photos im
 disabled. Close the project to return to Welcome and connect your accounts.
 
 1. **Images:** inspect the photographs. Exclude a sample and restore it with **Undo curation**.
-   Open **Inspect and crop**, then Cancel to keep the prepared captions matched to the images.
+   Open **Edit photo, crop, and colour**, then Cancel to keep the prepared captions matched to the images.
    Read the training introduction and prepared dataset advice.
 2. **Concepts:** open **Edit concept** to explore the fictional person and trigger, NORA7.
    Advanced settings add multiple concepts and detailed caption instructions.
@@ -130,8 +130,9 @@ confirming them. Accept one proposal or all eligible suggestions, with Undo. Sty
 concepts apply to the whole target and skip Mapping.
 
 Select multiple samples with ⌘-click or ⇧-click to confirm a shared concept and location or
-clear their assignments. **Confirm all remaining** in a single-person project confirms samples
-with exactly one detected face and lists the rest for review. **Not sure** keeps a sample
+clear their assignments. **Match faces on this Mac** uses SFace to compare faces with your references.
+In a single-person project, **Confirm matches** confirms only single-face samples in the match
+band and lists the rest for review. **Not sure** keeps a sample
 unconfirmed, with an optional note and its own filter. Confirm-and-next moves forward and
 skips marked samples. Exclude is a separate action. Right-click a sample in Images or Mapping
 to use it as a reference photo.
@@ -142,9 +143,31 @@ images, concurrent vLLM requests and per-image transient retries speed up the ru
 proposals survive interruptions; confirmed samples are skipped. Progress shows a count and
 estimated time remaining. See [the measured layout comparison](MAPPING-BENCHMARK.md).
 
-Use **Inspect and crop** to preview the exact image crop before approval. Approval replaces
-the training target and clears its caption and subject assignment for a fresh review; style
-and motion assignments carry forward automatically. For video, set **Start time** and
+SFace runs locally. First use downloads OpenCV Zoo's 39 MB Apache-licensed weights; credit and
+the licence are shown beside the action. Scores fall into **Match**, **Needs review**, and
+**No match**. Tilted faces, collapsed landmarks and photos with no detected face go to review.
+Concepts warns about small or blurry reference faces. Excluding a photo keeps its assignment;
+it never records a confirmed absence. [Calibration and measured behaviour](MAPPING-BENCHMARK.md).
+
+Use **Edit photo, crop, and colour** to drag the crop handles, rotate, straighten, or suggest a
+crop around a chosen person. Apple's auto-enhance, exposure, highlight, shadow and white-balance
+controls work on your Mac. The project keeps the original and editable settings. Applying an
+edit replaces the training target and clears its caption and subject assignment for a fresh
+review; style and motion assignments carry forward automatically. **Put back original**
+restores the source, and **Undo curation** steps back through edits.
+
+If another person cannot be cropped out, **Exclude photo** leaves it out of training.
+**Mask other people out of training** draws loss-mask regions for AI Toolkit: cover the unwanted
+person's body as well as their face. The trainer ignores loss in those regions while the
+photo remains intact. Unsupported trainers explain the limit. Make crop and colour edits
+before drawing the mask; changing the source pixels invalidates it.
+
+**Bring outliers into line** measures the included photos' exposure and colour on your Mac.
+Review each proposed correction and select the photos to change. Only those outliers receive
+individual corrections; the rest of the dataset keeps its variation. Applying corrections
+retains originals and resets the affected captions.
+
+For video, set **Start time** and
 **Duration**, preview the segment and choose its training model. **Advanced: Exact frames and
 size** exposes frame indices, supported frame counts and dimension limits.
 
@@ -231,6 +254,19 @@ Choose hardware for the training model:
 See the [model table](../../docs/model-table.md) for recipes and hardware requirements,
 and [APP-STATUS](APP-STATUS.md) for completed training runs.
 
+**Regularisation images** preserves the base model's class knowledge while it learns your
+concept. FLUX.1-dev, Z-Image, Qwen-Image-2.1 and H3 can draw their class sets; H3 draws a smaller
+set of stills and reuses it. **Use my own regularisation images** in Advanced accepts a folder
+and captions it with the project's captioner, using the class noun without the identity trigger.
+The model table marks every row **Offered**, **Own images only**, or **Not possible**, with the
+reason. The control appears with that explanation on trainers without native prior preservation.
+
+**Training-time augmentation** is off by default. Person projects offer horizontal flips;
+style projects can use all eight square symmetries on square, unmasked stills. Rectangular or
+masked images retain horizontal flips, which stay aligned with the loss mask. Captions naming
+**left** or **right** keep their original orientation. The trainer performs these transforms
+while loading samples; the project creates no duplicate image files.
+
 To start from an existing H3 LoRA, import its native AI Toolkit recipe on Training and select
 its `.safetensors` weights. Both files are copied into the project. Review the imported
 optimizer, precision, trained-layer settings and new training length, then start. This creates
@@ -287,6 +323,24 @@ unknown and shared inputs, plus the latest three resumable completed runs. Check
 generated results and model caches stay on storage.
 
 ### Try a trained result and reuse a run
+
+Before training, review the project's **Post-training report** prompts. The app selects
+category-specific subjects, clothing, poses and settings absent from the saved captions.
+Identity reports also render the same scenes without the trigger to measure identity bleed.
+Adult-content projects require your own prompts. The report's rendering and judging share the
+training run's budget; the Training screen shows the work before you start.
+
+The first run freezes the prompt set, seeds, render settings, judge model and reference images
+into a comparison group. Editing a used prompt set starts a new group. After training, the app
+saves the checkpoint, renders matched base/LoRA outputs, and scores the results. Identity and
+bleed use local SFace cosine similarity; style uses VGG19 Gram-feature cosine similarity; the
+GPU captioner judges prompt adherence. These scores have distinct meanings and are shown
+separately, with scored-sample counts. A missing face or failed judge remains a missing score.
+
+The report compares runs within the same group side by side, down to each prompt and seed.
+Completed renders stay in the project if a later scoring step fails. **Continue report**
+finishes the remaining work when its GPU and checkpoint are available. Models without a
+generation route explain that limit on Training.
 
 Open **Monitor → Generated results** to compare the base model with your trained LoRA on the
 FLUX.1-dev, Z-Image, Qwen-Image-2.1, LTX-2.3/2.5, H3 and Krea 2 routes. Select a checkpoint,

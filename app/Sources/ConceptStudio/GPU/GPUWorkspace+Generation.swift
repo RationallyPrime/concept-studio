@@ -1,69 +1,87 @@
 import ConceptCore
 import Foundation
 
+struct ReportComparisonRequest {
+    let group: TrainingReportGroup
+    let promptIDs: [String]
+    let styleReferences: JSONObject?
+}
+
 extension GPUWorkspace {
     func generateComparison(
         run: TrainingRun, checkpoint: RunFile, prompts: [String], seeds: [Int], inferenceSteps: Int? = nil,
         videoFrames: Int? = nil
     ) async {
         await perform {
-            guard !self.demoMode else {
-                throw StudioError.message("The demo has no trained weights. Generation uses a real checkpoint.")
-            }
-            guard let agent = self.agent, self.hasRunningPod, self.projectFolder != nil,
-                  self.currentVolumeID == run.volumeID, self.trainer == run.trainer else {
-                throw StudioError.message("Connect the matching trainer to this run's saved storage before generating.")
-            }
-            guard run.supportsGeneration(in: self.modelTable) else {
-                throw StudioError.message("Generation supports \(self.modelTable.generationModelList) checkpoints.")
-            }
-            let frames = videoFrames ?? run.defaultGenerationFrames(in: self.modelTable)
-            if let problem = Self.generationFramesError(run: run, frames: frames, table: self.modelTable) {
-                throw StudioError.message(problem)
-            }
-            guard !prompts.isEmpty, !seeds.isEmpty, prompts.count <= 6, seeds.count <= 4,
-                  prompts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                          && !$0.contains("--") }), seeds.allSatisfy({ $0 >= 0 && $0 <= Int(UInt32.max) }) else {
-                throw StudioError.message("Enter 1–6 prompts and 1–4 seeds. Prompt '--' overrides are not supported.")
-            }
-            guard !self.resultNeedsSaving else {
-                throw StudioError.message("Retrieve the pending outputs before generating another comparison.")
-            }
-            let services = try await agent.services()
-            guard !services.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
-                    || $0.name.hasPrefix("generate-")) }) else {
-                throw StudioError.message("Finish the active training or generation action first.")
-            }
-            let plan = try await agent.plan()
-            if let row = run.modelRow(in: self.modelTable), row.gpu.verifyOnPod {
-                try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: row)
-            }
-            try await self.prepareCaptionServerForTraining(agent, plan: plan)
-            let id = "generation-" + UUID().uuidString.prefix(12).lowercased()
-            let defaults = run.generationDefaults(in: self.modelTable)
-            let resolution = run.params["resolution"]?.intValue
-                ?? run.params["resolution"]?.arrayValue?.compactMap(\.intValue).max() ?? 512
-            let params: JSONObject = [
-                "run_id": .string(id), "source_run_id": .string(run.runID),
-                "checkpoint": .string(checkpoint.path), "prompts": .array(prompts.map(JSONValue.string)),
-                "seeds": .array(seeds.map(JSONValue.int)), "width": .int(resolution), "height": .int(resolution),
-                "inference_steps": .int(inferenceSteps ?? defaults.steps),
-                "guidance_scale": .double(defaults.guidanceScale),
-                "num_frames": .int(run.generatesVideo(in: self.modelTable) ? frames : 1),
-                "frame_rate": .double(Double(run.generationFrameRate(in: self.modelTable))),
-            ]
-            self.generation = GeneratedComparison(
-                runID: id, sourceRunID: run.runID, checkpoint: checkpoint.path, trainer: run.trainer,
-                volumeID: run.volumeID, startedAt: Date(), state: .generating,
-                paramsJSON: JSONValue.object(params).pythonDumpsData()
+            try await self.startComparison(
+                run: run, checkpoint: checkpoint, prompts: prompts, seeds: seeds,
+                inferenceSteps: inferenceSteps, videoFrames: videoFrames
             )
-            self.lastActivity = Date()
-            self.saveProjectRecord()
-            self.persist()
-            try await agent.start("generate-\(run.trainer)", gpus: [plan.train?.gpus.first ?? 0], params: params)
-            self.message = "Generating matched base and LoRA outputs. "
-                + "The same prompts, seeds and settings apply to both."
         }
+    }
+
+    func startComparison(
+        run: TrainingRun, checkpoint: RunFile, prompts: [String], seeds: [Int], inferenceSteps: Int? = nil,
+        videoFrames: Int? = nil, report: ReportComparisonRequest? = nil
+    ) async throws {
+        guard !demoMode else {
+            throw StudioError.message("The demo has no trained weights. Generation uses a real checkpoint.")
+        }
+        guard let agent, hasRunningPod, projectFolder != nil,
+              currentVolumeID == run.volumeID, trainer == run.trainer else {
+            throw StudioError.message("Connect the matching trainer to this run's saved storage before generating.")
+        }
+        guard run.supportsGeneration(in: modelTable) else {
+            throw StudioError.message("Generation supports \(modelTable.generationModelList) checkpoints.")
+        }
+        let frames = report?.group.settings.frames ?? videoFrames ?? run.defaultGenerationFrames(in: modelTable)
+        if let problem = Self.generationFramesError(run: run, frames: frames, table: modelTable) {
+            throw StudioError.message(problem)
+        }
+        guard !prompts.isEmpty, !seeds.isEmpty, prompts.count <= 6, seeds.count <= 4,
+              prompts.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      && !$0.contains("--") }), seeds.allSatisfy({ $0 >= 0 && $0 <= Int(UInt32.max) }) else {
+            throw StudioError.message("Enter 1–6 prompts and 1–4 seeds. Prompt '--' overrides are not supported.")
+        }
+        guard !resultNeedsSaving else {
+            throw StudioError.message("Retrieve the pending outputs before generating another comparison.")
+        }
+        let services = try await agent.services()
+        guard !services.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
+                || $0.name.hasPrefix("generate-")) }) else {
+            throw StudioError.message("Finish the active training or generation action first.")
+        }
+        let plan = try await agent.plan()
+        if let row = run.modelRow(in: modelTable), row.gpu.verifyOnPod {
+            try await verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: row)
+        }
+        try await prepareCaptionServerForTraining(agent, plan: plan)
+        let id = "generation-" + UUID().uuidString.prefix(12).lowercased()
+        let defaults = run.generationDefaults(in: modelTable)
+        let resolution = report?.group.settings.resolution ?? run.params["resolution"]?.intValue
+            ?? run.params["resolution"]?.arrayValue?.compactMap(\.intValue).max() ?? 512
+        var params: JSONObject = [
+            "run_id": .string(id), "source_run_id": .string(run.runID),
+            "checkpoint": .string(checkpoint.path), "prompts": .array(prompts.map(JSONValue.string)),
+            "seeds": .array(seeds.map(JSONValue.int)), "width": .int(resolution), "height": .int(resolution),
+            "inference_steps": .int(report?.group.settings.inferenceSteps ?? inferenceSteps ?? defaults.steps),
+            "guidance_scale": .double(report?.group.settings.guidanceScale ?? defaults.guidanceScale),
+            "num_frames": .int(run.generatesVideo(in: modelTable) ? frames : 1),
+            "frame_rate": .double(Double(report?.group.settings.frameRate ?? run.generationFrameRate(in: modelTable))),
+        ]
+        if let references = report?.styleReferences { params["style_references"] = .object(references) }
+        generation = GeneratedComparison(
+            runID: id, sourceRunID: run.runID, checkpoint: checkpoint.path, trainer: run.trainer,
+            volumeID: run.volumeID, startedAt: Date(), state: .generating,
+            reportGroupID: report?.group.id, reportPromptIDs: report?.promptIDs,
+            paramsJSON: JSONValue.object(params).pythonDumpsData()
+        )
+        lastActivity = Date()
+        saveProjectRecord()
+        persist()
+        try await agent.start("generate-\(run.trainer)", gpus: [plan.train?.gpus.first ?? 0], params: params)
+        message = "Generating matched base and LoRA outputs. "
+            + "The same prompts, seeds and settings apply to both."
     }
 
     func settleGeneration(_ agent: any PodAgent, services: [AgentService]) async throws {

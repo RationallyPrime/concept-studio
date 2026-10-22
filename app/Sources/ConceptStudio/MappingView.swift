@@ -85,7 +85,7 @@ struct MappingView: View {
                 }.font(.callout)
                 HStack(spacing: 10) {
                     Button("Request assignments from model", systemImage: "sparkles") {
-                        session.proposeMappings(useModel: true)
+                        session.proposeMappings()
                     }
                     Picker("Photos per request", selection: $session.mappingBatchSize) {
                         Text("Single image").tag(1)
@@ -100,28 +100,11 @@ struct MappingView: View {
                         }
                     }
                 }.disabled(session.busy)
-                HStack {
-                    if let concept = session.project?.job.concepts.first,
-                       session.project?.job.concepts.count == 1, concept.targetConcept.isPersonIdentity {
-                        Button("Confirm all remaining as \(concept.trigger)") {
-                            session.confirmRemainingSinglePerson()
-                            if !edited { load() }
-                        }.disabled(session.analyzing)
-                            .help(
-                                "Confirm samples with exactly one detected face. "
-                                    + "Skip Not sure; list the rest for review."
-                            )
-                    }
-                }.disabled(session.busy)
-                if !session.mappingReviewExceptions.isEmpty {
-                    DisclosureGroup("\(session.mappingReviewExceptions.count) samples need face review") {
-                        ScrollView {
-                            ForEach(session.mappingReviewExceptions, id: \.self) { id in
-                                Button(id) { filter = "all"; selection = [id]; session.selectedImageID = id }
-                                    .buttonStyle(.link)
-                            }
-                        }.frame(maxHeight: 100)
-                    }
+                FaceMappingControls(session: session, heldDraftIDs: heldDraftIDs) {
+                    if !edited { load() }
+                } selectSample: { id in
+                    filter = "all"
+                    choose(id, modifiers: [])
                 }
                 if selection.count > 1 { batchControls }
                 if !acceptableSuggestionIDs.isEmpty || session.canUndoMappingChange {
@@ -159,9 +142,15 @@ struct MappingView: View {
                             HStack(alignment: .top, spacing: 18) {
                                 openPrint(
                                     image,
-                                    photoSide: detailHeight < shortDetail ? 170 : min(360, detailHeight * 0.62)
+                                    photoSide: detailHeight < shortDetail
+                                        ? min(170, max(100, detailHeight - 116)) : min(360, detailHeight * 0.62)
                                 )
-                                presentSubjects
+                                VStack(alignment: .leading, spacing: 16) {
+                                    if let result = session.faceRecognitionResults[image.id] {
+                                        FaceMatchResultView(result: result)
+                                    }
+                                    presentSubjects
+                                }
                             }
                         }.padding(.horizontal, 4).padding(.top, 2).padding(.bottom, 12)
                     } else {
@@ -180,12 +169,15 @@ struct MappingView: View {
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailHeight = $0 }
             }
         }
-        .onAppear { selectVisiblePhoto(); load() }
+        .onAppear { selectVisiblePhoto(); load(); session.inspectReferenceFaces() }
         .onChange(of: filter) { _, _ in selectVisiblePhoto() }
         .onChange(of: images.map(\.id)) { _, ids in selection.formIntersection(ids) }
         .onChange(of: session.selectedImageID) { _, _ in load() }
         .onChange(of: session.selectedImageID.flatMap { session.mappingProposals[$0] }) { _, _ in
             // A suggestion that arrives while this photo is open fills it, unless the person already edited it.
+            if !edited { load() }
+        }
+        .onChange(of: session.selectedImageID.flatMap { session.faceRecognitionResults[$0] }) { _, _ in
             if !edited { load() }
         }
         .onChange(of: session.selectedImageID.flatMap { session.analyses[$0]?.faces.count }) { _, _ in
@@ -204,6 +196,9 @@ struct MappingView: View {
         }
         if session.project?.job.mapping(for: image.id) != nil {
             return Label("Confirmed", systemImage: "checkmark.circle.fill")
+        }
+        if let result = session.faceRecognitionResults[image.id] {
+            return Label(result.mappingBand.title, systemImage: "faceid")
         }
         return Label("Unconfirmed", systemImage: "circle")
     }
@@ -505,8 +500,8 @@ private extension MappingView {
         guard let id = session.selectedImageID else { return }
         let confirmed = session.project?.job.mapping(for: id)
         let suggestion = confirmed == nil ? session.mappingProposals[id] : nil
-        let selected = confirmed ?? suggestion ?? [:]
-        let faceCount = session.analyses[id]?.faces.count
+        let selected = confirmed ?? suggestion ?? session.singleFaceSuggestion(for: id) ?? [:]
+        let faceCount = session.faceRecognitionResults[id]?.faces.count ?? session.analyses[id]?.faces.count
         locators = Dictionary(uniqueKeysWithValues: locatorConcepts.compactMap { concept in
             MappingLocatorDefaults.singleFaceClassNoun(for: concept, faceCount: faceCount)
                 .map { (concept.trigger, $0) }

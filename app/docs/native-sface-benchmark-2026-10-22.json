@@ -1,0 +1,243 @@
+{
+  "model": "SFace 2021dec",
+  "modelRevision": "3d7082438a6e4551e840c9b2bb60b71e8da4b524",
+  "modelSHA256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+  "elapsedSeconds": 5.999950051307678,
+  "individualFallback": false,
+  "includedPhotos": 69,
+  "unconfirmedPhotosSkipped": 0,
+  "excludedMedia": 0,
+  "answerKeyUnchanged": true,
+  "referencesUnchanged": true,
+  "referenceWarnings": {
+    "concept-1": [],
+    "concept-2": [
+      "Small reference face: choose one at least 100 pixels across.",
+      "Low reference clarity: choose a sharper, well-lit face."
+    ]
+  },
+  "all": {
+    "samples": 69,
+    "failed": 0,
+    "no_faces": 0,
+    "detected_multi_face": 12,
+    "sample_review": 0,
+    "face_review": 7,
+    "per_concept": {
+      "concept-1": {
+        "present": {
+          "total": 39,
+          "match": 26,
+          "needsReview": 12,
+          "noMatch": 1,
+          "failed": 0
+        },
+        "absent": {
+          "total": 30,
+          "match": 0,
+          "needsReview": 3,
+          "noMatch": 27,
+          "failed": 0
+        }
+      },
+      "concept-2": {
+        "present": {
+          "total": 39,
+          "match": 10,
+          "needsReview": 12,
+          "noMatch": 17,
+          "failed": 0
+        },
+        "absent": {
+          "total": 30,
+          "match": 0,
+          "needsReview": 4,
+          "noMatch": 26,
+          "failed": 0
+        }
+      }
+    },
+    "exact_positive_match_set": 30,
+    "all_decisions_correct_and_decisive": 30
+  },
+  "confirmed_single_person": {
+    "samples": 60,
+    "failed": 0,
+    "no_faces": 0,
+    "detected_multi_face": 4,
+    "sample_review": 0,
+    "face_review": 7,
+    "per_concept": {
+      "concept-1": {
+        "present": {
+          "total": 30,
+          "match": 21,
+          "needsReview": 9,
+          "noMatch": 0,
+          "failed": 0
+        },
+        "absent": {
+          "total": 30,
+          "match": 0,
+          "needsReview": 3,
+          "noMatch": 27,
+          "failed": 0
+        }
+      },
+      "concept-2": {
+        "present": {
+          "total": 30,
+          "match": 5,
+          "needsReview": 9,
+          "noMatch": 16,
+          "failed": 0
+        },
+        "absent": {
+          "total": 30,
+          "match": 0,
+          "needsReview": 4,
+          "noMatch": 26,
+          "failed": 0
+        }
+      }
+    },
+    "exact_positive_match_set": 26,
+    "all_decisions_correct_and_decisive": 26
+  },
+  "confirmed_multi_person": {
+    "samples": 9,
+    "failed": 0,
+    "no_faces": 0,
+    "detected_multi_face": 8,
+    "sample_review": 0,
+    "face_review": 0,
+    "per_concept": {
+      "concept-1": {
+        "present": {
+          "total": 9,
+          "match": 5,
+          "needsReview": 3,
+          "noMatch": 1,
+          "failed": 0
+        },
+        "absent": {
+          "total": 0,
+          "match": 0,
+          "needsReview": 0,
+          "noMatch": 0,
+          "failed": 0
+        }
+      },
+      "concept-2": {
+        "present": {
+          "total": 9,
+          "match": 5,
+          "needsReview": 3,
+          "noMatch": 1,
+          "failed": 0
+        },
+        "absent": {
+          "total": 0,
+          "match": 0,
+          "needsReview": 0,
+          "noMatch": 0,
+          "failed": 0
+        }
+      }
+    },
+    "exact_positive_match_set": 4,
+    "all_decisions_correct_and_decisive": 4
+  },
+  "detected_single_face": {
+    "samples": 57,
+    "failed": 0,
+    "no_faces": 0,
+    "detected_multi_face": 0,
+    "sample_review": 0,
+    "face_review": 7,
+    "per_concept": {
+      "concept-1": {
+        "present": {
+          "total": 30,
+          "match": 20,
+          "needsReview": 9,
+          "noMatch": 1,
+          "failed": 0
+        },
+        "absent": {
+          "total": 27,
+          "match": 0,
+          "needsReview": 3,
+          "noMatch": 24,
+          "failed": 0
+        }
+      },
+      "concept-2": {
+        "present": {
+          "total": 28,
+          "match": 5,
+          "needsReview": 9,
+          "noMatch": 14,
+          "failed": 0
+        },
+        "absent": {
+          "total": 29,
+          "match": 0,
+          "needsReview": 4,
+          "noMatch": 25,
+          "failed": 0
+        }
+      }
+    },
+    "exact_positive_match_set": 25,
+    "all_decisions_correct_and_decisive": 25
+  },
+  "detected_multiple_faces": {
+    "samples": 12,
+    "failed": 0,
+    "no_faces": 0,
+    "detected_multi_face": 12,
+    "sample_review": 0,
+    "face_review": 0,
+    "per_concept": {
+      "concept-1": {
+        "present": {
+          "total": 9,
+          "match": 6,
+          "needsReview": 3,
+          "noMatch": 0,
+          "failed": 0
+        },
+        "absent": {
+          "total": 3,
+          "match": 0,
+          "needsReview": 0,
+          "noMatch": 3,
+          "failed": 0
+        }
+      },
+      "concept-2": {
+        "present": {
+          "total": 11,
+          "match": 5,
+          "needsReview": 3,
+          "noMatch": 3,
+          "failed": 0
+        },
+        "absent": {
+          "total": 1,
+          "match": 0,
+          "needsReview": 0,
+          "noMatch": 1,
+          "failed": 0
+        }
+      }
+    },
+    "exact_positive_match_set": 5,
+    "all_decisions_correct_and_decisive": 5
+  },
+  "review_reasons": {
+    "Face tilted more than 35\u00b0": 4,
+    "Face landmarks overlap or have collapsed": 3
+  }
+}

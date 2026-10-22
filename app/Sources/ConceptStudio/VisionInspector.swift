@@ -52,17 +52,8 @@ actor VisionInspector {
     /// Vision's synchronous requests can wait for their own workers. Keep them off Swift's
     /// cooperative executor and serialize them across the app's separate inspector instances.
     private static let visionQueue = DispatchQueue(label: "ConceptStudio.Vision", qos: .userInitiated)
-    // Conservative revision-2 proposal gates, not a calibrated identity-recognition model.
+    /// Revision-2 whole-image distance for near-duplicate suggestions.
     static let similarPhotoDistance: Float = 0.08
-    static let faceProposalDistance: Float = 0.10
-    static let faceAmbiguityMargin: Float = 0.04
-
-    static func faceCandidate(_ matches: [(String, Float)]) -> String? {
-        let ordered = matches.filter(\.1.isFinite).sorted { $0.1 < $1.1 }
-        guard let best = ordered.first, best.1 <= faceProposalDistance else { return nil }
-        if ordered.count > 1, ordered[1].1 - best.1 < faceAmbiguityMargin { return nil }
-        return best.0
-    }
 
     static func contentHash(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -224,45 +215,6 @@ actor VisionInspector {
         try? NSKeyedUnarchiver.unarchivedObject(ofClass: VNFeaturePrintObservation.self, from: data)
     }
 
-    func proposals(images: [URL], references: [String: URL]) async throws -> [String: Job.Mapping] {
-        try await Self.performVision { checkCancellation in
-            try Self.faceProposals(images: images, references: references, checkCancellation: checkCancellation)
-        }
-    }
-
-    private static func faceProposals(
-        images: [URL], references: [String: URL], checkCancellation: @Sendable () throws -> Void
-    ) throws -> [String: Job.Mapping] {
-        var referencePrints: [String: VNFeaturePrintObservation] = [:]
-        for (trigger, url) in references {
-            try checkCancellation()
-            if let image = try Self.image(Data(contentsOf: url)), let face = try Self.faceImages(image).first {
-                referencePrints[trigger] = try Self.feature(face)
-            }
-        }
-        var result: [String: Job.Mapping] = [:]
-        for url in images {
-            try checkCancellation()
-            guard let image = try Self.image(Data(contentsOf: url)) else { continue }
-            var mapping = Job.Mapping()
-            for (index, face) in try Self.faceImages(image).enumerated() {
-                try checkCancellation()
-                guard let feature = try Self.feature(face) else { continue }
-                var matches: [(String, Float)] = []
-                for (trigger, reference) in referencePrints {
-                    var distance: Float = 0
-                    try feature.computeDistance(&distance, to: reference)
-                    matches.append((trigger, distance))
-                }
-                if let trigger = Self.faceCandidate(matches), mapping[trigger] == nil {
-                    mapping[trigger] = "face \(index + 1), counted from left to right"
-                }
-            }
-            if !mapping.isEmpty { result[url.lastPathComponent] = mapping }
-        }
-        return result
-    }
-
     private static func image(_ data: Data) -> CGImage? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
         return CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -272,31 +224,10 @@ actor VisionInspector {
         ] as CFDictionary)
     }
 
-    private static func feature(_ image: CGImage) throws -> VNFeaturePrintObservation? {
-        let request = featureRequest()
-        try VNImageRequestHandler(cgImage: image).perform([request])
-        return request.results?.first
-    }
-
     private static func featureRequest() -> VNGenerateImageFeaturePrintRequest {
         let request = VNGenerateImageFeaturePrintRequest()
         request.revision = VNGenerateImageFeaturePrintRequestRevision2
         return request
-    }
-
-    private static func faceImages(_ image: CGImage) throws -> [CGImage] {
-        let request = VNDetectFaceRectanglesRequest()
-        try VNImageRequestHandler(cgImage: image).perform([request])
-        return (request.results ?? []).sorted { $0.boundingBox.midX < $1.boundingBox.midX }.compactMap { face in
-            let box = face.boundingBox
-            let rectangle = CGRect(
-                x: box.minX * Double(image.width),
-                y: (1 - box.maxY) * Double(image.height),
-                width: box.width * Double(image.width),
-                height: box.height * Double(image.height)
-            )
-            return image.cropping(to: rectangle.integral)
-        }
     }
 }
 

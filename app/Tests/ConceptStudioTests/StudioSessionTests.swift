@@ -174,7 +174,7 @@ struct StudioSessionTests {
         await session.task?.value
         #expect(!session.datasetAdvice.isEmpty)
         let pendingMappings = session.unmappedCount
-        session.proposeMappings(useModel: true)
+        session.proposeMappings()
         await session.task?.value
         #expect(session.mappingProposals.count == pendingMappings)
         for (id, mapping) in session.mappingProposals {

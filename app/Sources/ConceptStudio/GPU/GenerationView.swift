@@ -16,6 +16,8 @@ struct GenerationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioStyle.contentSpacing) {
+            TrainingReportResultsView(workspace: workspace)
+            Divider()
             StudioSection(
                 title: "Generate with your trained model",
                 subtitle:
@@ -208,7 +210,7 @@ struct GenerationView: View {
     }
 }
 
-private struct GeneratedVideo: View {
+struct GeneratedVideo: View {
     @State private var player: AVPlayer
     init(url: URL) {
         _player = State(initialValue: AVPlayer(url: url))

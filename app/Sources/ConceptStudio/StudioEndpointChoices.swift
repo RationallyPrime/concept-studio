@@ -264,6 +264,8 @@ extension StudioSession {
     func updateTrainingProjectDefaults(preservingTrainer: Bool = false) {
         guard gpu.repeatSourceRunID.isEmpty else { return }
         gpu.triggerWords = project?.job.triggers.joined(separator: ",") ?? ""
+        gpu.squareAugmentationAllowed = project?.job.concepts.isEmpty == false
+            && project?.job.concepts.allSatisfy { $0.targetConcept == .style } == true
         gpu.conceptClassNouns = Dictionary(
             (project?.job.concepts ?? []).map { ($0.trigger, $0.classNoun) }, uniquingKeysWith: { first, _ in first }
         )

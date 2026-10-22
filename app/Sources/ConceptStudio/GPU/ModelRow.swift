@@ -152,6 +152,13 @@ struct ModelRow: Sendable, Identifiable, Equatable {
 
     /// Representation alignment (`repa` in docs/model-table.md): an auxiliary loss that ties a transformer block's
     /// image tokens to a frozen vision encoder's features. The six AI Toolkit keys go to the pod as they are.
+    struct TrainingTransforms: Sendable, Equatable {
+        let horizontalFlip: Bool
+        let squareSymmetry: Bool
+        let lossMask: Bool
+        let note: String
+    }
+
     struct Repa: Sendable, Equatable {
         let defaultOn: Bool
         let encoder: String
@@ -194,6 +201,7 @@ struct ModelRow: Sendable, Identifiable, Equatable {
     let notes: String
     let regularization: Regularization?
     let repa: Repa?
+    let trainingTransforms: TrainingTransforms
 
     /// The model picker's label: the name and whether the model trains on video too.
     var pickerTitle: String {
@@ -355,6 +363,7 @@ extension ModelRow {
         notes = try row.string("notes")
         regularization = try row.childIfPresent("regularization").map(Regularization.init)
         repa = try row.childIfPresent("repa").map(Repa.init)
+        trainingTransforms = try TrainingTransforms(row.child("training_transforms"))
     }
 }
 
@@ -547,5 +556,14 @@ extension ModelRow {
                     + Self.repaArchitectures.joined(separator: ", "))
             }
         }
+    }
+}
+
+extension ModelRow.TrainingTransforms {
+    init(_ object: TableObject) throws {
+        horizontalFlip = try object.bool("horizontal_flip")
+        squareSymmetry = try object.bool("square_symmetry")
+        lossMask = try object.bool("loss_mask")
+        note = try object.string("note")
     }
 }

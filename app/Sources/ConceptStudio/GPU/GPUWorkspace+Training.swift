@@ -100,6 +100,7 @@ extension GPUWorkspace {
             )
             let captioning = try self.captioningForRegularization(regularizationCaptioning)
             let initialization = try self.trainingInitialization()
+            let reportGroupID = try await self.prepareTrainingReport()
             let dataset = "concept-" + UUID().uuidString.prefix(12).lowercased()
             var params = self.trainingParams(dataset: dataset, inputFacts: inputFacts, items: items)
             let servicesBeforeStart = try await agent.services()
@@ -114,6 +115,7 @@ extension GPUWorkspace {
                 dataset, params: params, repo: repo, local: local, revision: revision,
                 budget: (cap, baseline), inputs: (containsVideo, items), output: output
             )
+            self.attachTrainingReport(runID: dataset, groupID: reportGroupID)
             let destination = self.result?.destination ?? .download
             var trainerStartAttempted = false
             defer { if !trainerStartAttempted { self.finishFailedPreparation() } }
@@ -306,6 +308,9 @@ extension GPUWorkspace {
             "seed": .int(seed),
             "save_every": .int(saveInterval), "sample_every": .int(samplesEnabled ? saveInterval : 0),
         ]
+        if effectiveAugmentation != .none {
+            params["augmentation"] = .string(effectiveAugmentation.rawValue)
+        }
         if samplesEnabled {
             params["sample_prompts"] = .array([.string(words.joined(separator: " "))])
         }

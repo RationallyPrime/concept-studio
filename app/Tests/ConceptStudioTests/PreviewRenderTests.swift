@@ -95,6 +95,7 @@ struct PreviewRenderTests {
         try await captureAdvancedModes(session: session, output: output, filter: filter, captures: &captures)
         try await captureAuxiliaryScreens(session: session, output: output, filter: filter, captures: &captures)
         try await captureUpscale(session: session, output: output, filter: filter, captures: &captures)
+        try await captureFollowupScreens(session: session, output: output, filter: filter, captures: &captures)
         try await captureNewHelpAndTraining(
             preferences: preferences, output: output, filter: filter, captures: &captures
         )
@@ -109,15 +110,6 @@ struct PreviewRenderTests {
         )
         try writeManifest(captures, to: output)
         print("OFFSCREEN PREVIEWS: \(output.path) (\(captures.count) PNGs)")
-    }
-
-    private func captureWelcome(
-        session: StudioSession, output: URL, filter: Set<String>, captures: inout [[String: String]]
-    ) async throws {
-        try await capture(
-            "welcome", view: StudioRootView(session: session),
-            output: output, filter: filter, captures: &captures
-        )
     }
 
     /// Extra states of a journey screen: a prefilled suggestion, a multi-selection, a running computer, tabs.
@@ -136,19 +128,7 @@ struct PreviewRenderTests {
             session.project?.images = images
             session.preferences.set(true, forKey: "studio.trainingExplanationExpanded")
         case .mapping:
-            let image = try #require(session.project?.images.last)
-            let trigger = try #require(session.project?.job.concepts.first?.trigger)
-            let confirmed = session.project?.job.mapping(for: image.id)
-            try session.project?.job.setMapping(nil, for: image.id)
-            session.mappingProposals[image.id] = [trigger: "the person on the left in a green jacket"]
-            session.selectedImageID = image.id
-            try await capture("mapping-suggested", view: root, output: output, filter: filter, captures: &captures)
-            try session.project?.job.setMapping(confirmed, for: image.id)
-            session.mappingProposals = [:]
-            let job = try #require(session.project?.job)
-            session.project?.job.concepts = try [Concept(trigger: "DEMO_STYLE", targetConcept: .style)]
-            try await capture("mapping-style", view: root, output: output, filter: filter, captures: &captures)
-            session.project?.job = job
+            try await captureMappingStates(session: session, output: output, filter: filter, captures: &captures)
         case .captioning:
             let images = session.project?.images ?? []
             session.project?.images = []
@@ -286,7 +266,7 @@ struct PreviewRenderTests {
         )
     }
 
-    private func prewarmThumbnails(_ urls: [URL]) async {
+    func prewarmThumbnails(_ urls: [URL]) async {
         for url in urls {
             for pixels in PhotoThumbnails.buckets {
                 _ = await PhotoThumbnails.load(PhotoThumbnails.Key(url: url, pixels: pixels))
@@ -358,7 +338,7 @@ struct PreviewRenderTests {
         try data.write(to: output.appendingPathComponent("render-manifest.json"))
     }
 
-    private func capture(
+    func capture(
         _ name: String, view: some View, output: URL, filter: Set<String>, captures: inout [[String: String]],
         renderSizes: [(String, CGSize)]? = nil, settleFor: Duration = .milliseconds(40)
     ) async throws {
@@ -418,6 +398,15 @@ struct PreviewRenderTests {
 }
 
 extension PreviewRenderTests {
+    private func captureWelcome(
+        session: StudioSession, output: URL, filter: Set<String>, captures: inout [[String: String]]
+    ) async throws {
+        try await capture(
+            "welcome", view: StudioRootView(session: session),
+            output: output, filter: filter, captures: &captures
+        )
+    }
+
     /// The Upscale sheet, and the Images screen with one upscaled result waiting beside its original. The
     /// "result" is a copy of the demo photo: layout evidence, not an upscale.
     private func captureUpscale(

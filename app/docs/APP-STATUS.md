@@ -45,11 +45,28 @@ Verification completed:
 - Live ChatGPT Mapping trials and the locator cross-check selected 3×3 contact sheets. See
   [measurement and anonymous receipts](MAPPING-BENCHMARK.md). Source mappings were preserved.
 
+PR #32 merged at `03d5e5d` after all seven CI checks passed. The cancellation-test crash was
+reproduced and fixed; review repairs covered Not sure state across target replacement, stale
+kept-pod records, private adult training outputs, and custom-skill import into existing folders.
 The hosted Mapping measurements are recorded in [the benchmark](MAPPING-BENCHMARK.md).
-The requested RTX 5090 Secure Cloud placement was unavailable during this verification run;
-the follow-up cloud-captioning acceptance targets a 32 GB Blackwell GPU. The app uses the
-published **v0.3.9-20261022** images. Workspace storage accounting changes in this PR need the
-next pod-image rebuild; older-agent host totals are suppressed in the app.
+
+**32 GB Blackwell captioning passed on an RTX PRO 4500**, using the exact
+`RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4` checkpoint and the
+`v0.3.8-20261021-captioning` image. Nine photos spanning three confirmed assignment combinations
+went through the native app's captioning action. Eight captions were saved; one response
+marked a partly visible assigned subject unusable. The native publication action uploaded the
+eight captioned samples to a private dataset and read back the matching metadata and revision.
+The test used copies; the confirmed source project stayed intact. No family names or images
+are included in this repository.
+
+The first synthetic-image request took 122 seconds while the runtime warmed. A separate batch
+of four concurrent requests on the same synthetic image took 22.3 seconds. Across the full
+native-action run, observed memory peaked at 28,554 MiB of 32,623 MiB. The GPU ran for 26.7
+minutes and was verified stopped; estimated compute and running storage cost was $0.33.
+These are capacity and functional measurements, not a
+caption-quality ranking. The owner's default-model and minimum-memory decision remains separate.
+The native actions used real services; the interactive-window check paused at macOS Keychain
+authorization for the development build.
 
 ## Recent completed work, 2026-10-21–22
 
@@ -122,10 +139,17 @@ values; each screen identifies active non-default settings and where to edit the
 
 ## Regularisation images and REPA
 
-Qwen-Image-2.1 offers **Regularisation images** and **Representation alignment (experimental)**
-on Training. The app shows the image count, class nouns, download sizes, preparation-time and
-cost estimates, and regularisation's roughly doubled training time. Advanced controls expose
-regularisation strength.
+**Regularisation images** offers generated class sets for FLUX.1-dev, Z-Image,
+Qwen-Image-2.1 and H3. Eighteen additional AI Toolkit rows accept an existing class-image folder.
+Both LTX rows and Krea 2's musubi route explain that their pinned trainer lacks native prior
+preservation. The [per-row table](../../docs/model-table.md#regularisation-coverage) records the
+mode and reason for all 25 rows. Advanced controls expose the folder choice and regularisation
+strength; the app captions supplied images through the project's captioner.
+
+H3 defaults to 16 reusable class stills; the three image-model defaults use 40. The app shows
+image counts, class nouns and preparation work before training. Qwen-Image-2.1 also offers
+**Representation alignment (experimental)**. Regularisation alternates subject and class
+examples, adding training work to preserve the base model's range.
 
 The app draws regularisation images with the base model, then uses the project's captioner,
 skill and profile to describe them by class noun, without identity triggers. On one GPU it

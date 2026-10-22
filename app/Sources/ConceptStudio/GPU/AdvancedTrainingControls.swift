@@ -39,6 +39,7 @@ struct AdvancedTrainingControls: View {
                 .help("How much the model changes at each step. Keep the default for your first run.")
             if workspace.editsTrainerSettings { trainerSettingControls }
             regularizationControls
+            TrainingAugmentationControls(workspace: workspace)
             TextField("Triggers", text: $workspace.triggerWords)
             TextField("Caption profile", text: $workspace.profile)
             TextField("Training seed", value: $workspace.seed, format: .number)

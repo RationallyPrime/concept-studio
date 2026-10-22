@@ -229,6 +229,7 @@ struct StudioProject {
                 ))
             }
         }
+        try project.recoverSingleConceptReference()
         return project
     }
 

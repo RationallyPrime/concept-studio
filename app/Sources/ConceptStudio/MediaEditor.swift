@@ -32,6 +32,7 @@ struct MediaSelection: Codable, Equatable {
     var frameCount: Int?
     var videoWidth: Int?
     var videoHeight: Int?
+    var photoEdit: PhotoEditRecord?
 }
 
 /// The selected diffusion model's frame geometry; approval never silently snaps or retimes a target.
