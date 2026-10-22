@@ -22,7 +22,7 @@ enum TrainingCurveDisplay: Equatable {
             "The run has started. Loading the model and preparing the data can take time before training "
                 + "reports its first loss measurement. You can inspect the Training log while you wait."
         case .disconnected:
-            "Inspect Saved runs for the recorded settings and checkpoints. A running computer on this run's "
+            "Inspect Saved runs for the recorded settings and checkpoints. A running cloud GPU on this run's "
                 + "saved storage is needed to check its remote files or continue training."
         case .ended:
             "No loss measurements are available for this run. Inspect its Training log or TensorBoard. "
@@ -114,21 +114,23 @@ extension TrainingPlan {
             case false:
                 "No caption model is running on its GPU. Training can use the GPU directly."
             case nil:
-                "The app checks its services before training and stops a pod caption model only if one is running."
+                "The app checks its services before training and stops a caption model on the cloud GPU "
+                    + "only if one is running."
             }
             return source + " " + action + (captioningOnPod
-                ? " Finish captioning or review work on this computer before starting training on its one GPU." : "")
+                ? " Finish captioning or review work first; training needs the only GPU you rented." : "")
         }
         let allocation = "Training uses \(gpuDescription(train))."
         let captionGPUs = gpuDescription(caption)
         if captionServerActive == true {
-            return source + " " + allocation + " The existing pod caption model stays on \(captionGPUs)."
+            return source + " " + allocation
+                + " The caption model already running on the cloud GPU stays on \(captionGPUs)."
         }
         if keepServer {
-            return source + " " + allocation + " The training settings also start a pod caption model on "
+            return source + " " + allocation + " The training settings also start a caption model on "
                 + captionGPUs + " if one is not already running."
         }
-        return source + " " + allocation + " No pod caption model is started by these training settings."
+        return source + " " + allocation + " These training settings start no caption model on the cloud GPU."
             + (captioningOnPod ? " Start its model from Captioning before using it." : "")
     }
 
@@ -142,16 +144,16 @@ extension TrainingPlan {
 extension StudioSession {
     var trainingPlanExplanation: String {
         guard let plan = gpu.plan else {
-            return "Rent a computer first. Its control agent will report which GPUs training can use."
+            return "Rent a cloud GPU first. Its control agent will report which GPUs training can use."
         }
         let captionerOnPod = usingPodCaptioner && endpointKind == "vllm"
         let reviewerOnPod = usingPodCaptioner && useCritic && criticKind == "vllm"
         let provider = endpointKind == "vllm" ? "your custom server" : ProviderChoices.title(endpointKind)
-        var source = captionerOnPod ? "Captioning is set to use this computer."
-            : "Captioning uses \(provider), separately from this training computer."
+        var source = captionerOnPod ? "Captioning is set to use this cloud GPU."
+            : "Captioning uses \(provider), separately from this cloud GPU."
         if useCritic {
             let reviewer = criticKind == "vllm" ? "your custom server" : ProviderChoices.title(criticKind)
-            source += reviewerOnPod ? " The caption reviewer uses this computer."
+            source += reviewerOnPod ? " The caption reviewer uses this cloud GPU."
                 : " The caption reviewer uses \(reviewer)."
         }
         return plan.explanation(
@@ -166,7 +168,7 @@ extension TrainingRun {
         switch result?.state {
         case .training?: "Training in progress"
         case .pending?: "Finished; trained model still needs saving"
-        case let .pushed(repo)?: "Uploaded to Hugging Face: \(repo)"
+        case let .pushed(repo)?: "Published to Hugging Face: \(repo)"
         case let .saved(folder)?: "Saved on this Mac: \(URL(fileURLWithPath: folder).lastPathComponent)"
         case .failed?: "Ended without a trained model"
         case nil: "Run submitted; refresh its progress to check the result"

@@ -52,7 +52,7 @@ struct RunHistoryView: View {
             savedBudget(run)
             if let rate = run.hourlyRateUSD {
                 Text(
-                    "Last computer rate: \(StudioMoney.perHour(rate)). Estimates exclude separately billed storage."
+                    "Last cloud GPU rate: \(StudioMoney.perHour(rate)). Estimates exclude separately billed storage."
                 )
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
@@ -82,7 +82,7 @@ struct RunHistoryView: View {
                     }.help("Shows this run's downloaded model folder in Finder.")
                 }
             }
-            Text("Saving requires a running computer connected to this run's saved storage.")
+            Text("Saving requires a running cloud GPU connected to this run's saved storage.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -119,8 +119,10 @@ struct RunHistoryView: View {
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
             if !workspace.hasRunningPod || workspace.currentVolumeID != run.volumeID {
-                Text("Connect a running computer to this run's saved storage to find checkpoints or continue training.")
-                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                Text(
+                    "Connect a running cloud GPU to this run's saved storage to find checkpoints or continue training."
+                )
+                .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
         } else {
             Divider()

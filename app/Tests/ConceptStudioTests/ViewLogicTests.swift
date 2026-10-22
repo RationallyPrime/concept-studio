@@ -113,7 +113,7 @@ struct ViewLogicTests {
             reply: StudioPromptReply()
         )
         #expect(quitting.confirmTitle == "Stop and quit")
-        #expect(quitting.alternateTitle == "Keep the computer running")
+        #expect(quitting.alternateTitle == "Keep the cloud GPU running")
         #expect(quitting.message.contains(StudioMoney.format(1.5)))
         #expect(quitting.message.contains("Reopen ConceptStudio to stop it"))
         let closing = StudioPrompt(
@@ -195,7 +195,7 @@ struct CloseDecisionTests {
         let session = try await demoSession(rent: true)
         session.useDemo()
         // The switch refuses before asking because the computer is running; the edits remain.
-        #expect(session.errorMessage?.contains("Stop the rented computer") == true)
+        #expect(session.errorMessage?.contains("Stop the cloud GPU") == true)
         #expect(session.pendingPrompt == nil)
         #expect(session.unsavedCaptionCount == 1)
         await cleanUp(session)
@@ -237,7 +237,7 @@ struct CloseDecisionTests {
         let discard = try #require(await nextPrompt(session))
         session.answer(discard, .confirm)
         let stop = try #require(await nextPrompt(session, after: discard.id))
-        #expect(stop.alternateTitle == "Keep the computer running")
+        #expect(stop.alternateTitle == "Keep the cloud GPU running")
         session.answer(stop, .alternate)
         #expect(await decision == .keepRunning)
         // Keep running skips the pending-result question.

@@ -94,6 +94,57 @@ struct GPUResultTests {
     }
 
     @MainActor @Test
+    func aCommunityCloudGPUUploadsFromTheMacAndSavesTheResultThereInsteadOfPublishing() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let project = FileManager.default.temporaryDirectory.appendingPathComponent("gpu-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: project) }
+        let transport = UnreachableAgentTransport(agentAvailable: true, inferenceReady: true)
+        await transport.offerCommunityCloud()
+        let downloader = FakeDownloader([:])
+        let workspace = makeWorkspace(transport, preferences, downloader: downloader)
+        try workspace.configure(runpodKey: "provider-only", hubToken: "hub-write", imageName: "test")
+        workspace.projectFolder = project
+        workspace.chooseTrainingModel("Qwen/Qwen-Image-2.1")
+        workspace.regularizationOn = false
+        workspace.includeCommunityCloud = true
+        await workspace.refreshOffers()
+        workspace.chooseStorage("")
+        workspace.selectedGPU = "COMMUNITY/test"
+        await workspace.rent()
+        _ = try await captionedUploadProject(at: project)
+        let output = HubDestination(repo: "me/lora")
+        // A gated model downloads only with the token, so it is refused before anything is uploaded.
+        workspace.baseModel = "black-forest-labs/FLUX.1-dev"
+        #expect(workspace.exactModelRow?.source.gated == true)
+        await workspace.train(datasetRepo: "test/images", output: output)
+        #expect(workspace.message.contains("rent a Secure Cloud GPU"))
+        #expect(await transport.starts.isEmpty)
+        workspace.baseModel = "Qwen/Qwen-Image-2.1"
+        await workspace.train(datasetRepo: "test/images", output: output)
+        #expect(try await trainerParams(transport, "aitoolkit")["hub"] == nil)
+        #expect(workspace.result?.destination == .download)
+        let pull = try #require(await transport.starts.first { $0.url?.path() == "/services/pull-dataset/start" })
+        let pullBody = try #require(pull.httpBody)
+        let pullParams = try #require(JSONValue(parsing: pullBody).objectValue?["params"]?.objectValue)
+        #expect(pullParams["local_name"]?.stringValue == workspace.runID && pullParams["repo_id"] == nil)
+        let runID = workspace.runID
+        let weights = Data("final weights".utf8)
+        await transport.files([
+            RunFile(path: "\(runID)/\(runID).safetensors", size: weights.count, sha256: sha256(weights)),
+        ])
+        await downloader.serve(["\(runID).safetensors": weights])
+        await transport.finish("trainer-aitoolkit", state: "exited")
+        await workspace.refresh()
+        try await waitUntil { if case .saved = workspace.result?.state { true } else { false } }
+        let folder = project.appendingPathComponent("results/\(runID)")
+        #expect(try Data(contentsOf: folder.appendingPathComponent("\(runID)/\(runID).safetensors")) == weights)
+        #expect(workspace.message.contains("not published to me/lora"))
+        #expect(await !transport.starts.contains { $0.url?.path() == "/services/push-lora/start" })
+        await workspace.stopEverything()
+    }
+
+    @MainActor @Test
     func signedInWithoutARepoPushesPrivatelyToTheAccount() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -362,7 +413,10 @@ struct GPUResultTests {
         #expect(try JSONDecoder().decode(SavedPod.self, from: data).points.map(\.step) == [10, 20, 30])
         await workspace.stopEverything()
     }
+}
 
+/// Choosing the run artifacts to retrieve, and finding computers on launch.
+extension GPUResultTests {
     @Test
     func runArtifactsKeepTheFinalLoRAConfigAndSamples() {
         let files = [

@@ -40,7 +40,7 @@ struct GPUJourneyView: View {
             status
             if workspace.demoMode {
                 StudioNotice(
-                    "Demo computer and prices. No computer is rented and there are no charges.",
+                    "Demo cloud GPU and prices. No cloud GPU is rented and there are no charges.",
                     symbol: "leaf"
                 )
             }
@@ -53,67 +53,65 @@ struct GPUJourneyView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { if workspace.offers.isEmpty { await workspace.refreshOffers() } }
-        .confirmationDialog("Permanently remove this computer?", isPresented: $confirmTermination) {
-            Button("Remove computer", role: .destructive) { Task { await workspace.terminate() } }
+        .confirmationDialog("Permanently remove this cloud GPU?", isPresented: $confirmTermination) {
+            Button("Remove cloud GPU", role: .destructive) { Task { await workspace.terminate() } }
         } message: {
             Text(
-                "Removing deletes this computer and its pod disk. Separate network storage remains. "
+                "Removing deletes this cloud GPU and its disk. Separate saved storage remains. "
                     + workspace.outputCustodyExplanation
             )
         }
         .confirmationDialog(
-            "Remove this computer and delete its unsaved outputs?",
+            "Remove this cloud GPU and delete its unsaved outputs?",
             isPresented: $confirmDiscardingTermination
         ) {
             Button("Remove and delete outputs", role: .destructive) {
                 Task { await workspace.terminate(discardingUndeliveredOutputs: true) }
             }
         } message: {
-            Text("These are only on this computer's pod disk and cannot be recovered after removal: "
+            Text("These are only on this cloud GPU's disk and cannot be recovered after removal: "
                 + workspace.undeliveredPodOutputs.joined(separator: ", ") + ".")
         }
     }
 
-    // MARK: GPU pods
+    // MARK: Cloud GPU
 
     private var pods: some View {
         VStack(alignment: .leading, spacing: StudioStyle.contentSpacing) {
-            costFigures
             StudioSection(
-                title: "Choose a training computer",
+                title: "Choose a cloud GPU",
                 subtitle: workspace.computerSubtitle
             ) {
                 Form {
                     trainerPicker
                     Picker("Number of GPUs", selection: $workspace.gpuCount) {
-                        Text("1 · caption, then train").tag(1)
-                        Text("2 · caption and train together").tag(2)
-                        Text("4 · caption and train together").tag(4)
+                        ForEach([1, 2, 4], id: \.self) { Text("\($0)").tag($0) }
                     }
                     .disabled(workspace.hasRunningPod || workspace.isBusy)
                     .onChange(of: workspace.gpuCount) { _, _ in Task { await workspace.refreshOffers() } }
-                    Picker("Computer", selection: $workspace.selectedGPU) {
-                        ForEach(workspace.availableOffers) { offer in
-                            Text(offer.summary).tag(offer.id)
-                        }
-                    }
-                    .disabled(workspace.hasRunningPod)
+                    Text(workspace.gpuCount == 1
+                        ? "Captioning and training share this GPU, one after the other."
+                        : "One GPU captions while the others train.")
+                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 }.formStyle(.columns)
+                CloudGPUList(workspace: workspace)
                 Button("Refresh prices and availability") { Task { await workspace.refreshOffers() } }
                     .disabled(workspace.isBusy)
             }
             Divider()
             StudioSection(
                 title: "Training storage",
-                subtitle: "Choose reusable network storage or a disk that stays with this computer. "
-                    + "Storage is billed separately, including while stopped."
+                subtitle: "Your training files (the base model, your images and the trained result) live on "
+                    + "RunPod while you train. Keep them on the cloud GPU's own disk, or on saved storage you can "
+                    + "reuse with any cloud GPU in the same data centre. RunPod bills storage directly to your "
+                    + "RunPod account, including while the cloud GPU is stopped."
             ) {
                 Form {
-                    Picker("Saved storage", selection: Binding(
+                    Picker("Storage", selection: Binding(
                         get: { workspace.selectedVolume },
                         set: { workspace.chooseStorage($0) }
                     )) {
-                        Text("No saved storage · use this computer’s disk").tag("")
+                        Text("The cloud GPU's own disk · 300 GB").tag("")
                         ForEach(workspace.volumes) { volume in
                             Text("\(volume.name) · \(volume.size) GB · \(volume.dataCenter)").tag(volume.id)
                         }
@@ -122,20 +120,19 @@ struct GPUJourneyView: View {
                     .onChange(of: workspace.selectedVolume) { _, _ in workspace.selectAvailableOffer() }
                 }.formStyle(.columns)
                 if workspace.selectedVolume.isEmpty, !workspace.hasRunningPod {
-                    Text("A 300 GB disk stays with this computer. Stopping keeps your training files; "
-                        + "removing the computer deletes them. The result is pushed "
-                        + "when training finishes if a Hugging Face destination is available, or saved to your Mac. "
-                        + "Temporary system files are cleared when the computer restarts.")
+                    Text("The disk comes with the cloud GPU. Stopping the cloud GPU keeps your files; removing it "
+                        + "deletes them. When training finishes, the trained model is published to your Hugging Face "
+                        + "account if you chose a destination there and a Secure Cloud GPU, or saved to your Mac.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let volume = workspace.volumes.first(where: { $0.id == workspace.selectedVolume }) {
-                    Text("Computer availability is limited to \(volume.dataCenter), where this storage lives.")
+                    Text("Only cloud GPUs in \(volume.dataCenter), where this storage lives, can use it.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 }
                 if workspace.volumes.isEmpty, !workspace.demoMode,
                    let url = URL(string: "https://console.runpod.io/storage") {
-                    Link("Create project storage in RunPod", destination: url)
+                    Link("Create saved storage in RunPod", destination: url)
                 }
                 if workspace.hasRunningPod {
                     if let storage = workspace.storage {
@@ -166,40 +163,41 @@ struct GPUJourneyView: View {
     private var spending: some View {
         StudioSection(
             title: "Control your spending",
-            subtitle: "ConceptStudio keeps your Mac awake and enforces the spending limit and idle stop while a "
-                + "computer runs. Stop also works if the agent fails."
+            subtitle: "All charges are RunPod's, billed to your RunPod account. ConceptStudio doesn't charge you "
+                + "anything. While a cloud GPU runs, ConceptStudio keeps your Mac awake and stops the GPU at your "
+                + "spending limit or when it sits idle."
         ) {
             Form {
                 if workspace.quotedHourlyRate > 0 || workspace.hasRunningPod {
-                    LabeledContent("Computer price") {
+                    LabeledContent("Price") {
                         Text(StudioMoney.perHour(workspace.hasRunningPod
                                 ? workspace.pod?.cost ?? workspace.quotedHourlyRate
-                                : workspace.saved?.hourlyRate ?? workspace.quotedHourlyRate))
+                                : workspace.quotedHourlyRate))
                             .font(.headline).monospacedDigit()
                     }
                 }
                 if workspace.hasRunningPod {
-                    LabeledContent("Whole-computer spending limit") {
+                    LabeledContent("Spending limit") {
                         Text(StudioMoney.format(workspace.activeBudget ?? workspace.budget)).monospacedDigit()
                     }
                     TextField("Raise the limit to (USD)", value: $newBudget, format: .number)
                 } else {
-                    TextField("Whole-computer GPU budget (USD)", value: $workspace.budget, format: .number)
+                    TextField("Spending limit (USD)", value: $workspace.budget, format: .number)
                 }
                 Stepper("Stop after \(workspace.idleMinutes) idle minutes", value: $workspace.idleMinutes, in: 1 ... 60)
             }.formStyle(.columns)
             if workspace.hasRunningPod {
                 Button("Raise spending limit…") { raiseBudget() }
                     .disabled((newBudget ?? 0) <= (workspace.activeBudget ?? workspace.budget))
-                    .help("The limit can only go up while the computer runs. You confirm the new amount first.")
+                    .help("The limit can only go up while the cloud GPU runs. You confirm the new amount first.")
             } else if workspace.quotedHourlyRate <= 0 {
-                Text("Choose an available computer to see its price.")
+                Text("Choose an available cloud GPU to see its price.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
             if !workspace.hasRunningPod { prerequisitesNotice(beforeBilling: true) }
             Button(workspace.quotedHourlyRate > 0
-                ? "Rent computer · \(StudioMoney.perHour(workspace.quotedHourlyRate))"
-                : "Choose a computer first") {
+                ? "Rent cloud GPU · \(StudioMoney.perHour(workspace.quotedHourlyRate))"
+                : "Choose a cloud GPU first") {
                     Task { await workspace.rent() }
                 }
                 .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
@@ -207,7 +205,7 @@ struct GPUJourneyView: View {
                 .help("Renting starts GPU billing, so it has no keyboard shortcut.")
             if workspace.pod != nil {
                 if !workspace.hasRunningPod {
-                    Button("Start this stopped computer · last rate "
+                    Button("Start this stopped cloud GPU · last rate "
                         + StudioMoney.perHour(workspace.saved?.hourlyRate ?? 0)) {
                             Task { await workspace.startStoppedComputer() }
                         }.disabled(workspace.isBusy)
@@ -216,21 +214,21 @@ struct GPUJourneyView: View {
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 }
                 if workspace.hasUndeliveredPodOutputs, !workspace.hasRunningPod {
-                    Text("Unsaved outputs keep this computer from being removed. "
+                    Text("Unsaved outputs keep this cloud GPU from being removed. "
                         + workspace.stoppedPodDiskCostExplanation)
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                     Button("Remove anyway and delete these outputs…", role: .destructive) {
                         confirmDiscardingTermination = true
                     }
                     .disabled(workspace.isBusy)
-                    .help("Deletes the pod disk with the outputs that were never pushed or saved.")
+                    .help("Deletes the cloud GPU's disk with the outputs that were never published or saved.")
                 } else {
                     Button(
-                        workspace.restartBlockedByHost ? "Remove it to rent a new one…" : "Remove computer…",
+                        workspace.restartBlockedByHost ? "Remove it to rent a new one…" : "Remove cloud GPU…",
                         role: .destructive
                     ) { confirmTermination = true }
                         .disabled(workspace.hasUndeliveredPodOutputs)
-                        .help("Push or save outputs from a pod disk before removing its computer.")
+                        .help("Publish or save outputs from the cloud GPU's disk before removing it.")
                 }
             }
         }
@@ -296,9 +294,9 @@ struct GPUJourneyView: View {
                     }
                     trainingDestinationFields
                 }.formStyle(.columns)
-                Text("This project's own destination. With a Hugging Face token in Settings, the trained model is "
-                    + "uploaded to this repository when training finishes. Without one, it is saved in this "
-                    + "project's results folder on your Mac.")
+                Text("This project's own destination. With a Hugging Face token in Settings and a Secure Cloud "
+                    + "GPU, the trained model is published to this repository when training finishes. Without a "
+                    + "token, or on a Community Cloud GPU, it is saved in this project's results folder on your Mac.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -401,9 +399,9 @@ struct GPUJourneyView: View {
             )
         } else if !workspace.hasRunningPod || workspace.tensorBoardURL == nil {
             ContentUnavailableView(
-                "No running training computer",
+                "No running cloud GPU",
                 systemImage: "server.rack",
-                description: Text("Rent a computer and start training to view its detailed TensorBoard charts.")
+                description: Text("Rent a cloud GPU and start training to view its detailed TensorBoard charts.")
             )
         } else if let url = workspace.tensorBoardURL {
             TensorBoardView(url: url, token: workspace.agentToken)
@@ -484,8 +482,8 @@ struct TrainingResultSection: View {
                     .foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
             case .pending?:
                 StudioNotice(
-                    "The trained model is still only on the rented computer's storage. Retrieve it before you "
-                        + "stop the computer.",
+                    "The trained model is still only on the cloud GPU's storage. Retrieve it before you "
+                        + "stop the cloud GPU.",
                     symbol: "exclamationmark.triangle"
                 )
                 HStack(spacing: 12) {
@@ -497,7 +495,7 @@ struct TrainingResultSection: View {
                     if busy { ProgressView().controlSize(.small) }
                 }
             case let .pushed(repo)?:
-                Label("Pushed to \(repo)", systemImage: "checkmark.circle").font(.headline)
+                Label("Published to \(repo)", systemImage: "checkmark.circle").font(.headline)
                 if let url = URL(string: "https://huggingface.co/\(repo)") {
                     Link("Open on Hugging Face", destination: url)
                 }
@@ -544,7 +542,7 @@ extension GPUJourneyView {
     /// Inline status: progress and recoverable states. Blocking failures go to the window alert.
     private var status: some View {
         HStack(alignment: .center, spacing: 16) {
-            statusChip("Computer", workspace.computerStatus)
+            statusChip("Cloud GPU", workspace.computerStatus)
             if step == .training || step == .monitor {
                 statusChip("Training", workspace.trainingStatus)
             }

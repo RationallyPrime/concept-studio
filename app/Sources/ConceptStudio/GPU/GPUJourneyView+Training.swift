@@ -24,7 +24,7 @@ extension GPUJourneyView {
             StudioNotice(
                 "Before training, "
                     + ModelTable.sentenceList(missing.map(\.missing), conjunction: "and") + "."
-                    + (beforeBilling ? " A running computer bills while it waits, so do this first "
+                    + (beforeBilling ? " A running cloud GPU bills while it waits, so do this first "
                         + "unless you need it to caption." : ""),
                 symbol: "exclamationmark.circle"
             )
@@ -32,10 +32,10 @@ extension GPUJourneyView {
         }
     }
 
-    /// A stopped computer whose host has no free GPU: say so, and what removing it to rent another loses.
+    /// A stopped cloud GPU whose host has no free GPU: say so, and what removing it to rent another loses.
     var restartBlockedNotice: some View {
         StudioNotice(
-            "Its host has no free GPU right now, so this computer cannot start. Try again later, or remove it "
+            "Its host has no free GPU right now, so this cloud GPU cannot start. Try again later, or remove it "
                 + "and rent a new one. " + workspace.removalLossExplanation,
             symbol: "exclamationmark.triangle"
         )

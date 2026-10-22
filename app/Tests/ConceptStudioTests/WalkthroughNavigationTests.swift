@@ -20,9 +20,9 @@ struct WalkthroughNavigationTests {
         session.message = "Dataset prepared."
         session.goBack()
         #expect(session.message.isEmpty)
-        session.gpu.message = "Your computer is running."
+        session.gpu.message = "Your cloud GPU is running."
         session.step = .monitor
-        #expect(session.gpu.message == "Your computer is running.")
+        #expect(session.gpu.message == "Your cloud GPU is running.")
     }
 
     @Test func activeProgressSurvivesNavigationButItsLateCompletionDoesNot() async throws {

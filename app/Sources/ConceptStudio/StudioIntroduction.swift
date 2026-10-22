@@ -35,7 +35,7 @@ struct StudioIntroduction: View {
             + "then describes the pose, setting and clothing. The person’s defining appearance is left to the trigger. "
             + "Later, you include NORA7 in a generation prompt to ask for that person.",
         "In this app you import your photos or clips, define one concept, prepare and review its captions, "
-            + "then train on a rented GPU computer. Training produces a *LoRA*: a small file you save and use with "
+            + "then train on a cloud GPU. Training produces a *LoRA*: a small file you save and use with "
             + "a compatible base model in an image or video generation application. The captions guide learning; "
             + "they do not by themselves guarantee that unrelated details are never learned.",
     ]

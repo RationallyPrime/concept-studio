@@ -2,35 +2,108 @@ import ConceptCore
 import Foundation
 import Security
 
-struct GPUOffer: Identifiable, Decodable {
-    struct Prices: Decodable { let secure: Double }
-    struct Counts: Decodable { let secure: Int }
+/// RunPod's two pod clouds. Network volumes (saved storage) exist only in Secure Cloud data centres.
+enum GPUCloud: String, Sendable {
+    case secure = "SECURE"
+    case community = "COMMUNITY"
+
+    /// Whether a pod in this cloud may hold the person's Hugging Face token. Community Cloud pods run on
+    /// independent hosts' machines, so the token stays off them.
+    var receivesHubToken: Bool {
+        self == .secure
+    }
+}
+
+/// How much stock RunPod reports for a GPU, best first.
+enum GPUStock: Int, Comparable, Sendable {
+    case high, medium, low, none
+
+    init(_ level: String?) {
+        self = switch level {
+        case "HIGH": .high
+        case "MEDIUM": .medium
+        case "LOW": .low
+        default: .none
+        }
+    }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+/// One GPU type in one cloud, with that cloud's price and stock. A type RunPod offers in both clouds
+/// is two offers, told apart by `id`.
+struct GPUOffer: Identifiable {
     struct Location: Decodable {
         let id: String
         let availability: String
     }
 
+    /// RunPod's GPU type id, sent when renting.
+    let gpuID: String
+    let cloud: GPUCloud
+    let name: String
+    /// Graphics memory per GPU, in decimal GB.
+    let memory: Int
+    /// US dollars per GPU per hour.
+    let price: Double
+    /// The most GPUs of this type one pod can have.
+    let maxCount: Int
+    var dataCenters: [Location]?
+
+    init(
+        gpuID: String, cloud: GPUCloud = .secure, name: String, memory: Int, price: Double, maxCount: Int,
+        dataCenters: [Location]? = nil
+    ) {
+        self.gpuID = gpuID
+        self.cloud = cloud
+        self.name = name
+        self.memory = memory
+        self.price = price
+        self.maxCount = maxCount
+        self.dataCenters = dataCenters
+    }
+
+    var id: String {
+        "\(cloud.rawValue)/\(gpuID)"
+    }
+
+    /// Stock in one data centre, or the best stock in any when `dataCenter` is nil.
+    func stock(in dataCenter: String? = nil) -> GPUStock {
+        (dataCenters ?? []).filter { dataCenter == nil || $0.id == dataCenter }
+            .map { GPUStock($0.availability) }.min() ?? .none
+    }
+}
+
+/// One element of `GET /v2/catalog/gpus`. Price and count are per cloud; stock is for the cloud queried.
+private struct CatalogGPU: Decodable {
+    struct PerCloud<Value: Decodable>: Decodable {
+        let secure: Value?
+        let community: Value?
+
+        subscript(cloud: GPUCloud) -> Value? {
+            cloud == .secure ? secure : community
+        }
+    }
+
     let id: String
     let name: String
     let memory: Int
-    let secure: Bool
-    let price: Prices
-    let maxCount: Counts
-    let availability: String?
-    var dataCenters: [Location]?
+    let secure: Bool?
+    let community: Bool?
+    let price: PerCloud<Double>?
+    let maxCount: PerCloud<Int>?
+    let dataCenters: [GPUOffer.Location]?
 
-    func isAvailable(in dataCenter: String) -> Bool {
-        dataCenters?.contains { $0.id == dataCenter && Self.availableLevels.contains($0.availability) } == true
-    }
-
-    static let availableLevels: Set<String> = ["LOW", "MEDIUM", "HIGH"]
-
-    var hasAvailableLocation: Bool {
-        dataCenters?.contains { Self.availableLevels.contains($0.availability) } == true
-    }
-
-    var summary: String {
-        "\(name) · \(memory) GB · \(StudioMoney.format(price.secure))/GPU/hour"
+    /// The offer in `cloud`; nil when RunPod does not rent this GPU there.
+    func offer(in cloud: GPUCloud) -> GPUOffer? {
+        guard (cloud == .secure ? secure : community) == true, let price = price?[cloud], price > 0,
+              let maxCount = maxCount?[cloud], maxCount > 0 else { return nil }
+        return GPUOffer(
+            gpuID: id, cloud: cloud, name: name, memory: memory, price: price, maxCount: maxCount,
+            dataCenters: dataCenters
+        )
     }
 }
 
@@ -159,7 +232,7 @@ enum PodSecrets {
     static func newAgentSecretName() throws -> String {
         var bytes = [UInt8](repeating: 0, count: 12)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
-            throw StudioError.message("Your Mac could not generate a key for the computer. Try again.")
+            throw StudioError.message("Your Mac could not generate a key for the cloud GPU. Try again.")
         }
         return agentPrefix + bytes.map { String(format: "%02x", $0) }.joined()
     }
@@ -209,16 +282,25 @@ struct RunPodProvider: GPUProvider {
     let transport: any HTTPTransport
     private let origin = URL(string: "https://api.runpod.io/v2")!
 
+    /// Both clouds' offers, cheapest first. Stock differs per cloud, so each cloud is asked separately.
+    /// Community Cloud is opt-in, so its catalog failing leaves the Secure Cloud offers standing.
     func offers(count: Int, minCudaVersion: String) async throws -> [GPUOffer] {
-        struct Result: Decodable { let gpus: [GPUOffer] }
+        async let secure = catalog(.secure, count: count, minCudaVersion: minCudaVersion)
+        async let community = catalog(.community, count: count, minCudaVersion: minCudaVersion)
+        let optional = await (try? community) ?? []
+        return try await (secure + optional).sorted {
+            ($0.price, $0.cloud == .secure ? 0 : 1) < ($1.price, $1.cloud == .secure ? 0 : 1)
+        }
+    }
+
+    private func catalog(_ cloud: GPUCloud, count: Int, minCudaVersion: String) async throws -> [GPUOffer] {
+        struct Result: Decodable { let gpus: [CatalogGPU] }
         let data = try await call("catalog/gpus", query: [
             URLQueryItem(name: "include", value: "AVAILABILITY"), URLQueryItem(name: "product", value: "POD"),
-            URLQueryItem(name: "cloud", value: "SECURE"), URLQueryItem(name: "count", value: String(count)),
+            URLQueryItem(name: "cloud", value: cloud.rawValue), URLQueryItem(name: "count", value: String(count)),
             URLQueryItem(name: "minCudaVersion", value: minCudaVersion),
         ])
-        return try JSONDecoder().decode(Result.self, from: data).gpus
-            .filter { $0.secure && $0.maxCount.secure >= count && $0.price.secure > 0 }
-            .sorted { $0.price.secure < $1.price.secure }
+        return try JSONDecoder().decode(Result.self, from: data).gpus.compactMap { $0.offer(in: cloud) }
     }
 
     func volumes() async throws -> [GPUVolume] {
@@ -227,13 +309,17 @@ struct RunPodProvider: GPUProvider {
     }
 
     func create(_ request: PodCreation) async throws -> RentedPod {
-        guard [1, 2, 4].contains(request.count), request.count <= request.offer.maxCount.secure else {
-            throw StudioError.message("Choose 1, 2 or 4 GPUs available for this computer.")
+        guard [1, 2, 4].contains(request.count), request.count <= request.offer.maxCount else {
+            throw StudioError.message("Choose 1, 2 or 4 GPUs available for this GPU type.")
+        }
+        guard request.volume == nil || request.offer.cloud == .secure else {
+            throw StudioError.message("Saved storage works only with Secure Cloud GPUs. Choose a Secure Cloud GPU.")
         }
         var payload: JSONObject = [
-            "name": .string(request.name), "image": .string(request.image), "cloud": .string("SECURE"),
+            "name": .string(request.name), "image": .string(request.image),
+            "cloud": .string(request.offer.cloud.rawValue),
             "gpu": .object([
-                "id": .string(request.offer.id),
+                "id": .string(request.offer.gpuID),
                 "count": .int(request.count),
                 "minCudaVersion": .string(request.minCudaVersion),
                 "minRamPerGpu": .int(60),
@@ -389,7 +475,7 @@ struct RunPodProvider: GPUProvider {
             case 401, 403: throw StudioError.message("RunPod could not accept your key. Check it in Settings.")
             case 402: throw StudioError.message("RunPod reports insufficient account balance. Add funds in RunPod.")
             case 409, 429, 503:
-                throw StudioError.message("This computer is not available now. Refresh the list or choose another.")
+                throw StudioError.message("This cloud GPU is not available now. Refresh the list or choose another.")
             default:
                 throw StudioError.message("RunPod could not complete this action (\(response.status)). "
                     + "Check your account and try again.")
@@ -403,26 +489,27 @@ actor DemoGPUProvider: GPUProvider {
     private var pod = RentedPod(id: "demo", status: "EXITED", cost: 0, gpu: .init(count: 1))
 
     func offers(count: Int, minCudaVersion: String) -> [GPUOffer] {
-        [GPUOffer(
-            id: "demo-80",
-            name: "Demo training computer",
-            memory: 80,
-            secure: true,
-            price: .init(secure: 1.50),
-            maxCount: .init(secure: 4),
-            availability: "HIGH", dataCenters: [.init(id: "demo", availability: "HIGH")]
-        )]
+        [
+            GPUOffer(
+                gpuID: "demo-80", name: "Demo GPU", memory: 80, price: 1.50, maxCount: 4,
+                dataCenters: [.init(id: "demo", availability: "HIGH")]
+            ),
+            GPUOffer(
+                gpuID: "demo-80", cloud: .community, name: "Demo GPU", memory: 80, price: 0.90,
+                maxCount: 4, dataCenters: [.init(id: "demo-community", availability: "MEDIUM")]
+            ),
+        ]
     }
 
     func volumes() -> [GPUVolume] {
-        [GPUVolume(id: "demo-volume", name: "Demo project storage", size: 100, dataCenter: "demo")]
+        [GPUVolume(id: "demo-volume", name: "Demo saved storage", size: 100, dataCenter: "demo")]
     }
 
     func create(_ request: PodCreation) -> RentedPod {
         pod = RentedPod(
             id: "demo",
             status: "RUNNING",
-            cost: request.offer.price.secure * Double(request.count),
+            cost: request.offer.price * Double(request.count),
             gpu: .init(count: request.count),
             name: request.name
         )

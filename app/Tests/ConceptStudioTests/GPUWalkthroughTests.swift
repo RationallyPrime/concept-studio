@@ -28,12 +28,12 @@ struct GPUWalkthroughTests {
             offer("empty", locations: [.init(id: "EU-RO-1", availability: "NONE")]),
             offer("unknown", locations: [.init(id: "EU-RO-1", availability: "UNKNOWN")]),
         ]
-        #expect(workspace.availableOffers.map(\.id) == ["local"])
+        #expect(workspace.availableOffers.map(\.gpuID) == ["local"])
         workspace.gpuCount = 4
         workspace.offers.append(offer("too-small", locations: [.init(id: "EU-RO-1", availability: "HIGH")], count: 1))
-        #expect(workspace.availableOffers.map(\.id) == ["local"])
+        #expect(workspace.availableOffers.map(\.gpuID) == ["local"])
         workspace.selectedVolume = ""
-        #expect(workspace.availableOffers.map(\.id) == ["large", "local"])
+        #expect(workspace.availableOffers.map(\.gpuID) == ["large", "local"])
         workspace.selectedVolume = "removed-volume"
         #expect(workspace.availableOffers.isEmpty)
     }
@@ -107,7 +107,7 @@ struct GPUWalkthroughTests {
         try await workspace.enforceLimits()
         #expect(!workspace.hasRunningPod)
         #expect(workspace.result?.state == .pending)
-        #expect(workspace.message.contains("same computer"))
+        #expect(workspace.message.contains("same cloud GPU"))
         #expect(workspace.hasUndeliveredPodOutputs)
         await workspace.terminate()
         #expect(workspace.pod?.id == podID)
@@ -164,7 +164,7 @@ struct GPUWalkthroughTests {
         await workspace.terminate()
         #expect(workspace.pod != nil)
         #expect(workspace.message.contains(
-            "300 GB pod disk costs about \(StudioMoney.format(60)) a month (estimated)"
+            "300 GB disk costs about \(StudioMoney.format(60)) a month (estimated)"
         ))
         await workspace.terminate(discardingUndeliveredOutputs: true)
         #expect(workspace.pod == nil)
@@ -312,15 +312,6 @@ struct GPUWalkthroughTests {
     }
 
     private func offer(_ id: String, locations: [GPUOffer.Location], count: Int = 4) -> GPUOffer {
-        GPUOffer(
-            id: id,
-            name: id,
-            memory: 96,
-            secure: true,
-            price: .init(secure: 1),
-            maxCount: .init(secure: count),
-            availability: "HIGH",
-            dataCenters: locations
-        )
+        GPUOffer(gpuID: id, name: id, memory: 96, price: 1, maxCount: count, dataCenters: locations)
     }
 }

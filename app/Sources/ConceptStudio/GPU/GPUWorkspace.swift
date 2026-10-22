@@ -7,7 +7,19 @@ final class GPUWorkspace {
     let demoMode: Bool
     var offers: [GPUOffer] = []
     var volumes: [GPUVolume] = []
+    /// The chosen offer's `GPUOffer.id`, which names its cloud as well as its GPU type.
     var selectedGPU = ""
+    /// Filters above the cloud GPU list. Each change keeps the selection on a GPU the list still offers.
+    var includeCommunityCloud = false {
+        didSet { selectAvailableOffer() }
+    }
+
+    var inStockOnly = false
+    /// Graphics memory in decimal GB; 0 shows every size.
+    var minimumMemoryFilter = 0 {
+        didSet { selectAvailableOffer() }
+    }
+
     var selectedVolume = ""
     @ObservationIgnored var hasLoadedVolumes = false
     var gpuCount = 1
@@ -33,7 +45,7 @@ final class GPUWorkspace {
     var captionServerInstalled = true // false once the agent reports no caption server in this image
     var rentsCaptionServer = false // the next rental takes the "-captioning" tag (Captioning screen)
     var storage: AgentStorageUsage?
-    var message = "Refresh available computers to see current prices."
+    var message = "Refresh available cloud GPUs to see current prices."
     var isBusy = false
     private var operationRevision = 0
     var isStopping = false
@@ -107,7 +119,11 @@ final class GPUWorkspace {
     var triggerWords = "NORA7"
     var profile: String
     var keepCaptionServer = false
-    var captionModel = "Qwen/Qwen3-VL-8B-Instruct"
+    /// The model the caption server starts: Captioning's "My cloud GPU / custom server" model, remembered.
+    var captionModel = ProviderChoices.defaultModel(for: "vllm") {
+        didSet { if !demoMode { preferences.set(captionModel, forKey: Self.captionModelKey) } }
+    }
+
     var points: [TrainingPoint] = []
     var logs = ""
     var trainingState = "Not started"
@@ -206,10 +222,11 @@ final class GPUWorkspace {
         self.downloader = downloader
         self.uploader = uploader
         sleepGuard = keepAwake ?? .system()
+        captionModel = Self.rememberedCaptionModel(preferences) ?? captionModel
         if demoMode {
             provider = DemoGPUProvider()
             imageName = "demo"
-            message = "Demo computers are simulated. No account, network or money is used."
+            message = "Demo cloud GPUs are simulated. No account, network or money is used."
         }
     }
 
@@ -257,7 +274,7 @@ final class GPUWorkspace {
     func refreshOffers() async {
         await perform {
             guard let provider = self.provider else {
-                throw StudioError.message("Add your RunPod key in Settings, then refresh available computers.")
+                throw StudioError.message("Add your RunPod key in Settings, then refresh available cloud GPUs.")
             }
             async let offers = provider.offers(
                 count: self.gpuCount,
@@ -272,9 +289,13 @@ final class GPUWorkspace {
             }
             self.hasLoadedVolumes = true
             self.selectAvailableOffer()
-            self.message = self.availableOffers.isEmpty
-                ? "No computers are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
-                : "Choose a computer and storage, then check the price before renting."
+            self.message = if self.pod != nil, !self.hasRunningPod {
+                "Your cloud GPU is stopped. Start it to continue, or remove it to rent another."
+            } else if self.availableOffers.isEmpty {
+                "No cloud GPUs are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
+            } else {
+                "Choose a cloud GPU and storage, then check the price before renting."
+            }
         }
     }
 
@@ -283,7 +304,7 @@ final class GPUWorkspace {
             guard self.pod == nil else {
                 throw StudioError
                     .message(
-                        "Stop and remove your current computer before renting another. Saved network storage remains."
+                        "Stop and remove your current cloud GPU before renting another. Saved storage remains."
                     )
             }
             guard let provider = self.provider,
@@ -292,14 +313,14 @@ final class GPUWorkspace {
                   self.budget.isFinite, self.budget > 0 else {
                 throw StudioError
                     .message(
-                        "Choose an available computer and a positive budget."
+                        "Choose an available cloud GPU and a positive budget."
                     )
             }
             let volume = self.volumes.first { $0.id == self.selectedVolume }
             let started = Date()
             self.agentToken = try Self.newAgentToken()
             // Credentials go to the account's secret store; the pod only ever sees placeholders.
-            let credentials = try await self.storeCredentials(provider)
+            let credentials = try await self.storeCredentials(provider, cloud: offer.cloud)
             let created = try await self.createPod(provider, offer: offer, volume: volume, credentials: credentials)
             self.pod = created
             self.plan = nil
@@ -312,9 +333,9 @@ final class GPUWorkspace {
             self.elapsedCost = 0
             self.saved = SavedPod(
                 pod: created, started: started, hourlyRate: max(created.cost, self.quotedHourlyRate),
-                budget: self.budget, trainer: self.trainer, runID: "",
+                budget: self.budget, trainer: self.trainer, runID: "", runpodKey: self.runpodKeyFingerprint,
                 idleMinutes: self.idleMinutes, volumeID: volume?.id ?? "pod:" + created.id,
-                agentSecret: credentials.agentSecret
+                agentSecret: credentials.agentSecret, hubTokenOnPod: credentials.holdsHubToken
             )
             self.connectAgent(created)
             self.lastActivity = Date()
@@ -328,7 +349,7 @@ final class GPUWorkspace {
                     throw error
                 }
             }
-            self.message = "Your computer is rented and its control agent is connecting. "
+            self.message = "Your cloud GPU is rented and its control agent is connecting. "
                 + "Its cost is visible below; you can stop it at any time."
         }
     }
@@ -349,7 +370,7 @@ final class GPUWorkspace {
             persist()
             guard hasRunningPod else { clearRefreshFailure(); return }
             guard let agent else {
-                throw StudioError.message("Open Settings to restore this computer’s saved connection.")
+                throw StudioError.message("Open Settings to restore this cloud GPU’s saved connection.")
             }
             if plan == nil {
                 plan = try await agent.plan()
@@ -358,8 +379,8 @@ final class GPUWorkspace {
             let services = try await agent.services()
             updateCaptionServerState(services)
             agentAnswered = true
-            if message.hasPrefix("Your computer is rented and its control agent is connecting.") {
-                message = "Your computer is connected and ready. "
+            if message.hasPrefix("Your cloud GPU is rented and its control agent is connecting.") {
+                message = "Your cloud GPU is connected and ready. "
                     + "Its cost is visible below; you can stop it at any time."
             }
             let active = services.contains { $0.active && !["tensorboard", "vllm"].contains($0.name) }
@@ -386,7 +407,7 @@ final class GPUWorkspace {
         if hasRunningPod, !isBusy, appWorkInFlight == 0, !resultNeedsSaving, !(agentAnswered && resultUnsettled),
            Date().timeIntervalSince(lastActivity) >= Double(idleMinutes * 60) {
             await stopEverything()
-            if !hasRunningPod { message = "Stopped the idle computer to avoid further GPU charges." }
+            if !hasRunningPod { message = "Stopped the idle cloud GPU to avoid further GPU charges." }
         }
     }
 
@@ -435,7 +456,7 @@ final class GPUWorkspace {
             do {
                 try await action()
             } catch is CancellationError {
-                self.message = "Action cancelled. Check the computer status before closing."
+                self.message = "Action cancelled. Check the cloud GPU status before closing."
             } catch {
                 self.message = error.localizedDescription
                 self.failure = self.message
@@ -490,20 +511,6 @@ extension GPUWorkspace {
         lastActivity = Date()
     }
 
-    var quotedHourlyRate: Double {
-        (availableOffers.first(where: { $0.id == selectedGPU })?.price.secure ?? 0) * Double(gpuCount)
-    }
-
-    var availableOffers: [GPUOffer] {
-        let volume = volumes.first { $0.id == selectedVolume }
-        guard selectedVolume.isEmpty || volume != nil else { return [] }
-        return offers.filter { offer in
-            offer.memory >= requiredGPUMemoryGB && offer.secure && offer.maxCount.secure >= gpuCount
-                && offer.price.secure > 0 && (volume.map { offer.isAvailable(in: $0.dataCenter) }
-                    ?? offer.hasAvailableLocation)
-        }
-    }
-
     var prefersNoSavedStorage: Bool {
         !demoMode && preferences.bool(forKey: Self.noSavedStorageKey)
     }
@@ -513,12 +520,6 @@ extension GPUWorkspace {
         selectedVolume = volumeID
         if !demoMode { preferences.set(volumeID.isEmpty, forKey: Self.noSavedStorageKey) }
         selectAvailableOffer()
-    }
-
-    func selectAvailableOffer() {
-        if !availableOffers.contains(where: { $0.id == selectedGPU }) {
-            selectedGPU = availableOffers.first?.id ?? ""
-        }
     }
 
     /// The pod's control agent, as the provider exposes its port.
@@ -542,11 +543,6 @@ extension GPUWorkspace {
 
     var isTraining: Bool {
         ["running", "stuck"].contains(trainingState)
-    }
-
-    /// Whether the user has given the app a Hub token that training can push with.
-    var canPushToHub: Bool {
-        demoMode || !hubToken.isEmpty
     }
 
     /// The network volume mounted at /workspace on the current pod.

@@ -14,6 +14,7 @@ struct CaptioningView: View {
     @State private var modelCatalogStatus: String?
     @State private var testingConnection = false
     @State private var connectionTestStatus: String?
+    @State private var bundledSkills: [BundledSkill]?
 
     var captionFormatSelection: Binding<String> {
         Binding(
@@ -157,6 +158,8 @@ struct CaptioningView: View {
                                         Button("Use bundled") { session.useBundledSkill() }
                                     }
                                 }
+                                Button("Read the built-in skills…") { bundledSkills = BundledSkill.all() }
+                                    .help("Shows the caption-writing instructions that ship with the app.")
                                 Text(
                                     "A skill folder supplies the caption-writing instructions "
                                         + "and its available formats."
@@ -216,6 +219,9 @@ struct CaptioningView: View {
             .overlay(alignment: .leading) { Rectangle().fill(.separator).frame(width: 1) }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { captionAction }
+        .sheet(isPresented: Binding(get: { bundledSkills != nil }, set: { if !$0 { bundledSkills = nil } })) {
+            BundledSkillsView(skills: bundledSkills ?? [])
+        }
         .task(id: session.usesChatGPTForThisRun) { await session.prepareChatGPTModels() }
         .onChange(of: session.chatGPT.selectedAccountID) { _, _ in
             Task { await session.prepareChatGPTModels() }
@@ -479,18 +485,22 @@ private extension CaptioningView {
 }
 
 extension CaptioningView {
-    /// The optional pod caption server: rent a computer that carries it, then start it on GPU 0.
+    /// The optional cloud GPU caption server: rent a cloud GPU that carries it, then start it on GPU 0.
     var podCaptioning: some View {
-        DisclosureGroup("Optional: caption on a rented computer") {
+        DisclosureGroup("Optional: caption on a cloud GPU") {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Hosted captioning needs no rented GPU. To use a local model, rent a computer, "
+                Text("Hosted captioning needs no cloud GPU. To use a local model, rent a cloud GPU, "
                     + "caption on GPU 0, then review and publish before training.")
                     .foregroundStyle(StudioStyle.supportingText)
-                Button("Rent or choose a captioning computer") {
+                Button("Rent or choose a cloud GPU for captioning") {
                     session.gpu.rentsCaptionServer = true
                     session.step = .pods
                 }
-                Button("Start caption server and use this computer") { session.usePodCaptionServer() }
+                Text("The caption server starts \(session.gpu.captionModel). "
+                    + "Choose this model above, with the provider My cloud GPU / custom server.")
+                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Start caption server and use this cloud GPU") { session.usePodCaptionServer() }
                     .disabled(session.busy || !session.gpu.hasRunningPod
                         || !session.gpu.captionServerInstalled)
                 if session.gpu.hasRunningPod, !session.gpu.captionServerInstalled {
@@ -499,7 +509,7 @@ extension CaptioningView {
                 }
                 if session.usingPodCaptioner {
                     StudioNotice(
-                        "Using your authenticated computer’s caption server.",
+                        "Using your authenticated cloud GPU’s caption server.",
                         symbol: "server.rack"
                     )
                     Button("Use my Settings server instead") {

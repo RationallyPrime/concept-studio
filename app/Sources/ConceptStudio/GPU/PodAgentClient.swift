@@ -140,7 +140,7 @@ extension PodAgent {
     }
 
     func upload(name: String, fileName: String, from file: URL, size: Int64) async throws {
-        throw StudioError.message("This computer does not support direct training uploads. Update its training image.")
+        throw StudioError.message("This cloud GPU does not support direct training uploads. Update its training image.")
     }
 
     func storageUsage() async throws -> AgentStorageUsage {
@@ -156,7 +156,7 @@ extension PodAgent {
     }
 
     func downloadLogFile(runID: String, path: String, to destination: URL) async throws {
-        throw StudioError.message("This computer does not serve training logs. Update its training image.")
+        throw StudioError.message("This cloud GPU does not serve training logs. Update its training image.")
     }
 }
 
@@ -328,19 +328,23 @@ struct PodAgentClient: PodAgent {
         }
         let response = try await transport.send(request)
         guard (200 ..< 300).contains(response.status) || accepted.contains(response.status) else {
-            throw Self.failure(response.status)
+            throw Self.failure(response.status, body: response.body)
         }
         return (response.status, response.body)
     }
 
-    private static func failure(_ status: Int) -> StudioError {
-        if [502, 503, 504].contains(status) || (520 ... 526).contains(status) {
+    /// The agent answers every error with its JSON `{"error": {...}}` envelope. A 404 without one comes from
+    /// RunPod's proxy before it routes to a pod that is still starting, so it reads as starting, not failed.
+    /// A download has no body to read (`nil`), so its 404 keeps meaning the file is not there.
+    static func failure(_ status: Int, body: Data? = nil) -> StudioError {
+        let fromProxy = body.map { (try? JSONValue(parsing: $0))?.objectValue?["error"] == nil } ?? false
+        if [502, 503, 504].contains(status) || (520 ... 526).contains(status) || (status == 404 && fromProxy) {
             return StudioError.message(
-                "The computer is starting or unreachable. Refresh in a moment; you can still stop it."
+                "The cloud GPU is starting or unreachable. Refresh in a moment; you can still stop it."
             )
         }
         return StudioError.message(
-            "The computer could not complete this action (\(status)). Check its status and logs."
+            "The cloud GPU could not complete this action (\(status)). Check its status and logs."
         )
     }
 }
@@ -394,7 +398,7 @@ actor DemoPodAgent: PodAgent {
 
     func runLog(runID: String) -> String {
         let trainer = states.first { $0.key.hasPrefix("trainer-") }
-        return "Demo · \(runID): \(trainer?.value ?? "idle")\nNo remote computer is being billed."
+        return "Demo · \(runID): \(trainer?.value ?? "idle")\nNo cloud GPU is being billed."
     }
 
     func latest(runID: String) -> TrainingPoint? {

@@ -19,9 +19,9 @@ struct PublishView: View {
                 }
                 Divider()
                 if session.gpu.usesLocalDataset {
-                    StudioSection(title: "Upload directly to your training computer") {
+                    StudioSection(title: "Upload directly to your cloud GPU") {
                         Text("No Hugging Face token is configured. Check your saved training data here, then rent a "
-                            + "computer and start training. The app uploads your included targets directly over its "
+                            + "cloud GPU and start training. The app uploads your included targets directly over its "
                             + "authenticated connection. No dataset account is required.")
                         Text("Up to 2 GiB per file and 20 GiB per dataset. "
                             + "Some starting models still require their own account or license access.")
@@ -49,7 +49,7 @@ struct PublishView: View {
                     subtitle: session.demoMode
                         ? "Offline simulation: no files leave your Mac and no money is spent."
                         : session.gpu.usesLocalDataset ? "Checks the included targets and saved captions on your Mac."
-                        : "Uploads to your own account. This action does not rent a computer."
+                        : "Uploads to your own account. This action does not rent a cloud GPU."
                 ) {
                     Button(
                         session.demoMode ? "Simulate dataset upload"
@@ -65,7 +65,7 @@ struct PublishView: View {
                             .busy || (!session.demoMode && !session.gpu.usesLocalDataset && session.repoID.isEmpty))
                     if session.busy { ProgressView(session.message) }
                     Text(
-                        "Continue to GPU pods to choose a training computer and review its price. "
+                        "Continue to Cloud GPU to choose one for training and review its price. "
                             + "Training uses your saved captions and included media."
                     )
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)

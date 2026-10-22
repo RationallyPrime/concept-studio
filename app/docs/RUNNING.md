@@ -30,7 +30,7 @@ demo so an iCloud Photos download cannot be triggered there.
    captions or re-caption one or several unprotected samples.
 6. **Publish:** Simulate dataset upload prepares the shared project files locally. Nothing is
    uploaded. The filled demo dataset name supplies the later training simulation.
-7. **GPU pods:** refresh offers, inspect the hourly price and budget, and rent a simulated
+7. **Cloud GPU:** refresh offers, inspect the hourly price and budget, and rent a simulated
    computer. No paid resource is created.
 8. **Training:** inspect the model, training settings and GPU plan, then Start training.
 9. **Monitor:** inspect simulated loss, logs and saved settings. Load settings for repeat
@@ -163,8 +163,8 @@ their approved dimensions. Neither route silently shortens an approved segment o
 its aspect ratio.
 
 Hosted captioning requires no GPU rental. To caption with a local model, choose **Rent or
-choose a captioning computer** on Captioning, rent one on GPU pods, then return and choose
-**Start caption server and use this computer**. That action starts through the control agent
+choose a cloud GPU for captioning** on Captioning, rent one on Cloud GPU, then return and choose
+**Start caption server and use this cloud GPU**. That action starts through the control agent
 and verifies the authenticated vLLM model endpoint. The app binds the in-memory pod token to
 that user-selected endpoint; it is never copied into `job.yaml`. Caption and publish before
 starting training on a one-GPU computer. ConceptStudio automatically selects the included
@@ -179,7 +179,7 @@ uncollected results; the app refuses removal while those results remain unsettle
 A network volume can instead follow replacement computers in its own data center. RunPod’s
 reported refusal text is shown when a rental fails.
 
-Before renting, GPU pods lists anything still needed before training can start (media, a concept
+Before renting, Cloud GPU lists anything still needed before training can start (media, a concept
 with its trigger, captions for a direct upload, or a published dataset) with a button to the
 step for the first item, because a rented computer bills while it waits. Rent stays available,
 since renting to caption on the computer is a real workflow. The same list appears above Start
@@ -268,7 +268,7 @@ Caption edits remain in the open project while moving between samples or screens
 saved caption. Closing, quitting or switching projects warns before discarding unsaved drafts.
 Dataset preparation uses saved captions and warns when drafts still need saving.
 
-GPU pods shows the volume's used/free space, dataset usage and reclaimable dataset bytes.
+Cloud GPU shows the volume's used/free space, dataset usage and reclaimable dataset bytes.
 **Clean completed dataset copies** invokes the agent's validated cleanup step. The same policy
 runs at training/generation start: preserve current, active, failed, unknown and shared inputs
 plus the latest three resumable completed runs; remove only eligible completed-run datasets.

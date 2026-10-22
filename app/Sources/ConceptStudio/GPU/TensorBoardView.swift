@@ -14,7 +14,7 @@ struct TensorBoardView: View {
                 if loading {
                     ProgressView("Connecting to TensorBoard…").controlSize(.small)
                 } else {
-                    Text("Detailed measurements from your training computer.")
+                    Text("Detailed measurements from your cloud GPU.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 }
                 Spacer()
@@ -90,7 +90,7 @@ private struct TensorBoardWebView: NSViewRepresentable {
                let response = navigationResponse.response as? HTTPURLResponse,
                response.statusCode >= 400 {
                 parent.loading = false
-                parent.errorMessage = "The training computer returned an error (\(response.statusCode))."
+                parent.errorMessage = "The cloud GPU returned an error (\(response.statusCode))."
                 return .cancel
             } else {
                 return .allow

@@ -27,7 +27,7 @@ extension GPUWorkspace {
             await stopEverything(discardingPendingResult: true)
             if !hasRunningPod {
                 message = (exceededRun ? "This training run's budget was reached."
-                    : "Your computer's spending limit was reached.") + " The GPU is stopped."
+                    : "Your cloud GPU's spending limit was reached.") + " The GPU is stopped."
                     + (stranded ? " " + outputCustodyExplanation : "")
             }
         }
@@ -74,7 +74,7 @@ extension GPUWorkspace {
                 self.pod = current
                 persist()
                 if !current.isRunning {
-                    message = "RunPod confirms this computer is stopped. "
+                    message = "RunPod confirms this cloud GPU is stopped. "
                         + "Workspace files remain; storage charges continue."
                     trainingState = "stopped"
                     return
@@ -88,7 +88,7 @@ extension GPUWorkspace {
                 self.pod = updated
                 persist()
                 if !updated.isRunning {
-                    message = "Computer stopped. GPU billing has ended; "
+                    message = "Cloud GPU stopped. GPU billing has ended; "
                         + "workspace files remain and storage charges continue."
                     trainingState = "stopped"
                     return
@@ -97,7 +97,7 @@ extension GPUWorkspace {
             }
             message = "Stop was requested, but RunPod has not confirmed it. Keep this window open and retry Stop."
         } catch {
-            message = "Could not confirm the computer is stopped. Retry Stop or stop it in your RunPod account."
+            message = "Could not confirm the cloud GPU is stopped. Retry Stop or stop it in your RunPod account."
         }
     }
 
@@ -118,7 +118,7 @@ extension GPUWorkspace {
     }
 
     /// Drops every local trace of `pod`: the record, its agent token and its agent secret.
-    private func forgetPod(_ pod: RentedPod) async {
+    func forgetPod(_ pod: RentedPod) async {
         let agentSecret = saved?.agentSecret ?? ""
         self.pod = nil
         saved = nil
@@ -141,14 +141,14 @@ extension GPUWorkspace {
         // key may belong to another account now, so the message says where it may still be.
         if !demoMode, let provider, let pod, await (try? provider.exists(id: pod.id)) == false {
             await forgetPod(pod)
-            message = "RunPod has no computer \(pod.id) under the current key, so this app no longer tracks it"
+            message = "RunPod has no cloud GPU \(pod.id) under the current key, so this app no longer tracks it"
                 + (lost.isEmpty ? "" : " (with " + lost.joined(separator: ", ") + ")")
                 + ". If you changed RunPod accounts, it may still exist, and bill storage, in the other account."
             return
         }
         guard lost.isEmpty || discardingUndeliveredOutputs else {
-            message = "This computer holds outputs that have not been pushed or saved. "
-                + "Start this same computer and retrieve them before removing it. " + stoppedPodDiskCostExplanation
+            message = "This cloud GPU holds outputs that have not been published or saved. "
+                + "Start this same cloud GPU and retrieve them before removing it. " + stoppedPodDiskCostExplanation
             failure = message
             return
         }
@@ -158,9 +158,9 @@ extension GPUWorkspace {
             try await provider.terminate(id: pod.id)
             await self.forgetPod(pod)
             self.message = lost.isEmpty
-                ? "Computer removed. Its pod disk was deleted; separate network storage remains in RunPod."
-                : "Computer removed. Its pod disk was deleted with "
-                + lost.joined(separator: ", ") + "; separate network storage remains in RunPod."
+                ? "Cloud GPU removed. Its disk was deleted; separate saved storage remains in RunPod."
+                : "Cloud GPU removed. Its disk was deleted with "
+                + lost.joined(separator: ", ") + "; separate saved storage remains in RunPod."
         }
     }
 }
