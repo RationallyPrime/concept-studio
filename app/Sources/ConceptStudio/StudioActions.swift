@@ -29,7 +29,7 @@ extension StudioSession {
 
     /// Save `source` (chosen by the view, e.g. with `ProjectAccess.chooseImages`) as the reference face.
     func chooseReference(trigger: String, from source: URL) {
-        guard let project else { return }
+        guard !busy, !editing, let project else { return }
         do {
             let accessed = source.startAccessingSecurityScopedResource()
             defer { if accessed { source.stopAccessingSecurityScopedResource() } }
@@ -45,6 +45,10 @@ extension StudioSession {
                 withIntermediateDirectories: true
             )
             try AtomicFile.write(data, to: target)
+            PhotoThumbnails.removeAll()
+            referenceRevision += 1
+            mappingProposals = [:]
+            mappingDescriptions = [:]
             message = "Reference saved. Suggestions always need your confirmation."
         } catch { errorMessage = Self.describe(error) }
     }
@@ -98,7 +102,7 @@ extension StudioSession {
     }
 
     func importHub(_ input: String, subfolder: String = "") {
-        do { importHub(try HubDatasetLocation(input, subfolder: subfolder)) }
+        do { try importHub(HubDatasetLocation(input, subfolder: subfolder)) }
         catch { errorMessage = Self.describe(error) }
     }
 
@@ -110,11 +114,11 @@ extension StudioSession {
 
     /// Called inside the existing work slot, including immediately after creating a project.
     func downloadHub(_ location: HubDatasetLocation) async throws {
-        guard !self.demoMode else {
-            self.message = "Demo dataset imported locally. No Hub connection was used."
+        guard !demoMode else {
+            message = "Demo dataset imported locally. No Hub connection was used."
             return
         }
-        let client = try HubClient(token: self.keyStore.read("huggingface"))
+        let client = try HubClient(token: keyStore.read("huggingface"))
         let source = try await HubFolderSource.open(
             client: client, repo: location.repo, revision: location.revision, subfolder: location.subfolder
         )
@@ -123,8 +127,8 @@ extension StudioSession {
         }
         for try await sample in source.samples() {
             try Task.checkCancellation()
-            guard let name = try self.project?.importData(sample.data, name: sample.sampleID),
-                  let project = self.project else { return }
+            guard let name = try project?.importData(sample.data, name: sample.sampleID),
+                  let project else { return }
             if let row = source.rows.first(where: { $0.fileName == sample.sampleID }),
                row.record != nil || row.caption != nil {
                 // A caption without its own record is kept as a model caption marked as imported;
@@ -146,12 +150,12 @@ extension StudioSession {
                     self.project?.images[index].isImported = ProjectImage.isImported(record)
                 }
             }
-            self.completed += 1
+            completed += 1
         }
-        self.selectedImageID = self.project?.images.first?.id
-        self.startImageAnalysis()
-        self.message = "Dataset downloaded. Confirm its subject mapping before captioning."
-            + (self.unprotectedImportedCount > 0
+        selectedImageID = project?.images.first?.id
+        startImageAnalysis()
+        message = "Dataset downloaded. Confirm its subject mapping before captioning."
+            + (unprotectedImportedCount > 0
                 ? " Imported captions are not protected yet; protect them before re-captioning." : "")
     }
 
@@ -279,6 +283,7 @@ extension StudioSession {
             try project.save()
             self.project = project
             mappingProposals[id] = nil
+            updateProjectState { $0.notSure[id] = nil }
             if previous != confirmed {
                 mappingUndo.append(MappingUndo(snapshots: [MappingSnapshot(sampleID: id, mapping: previous)]))
             }
@@ -337,49 +342,9 @@ extension StudioSession {
     }
 
     func proposeMappings(useModel: Bool) {
-        perform(useModel ? "Requesting concept assignments…" : "Comparing reference faces on this Mac…") {
-            guard let project = self.project else { return }
-            guard !project.job.concepts.isEmpty else {
-                throw StudioError.message("Add a concept before requesting assignments.")
-            }
-            if !project.job.requiresLocatorMapping {
-                for image in project.images {
-                    self.confirmMapping(id: image.id, mapping: project.job.wholeTargetMapping)
-                }
-                self.message = "Whole-target concepts are assigned to every included image and clip."
-                return
-            }
-            let locatorConcepts = project.job.concepts.filter(\.targetConcept.requiresLocator)
-            let references = self.references.filter { key, _ in locatorConcepts.contains { $0.trigger == key } }
-            let personConcepts = locatorConcepts.filter(\.targetConcept.isPersonIdentity)
-            if !useModel {
-                guard personConcepts.count == locatorConcepts.count else {
-                    throw StudioError.message("On-device face comparison supports person concepts. "
-                        + "Use the selected model or enter a location for objects, characters and custom concepts.")
-                }
-                guard personConcepts.allSatisfy({ references[$0.trigger] != nil }) else {
-                    throw StudioError.message("Choose a reference photo for each person in Concepts first.")
-                }
-                let stills = project.images.filter { !Sources.isVideo(Sources.suffix(of: $0.id)) }
-                let proposals = try await self.inspector.proposals(
-                    images: stills.map(\.url),
-                    references: references
-                )
-                self.receiveMappingSuggestions(proposals, sampleIDs: stills.map(\.id))
-            } else {
-                guard personConcepts.allSatisfy({ references[$0.trigger] != nil }) else {
-                    throw StudioError.message("Choose a reference photo for each person in Concepts first.")
-                }
-                let assistant = try StudioAssistant(endpoint: self.endpoint(), demo: self.demoMode)
-                for image in project.images {
-                    try Task.checkCancellation()
-                    self.mappingProposals[image.id] = try await assistant.proposeMapping(
-                        image: image.url, references: references, concepts: locatorConcepts
-                    )
-                    self.completed += 1
-                }
-            }
-            self.message = "Suggestions are ready. Select a sample to compare the result with its confirmed assignment."
+        guard useModel else { return }
+        perform("Requesting concept assignments…") {
+            try await self.requestMappingSuggestions()
         }
     }
 
@@ -395,7 +360,7 @@ extension StudioSession {
             step = .concepts
             return
         }
-        let pending = only ?? Set(project?.images.map(\.id) ?? [])
+        let pending = (only ?? Set(project?.images.map(\.id) ?? [])).subtracting(projectState.notSure.keys)
         let started = perform("Writing captions…") {
             defer { self.runPendingIDs = []; self.partialCaptions = [:] }
             guard var project = self.project else { return }
@@ -422,7 +387,7 @@ extension StudioSession {
             let source = try LocalFolderSource(directory: project.imagesDirectory)
             let sink = try SidecarSink(directory: project.imagesDirectory)
             _ = try await runner.run(
-                source: source, sink: sink, only: only,
+                source: source, sink: sink, only: pending,
                 onPartialCaption: { id, text in await self.receivePartialCaption(id: id, text: text) },
                 onOutcome: { outcome in await self.receive(outcome) }
             )

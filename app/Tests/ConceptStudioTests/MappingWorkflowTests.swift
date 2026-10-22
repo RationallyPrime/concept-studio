@@ -330,3 +330,97 @@ struct MappingWorkflowTests {
         ])
     }
 }
+
+@Suite("mapping friction fixes")
+@MainActor
+struct MappingFrictionTests {
+    @Test func forwardNavigationNeverWrapsAndSkipsUncertain() {
+        #expect(StudioSession
+            .nextUnconfirmed(after: "b", order: ["a", "b", "c", "d"], confirmed: [], notSure: ["c"]) == "d")
+        #expect(StudioSession
+            .nextUnconfirmed(after: "d", order: ["a", "b", "c", "d"], confirmed: [], notSure: []) == nil)
+    }
+
+    @Test func batchConfirmationSkipsUncertainAndUndoRestoresAll() async throws {
+        var project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        project.job = try Job(concepts: [Concept(trigger: "PERSON8", classNoun: "woman")])
+        try project.save()
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let session = StudioSession(preferences: defaults.defaults, secrets: MemorySecretStore())
+        session.project = project
+        let ids = Array(project.images.prefix(4).map(\.id))
+        session.markNotSure(id: ids[1], note: "Face hidden")
+        session.analyses[ids[0]] = ImageAnalysis(faces: [CGRect(x: 0, y: 0, width: 1, height: 1)])
+        session.analyses[ids[1]] = session.analyses[ids[0]]
+        session.analyses[ids[2]] = ImageAnalysis(faces: [])
+        session.analyses[ids[3]] = ImageAnalysis(faces: [CGRect.zero, CGRect.zero])
+        session.confirmRemainingSinglePerson()
+        #expect(session.project?.job.mapping(for: ids[0])?["PERSON8"] == "the woman")
+        #expect(session.project?.job.mapping(for: ids[1]) == nil)
+        #expect(!session.mappingReviewExceptions.contains(ids[1]))
+        #expect(session.mappingReviewExceptions.contains(ids[2]))
+        #expect(session.mappingReviewExceptions.contains(ids[3]))
+        #expect(ProjectAppState.load(from: project.directory).notSure[ids[1]] == "Face hidden")
+        session.undoMappingChange()
+        #expect(session.project?.job.mapping(for: ids[0]) == nil)
+        session.confirmMappings(ids: Set(ids), mapping: ["PERSON8": "the woman"])
+        #expect(session.project?.job.mapping(for: ids[1]) == nil)
+        #expect(session.project?.job.mapping(for: ids[3]) != nil)
+        session.undoMappingChange()
+        #expect(ids.allSatisfy { session.project?.job.mapping(for: $0) == nil })
+    }
+
+    @Test func resumeCachePersistsAndNotSureInvalidatesConfirmation() async throws {
+        let project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let session = StudioSession(preferences: defaults.defaults, secrets: MemorySecretStore())
+        session.project = project
+        let id = try #require(project.images.first?.id)
+        session.mappingProposals[id] = [:]
+        session.mappingDescriptions[id] = "No match"
+        let reloaded = ProjectAppState.load(from: project.directory)
+        #expect(reloaded.mappingSuggestions[id] == [:])
+        #expect(reloaded.mappingDescriptions[id] == "No match")
+        session.markNotSure(id: id, note: "")
+        #expect(session.project?.job.mapping(for: id) == nil)
+        #expect(session.validMappingSuggestionIDs.isEmpty)
+    }
+}
+
+extension MappingFrictionTests {
+    @Test func referenceReplacementWaitsForActiveWork() async throws {
+        let project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let session = StudioSession(preferences: defaults.defaults, secrets: MemorySecretStore())
+        session.project = project
+        let image = try #require(project.images.first)
+        let reference = project.referenceURL(for: "NORA7")
+        session.chooseReference(trigger: "NORA7", from: image.url)
+        let before = try Data(contentsOf: reference)
+        let thumbnailKey = PhotoThumbnails.Key(url: reference, pixels: 128)
+        _ = await PhotoThumbnails.load(thumbnailKey)
+        let revision = session.referenceRevision
+        let other = project.images[1]
+        session.mappingProposals[image.id] = ["NORA7": "the person"]
+        session.busy = true
+        session.useAsReference(image: other, trigger: "NORA7")
+        #expect(try Data(contentsOf: reference) == before)
+        #expect(session.mappingProposals[image.id] != nil)
+        session.busy = false
+        session.editing = true
+        session.chooseReference(trigger: "NORA7", from: other.url)
+        #expect(try Data(contentsOf: reference) == before)
+        session.editing = false
+        session.useAsReference(image: other, trigger: "NORA7")
+        #expect(try Data(contentsOf: reference) != before)
+        #expect(PhotoThumbnails.cached(thumbnailKey) == nil)
+        #expect(session.referenceRevision == revision + 1)
+        #expect(session.mappingProposals.isEmpty)
+    }
+}

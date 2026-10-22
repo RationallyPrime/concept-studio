@@ -78,7 +78,9 @@ final class StudioSession {
     var project: StudioProject? {
         didSet {
             if step == .mapping, project?.job.requiresLocatorMapping == false { step = .captioning }
-            if project?.job.concepts.isEmpty == true, step != .images, step != .concepts { step = .concepts }
+            if project?.job.concepts.isEmpty == true, step != .images, step != .concepts, step != .pods {
+                step = .concepts
+            }
         }
     }
 
@@ -115,7 +117,29 @@ final class StudioSession {
     @ObservationIgnored var analysisGeneration = 0
     @ObservationIgnored var activePublishID: UUID?
     var datasetAdvice = ""
-    var mappingProposals: [String: Job.Mapping] = [:]
+    var mappingProposals: [String: Job.Mapping] {
+        get { projectState.mappingSuggestions.mapValues { Job.Mapping($0.sorted { $0.key < $1.key }.map { (
+            $0.key,
+            $0.value
+        ) }) } }
+        set {
+            updateProjectState {
+                $0.mappingSuggestions = newValue.mapValues { Dictionary(uniqueKeysWithValues: $0.map { (
+                    $0.key,
+                    $0.value
+                ) }) }
+            }
+        }
+    }
+
+    var mappingDescriptions: [String: String] {
+        get { projectState.mappingDescriptions }
+        set { updateProjectState { $0.mappingDescriptions = newValue } }
+    }
+
+    var mappingReviewExceptions: [String] = []
+    var referenceRevision = 0
+    var mappingBatchSize = 1
     var mappingUndo: [MappingUndo] = []
     var comparison = ""
     var captionDrafts: [String: CaptionDraft] = [:]
@@ -272,8 +296,11 @@ final class StudioSession {
         message = title
         errorMessage = nil
         let originatingStep = step
+        let activityWorkspace = gpu
         let work = Task {
+            activityWorkspace.beginAppWork()
             defer {
+                activityWorkspace.endAppWork()
                 switch gate {
                 case .run: busy = false; task = nil
                 case .edit: editing = false; editTask = nil
@@ -292,6 +319,7 @@ final class StudioSession {
             } catch is CancellationError {
                 message = "Cancelled. Your completed work is saved."
             } catch {
+                message = ""
                 errorMessage = Self.describe(error)
             }
         }
@@ -335,6 +363,6 @@ final class StudioSession {
 extension StudioSession {
     static func describe(_ error: any Error) -> String {
         if let error = error as? StudioError { return error.localizedDescription }
-        return error.localizedDescription + " Check the relevant settings and try again."
+        return error.localizedDescription
     }
 }

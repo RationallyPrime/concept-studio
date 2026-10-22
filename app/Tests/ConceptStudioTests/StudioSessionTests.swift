@@ -85,9 +85,9 @@ struct StudioSessionTests {
         let slim = "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.8-20261021"
         let captioning = slim + GPUWorkspace.captioningTagSuffix
         #expect(await transport.createdImages == [fromCaptioning || keepCaptionModel ? captioning : slim])
-        // The Captioning screen's request is for one rental; keeping a caption model is a standing setting.
-        #expect(!session.gpu.rentsCaptionServer)
-        #expect(session.gpu.podImage == (keepCaptionModel ? captioning : slim))
+        // The selected purpose stays visible after rental and applies to the next one.
+        #expect(session.gpu.rentsCaptionServer == fromCaptioning)
+        #expect(session.gpu.podImage == (fromCaptioning || keepCaptionModel ? captioning : slim))
         await session.gpu.stopEverything()
 
         session.gpu.updateCaptionServerState([AgentService(
@@ -173,9 +173,10 @@ struct StudioSessionTests {
         session.datasetCritique()
         await session.task?.value
         #expect(!session.datasetAdvice.isEmpty)
+        let pendingMappings = session.unmappedCount
         session.proposeMappings(useModel: true)
         await session.task?.value
-        #expect(session.mappingProposals.count == session.project?.images.count)
+        #expect(session.mappingProposals.count == pendingMappings)
         for (id, mapping) in session.mappingProposals {
             session.confirmMapping(id: id, mapping: mapping)
         }
@@ -274,7 +275,7 @@ struct StudioSessionTests {
         session.publish()
         await session.task?.value
         #expect(session.errorMessage?.contains("Import images or clips before publishing") == true)
-        #expect(session.message.contains("Dataset publication failed"))
+        #expect(session.message.isEmpty)
     }
 
     @Test func latePublishProgressCannotReplaceOutcomeOrCrossProjects() async throws {
