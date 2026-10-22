@@ -102,8 +102,9 @@ extension StudioSession {
     }
 
     func importHub(_ input: String, subfolder: String = "") {
-        do { try importHub(HubDatasetLocation(input, subfolder: subfolder)) }
-        catch { errorMessage = Self.describe(error) }
+        do {
+            try importHub(HubDatasetLocation(input, subfolder: subfolder))
+        } catch { errorMessage = Self.describe(error) }
     }
 
     func importHub(_ location: HubDatasetLocation) {

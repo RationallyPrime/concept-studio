@@ -59,8 +59,9 @@ private actor MappingReplyClient: ModelClient {
     }
 }
 
+@MainActor
 extension MappingRequestsTests {
-    @Test @MainActor func answersAreKeyedByTileRatherThanResponseOrder() async throws {
+    @Test func answersAreKeyedByTileRatherThanResponseOrder() async throws {
         let project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let client = MappingReplyClient([.success(ModelReply(text: """
@@ -78,7 +79,7 @@ extension MappingRequestsTests {
         #expect(result[images[1].id]?.description == "second scene")
     }
 
-    @Test @MainActor func aDroppedSheetRetriesMembersAndKeepsSuccessfulResults() async throws {
+    @Test func aDroppedSheetRetriesMembersAndKeepsSuccessfulResults() async throws {
         let project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let client = MappingReplyClient([
@@ -97,8 +98,9 @@ extension MappingRequestsTests {
     }
 }
 
+@MainActor
 extension MappingRequestsTests {
-    @Test @MainActor func cancellationRetainsCompletedSingleImageRetries() async throws {
+    @Test func cancellationRetainsCompletedSingleImageRetries() async throws {
         let project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let client = MappingReplyClient([
@@ -123,8 +125,9 @@ extension MappingRequestsTests {
     }
 }
 
+@MainActor
 extension MappingRequestsTests {
-    @Test @MainActor func invalidTileNumberIsRetriedBeforeIndexingTheImage() async throws {
+    @Test func invalidTileNumberIsRetriedBeforeIndexingTheImage() async throws {
         let project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let client = MappingReplyClient([
