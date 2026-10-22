@@ -94,6 +94,7 @@ struct PreviewRenderTests {
         }
         try await captureAdvancedModes(session: session, output: output, filter: filter, captures: &captures)
         try await captureAuxiliaryScreens(session: session, output: output, filter: filter, captures: &captures)
+        try await captureUpscale(session: session, output: output, filter: filter, captures: &captures)
         try await captureNewHelpAndTraining(
             preferences: preferences, output: output, filter: filter, captures: &captures
         )
@@ -417,6 +418,39 @@ struct PreviewRenderTests {
 }
 
 extension PreviewRenderTests {
+    /// The Upscale sheet, and the Images screen with one upscaled result waiting beside its original. The
+    /// "result" is a copy of the demo photo: layout evidence, not an upscale.
+    private func captureUpscale(
+        session: StudioSession, output: URL, filter: Set<String>, captures: inout [[String: String]]
+    ) async throws {
+        try await capture(
+            "upscale-sheet", view: UpscaleSheet(session: session, selection: Set(session.upscaleSuggestions)),
+            output: output, filter: filter, captures: &captures,
+            renderSizes: [("sheet", CGSize(width: 620, height: 780))]
+        )
+        guard let project = session.project, let image = project.images.first,
+              filter.isEmpty || filter.contains("images-upscale-review") else { return }
+        let pending = PendingUpscale(
+            sourceID: image.id, resultPath: "upscaled/preview/u0001.jpg", model: .standard, shortSide: 1024,
+            created: Date()
+        )
+        let result = pending.resultURL(in: project.directory)
+        try FileManager.default.createDirectory(
+            at: result.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try? FileManager.default.copyItem(at: image.url, to: result)
+        session.project?.mediaState.pendingUpscales = [pending]
+        defer { session.project?.mediaState.pendingUpscales = [] }
+        let step = session.step
+        session.step = .images
+        defer { session.step = step }
+        await prewarmThumbnails([result])
+        try await capture(
+            "images-upscale-review", view: StudioRootView(session: session),
+            output: output, filter: filter, captures: &captures
+        )
+    }
+
     /// The approved Review comp's situation: most captions final, a few edited, one flagged by the critic,
     /// three excluded, and the window photo open.
     private func reviewCompState(_ session: StudioSession) throws {
