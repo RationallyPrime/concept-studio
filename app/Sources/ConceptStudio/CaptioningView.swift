@@ -108,6 +108,15 @@ struct CaptioningView: View {
                                 + "you will train."
                         )
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                        if session.project?.job.adultContent == true {
+                            StudioNotice(
+                                "For adult content, use a self-hosted caption model that supports explicit images. "
+                                    +
+                                    "Hosted models can refuse these images. "
+                                    + "Review your caption model’s licence and content policy.",
+                                symbol: "server.rack"
+                            )
+                        }
                         Toggle("Have a second model check the caption", isOn: $session.useCritic)
                             .disabled(session.busy)
                         if session.useCritic {
@@ -322,7 +331,8 @@ struct CaptioningView: View {
                 } else if failed {
                     PrintStateChip(state: .attention(nil))
                 } else if state == .ready {
-                    PrintStateChip(state: .other(session.busy ? "Waiting" : "Not captioned yet"))
+                    PrintStateChip(state: .other(session.runPendingIDs
+                            .contains(image.id) ? "Waiting" : "Not captioned yet"))
                 } else {
                     PrintStateChip(state: .other(state.label))
                 }
@@ -506,6 +516,10 @@ extension CaptioningView {
                 if session.gpu.hasRunningPod, !session.gpu.captionServerInstalled {
                     Text(GPUWorkspace.noCaptionServer)
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                }
+                if let progress = session.gpu.captionStartupProgress {
+                    ProgressView(progress)
+                        .font(.callout)
                 }
                 if session.usingPodCaptioner {
                     StudioNotice(

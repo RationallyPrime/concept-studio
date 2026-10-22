@@ -115,7 +115,7 @@ extension GPUWorkspace {
                 guard Self.hostHasNoFreeGPU(error) else { throw error }
                 self.restartBlockedByHost = true
                 throw StudioError.message("This cloud GPU's host has no free GPU, so it cannot start now. "
-                    + "Try again later, or remove it and rent a new one.")
+                    + "Try again later, or rent another GPU and keep this one’s files.")
             }
             saved.started = Date()
             saved.budget = self.budget

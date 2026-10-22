@@ -44,8 +44,11 @@ training model in the model picker and explore the techniques behind it in Help.
 
 ## A real project
 
-Choose **New project…** and select its folder. Import your images or clips, then define the
-first concept on Concepts. The project folder holds your media, references, settings and
+Choose **New project…**, name it in the macOS Save panel and choose its parent folder.
+ConceptStudio remembers the last parent. An existing project opens; an unrelated existing
+folder is refused. **New project from Hugging Face dataset…** on Welcome and File accepts
+`owner/name` or a dataset URL, including `/tree/<revision>/<subfolder>`. Save the suggested
+project name and location to start importing. Define the first concept on Concepts. The project folder holds your media, references, settings and
 captions. Mark a caption **Final** to protect it from future model runs. Projects move between
 the app and CLI using the [shared file formats](CORE-SPEC.md#project-folder). Credentials stay
 in Keychain, separate from project files.
@@ -104,6 +107,9 @@ the usage and allowance supplied by OpenRouter. See
 ### Prepare and train
 
 Import from a folder, selected files, Apple Photos or a Hugging Face imagefolder dataset.
+Folder imports include subfolders. Hub imports accept URLs, revisions and subfolders on
+Images and in the new-project flow. **Exclude duplicates…** selects all but the highest-resolution
+copy in each group; inspect the selection before applying it.
 HEIC and TIFF images become oriented PNG training targets. Matching `.txt` captions and
 `.json` response records travel with their images, including through format conversion and
 filename changes. Captions imported from text show **Imported**; human-final records stay
@@ -119,10 +125,22 @@ Define a concept and choose **Confirm concept and continue** (⌘↩). Person an
 concepts require confirmed locators. Reference photos guide suggestions; person concepts need
 references for model-assisted identity proposals. Manual mapping works without references.
 With one detected face, checking a person concept fills the locator from its class noun;
-describe the subject explicitly in multi-person scenes. Review on-device matches and model
-proposals before confirming them. Accept one
-proposal or all eligible suggestions, and use Undo to reverse a confirmation. Style and motion
+describe the subject explicitly in multi-person scenes. Review model proposals before
+confirming them. Accept one proposal or all eligible suggestions, with Undo. Style and motion
 concepts apply to the whole target and skip Mapping.
+
+Select multiple samples with ⌘-click or ⇧-click to confirm a shared concept and location or
+clear their assignments. **Confirm all remaining** in a single-person project confirms samples
+with exactly one detected face and lists the rest for review. **Not sure** keeps a sample
+unconfirmed, with an optional note and its own filter. Confirm-and-next moves forward and
+skips marked samples. Exclude is a separate action. Right-click a sample in Images or Mapping
+to use it as a reference photo.
+
+Mapping defaults to numbered 3×3 contact sheets, with single images and 2×2 sheets available.
+Each proposal includes a scene description for checking tile correspondence. Downscaled
+images, concurrent vLLM requests and per-image transient retries speed up the run. Saved
+proposals survive interruptions; confirmed samples are skipped. Progress shows a count and
+estimated time remaining. See [the measured layout comparison](MAPPING-BENCHMARK.md).
 
 Use **Inspect and crop** to preview the exact image crop before approval. Approval replaces
 the training target and clears its caption and subject assignment for a fresh review; style
@@ -156,6 +174,11 @@ before keeping it. Pay particular attention to faces: restoration can invent det
 `v0.3.9-20261022` pod images include SeedVR2. See [pod images](../../pod/images/README.md)
 for the installed models and services.
 
+Cloud GPU stays at the bottom of the sidebar and is available from Welcome. Choose captioning
+or training to filter offers by the relevant model. Rental and caption-server startup show
+progress and wait for boot. Mapping, captioning and advice requests hold off the idle stop;
+its interval accepts typed minutes.
+
 Hosted captioning needs no GPU rental. For self-hosted captioning, choose **Rent or choose a
 cloud GPU for captioning**, rent on Cloud GPU, then return and choose **Start caption server
 and use this cloud GPU**. ConceptStudio starts the server and checks its authenticated vLLM
@@ -172,10 +195,10 @@ while the GPU is stopped.
 
 Cloud GPU and Training list the prerequisites for training with links to the relevant steps.
 Complete them before starting training; you can rent earlier when you need the GPU for
-captioning. If a stopped GPU's host has no free GPU, retry later or use **Remove it to rent a
-new one…**. Read the listed disk contents before confirming deletion. Retrieve uncollected
-results from the same stopped GPU first; the app blocks removal while those results remain
-unsettled or unsaved.
+captioning. Keep a stopped GPU while renting another: **Stopped, kept** lists retained GPUs,
+their contents and daily storage cost. Starting one asks before stopping the current GPU.
+Only one GPU runs at a time. Remove confirms deletion of the selected GPU's disk, and the app
+blocks removal while its results remain unsettled or unsaved.
 
 Turn on **Settings → Advanced user** for custom servers and images, caption model and batch
 controls, multiple concepts, caption overrides and detailed training controls. Turning it off
@@ -218,7 +241,17 @@ components downloaded at pinned revisions. Reopening the project before starting
 selecting the recipe and weights again; the copied files remain. **Resume latest checkpoint**
 continues an existing run and its state on the original storage instead.
 
-With a Hub token, Publish sends the included targets, saved sidecars, imagefolder metadata and
+Publish lists uncaptioned samples and leaves them out by default. **Include them anyway**
+includes those samples without captions. Excluded and Not sure samples stay out. Hub
+publication and direct GPU uploads use the same selection of saved captions.
+
+Turn on **Adult content** on Concepts for an adult dataset. Person defaults describe dress or
+undress in every project. Adult projects also describe sexual activity and other people
+involved, with neutral guidance in the bundled skill. Captioning recommends a self-hosted
+model; Publish keeps Private dataset on and checks that the destination is private. The
+shared `adult_content` job setting applies identically in Swift and Python.
+
+With a Hub token, Publish sends the selected targets, saved sidecars, imagefolder metadata and
 `concept-captioner/job.yaml` in one commit. Media names remain the shared sample IDs; reference
 images stay local. **Private dataset** is on by default.
 
@@ -241,8 +274,8 @@ project open until a requested stop is confirmed. A saved running GPU's cost and
 appear on Welcome after relaunch, even before a project is opened.
 
 Stopping clears temporary container storage, keeps the persistent pod disk or network volume,
-and leaves storage billing active. Remove the stopped GPU before renting another. Network
-volumes survive removal; the GPU's own disk does not. See
+and leaves storage billing active. A stopped GPU can stay in the kept list while you rent
+another. Network volumes survive removal; the GPU's own disk does not. See
 [RunPod's storage rules](https://docs.runpod.io/pods/storage/types).
 
 Caption drafts follow you between samples and screens. **Save caption** or Command-S on

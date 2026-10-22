@@ -34,6 +34,7 @@ struct PublishView: View {
                     ) {
                         TextField("Hugging Face owner/dataset", text: $session.repoID).textFieldStyle(.roundedBorder)
                         Toggle("Private dataset", isOn: $session.privateDataset)
+                            .disabled(session.project?.job.adultContent == true)
                         Text("Private datasets are visible only to accounts with access. "
                             + "Keep this on for private images and clips.")
                             .font(.callout).foregroundStyle(StudioStyle.supportingText)
@@ -79,26 +80,38 @@ struct PublishView: View {
 
     /// The included prints squared up like a stack for the box, beside the three counts that matter.
     private func datasetSummary(_ project: StudioProject) -> some View {
-        let captioned = project.images.count(where: { !$0.caption.isEmpty })
+        let captioned = session.publishingImages.count(where: { !$0.caption.isEmpty })
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 36) {
-                printStack(project.images)
+                printStack(session.publishingImages)
                 HStack(alignment: .top, spacing: 30) {
-                    PrintFigure(value: "\(project.images.count)", label: "samples")
+                    PrintFigure(value: "\(session.publishingImages.count)", label: "samples")
                     PrintFigure(value: "\(captioned)", label: "captions")
-                    PrintFigure(value: "\(project.images.filter(\.isFinal).count)", label: "final")
+                    PrintFigure(value: "\(session.publishingImages.filter(\.isFinal).count)", label: "final")
                 }
                 Spacer(minLength: 0)
             }
-            if project.images.contains(where: \.caption.isEmpty) {
-                StudioNotice(
-                    "Some samples have no caption yet. Review or caption them before training.",
-                    symbol: "exclamationmark.triangle"
-                )
-            } else if !project.images.isEmpty {
-                Label("Every included sample has a saved caption", systemImage: "checkmark.circle")
-                    .font(.system(size: 14, weight: .medium))
+            if !session.uncaptionedPublishingImages.isEmpty {
+                StudioNotice("\(session.uncaptionedPublishingImages.count) samples have no caption "
+                    + (session.projectState.includeUncaptioned ? "and will be included." : "and will be left out."))
+                Toggle("Include them anyway", isOn: Binding(
+                    get: { session.projectState.includeUncaptioned },
+                    set: { value in session.updateProjectState { $0.includeUncaptioned = value } }
+                )).disabled(session.busy)
+                DisclosureGroup("Samples without captions") {
+                    ForEach(session.uncaptionedPublishingImages) { image in Text(image.id) }
+                }
             }
+            let omitted = project.allMedia.filter { image in
+                project.excludedImages.contains { $0.id == image.id } || session.projectState.notSure[image.id] != nil
+            }
+            if !omitted.isEmpty {
+                DisclosureGroup("\(omitted.count) excluded or Not sure samples will be left out") {
+                    ForEach(omitted) { image in Text(image.id) }
+                }
+            }
+            Text("\(session.publishingImages.count) samples ready to publish")
+                .font(.callout)
             DisclosureGroup("What gets uploaded") {
                 Text(
                     "The upload contains your included training images or selected video segments, their saved "

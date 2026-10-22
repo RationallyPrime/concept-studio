@@ -23,6 +23,7 @@ extension StudioSession {
                 id: id, data: data, name: Sources.stem(of: id) + ".png",
                 selection: MediaSelection(originalName: oldName, crop: originalCrop)
             )
+            self.transferReviewState(from: id, to: Sources.stem(of: id) + ".png")
             self.selectedImageID = Sources.stem(of: id) + ".png"
             self.invalidateMediaDraft(id: id)
             self.mediaDidChange()
@@ -61,6 +62,7 @@ extension StudioSession {
                     frameCount: frameCount, videoWidth: selected.info.width, videoHeight: selected.info.height
                 ), profile: format.rawValue
             )
+            self.transferReviewState(from: id, to: Sources.stem(of: id) + ".mp4")
             self.selectedImageID = Sources.stem(of: id) + ".mp4"
             self.invalidateMediaDraft(id: id)
             self.updateTrainingProjectDefaults()
@@ -73,6 +75,18 @@ extension StudioSession {
                     self.message += " \(otherCaptions) other saved captions keep their text; "
                         + "review or re-caption them for the new format."
                 }
+            }
+        }
+    }
+
+    /// Review decisions follow the sample when an approved target changes its file extension.
+    func transferReviewState(from oldID: String, to newID: String) {
+        guard oldID != newID else { return }
+        updateProjectState {
+            $0.notSure[newID] = $0.notSure.removeValue(forKey: oldID)
+            for id in [oldID, newID] {
+                $0.mappingSuggestions[id] = nil
+                $0.mappingDescriptions[id] = nil
             }
         }
     }

@@ -43,7 +43,17 @@ public enum TargetConcept: String, Codable, Sendable, CaseIterable {
     public var defaultDescribedAttributes: [String] {
         switch self {
         case .facialIdentity: Concept.defaultAttributesToDescribe
-        case .fullIdentity, .characterDesign:
+        case .fullIdentity:
+            [
+                "state of dress or undress",
+                "expression and gaze",
+                "pose and action",
+                "permitted clothing changes",
+                "setting",
+                "lighting",
+                "framing",
+            ]
+        case .characterDesign:
             ["expression and gaze", "pose and action", "permitted clothing changes", "setting", "lighting", "framing"]
         case .style: ["subject matter", "objects", "actions", "spatial arrangement", "visible scene content"]
         case .object: ["placement", "orientation", "use", "surroundings", "lighting", "occlusion"]
@@ -85,6 +95,7 @@ public struct Concept: Sendable, Equatable {
     public static let defaultTraitsToLearn = ["distinctive facial identity"]
     public static let defaultAttributesToDescribe = [
         "clothing and removable accessories",
+        "state of dress or undress",
         "hair presentation",
         "expression and gaze",
         "pose",
@@ -247,6 +258,7 @@ public struct Job: Sendable, Equatable {
     public var profile: String
     public var concepts: [Concept]
     public var samples: OrderedDictionary<String, Mapping?>
+    public var adultContent: Bool
     public var singleSubjectOnly: Bool
     public var endpoints: Endpoints?
     public var captionerThinking: ThinkingLevel
@@ -266,6 +278,7 @@ public struct Job: Sendable, Equatable {
         concepts: [Concept],
         samples: OrderedDictionary<String, Mapping?> = [:],
         singleSubjectOnly: Bool = false,
+        adultContent: Bool = false,
         endpoints: Endpoints? = nil,
         captionerThinking: ThinkingLevel = .low,
         criticThinking: ThinkingLevel = .high,
@@ -276,6 +289,7 @@ public struct Job: Sendable, Equatable {
         self.concepts = concepts
         self.samples = samples
         self.singleSubjectOnly = singleSubjectOnly
+        self.adultContent = adultContent
         self.endpoints = endpoints
         self.captionerThinking = captionerThinking
         self.criticThinking = criticThinking
@@ -357,7 +371,7 @@ public struct Job: Sendable, Equatable {
     public func sampleView(mapping: Mapping) -> JSONValue {
         .object([
             "training": .object(["profile": .string(profile), "trigger_handling": .string("literal")]),
-            "concepts": .array(concepts.filter { mapping[$0.trigger] != nil }.map(\.jsonValue)),
+            "concepts": .array(concepts.filter { mapping[$0.trigger] != nil }.map { captionConcept($0).jsonValue }),
             "inputs": .object([
                 "actual_trainer_conditioning": .array([]),
                 "audio_status": .string("not_applicable"),
@@ -365,6 +379,7 @@ public struct Job: Sendable, Equatable {
                 "evidence": .string("attached_target_image"),
             ]),
             "single_subject_only": .bool(singleSubjectOnly),
+            "adult_content": .bool(adultContent),
             "output": .object(["caption_language": .string("English"), "delivery": .string("json_caption_field")]),
         ])
     }
@@ -380,6 +395,7 @@ public struct Job: Sendable, Equatable {
         let concepts = try conceptItems.enumerated().map { try Concept(json: $1, context: "concepts[\($0)]") }
         let samples = try reader.samples("samples")
         let singleSubjectOnly = try reader.bool("single_subject_only") ?? false
+        let adultContent = try reader.bool("adult_content") ?? false
         let endpoints = try reader.value("endpoints").map { try Endpoints(json: $0) }
         let captionerThinking = try reader.enumeration("captioner_thinking", ThinkingLevel.self) ?? .low
         let criticThinking = try reader.enumeration("critic_thinking", ThinkingLevel.self) ?? .high
@@ -391,6 +407,7 @@ public struct Job: Sendable, Equatable {
             concepts: concepts,
             samples: samples,
             singleSubjectOnly: singleSubjectOnly,
+            adultContent: adultContent,
             endpoints: endpoints,
             captionerThinking: captionerThinking,
             criticThinking: criticThinking,
@@ -410,6 +427,7 @@ public struct Job: Sendable, Equatable {
         }
         object["samples"] = .object(sampleObject)
         object["single_subject_only"] = .bool(singleSubjectOnly)
+        object["adult_content"] = .bool(adultContent)
         if let endpoints { object["endpoints"] = endpoints.jsonValue }
         object["captioner_thinking"] = .string(captionerThinking.rawValue)
         object["critic_thinking"] = .string(criticThinking.rawValue)

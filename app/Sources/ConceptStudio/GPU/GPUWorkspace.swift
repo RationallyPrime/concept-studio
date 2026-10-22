@@ -43,7 +43,17 @@ final class GPUWorkspace {
     /// nil until this computer's service list has been read; never inferred from the GPU count.
     var captionServerActive: Bool?
     var captionServerInstalled = true // false once the agent reports no caption server in this image
-    var rentsCaptionServer = false // the next rental takes the "-captioning" tag (Captioning screen)
+    var rentsCaptionServer = false {
+        didSet { selectAvailableOffer() }
+    }
+
+    /// The measured default caption model fits the 32 GB GPU recipe; custom models can set their requirement.
+    var captionMemoryGB = 32 {
+        didSet { selectAvailableOffer() }
+    }
+
+    var captionStartupProgress: String?
+    var keptPods: [SavedPod] = []
     var storage: AgentStorageUsage?
     var message = "Refresh available cloud GPUs to see current prices."
     var isBusy = false
@@ -173,6 +183,7 @@ final class GPUWorkspace {
     @ObservationIgnored var historyRunID: String?
     @ObservationIgnored var reconciled = false
 
+    static let keptPodsKey = "ConceptStudio.keptPods"
     static let activePodKey = "ConceptStudio.activePod"
     static let pendingResultKey = "ConceptStudio.pendingResult"
     /// Set when the person chose "No saved storage", so later launches do not select a network volume.
@@ -240,6 +251,9 @@ final class GPUWorkspace {
             result = try? JSONDecoder().decode(TrainingResult.self, from: data)
             if let result, !RunArtifacts.validRunID(result.runID) { self.result = nil }
         }
+        if keptPods.isEmpty, let data = preferences.data(forKey: Self.keptPodsKey) {
+            keptPods = (try? JSONDecoder().decode([SavedPod].self, from: data)) ?? []
+        }
         if pod == nil, let data = preferences.data(forKey: Self.activePodKey),
            let previous = try? JSONDecoder().decode(SavedPod.self, from: data) {
             saved = previous
@@ -271,40 +285,12 @@ final class GPUWorkspace {
         agentToken = (try? readAgentToken("pod.\(podID)")) ?? ""
     }
 
-    func refreshOffers() async {
-        await perform {
-            guard let provider = self.provider else {
-                throw StudioError.message("Add your RunPod key in Settings, then refresh available cloud GPUs.")
-            }
-            async let offers = provider.offers(
-                count: self.gpuCount,
-                minCudaVersion: self.modelTable.minimumCUDA(self.trainer)
-            )
-            async let volumes = provider.volumes()
-            self.offers = try await offers
-            self.volumes = try await volumes
-            if (!self.hasLoadedVolumes && self.selectedVolume.isEmpty && !self.prefersNoSavedStorage)
-                || (!self.selectedVolume.isEmpty && !self.volumes.contains(where: { $0.id == self.selectedVolume })) {
-                self.selectedVolume = self.volumes.first?.id ?? ""
-            }
-            self.hasLoadedVolumes = true
-            self.selectAvailableOffer()
-            self.message = if self.pod != nil, !self.hasRunningPod {
-                "Your cloud GPU is stopped. Start it to continue, or remove it to rent another."
-            } else if self.availableOffers.isEmpty {
-                "No cloud GPUs are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
-            } else {
-                "Choose a cloud GPU and storage, then check the price before renting."
-            }
-        }
-    }
-
     func rent() async {
         await perform {
-            guard self.pod == nil else {
+            guard !self.hasRunningPod else {
                 throw StudioError
                     .message(
-                        "Stop and remove your current cloud GPU before renting another. Saved storage remains."
+                        "Stop your running cloud GPU before renting another. Its files will be kept."
                     )
             }
             guard let provider = self.provider,
@@ -318,9 +304,12 @@ final class GPUWorkspace {
             }
             let volume = self.volumes.first { $0.id == self.selectedVolume }
             let started = Date()
+            self.message = "Reserving your cloud GPU…"
+            await self.keepStoppedPod()
             self.agentToken = try Self.newAgentToken()
             // Credentials go to the account's secret store; the pod only ever sees placeholders.
             let credentials = try await self.storeCredentials(provider, cloud: offer.cloud)
+            self.message = "Creating your cloud GPU and attaching its storage…"
             let created = try await self.createPod(provider, offer: offer, volume: volume, credentials: credentials)
             self.pod = created
             self.plan = nil
@@ -337,6 +326,7 @@ final class GPUWorkspace {
                 idleMinutes: self.idleMinutes, volumeID: volume?.id ?? "pod:" + created.id,
                 agentSecret: credentials.agentSecret, hubTokenOnPod: credentials.holdsHubToken
             )
+            self.saved?.networkVolume = volume
             self.connectAgent(created)
             self.lastActivity = Date()
             self.watch()
@@ -398,8 +388,7 @@ final class GPUWorkspace {
         } catch is CancellationError {
             return
         } catch {
-            message = error.localizedDescription
-            refreshFailureMessage = message
+            showRefreshFailure(error)
         }
         // A failed agent/proxy request must not suppress the provider-level idle stop, but a
         // finished LoRA that is neither pushed nor downloaded keeps the computer up, and so does a
@@ -436,6 +425,7 @@ final class GPUWorkspace {
                 saved.run = run
             } else if saved.run?.runID != runID { saved.run = nil }
             saved.generation = generation
+            saved.storage = storage ?? saved.storage
             self.saved = saved
             if !demoMode, let data = try? JSONEncoder().encode(saved) {
                 preferences.set(data, forKey: Self.activePodKey)
@@ -459,7 +449,7 @@ final class GPUWorkspace {
                 self.message = "Action cancelled. Check the cloud GPU status before closing."
             } catch {
                 self.message = error.localizedDescription
-                self.failure = self.message
+                if !self.restartBlockedByHost { self.failure = self.message }
             }
         }
         operationTask = work

@@ -389,6 +389,12 @@ struct ProjectAppState: Codable, Equatable {
     static let folderName = ".conceptstudio"
     static let fileName = "project.json"
 
+    /// App-only review state; an empty note still means Not sure.
+    var includeUncaptioned = false
+    var notSure: [String: String] = [:]
+    var mappingSuggestions: [String: [String: String]] = [:]
+    var mappingDescriptions: [String: String] = [:]
+
     /// Where Publish sends the captioned dataset.
     var dataset = HubDestination()
     var datasetRevision = ""
@@ -407,6 +413,13 @@ struct ProjectAppState: Codable, Equatable {
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        includeUncaptioned = try container.decodeIfPresent(Bool.self, forKey: .includeUncaptioned) ?? false
+        notSure = try container.decodeIfPresent([String: String].self, forKey: .notSure) ?? [:]
+        mappingSuggestions = try container.decodeIfPresent(
+            [String: [String: String]].self,
+            forKey: .mappingSuggestions
+        ) ?? [:]
+        mappingDescriptions = try container.decodeIfPresent([String: String].self, forKey: .mappingDescriptions) ?? [:]
         dataset = try container.decodeIfPresent(HubDestination.self, forKey: .dataset) ?? HubDestination()
         datasetRevision = try container.decodeIfPresent(String.self, forKey: .datasetRevision) ?? ""
         trainingOutput = try container.decodeIfPresent(HubDestination.self, forKey: .trainingOutput)

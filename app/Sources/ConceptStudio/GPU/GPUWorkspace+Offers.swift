@@ -105,7 +105,9 @@ extension GPUWorkspace {
     }
 
     private func unavailability(of offer: GPUOffer, volume: GPUVolume?, stock: GPUStock) -> GPUUnavailability? {
-        if offer.memory < requiredGPUMemoryGB { return .notEnoughMemory(model: memoryLimitingModelName) }
+        if offer.memory < requiredGPUMemoryGB {
+            return .notEnoughMemory(model: rentsCaptionServer ? captionModelShortName : effectiveModelRow.shortName)
+        }
         // A gated model downloads only with the Hub token: none is configured, or Community Cloud GPUs never
         // get it. A rental made from Captioning trains nothing, so neither applies to it.
         if !rentsCaptionServer, let row = gatedModelWithoutHubToken {
@@ -122,5 +124,35 @@ extension GPUWorkspace {
             if stock == .none { return .noStockBesideStorage(dataCenter: volume.dataCenter) }
         }
         return stock == .none ? .noStock : nil
+    }
+}
+
+extension GPUWorkspace {
+    func refreshOffers() async {
+        await perform {
+            guard let provider = self.provider else {
+                throw StudioError.message("Add your RunPod key in Settings, then refresh available cloud GPUs.")
+            }
+            async let offers = provider.offers(
+                count: self.gpuCount,
+                minCudaVersion: self.modelTable.minimumCUDA(self.trainer)
+            )
+            async let volumes = provider.volumes()
+            self.offers = try await offers
+            self.volumes = try await volumes
+            if (!self.hasLoadedVolumes && self.selectedVolume.isEmpty && !self.prefersNoSavedStorage)
+                || (!self.selectedVolume.isEmpty && !self.volumes.contains(where: { $0.id == self.selectedVolume })) {
+                self.selectedVolume = self.volumes.first?.id ?? ""
+            }
+            self.hasLoadedVolumes = true
+            self.selectAvailableOffer()
+            self.message = if self.pod != nil, !self.hasRunningPod {
+                "Your cloud GPU is stopped. Start it or rent another and keep its files."
+            } else if self.availableOffers.isEmpty {
+                "No cloud GPUs are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
+            } else {
+                "Choose a cloud GPU and storage, then check the price before renting."
+            }
+        }
     }
 }

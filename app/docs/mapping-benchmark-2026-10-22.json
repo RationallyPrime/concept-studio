@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-22",
+  "provider": "Sign in with ChatGPT",
+  "tilePixels": 768,
+  "metric": "Exact set of present concept triggers; does not assess locator correctness",
+  "trials": [
+    {
+      "elapsedSeconds": 404.7669759988785,
+      "exactPresenceMatches": 63,
+      "failed": 0,
+      "falseNegative": 6,
+      "falsePositive": 1,
+      "layout": 1,
+      "model": "gpt-6.1-sol",
+      "samples": 69,
+      "truePositive": 72,
+      "plannedBatches": 69
+    },
+    {
+      "elapsedSeconds": 219.02272498607635,
+      "exactPresenceMatches": 66,
+      "failed": 0,
+      "falseNegative": 3,
+      "falsePositive": 0,
+      "layout": 4,
+      "model": "gpt-6.1-sol",
+      "samples": 69,
+      "truePositive": 75,
+      "plannedBatches": 18
+    },
+    {
+      "elapsedSeconds": 174.2409349679947,
+      "exactPresenceMatches": 68,
+      "failed": 0,
+      "falseNegative": 1,
+      "falsePositive": 0,
+      "layout": 9,
+      "model": "gpt-6.1-sol",
+      "samples": 69,
+      "truePositive": 77,
+      "plannedBatches": 8
+    }
+  ],
+  "multiPersonAudit": [
+    {
+      "elapsedSeconds": 54.78079605102539,
+      "exactPresenceMatches": 8,
+      "failed": 0,
+      "falseNegative": 1,
+      "falsePositive": 0,
+      "layout": 1,
+      "model": "gpt-6.1-sol",
+      "plannedBatches": 9,
+      "samples": 9,
+      "truePositive": 17
+    },
+    {
+      "elapsedSeconds": 32.24237895011902,
+      "exactPresenceMatches": 8,
+      "failed": 0,
+      "falseNegative": 1,
+      "falsePositive": 0,
+      "layout": 4,
+      "model": "gpt-6.1-sol",
+      "plannedBatches": 3,
+      "samples": 9,
+      "truePositive": 17
+    },
+    {
+      "elapsedSeconds": 26.65952694416046,
+      "exactPresenceMatches": 8,
+      "failed": 0,
+      "falseNegative": 1,
+      "falsePositive": 0,
+      "layout": 9,
+      "model": "gpt-6.1-sol",
+      "plannedBatches": 1,
+      "samples": 9,
+      "truePositive": 17
+    }
+  ],
+  "locatorAudit": {
+    "method": "Manual comparison of returned locators against confirmed locator text on nine multi-person images, all three layouts",
+    "clearTwoPersonRows": 8,
+    "assessedLeftRightLocators": 48,
+    "leftRightSwaps": 0,
+    "partiallyVisibleSubjectsOmittedPerLayout": 1,
+    "limitation": "Did not grade every detail of the scene descriptions or inspect new face recognition accuracy"
+  }
+}

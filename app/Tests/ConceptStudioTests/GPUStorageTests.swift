@@ -58,6 +58,32 @@ struct GPUStorageTests {
     }
 
     @MainActor @Test
+    func keptStorageShowsDailyCostFromSavedVolumeTierAndSize() {
+        let workspace = GPUWorkspace(demoMode: true)
+        var saved = SavedPod(
+            pod: .init(id: "kept", status: "EXITED", cost: 0, gpu: .init(count: 1)),
+            started: Date(),
+            hourlyRate: 1,
+            budget: 10,
+            trainer: "aitoolkit",
+            runID: "",
+            volumeID: "network-volume"
+        )
+        saved.networkVolume = GPUVolume(
+            id: "network-volume",
+            name: "Cache",
+            size: 300,
+            dataCenter: "EU-RO-1",
+            type: "STANDARD"
+        )
+        #expect(workspace.keptStorageCost(saved).contains(StudioMoney.format(0.70) + "/day"))
+        saved.networkVolume?.type = "HIGH_PERFORMANCE"
+        #expect(workspace.keptStorageCost(saved).contains(StudioMoney.format(1.40) + "/day"))
+        saved.networkVolume = nil
+        #expect(workspace.keptStorageCost(saved).contains("unavailable"))
+    }
+
+    @MainActor @Test
     func noConnectionDoesNotAttemptCleanup() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }

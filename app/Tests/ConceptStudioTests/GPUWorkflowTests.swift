@@ -66,25 +66,56 @@ struct GPUWorkflowTests {
     }
 
     @MainActor @Test
-    func stoppedComputerMustBeExplicitlyRemovedBeforeAnotherRental() async {
+    func stoppedComputerIsKeptWhenRentingAnotherAndCanBeRestarted() async throws {
         let workspace = GPUWorkspace(demoMode: true)
         await workspace.refreshOffers()
         await workspace.rent()
+        workspace.monitorTask?.cancel()
+        let first = try #require(workspace.pod?.id)
         await workspace.stopEverything()
-        let retained = workspace.pod?.id
-        await workspace.rent()
-        #expect(workspace.pod?.id == retained)
-        #expect(workspace.pod?.status == "EXITED")
-        #expect(workspace.message.contains("remove"))
-        await workspace.terminate()
-        #expect(workspace.pod == nil)
         workspace.gpuCount = 2
         await workspace.rent()
-        await workspace.refresh()
-        #expect(workspace.pod?.status == "RUNNING")
-        #expect(workspace.plan?.mode == "concurrent")
-        #expect(workspace.volumes.count == 1)
+        workspace.monitorTask?.cancel()
+        let second = try #require(workspace.pod?.id)
+        #expect(second != first)
+        #expect(workspace.keptPods.map(\.pod.id) == [first])
+        #expect(workspace.hasRunningPod)
+        await workspace.startKeptPod(id: first)
+        workspace.monitorTask?.cancel()
+        #expect(workspace.pod?.id == first)
+        #expect(workspace.hasRunningPod)
+        #expect(workspace.keptPods.map(\.pod.id) == [second])
+        #expect(workspace.keptPods.allSatisfy { !$0.pod.isRunning })
+        await workspace.removeKeptPod(id: second)
+        #expect(workspace.keptPods.isEmpty)
         await workspace.stopEverything()
+    }
+
+    @MainActor @Test
+    func removingMissingKeptPodClearsRecordAndCredentials() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        var removedAccounts: [String] = []
+        let workspace = makeWorkspace(transport, preferences, deleteAgentToken: { removedAccounts.append($0) })
+        try workspace.configure(runpodKey: "fixture", hubToken: "fixture", imageName: "fixture")
+        await workspace.refreshOffers()
+        await workspace.rent()
+        workspace.monitorTask?.cancel()
+        let id = try #require(workspace.pod?.id)
+        let secret = try #require(workspace.saved?.agentSecret)
+        await workspace.stopEverything()
+        await workspace.keepStoppedPod()
+        #expect(workspace.keptPods.count == 1)
+        await transport.removePodOutside()
+        await workspace.removeKeptPod(id: id)
+        #expect(workspace.failure == nil)
+        #expect(workspace.keptPods.isEmpty)
+        #expect(removedAccounts == ["pod.\(id)"])
+        #expect(await transport.deletedSecrets.contains(secret))
+        let persisted = try #require(preferences.data(forKey: GPUWorkspace.keptPodsKey))
+        #expect(try JSONDecoder().decode([SavedPod].self, from: persisted).isEmpty)
+        #expect(workspace.message.contains("no longer tracks it"))
     }
 
     @MainActor @Test
@@ -186,6 +217,32 @@ struct GPUWorkflowTests {
         try expectCaptionStart(#require(await transport.starts.first), model: workspace.captionModel)
         await workspace.stopEverything()
         #expect(!workspace.hasRunningPod)
+    }
+
+    @MainActor @Test
+    func captionStartupWaitsForBootAndAppTrafficPreventsIdleStop() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport(inferenceReady: true)
+        let workspace = makeWorkspace(transport, preferences)
+        try workspace.configure(runpodKey: "test", hubToken: "test", imageName: "test")
+        await workspace.refreshOffers()
+        await workspace.rent()
+        workspace.monitorTask?.cancel()
+        let starting = Task { await workspace.startCaptioning() }
+        try await waitUntil { workspace.captionStartupProgress != nil }
+        #expect(workspace.failure == nil)
+        await transport.agentReachable(true)
+        #expect(await starting.value)
+        #expect(workspace.captionStartupProgress == nil)
+        workspace.idleMinutes = 1
+        workspace.beginAppWork()
+        workspace.lastActivity = .distantPast
+        await workspace.refresh()
+        #expect(workspace.hasRunningPod)
+        workspace.endAppWork()
+        #expect(Date().timeIntervalSince(workspace.lastActivity) < 1)
+        await workspace.stopEverything()
     }
 
     @MainActor @Test

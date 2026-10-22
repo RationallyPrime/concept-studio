@@ -11,6 +11,46 @@ with **seven verified recipes** and **18 additional recipes** under Advanced use
 [Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
 [GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
 
+## Friction fixes, 2026-10-22
+
+Implemented named project creation and Hub URL/subfolder import, recursive folder import,
+duplicate exclusion, fixed-bottom Cloud GPU access, kept stopped GPUs, purpose-specific GPU
+selection, startup/rental progress, activity-aware idle stops, typed idle intervals and
+workspace-scoped storage reporting. Added bulk Mapping, Not sure notes and filtering,
+forward-only confirmation, reference selection from thumbnails, resumable contact-sheet
+requests, bounded self-hosted concurrency and per-image retries. Removed the general-image
+fingerprint reference-match button.
+
+Adult content is a shared Python/Swift job setting. Person defaults describe dress or undress;
+adult jobs additionally describe sexual activity and other people. Publish locks privacy on
+for those jobs and verifies the actual destination before upload. Hub publication and direct
+GPU upload omit uncaptioned media by default, with an explicit override, and always omit
+excluded and Not sure samples. Publication uses saved captions from disk.
+
+Verification completed:
+
+- Full Swift run: 352 app tests and 267 core tests passed. Focused import/project and Mapping
+  checks were repeated after the final native-dialog and benchmark-default changes.
+- Python package tests, Ruff and type checks passed; affected pod storage tests passed (9).
+- Native app walkthrough used synthetic fixtures: named Save panel, nested import, actual
+  byte-identical duplicate detection and exclusion, adult policy, single-face confirmation,
+  Not sure notes, publication omissions and private toggle.
+- A development-signed sandboxed build verified existing-project opening, unrelated-folder
+  refusal and remembered Save-panel location. Existing folders use a native Open confirmation
+  to grant directory access instead of a destructive-sounding Replace prompt.
+- Actual SwiftUI renders covered Mapping, suggested assignments, Concepts and Publish at
+  minimum/default sizes in both appearances. A truncated confirmation action was repaired.
+- Independent code review covered import, Mapping, GPU lifecycle and shared publishing policy;
+  material findings were repaired and independently checked.
+- Live ChatGPT Mapping trials and the locator cross-check selected 3×3 contact sheets. See
+  [measurement and anonymous receipts](MAPPING-BENCHMARK.md). Source mappings were preserved.
+
+The hosted Mapping measurements are recorded in [the benchmark](MAPPING-BENCHMARK.md).
+The requested RTX 5090 Secure Cloud placement was unavailable during this verification run;
+the follow-up cloud-captioning acceptance targets a 32 GB Blackwell GPU. The app uses the
+published **v0.3.9-20261022** images. Workspace storage accounting changes in this PR need the
+next pod-image rebuild; older-agent host totals are suppressed in the app.
+
 ## Recent completed work, 2026-10-21–22
 
 **A complete 267-image captioning project.** The owner's 2026-10-22 briefing records taking a

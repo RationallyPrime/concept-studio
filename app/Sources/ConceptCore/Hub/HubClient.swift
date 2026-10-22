@@ -163,6 +163,14 @@ public struct HubClient: Sendable {
         _ = try await send(jsonRequest("POST", url("/api/repos/create"), body: body), accepting: existOK ? [409] : [])
     }
 
+    /// Verify an existing destination before sending private project media.
+    public func requirePrivateDataset(_ repo: RepoID) async throws {
+        let response = try await send(request("GET", url("/api/datasets/\(HubClient.encodePath(repo.id))")))
+        guard try parseJSON(response.body).objectValue?["private"]?.boolValue == true else {
+            throw ConfigurationError("This dataset is public. Choose a private dataset for this adult-content project.")
+        }
+    }
+
     /// preupload -> lfs batch -> PUT each LFS object -> one NDJSON commit.
     ///
     /// LFS objects are hashed and uploaded one at a time; a `.addFile` operation is read from

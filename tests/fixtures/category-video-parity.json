@@ -14,6 +14,7 @@
         ],
         "attributes_to_describe": [
           "clothing and removable accessories",
+          "state of dress or undress",
           "hair presentation",
           "expression and gaze",
           "pose",
@@ -24,12 +25,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "b8688c7dcb285b3610c4f02a931f56dad5d693a6112224f22699f30c99cb0753",
-        "scalars": 18944
+        "scalars": 19383,
+        "sha256": "dcd0d0d01b8d1cc92042b3201e3d31bb8157fddef26f0b7fc87b88eae7d92a61"
       },
       "critic": {
-        "sha256": "065187cd5acae6944905bae3e988e623ff3c5c0027742e72258b31e64015bde5",
-        "scalars": 18677
+        "scalars": 19116,
+        "sha256": "b312e71651bd6b21a79321106732b8f6a99dc26fe988f0ea08907be13b07814a"
       }
     },
     {
@@ -44,6 +45,7 @@
         ],
         "attributes_to_describe": [
           "clothing and removable accessories",
+          "state of dress or undress",
           "hair presentation",
           "expression and gaze",
           "pose",
@@ -54,12 +56,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "b564b1052618254013c6cafde2f0ff8eceb905e4b9dd5cc6865333e1a7d76e43",
-        "scalars": 18941
+        "scalars": 19380,
+        "sha256": "d849d37913ddad8c510ce6612cda97a9ed6b65771b89cdb54b44423004a9e94f"
       },
       "critic": {
-        "sha256": "4268abf4d86fdb35e6310281917e29ca39c16d73ee9290792d5a593b54c190de",
-        "scalars": 18674
+        "scalars": 19113,
+        "sha256": "7582d296d3f0ff1fccfc1f982e452e531a6b450211e2bada28d61696d699a4f1"
       }
     },
     {
@@ -73,6 +75,7 @@
           "the person's enduring face and physique"
         ],
         "attributes_to_describe": [
+          "state of dress or undress",
           "expression and gaze",
           "pose and action",
           "permitted clothing changes",
@@ -83,12 +86,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "0b93305f77f15550ab5a57104dcb97aadf583cdbc213fcb01a36de988d4a4229",
-        "scalars": 18908
+        "scalars": 19347,
+        "sha256": "7c7b8b0609f095f9622b9233f13f69e6e9812a3331106b6d83d9e7839bcc3030"
       },
       "critic": {
-        "sha256": "d62ebfa05c128f3b6d47a4042cfe255a80db9a5530f45217949862a76ac66ebf",
-        "scalars": 18641
+        "scalars": 19080,
+        "sha256": "456a8b4e916751d755938e792cd5bf038b8ff1e2b19831f6e48e34723af67f85"
       }
     },
     {
@@ -102,6 +105,7 @@
           "the person's enduring face and physique"
         ],
         "attributes_to_describe": [
+          "state of dress or undress",
           "expression and gaze",
           "pose and action",
           "permitted clothing changes",
@@ -112,12 +116,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "241dd5ba436973bbec295057da9009902efa47ef605177130fcb2f54c6cce428",
-        "scalars": 18905
+        "scalars": 19344,
+        "sha256": "cad8712afe63591a2e19072e6597ca2b69e1ab478d2570e536f1ca0e4a154ea2"
       },
       "critic": {
-        "sha256": "db2da466ff81a9cf7af1c4a391804a379ef196a2bd180a78607e8638e070c11f",
-        "scalars": 18638
+        "scalars": 19077,
+        "sha256": "1bc01e9a1049ab73170e93d7d8dbf8e5af29a65690f825b4d4775fd2e3f65dda"
       }
     },
     {
@@ -140,12 +144,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "9daa0840679fb306695279ce5318987af94edd611ff5c4709dddbaab73589475",
-        "scalars": 18904
+        "scalars": 19314,
+        "sha256": "a9aa613e5b88db93feb162a5a98a196025e6bef56c0ebd63c6743be37354425e"
       },
       "critic": {
-        "sha256": "2e957dd551b9ec275e79b65231f9e6a2e36ae4f96a9c6803b14c286a4ef9cb54",
-        "scalars": 18637
+        "scalars": 19047,
+        "sha256": "b7848a7c6923f7cd608046fd66feee6d41c18cfa7fc525718698d20df5129ef3"
       }
     },
     {
@@ -168,12 +172,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "33c3a2bb8b4c92d40b06374e814a1bc4d6bafc24c010a320266200b285fbc350",
-        "scalars": 18901
+        "scalars": 19311,
+        "sha256": "06e712cdac247ebfef39e9fb561ed0a59aa8b18d375d20661a13f39699ee7e61"
       },
       "critic": {
-        "sha256": "975526ab742dc5a5d9d5e9c56c2684ce1397be15ff861758734fd4dc93c30de6",
-        "scalars": 18634
+        "scalars": 19044,
+        "sha256": "1de49649b10df556c1040ef353ef7a57b74ff0a239f0aa7e20b867bd6d357683"
       }
     },
     {
@@ -197,12 +201,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "764682f2183631ce1a1f7e70b0fe16bf238dcd640ecc1b35f5084ef6d24bcdcc",
-        "scalars": 18863
+        "scalars": 19273,
+        "sha256": "4bab34c67b942a89ffc623a6a7bdebfa416bcc46395584aed0338893c45bf5cb"
       },
       "critic": {
-        "sha256": "9676c3de809fe4c371502afe58d1eb5cfd83bba4f78d2a493e10946e7a4ce0c8",
-        "scalars": 18596
+        "scalars": 19006,
+        "sha256": "70ac1a0524ac0ff07fe67093efe6e974671091ebd0f33bfedfec6a1cc3ce52dd"
       }
     },
     {
@@ -226,12 +230,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "84c321a7d35b5ad5aebdc254d9b87c308f690749c43bca27cbb2ff32285b9e8b",
-        "scalars": 18860
+        "scalars": 19270,
+        "sha256": "9fcae3eef3b2b3b728e0cd9d9af3605ad432da6532171ddfbd2580fdd39e677c"
       },
       "critic": {
-        "sha256": "7dafeca38a70f70c0617b08779d084ac83f4963fe283a53dfdaf7f9f47e50903",
-        "scalars": 18593
+        "scalars": 19003,
+        "sha256": "c4dc10625cc23e5b5a565d9bb2c7d3c16f86689f68d509aef32181c6e99ebf25"
       }
     },
     {
@@ -255,12 +259,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "020f3c5ed30fe1d58f727f6a63cbf87ea7cff23ababac014a2b92d351b4524ba",
-        "scalars": 18877
+        "scalars": 19287,
+        "sha256": "8737b4d42bfae2cf09b489621ca92aceed5cb53a4b65e6e8f8b8324e72f2bb5a"
       },
       "critic": {
-        "sha256": "e9019ec13aede509ac7d44e8958cd813466b373bca02c492d500e481ca00541c",
-        "scalars": 18610
+        "scalars": 19020,
+        "sha256": "82308f227bd816ccabdb4f0b7923fb010a413aeb2571de134182296d40b18997"
       }
     },
     {
@@ -284,12 +288,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "67acfc00d84c23a51573984d52b6ad20f021e3b6de6ea5f3e5a526c2b8f0b6d1",
-        "scalars": 18874
+        "scalars": 19284,
+        "sha256": "66822a020c359339b96c6ffdfd60437f5542aa7f1015c70369693d1a5a7376d3"
       },
       "critic": {
-        "sha256": "744240ea8898af78d712c46d9afae1288191035e789f6ed29e8e32ab653dbb47",
-        "scalars": 18607
+        "scalars": 19017,
+        "sha256": "ce8ac6010d0b18568a2fc6977e4c8b582352409c479e60f78fdb1cbf5a11ec08"
       }
     },
     {
@@ -313,12 +317,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "ccf92b6981beae39b436f966458fec0e7d4870643738e39015db7f0e4db69aef",
-        "scalars": 18924
+        "scalars": 19334,
+        "sha256": "fd3d85acd88d00977ed0f2b69ba283a5513db99514c30d1ba73c24f3cfc54404"
       },
       "critic": {
-        "sha256": "1a52be40563151af932cf860ee8134d1c75aa04c304a5dcc08a07e2c5b4e470f",
-        "scalars": 18657
+        "scalars": 19067,
+        "sha256": "abe9103d0501b3f7522161b389faa20b963399961cd969ea14814408c7c80d82"
       }
     },
     {
@@ -342,12 +346,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "24b28245f8cec4873e062f8646c9a8d69135896acc82641143881addc1ff2978",
-        "scalars": 18921
+        "scalars": 19331,
+        "sha256": "103538ee1ce8535e577c337785833fc08afff38d2accc4d045bdee8faef93aeb"
       },
       "critic": {
-        "sha256": "6ad054518adcc61207bc5f4442fe96a14c2fcb42a87f56f54a26761c29858175",
-        "scalars": 18654
+        "scalars": 19064,
+        "sha256": "5f9ae4c34a5860e096f1502f81a3067952d6f79c91f82967149339852140246a"
       }
     },
     {
@@ -366,12 +370,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "63149d1059e82dff3761c48491fb4b31ef58402ae9a412469f68870933ab493c",
-        "scalars": 18839
+        "scalars": 19249,
+        "sha256": "f2f01982b5914849f57f1595995691e7a06918307516e7c83397a24f92b1214e"
       },
       "critic": {
-        "sha256": "714b81af2df44bd06fb96af53aea9e803ac99fbaa6e1cb29c5c645a26a2adc9a",
-        "scalars": 18572
+        "scalars": 18982,
+        "sha256": "7272432dfc114a980817eadb692cb178f38be7e2781d2ec09477d3a4d9ca390f"
       }
     },
     {
@@ -390,12 +394,12 @@
         "explicit_boundary_decisions": {}
       },
       "captioner": {
-        "sha256": "317fbafd1d4130ecd0edd6076d3a434c8393dd254f33050c5175f1529e12f1ec",
-        "scalars": 18836
+        "scalars": 19246,
+        "sha256": "99a51df0770889e7c4fc13ddf1e4d3b1ab89f94a9d8cfe69df408919af561d87"
       },
       "critic": {
-        "sha256": "c9fe9a41dfdac629058ba8682c58cc0afa56604bf415ee457ced4086703551ed",
-        "scalars": 18569
+        "scalars": 18979,
+        "sha256": "3b946ccf28e4e42d669398136bf52d3a048b5af202b08a6398c1a80687406ea1"
       }
     }
   ]

@@ -43,6 +43,13 @@ struct GPUTrainingDisplayTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         let gpu = workspace(defaults)
         gpu.pod = RentedPod(id: "fixture", status: "RUNNING", cost: 0, gpu: .init(count: 1))
+        gpu.result = TrainingResult(
+            runID: "another-project",
+            outputRepo: "",
+            destination: .download,
+            volumeID: "pod:fixture",
+            state: .saved(folder: "/tmp/results")
+        )
         #expect(gpu.computerStatus == "Running" && gpu.trainingStatus == "Not started")
         gpu.runID = "fixture-run"
         gpu.trainingState = "running"

@@ -7,6 +7,46 @@ import UniformTypeIdentifiers
 /// hands the chosen URL to the session (`createProject(at:)`, `openProject(url:)`, ...).
 @MainActor
 enum ProjectAccess {
+    static func chooseNewProject(name: String = "Untitled Project") -> URL? {
+        let panel = NSSavePanel()
+        // AppKit remembers this panel's directory, including the sandbox-aware navigation state.
+        panel.identifier = NSUserInterfaceItemIdentifier("ConceptStudio.newProject")
+        let delegate = NewProjectPanelDelegate()
+        panel.delegate = delegate
+        panel.title = "New project"
+        panel.prompt = "Create project"
+        panel.nameFieldLabel = "Project name:"
+        panel.nameFieldStringValue = name
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = true
+        let response = panel.runModal()
+        if let existing = delegate.existingURL {
+            // A cancelled Save panel grants no access. A directory selection grants access to
+            // the existing project's contents without presenting an overwrite question.
+            let open = NSOpenPanel()
+            open.title = "Open existing project"
+            open.message = "This folder already exists. Open it to continue its project. Existing files are preserved."
+            open.prompt = "Open project"
+            open.canChooseDirectories = true
+            open.canChooseFiles = false
+            open.directoryURL = existing
+            return open.runModal() == .OK ? open.url : nil
+        }
+        return response == .OK ? panel.url : nil
+    }
+
+    /// New project may open a saved project, but must never adopt an unrelated existing folder.
+    static func existingProject(at url: URL) throws -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("job.yaml").path) else {
+            throw StudioError.message(
+                "A folder named “\(url.lastPathComponent)” already exists and is not a ConceptStudio project. "
+                    + "Choose another project name or location."
+            )
+        }
+        return true
+    }
+
     static func chooseFolder(prompt: String) -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -28,6 +68,26 @@ enum ProjectAccess {
         panel.allowedContentTypes = [.image, .movie]
         panel.allowsMultipleSelection = true
         return panel.runModal() == .OK ? panel.urls : []
+    }
+}
+
+/// Intercept a named existing folder before NSSavePanel offers to overwrite it. The session
+/// decides whether to open its project or explain the name collision, without replacing anything.
+@MainActor
+final class NewProjectPanelDelegate: NSObject, NSOpenSavePanelDelegate {
+    private(set) var existingURL: URL?
+
+    func panel(_ sender: Any, userEnteredFilename filename: String, confirmed: Bool) -> String? {
+        guard confirmed, let panel = sender as? NSSavePanel,
+              let parent = panel.directoryURL else { return filename }
+        let path = (filename as NSString).expandingTildeInPath
+        let url = URL(fileURLWithPath: path, relativeTo: parent).standardizedFileURL
+        guard FileManager.default.fileExists(atPath: url.path) else { return filename }
+        existingURL = url
+        // This delegate callback precedes the system's replacement question. Returning nil cancels
+        // filename processing; cancel ends runModal so the caller can open or refuse this URL.
+        panel.cancel(nil)
+        return nil
     }
 }
 

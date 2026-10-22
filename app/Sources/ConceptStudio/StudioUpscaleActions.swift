@@ -71,7 +71,11 @@ extension StudioSession {
             return
         }
         do {
+            let newID = project?.upscaledName(
+                for: sourceID, resultExtension: URL(fileURLWithPath: pending.resultPath).pathExtension.lowercased()
+            )
             try project?.keepUpscale(pending)
+            if let newID { transferReviewState(from: sourceID, to: newID) }
             invalidateMediaDraft(id: sourceID)
             afterUpscaleChange()
             message = "Upscaled version kept. Its original is saved in the project; Put back original restores it."
@@ -102,6 +106,7 @@ extension StudioSession {
         do {
             let original = upscaleRecord(for: id)?.originalID
             try project?.revertUpscale(id)
+            if let original { transferReviewState(from: id, to: original) }
             invalidateMediaDraft(id: id)
             afterUpscaleChange()
             selectedImageID = original

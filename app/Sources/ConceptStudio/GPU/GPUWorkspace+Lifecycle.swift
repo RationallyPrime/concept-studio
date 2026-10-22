@@ -111,6 +111,12 @@ extension GPUWorkspace {
         noteActivity()
     }
 
+    func showRefreshFailure(_ error: any Error) {
+        guard !isBusy else { return }
+        message = error.localizedDescription
+        refreshFailureMessage = message
+    }
+
     /// A refresh that succeeded clears the error an earlier one left on the status line.
     func clearRefreshFailure() {
         if let refreshFailureMessage, message == refreshFailureMessage { message = "" }
@@ -121,6 +127,9 @@ extension GPUWorkspace {
     func forgetPod(_ pod: RentedPod) async {
         let agentSecret = saved?.agentSecret ?? ""
         self.pod = nil
+        message = "Cloud GPU removed."
+        storage = nil
+        plan = nil
         saved = nil
         agent = nil
         restartBlockedByHost = false
@@ -155,6 +164,7 @@ extension GPUWorkspace {
         await stopEverything(discardingPendingResult: discardingUndeliveredOutputs)
         guard !hasRunningPod, let provider, let pod else { return }
         await perform {
+            self.message = "Removing cloud GPU and its disk…"
             try await provider.terminate(id: pod.id)
             await self.forgetPod(pod)
             self.message = lost.isEmpty

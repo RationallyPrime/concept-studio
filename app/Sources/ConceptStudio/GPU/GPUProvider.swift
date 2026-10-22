@@ -112,6 +112,7 @@ struct GPUVolume: Identifiable, Codable {
     let name: String
     let size: Int
     let dataCenter: String
+    var type: String?
 }
 
 /// A pod as the provider reports it. Every field added after the first release is optional so a
@@ -486,7 +487,8 @@ struct RunPodProvider: GPUProvider {
 }
 
 actor DemoGPUProvider: GPUProvider {
-    private var pod = RentedPod(id: "demo", status: "EXITED", cost: 0, gpu: .init(count: 1))
+    private var pods: [String: RentedPod] = [:]
+    private var nextID = 0
 
     func offers(count: Int, minCudaVersion: String) -> [GPUOffer] {
         [
@@ -506,38 +508,41 @@ actor DemoGPUProvider: GPUProvider {
     }
 
     func create(_ request: PodCreation) -> RentedPod {
-        pod = RentedPod(
-            id: "demo",
-            status: "RUNNING",
-            cost: request.offer.price * Double(request.count),
-            gpu: .init(count: request.count),
+        nextID += 1
+        let pod = RentedPod(
+            id: "demo-\(nextID)", status: "RUNNING",
+            cost: request.offer.price * Double(request.count), gpu: .init(count: request.count),
             name: request.name
         )
+        pods[pod.id] = pod
         return pod
     }
 
-    func status(id: String) -> RentedPod {
-        pod
+    func status(id: String) throws -> RentedPod {
+        guard let pod = pods[id] else { throw StudioError.message("Demo GPU no longer exists.") }
+        return pod
     }
 
     func exists(id: String) -> Bool {
-        pod.status != "TERMINATED"
+        pods[id] != nil
     }
 
     func list() -> [RentedPod] {
-        pod.status == "TERMINATED" ? [] : [pod]
+        Array(pods.values)
     }
 
-    func start(id: String) {
-        pod = RentedPod(id: id, status: "RUNNING", cost: 1.5, gpu: pod.gpu, name: pod.name)
+    func start(id: String) throws {
+        let pod = try status(id: id)
+        pods[id] = RentedPod(id: id, status: "RUNNING", cost: 1.5, gpu: pod.gpu, name: pod.name)
     }
 
-    func stop(id: String) {
-        pod = RentedPod(id: id, status: "EXITED", cost: 0, gpu: pod.gpu, name: pod.name)
+    func stop(id: String) throws {
+        let pod = try status(id: id)
+        pods[id] = RentedPod(id: id, status: "EXITED", cost: 0, gpu: pod.gpu, name: pod.name)
     }
 
     func terminate(id: String) {
-        pod = RentedPod(id: id, status: "TERMINATED", cost: 0, gpu: pod.gpu, name: pod.name)
+        pods.removeValue(forKey: id)
     }
 
     nonisolated func url(for pod: RentedPod, port: Int) -> URL {

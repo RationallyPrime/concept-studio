@@ -24,7 +24,9 @@ struct LocalTrainingDataset {
     static func prepare(projectFolder: URL) async throws -> LocalTrainingDataset {
         let project = try await StudioProject.open(at: projectFolder)
         try project.job.requireConcepts()
-        guard !project.images.isEmpty else { throw StudioError.message("Include training images or clips first.") }
+        let state = ProjectAppState.load(from: projectFolder)
+        let selected = project.publishingImages(state: state)
+        guard !selected.isEmpty else { throw StudioError.message("Include training images or clips first.") }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("studio-upload-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         do {
@@ -33,21 +35,18 @@ struct LocalTrainingDataset {
             var rows: [MetadataRow] = []
             var copiedBytes: Int64 = 0
             try copy(project.jobURL, name: "job.yaml", to: folder, total: &copiedBytes)
-            for image in project.images {
+            for image in selected {
                 try Task.checkCancellation()
                 let captionURL = sink.captionURL(for: image.id)
-                guard FileManager.default.fileExists(atPath: captionURL.path) else {
-                    throw StudioError.message("Save a caption for \(image.id) before preparing training data.")
-                }
                 try copy(image.url, name: image.id, to: folder, total: &copiedBytes)
-                try copy(captionURL, name: captionURL.lastPathComponent, to: folder, total: &copiedBytes)
+                if !image.caption.isBlank {
+                    try copy(captionURL, name: captionURL.lastPathComponent, to: folder, total: &copiedBytes)
+                }
                 let recordURL = sink.recordURL(for: image.id)
                 if FileManager.default.fileExists(atPath: recordURL.path) {
                     try copy(recordURL, name: recordURL.lastPathComponent, to: folder, total: &copiedBytes)
                 }
-                let caption = try String(contentsOf: copiedSink.captionURL(for: image.id), encoding: .utf8)
-                guard !caption.isBlank
-                else { throw StudioError.message("Save a caption for \(image.id) before training.") }
+                let caption = image.caption
                 let record = try await copiedSink.record(image.id)
                 rows.append(MetadataRow(fileName: image.id, caption: caption, record: record))
             }
@@ -82,8 +81,8 @@ struct LocalTrainingDataset {
             return LocalTrainingDataset(
                 folder: folder, files: files,
                 digest: inputDigest(files),
-                containsVideo: project.images.contains { Sources.isVideo(Sources.suffix(of: $0.id)) },
-                itemCount: project.images.count
+                containsVideo: selected.contains { Sources.isVideo(Sources.suffix(of: $0.id)) },
+                itemCount: selected.count
             )
         } catch {
             try? FileManager.default.removeItem(at: folder)

@@ -21,6 +21,8 @@ struct SavedPod: Codable {
     /// Whether the pod was created with the Hub token in its environment. Records from before this was
     /// kept describe pods that got the token whenever there was one; an adopted pod is treated as without it.
     var hubTokenOnPod = true
+    var networkVolume: GPUVolume?
+    var storage: AgentStorageUsage?
     var points: [TrainingPoint] = []
     var result: TrainingResult?
     var run: TrainingRun?
@@ -47,6 +49,8 @@ extension SavedPod {
         agentSecret = try values.decodeIfPresent(String.self, forKey: .agentSecret) ?? ""
         hubTokenOnPod = try values.decodeIfPresent(Bool.self, forKey: .hubTokenOnPod) ?? true
         runpodKey = try values.decodeIfPresent(String.self, forKey: .runpodKey) ?? ""
+        networkVolume = try values.decodeIfPresent(GPUVolume.self, forKey: .networkVolume)
+        storage = try values.decodeIfPresent(AgentStorageUsage.self, forKey: .storage)
         points = try values.decodeIfPresent([TrainingPoint].self, forKey: .points) ?? []
         result = try values.decodeIfPresent(TrainingResult.self, forKey: .result)
         run = try values.decodeIfPresent(TrainingRun.self, forKey: .run)

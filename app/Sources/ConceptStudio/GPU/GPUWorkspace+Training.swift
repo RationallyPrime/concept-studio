@@ -7,8 +7,6 @@ struct CaptionServerSettings: Equatable {
     let maxNumSeqs: Int
     let gpuMemoryUtilization: Double
     let extraArgs: [String]
-    /// The smallest GPU memory, in decimal GB, the settings were measured on; a caption rental needs at least this.
-    let minGPUMemoryGB: Int
 
     func params(model: String) -> JSONObject {
         [
@@ -29,14 +27,14 @@ extension GPUWorkspace {
         "Qwen/Qwen3-VL-8B-Instruct": fallbackCaptionServer,
         "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4": CaptionServerSettings(
             maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
-            extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"], minGPUMemoryGB: 32
+            extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
         ),
     ]
 
     /// The Qwen3-VL-8B row, which a model without a measured row starts with.
     nonisolated static let fallbackCaptionServer = CaptionServerSettings(
         maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
-        extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"], minGPUMemoryGB: 32
+        extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
     )
 
     /// Where `captionModel` is remembered between launches.
@@ -59,7 +57,7 @@ extension GPUWorkspace {
             ?? services.first(where: { $0.name == "trainer-\(trainer)" }) else { return }
         if state.active { trainer = String(state.name.dropFirst("trainer-".count)) }
         if let id = state.runID { runID = id }
-        trainingState = state.state
+        if !runID.isEmpty { trainingState = state.state }
     }
 
     func updateCaptionServerState(_ services: [AgentService]) {
@@ -361,7 +359,9 @@ extension GPUWorkspace {
             guard let agent = self.agent, self.hasRunningPod else {
                 throw StudioError.message("Rent a cloud GPU before starting its caption model.")
             }
-            let plan = try await agent.plan()
+            self.captionStartupProgress = "Waiting for your cloud GPU to boot…"
+            defer { self.captionStartupProgress = nil }
+            let plan = try await self.waitForCaptionAgent(agent)
             self.plan = plan
             let services = try await agent.services()
             self.updateCaptionServerState(services)
@@ -398,12 +398,43 @@ extension GPUWorkspace {
         }
     }
 
+    private func waitForCaptionAgent(_ agent: any PodAgent) async throws -> TrainingPlan {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(300))
+        while true {
+            try Task.checkCancellation()
+            guard hasRunningPod
+            else { throw StudioError.message("The cloud GPU stopped while starting its caption model.") }
+            do {
+                return try await agent.plan()
+            } catch {
+                let transient = error is URLError || error.localizedDescription.contains("starting or unreachable")
+                guard transient, ContinuousClock.now < deadline else { throw error }
+                message = "Waiting for your cloud GPU to boot and connect…"
+                try await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
     private func waitForCaptionModel() async throws {
         let clock = ContinuousClock()
+        let began = Date()
         let deadline = clock.now.advanced(by: .seconds(600))
         while clock.now < deadline {
             try Task.checkCancellation()
             if try await servedCaptionModels()?.contains(captionModel) == true { return }
+            if let agent {
+                let services = try? await agent.services()
+                if let service = services?.first(where: { $0.name == "vllm" }),
+                   ["failed", "exited", "stopped"].contains(service.state) {
+                    throw await StudioError.message("The caption server stopped during startup. "
+                        + ((try? agent.serviceLog("vllm")) ?? "Read its logs for the cause."))
+                }
+                let log = await (try? agent.serviceLog("vllm")) ?? ""
+                let lastLine = log.split(whereSeparator: \.isNewline).last.map(String.init)
+                captionStartupProgress = lastLine ?? "Loading \(captionModel)…"
+                message = "Starting caption model · \(Int(Date().timeIntervalSince(began))) seconds · "
+                    + (captionStartupProgress ?? "")
+            }
             try await Task.sleep(for: .seconds(2))
         }
         throw StudioError

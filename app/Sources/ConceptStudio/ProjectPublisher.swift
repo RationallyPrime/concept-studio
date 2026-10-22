@@ -3,13 +3,24 @@ import Foundation
 
 enum ProjectPublisher {
     static func operations(
-        for project: StudioProject, previousRows: [MetadataRow] = [], remotePaths: Set<String> = []
+        for project: StudioProject, state: ProjectAppState? = nil,
+        previousRows: [MetadataRow] = [], remotePaths: Set<String> = []
     ) async throws -> [CommitOperation] {
         try project.job.requireConcepts()
         let sink = try SidecarSink(directory: project.imagesDirectory)
+        var saved = project
+        for index in saved.images.indices {
+            saved.images[index].caption = (try? String(
+                contentsOf: sink.captionURL(for: saved.images[index].id), encoding: .utf8
+            )) ?? ""
+        }
+        let selected = saved.publishingImages(state: state ?? ProjectAppState.load(from: project.directory))
+        guard !selected.isEmpty else {
+            throw StudioError.message("No samples are ready to publish. Add captions or choose Include them anyway.")
+        }
         var operations: [CommitOperation] = [.addFile(path: "concept-captioner/job.yaml", url: project.jobURL)]
         var rows: [MetadataRow] = []
-        for image in project.images {
+        for image in selected {
             try Task.checkCancellation()
             let path = image.id
             operations.append(.addFile(path: path, url: image.url))

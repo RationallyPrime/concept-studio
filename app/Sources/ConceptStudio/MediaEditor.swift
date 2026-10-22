@@ -178,12 +178,22 @@ enum MediaEditor {
     static let convertibleImageSuffixes: Set<String> = [".heic", ".heif", ".tif", ".tiff"]
 
     static func importableFiles(in directory: URL) throws -> [URL] {
-        try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
-            .filter {
-                let suffix = Sources.suffix(of: $0.lastPathComponent).lowercased()
-                return (Sources.mediaSuffixes.contains(suffix) || convertibleImageSuffixes.contains(suffix))
-                    && (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
-            }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        var failure: (any Error)?
+        guard let contents = FileManager.default.enumerator(
+            at: directory, includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants],
+            errorHandler: { _, error in failure = error; return false }
+        ) else { throw StudioError.message("This folder could not be read. Choose it again to grant access.") }
+        var files: [URL] = []
+        for case let file as URL in contents {
+            let suffix = Sources.suffix(of: file.lastPathComponent).lowercased()
+            if Sources.mediaSuffixes.contains(suffix) || convertibleImageSuffixes.contains(suffix),
+               try file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
+                files.append(file)
+            }
+        }
+        if let failure { throw failure }
+        return files.sorted { $0.path < $1.path }
     }
 
     static func normalizedImport(_ data: Data, name: String) throws -> (data: Data, name: String) {
