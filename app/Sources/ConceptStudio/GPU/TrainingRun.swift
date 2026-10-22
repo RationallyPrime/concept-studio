@@ -410,6 +410,10 @@ extension GPUWorkspace {
             guard cap.isFinite, cap > (run.estimatedGPUCostUSD ?? 0) else {
                 throw StudioError.message("This run has reached its budget. Raise its budget before continuing.")
             }
+            let plan = try await agent.plan()
+            try await self.verifyGPUMemory(
+                agent, gpus: plan.train?.gpus ?? [], row: run.effectiveModelRow(in: self.modelTable)
+            )
             let baseline = self.estimatedPodCost
             let local: LocalTrainingDataset?
             if let expected = run.localInputDigest {
@@ -430,10 +434,6 @@ extension GPUWorkspace {
             guard !services.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
                     || $0.name.hasPrefix("generate-")) }) else {
                 throw StudioError.message("Finish the current GPU action before resuming training.")
-            }
-            let plan = try await agent.plan()
-            if let row = run.modelRow(in: self.modelTable), row.gpu.verifyOnPod {
-                try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: row)
             }
             var params = run.params
             params["steps"] = .int(totalSteps)

@@ -237,7 +237,8 @@ extension GPUWorkspace {
             inventory.contains { $0.index == index && $0.memoryTotalMiB >= minimumMiB }
         }) else {
             throw StudioError.message(row.gpu.verifyMessage
-                ?? "Choose a GPU with at least \(row.gpu.minVRAMGB) GB of graphics memory.")
+                ?? "This computer does not have enough graphics memory for \(row.shortName). "
+                + "Rent a cloud GPU with at least \(row.gpu.minVRAMGB) GB per GPU for training.")
         }
     }
 
