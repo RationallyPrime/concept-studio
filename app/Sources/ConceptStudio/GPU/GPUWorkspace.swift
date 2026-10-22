@@ -119,7 +119,11 @@ final class GPUWorkspace {
     var triggerWords = "NORA7"
     var profile: String
     var keepCaptionServer = false
-    var captionModel = "Qwen/Qwen3-VL-8B-Instruct"
+    /// The model the caption server starts: Captioning's "My pod / custom server" model, remembered.
+    var captionModel = ProviderChoices.defaultModel(for: "vllm") {
+        didSet { if !demoMode { preferences.set(captionModel, forKey: Self.captionModelKey) } }
+    }
+
     var points: [TrainingPoint] = []
     var logs = ""
     var trainingState = "Not started"
@@ -218,6 +222,7 @@ final class GPUWorkspace {
         self.downloader = downloader
         self.uploader = uploader
         sleepGuard = keepAwake ?? .system()
+        captionModel = Self.rememberedCaptionModel(preferences) ?? captionModel
         if demoMode {
             provider = DemoGPUProvider()
             imageName = "demo"

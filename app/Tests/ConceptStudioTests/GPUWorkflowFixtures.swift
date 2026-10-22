@@ -180,6 +180,9 @@ actor UnreachableAgentTransport: HTTPTransport {
             runIDs[service] = params?["run_id"]?.stringValue
             if service == "vllm" { servedModel = params?["model"]?.stringValue ?? servedModel }
         }
+        if url.lastPathComponent == "stop" {
+            services[url.deletingLastPathComponent().lastPathComponent] = "stopped"
+        }
         if url.lastPathComponent == "plan" {
             return [
                 "mode": .string(gpuCount == 1 ? "sequential" : "concurrent"),

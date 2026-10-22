@@ -38,11 +38,13 @@ extension GPUWorkspace {
     }
 
     /// The image the next computer runs: the trainer's image, with the caption server (its "-captioning"
-    /// tag) only when the captioning screen asked for one. A custom image from Settings is used as entered.
+    /// tag) when the captioning screen asked for one or a caption model is kept running during training.
+    /// A custom image from Settings is used as entered.
     var podImage: String {
         let override = imageName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let captioning = rentsCaptionServer || keepCaptionServer
         let image = override.isEmpty
-            ? StudioSession.defaultPodImageName + (rentsCaptionServer ? Self.captioningTagSuffix : "")
+            ? StudioSession.defaultPodImageName + (captioning ? Self.captioningTagSuffix : "")
             : override
         return image.replacingOccurrences(of: "{trainer}", with: trainer)
     }

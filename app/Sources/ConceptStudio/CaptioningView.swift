@@ -14,6 +14,7 @@ struct CaptioningView: View {
     @State private var modelCatalogStatus: String?
     @State private var testingConnection = false
     @State private var connectionTestStatus: String?
+    @State private var bundledSkills: [BundledSkill]?
 
     var captionFormatSelection: Binding<String> {
         Binding(
@@ -157,6 +158,8 @@ struct CaptioningView: View {
                                         Button("Use bundled") { session.useBundledSkill() }
                                     }
                                 }
+                                Button("Read the built-in skills…") { bundledSkills = BundledSkill.all() }
+                                    .help("Shows the caption-writing instructions that ship with the app.")
                                 Text(
                                     "A skill folder supplies the caption-writing instructions "
                                         + "and its available formats."
@@ -216,6 +219,9 @@ struct CaptioningView: View {
             .overlay(alignment: .leading) { Rectangle().fill(.separator).frame(width: 1) }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { captionAction }
+        .sheet(isPresented: Binding(get: { bundledSkills != nil }, set: { if !$0 { bundledSkills = nil } })) {
+            BundledSkillsView(skills: bundledSkills ?? [])
+        }
         .task(id: session.usesChatGPTForThisRun) { await session.prepareChatGPTModels() }
         .onChange(of: session.chatGPT.selectedAccountID) { _, _ in
             Task { await session.prepareChatGPTModels() }
@@ -490,6 +496,10 @@ extension CaptioningView {
                     session.gpu.rentsCaptionServer = true
                     session.step = .pods
                 }
+                Text("The caption server starts \(session.gpu.captionModel). "
+                    + "Choose this model above, with the provider My pod / custom server.")
+                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Start caption server and use this computer") { session.usePodCaptionServer() }
                     .disabled(session.busy || !session.gpu.hasRunningPod
                         || !session.gpu.captionServerInstalled)

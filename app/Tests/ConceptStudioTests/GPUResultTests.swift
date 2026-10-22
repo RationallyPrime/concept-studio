@@ -362,7 +362,10 @@ struct GPUResultTests {
         #expect(try JSONDecoder().decode(SavedPod.self, from: data).points.map(\.step) == [10, 20, 30])
         await workspace.stopEverything()
     }
+}
 
+/// Choosing the run artifacts to retrieve, and finding computers on launch.
+extension GPUResultTests {
     @Test
     func runArtifactsKeepTheFinalLoRAConfigAndSamples() {
         let files = [

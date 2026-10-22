@@ -123,7 +123,10 @@ final class StudioSession {
     var startupRestored = false
     var recentPaths: [String] = []
     var endpointKind = ""
-    var modelName = ""
+    var modelName = "" {
+        didSet { followSelfHostedModel() }
+    }
+
     var criticKind = ""
     var criticModel = ""
     var openAIUsesChatGPT = false
@@ -147,7 +150,10 @@ final class StudioSession {
     var podImageName = ""
     var volumeID = ""
     var projectAccess: URL?
-    var gpu: GPUWorkspace
+    var gpu: GPUWorkspace {
+        didSet { followSelfHostedModel() }
+    }
+
     let inspector = VisionInspector()
     let preferences: UserDefaults
     let secrets: any SecretStore
