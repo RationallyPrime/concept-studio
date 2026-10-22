@@ -40,9 +40,8 @@ enum MediaFixtures {
         writer.startSession(atSourceTime: .zero)
         let sampleTimes = times ?? (0 ..< 20).map { Double($0) / 10 }
         for (frame, seconds) in sampleTimes.enumerated() {
-            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
             while !input.isReadyForMoreMediaData {
-                guard ContinuousClock.now < deadline else { throw StudioError.message("Synthetic encoder timed out") }
+                if writer.status == .failed { throw writer.error ?? StudioError.message("Synthetic encoder failed") }
                 try await Task.sleep(for: .milliseconds(10))
             }
             var buffer: CVPixelBuffer?

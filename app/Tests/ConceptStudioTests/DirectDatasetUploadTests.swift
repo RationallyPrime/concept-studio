@@ -10,6 +10,8 @@ actor DatasetUploadAgent: PodAgent {
     var failUpload = false
     private var holdFirstUpload = false
     private var uploadContinuation: CheckedContinuation<Void, Never>?
+    private var pauseOutcome: Bool?
+    private var pauseWaiter: CheckedContinuation<Bool, Never>?
 
     func upload(name: String, fileName: String, from file: URL, size: Int64) async throws {
         if failUpload { throw StudioError.message("Synthetic upload failure") }
@@ -18,7 +20,10 @@ actor DatasetUploadAgent: PodAgent {
         uploads.append(Upload(stage: name, name: fileName, data: data))
         if holdFirstUpload {
             holdFirstUpload = false
-            await withCheckedContinuation { uploadContinuation = $0 }
+            await withCheckedContinuation {
+                uploadContinuation = $0
+                settlePause(true)
+            }
         }
     }
 
@@ -68,8 +73,21 @@ actor DatasetUploadAgent: PodAgent {
         holdFirstUpload = true
     }
 
-    var uploadIsPaused: Bool {
-        uploadContinuation != nil
+    /// True once the held first upload is paused; false if `runEnded()` comes first. No clock involved.
+    func firstUploadPaused() async -> Bool {
+        if let pauseOutcome { return pauseOutcome }
+        return await withCheckedContinuation { pauseWaiter = $0 }
+    }
+
+    func runEnded() {
+        settlePause(false)
+    }
+
+    private func settlePause(_ paused: Bool) {
+        guard pauseOutcome == nil else { return }
+        pauseOutcome = paused
+        pauseWaiter?.resume(returning: paused)
+        pauseWaiter = nil
     }
 
     func releaseUpload() {
@@ -317,12 +335,11 @@ extension DirectDatasetUploadTests {
         session.project = project
         session.gpu = workspace
         session.gpuKeysLoadedFor = workspace
-        let work = Task { await workspace.train(datasetRepo: "", captureLocal: session.captureTrainingInputs) }
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        while await !(agent.uploadIsPaused), ContinuousClock.now < deadline {
-            await Task.yield()
+        let work = Task {
+            await workspace.train(datasetRepo: "", captureLocal: session.captureTrainingInputs)
+            await agent.runEnded()
         }
-        let paused = await agent.uploadIsPaused
+        let paused = await agent.firstUploadPaused()
         #expect(!session.busy && !session.editing)
         var concept = project.job.concepts[0]
         concept.trigger = "NEW8"
