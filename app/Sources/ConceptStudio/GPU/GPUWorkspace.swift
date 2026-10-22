@@ -320,7 +320,7 @@ final class GPUWorkspace {
             let started = Date()
             self.agentToken = try Self.newAgentToken()
             // Credentials go to the account's secret store; the pod only ever sees placeholders.
-            let credentials = try await self.storeCredentials(provider)
+            let credentials = try await self.storeCredentials(provider, cloud: offer.cloud)
             let created = try await self.createPod(provider, offer: offer, volume: volume, credentials: credentials)
             self.pod = created
             self.plan = nil
@@ -335,7 +335,7 @@ final class GPUWorkspace {
                 pod: created, started: started, hourlyRate: max(created.cost, self.quotedHourlyRate),
                 budget: self.budget, trainer: self.trainer, runID: "",
                 idleMinutes: self.idleMinutes, volumeID: volume?.id ?? "pod:" + created.id,
-                agentSecret: credentials.agentSecret
+                agentSecret: credentials.agentSecret, hubTokenOnPod: credentials.holdsHubToken
             )
             self.connectAgent(created)
             self.lastActivity = Date()
@@ -543,11 +543,6 @@ extension GPUWorkspace {
 
     var isTraining: Bool {
         ["running", "stuck"].contains(trainingState)
-    }
-
-    /// Whether the user has given the app a Hub token that training can push with.
-    var canPushToHub: Bool {
-        demoMode || !hubToken.isEmpty
     }
 
     /// The network volume mounted at /workspace on the current pod.

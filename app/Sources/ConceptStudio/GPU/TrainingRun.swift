@@ -425,6 +425,8 @@ extension GPUWorkspace {
             self.points = run.points
             self.result = run.result
             self.result?.state = .training
+            // A cloud GPU without the Hub token cannot publish; its run is saved to this Mac instead.
+            if !self.canPushToHub { params["hub"] = nil; self.result?.destination = .download }
             self.trainingState = "Preparing inputs"
             self.recordStartedRun(
                 datasetRepo: run.datasetRepo,

@@ -122,7 +122,7 @@ struct GPUJourneyView: View {
                 if workspace.selectedVolume.isEmpty, !workspace.hasRunningPod {
                     Text("The disk comes with the cloud GPU. Stopping the cloud GPU keeps your files; removing it "
                         + "deletes them. When training finishes, the trained model is published to your Hugging Face "
-                        + "account if you chose a destination there, or saved to your Mac.")
+                        + "account if you chose a destination there and a Secure Cloud GPU, or saved to your Mac.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -294,9 +294,9 @@ struct GPUJourneyView: View {
                     }
                     trainingDestinationFields
                 }.formStyle(.columns)
-                Text("This project's own destination. With a Hugging Face token in Settings, the trained model is "
-                    + "uploaded to this repository when training finishes. Without one, it is saved in this "
-                    + "project's results folder on your Mac.")
+                Text("This project's own destination. With a Hugging Face token in Settings and a Secure Cloud "
+                    + "GPU, the trained model is published to this repository when training finishes. Without a "
+                    + "token, or on a Community Cloud GPU, it is saved in this project's results folder on your Mac.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
                     .fixedSize(horizontal: false, vertical: true)
             }

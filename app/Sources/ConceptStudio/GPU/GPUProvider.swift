@@ -6,6 +6,12 @@ import Security
 enum GPUCloud: String, Sendable {
     case secure = "SECURE"
     case community = "COMMUNITY"
+
+    /// Whether a pod in this cloud may hold the person's Hugging Face token. Community Cloud pods run on
+    /// independent hosts' machines, so the token stays off them.
+    var receivesHubToken: Bool {
+        self == .secure
+    }
 }
 
 /// How much stock RunPod reports for a GPU, best first.

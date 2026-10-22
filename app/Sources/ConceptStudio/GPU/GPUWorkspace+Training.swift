@@ -73,6 +73,7 @@ extension GPUWorkspace {
             guard cap.isFinite, cap > 0 else {
                 throw StudioError.message("Choose a positive budget for this training run before preparing its inputs.")
             }
+            try self.checkModelDownloadsWithoutHubToken()
             let baseline = self.estimatedPodCost
             let selectedTrainer = self.trainer
             let selectedModel = self.baseModel
@@ -139,9 +140,7 @@ extension GPUWorkspace {
             }
             self.trainingState = "running"
             self.lastActivity = Date()
-            self.message = destination == .hub
-                ? "Training started. When it finishes, the LoRA is published to \(output.repo)."
-                : "Training started. When it finishes, the LoRA is saved into this project’s results folder."
+            self.message = self.trainingStartedMessage(destination, output: output)
         }
     }
 

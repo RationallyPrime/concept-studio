@@ -242,7 +242,7 @@ extension GPUWorkspace {
             saved = SavedPod(
                 pod: adopted, started: Date(), hourlyRate: adopted.cost, budget: budget, trainer: trainer,
                 runID: "", idleMinutes: idleMinutes,
-                volumeID: adopted.volumeID ?? "pod:" + adopted.id
+                volumeID: adopted.volumeID ?? "pod:" + adopted.id, hubTokenOnPod: false
             )
             pod = adopted
             restoreAgentToken(podID: adopted.id)
@@ -394,7 +394,7 @@ extension GPUWorkspace {
         }
         let logs = try await saveRunLogs(runID: result.runID, into: folder, agent: agent)
         updateResult(.saved(folder: folder.path))
-        message = "Your LoRA was saved to \(folder.path)." + Self.logsSentence(logs)
+        message = "Your LoRA was saved to \(folder.path)." + Self.logsSentence(logs) + unpublishedSentence(result)
     }
 
     /// Saves the run's training logs under `logs/` in `folder`, as the Hub repo carries them, and returns how many it

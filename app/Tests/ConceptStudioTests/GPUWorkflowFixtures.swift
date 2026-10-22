@@ -42,6 +42,7 @@ actor UnreachableAgentTransport: HTTPTransport {
     private var filesFail = false
     private var listFails = false
     private var hubAccount: String?
+    private var communityOffered = false
     private var history: [(Int, Double)] = []
     private(set) var stopCalls = 0
     private(set) var stoppedPods: [String] = []
@@ -97,6 +98,11 @@ actor UnreachableAgentTransport: HTTPTransport {
     /// The account `GET huggingface.co/api/whoami-v2` reports; nil answers 401.
     func signIn(_ account: String?) {
         hubAccount = account
+    }
+
+    /// The catalog lists its GPU in Community Cloud as well as Secure Cloud.
+    func offerCommunityCloud() {
+        communityOffered = true
     }
 
     func curve(_ points: [(Int, Double)]) {
@@ -259,8 +265,10 @@ actor UnreachableAgentTransport: HTTPTransport {
 
     private func provider(_ request: URLRequest, url: URL) -> String {
         if url.path().contains("catalog/gpus") {
-            return #"{"gpus":[{"id":"test","name":"Test GPU","memory":80,"secure":true,"#
-                + #""price":{"secure":1},"maxCount":{"secure":4},"#
+            let community = communityOffered
+                ? #""community":true,"price":{"secure":1,"community":0.5},"maxCount":{"secure":4,"community":4},"#
+                : #""price":{"secure":1},"maxCount":{"secure":4},"#
+            return #"{"gpus":[{"id":"test","name":"Test GPU","memory":80,"secure":true,"# + community
                 + #""dataCenters":[{"id":"EU-IS-1","availability":"HIGH"}]}]}"#
         }
         if url.path().hasSuffix("network-volumes") {

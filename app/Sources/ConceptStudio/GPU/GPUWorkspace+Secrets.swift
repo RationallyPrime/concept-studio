@@ -20,14 +20,18 @@ extension GPUWorkspace {
         let env: [String: String]
         /// The per-pod secret holding the agent bearer; deleted when the pod is removed.
         let agentSecret: String
+
+        var holdsHubToken: Bool {
+            env["HF_TOKEN"] != nil
+        }
     }
 
-    /// Writes the Hub token (when there is one) and the new agent bearer to the account's secret
-    /// store. The Hub secret has one fixed name and is rewritten every time, so a rotated token
-    /// takes effect at the next rental.
-    func storeCredentials(_ provider: any GPUProvider) async throws -> PodCredentials {
+    /// Writes the Hub token (when there is one and `cloud` may hold it) and the new agent bearer to the
+    /// account's secret store. The Hub secret has one fixed name and is rewritten every time, so a rotated
+    /// token takes effect at the next rental.
+    func storeCredentials(_ provider: any GPUProvider, cloud: GPUCloud) async throws -> PodCredentials {
         var env: [String: String] = [:]
-        if !hubToken.isEmpty {
+        if !hubToken.isEmpty, cloud.receivesHubToken {
             try await provider.storeSecret(name: PodSecrets.hubTokenName, value: hubToken)
             env["HF_TOKEN"] = PodSecrets.reference(PodSecrets.hubTokenName)
         }
@@ -69,5 +73,50 @@ extension GPUWorkspace {
             try? await provider.deleteSecret(name: credentials.agentSecret)
             throw error
         }
+    }
+}
+
+extension GPUWorkspace {
+    /// Whether the cloud GPU holds the Hub token: the rented one as it was created, else the one selected
+    /// to rent. Without it the cloud GPU works as for a person with no Hugging Face account: training media
+    /// are uploaded from this Mac, and the trained model is saved to this Mac rather than published from it.
+    var cloudGPUHoldsHubToken: Bool {
+        guard !hubToken.isEmpty else { return false }
+        if pod != nil { return saved?.hubTokenOnPod ?? true }
+        return offers.first { $0.id == selectedGPU }?.cloud.receivesHubToken ?? true
+    }
+
+    /// Whether the trained model can be published from the cloud GPU.
+    var canPushToHub: Bool {
+        demoMode || cloudGPUHoldsHubToken
+    }
+
+    /// The person has a Hub token, but the cloud GPU does not get it (Community Cloud).
+    var hubTokenKeptOffCloudGPU: Bool {
+        !demoMode && !hubToken.isEmpty && !cloudGPUHoldsHubToken
+    }
+
+    /// A gated model downloads only with the Hub token, so it cannot train on a cloud GPU kept without it.
+    func checkModelDownloadsWithoutHubToken() throws {
+        guard hubTokenKeptOffCloudGPU, let row = exactModelRow, row.source.gated else { return }
+        throw StudioError.message("\(row.shortName) downloads from Hugging Face only with your token, and "
+            + "Community Cloud GPUs never get it. Remove this cloud GPU and rent a Secure Cloud GPU to train it.")
+    }
+
+    /// The sentence after "saved to <folder>." for a result whose Hugging Face destination was skipped
+    /// because the cloud GPU had no token. The Mac cannot publish a trained model itself yet.
+    func unpublishedSentence(_ result: TrainingResult) -> String {
+        guard hubTokenKeptOffCloudGPU, result.destination == .download, !result.outputRepo.isEmpty else { return "" }
+        return " It was not published to \(result.outputRepo): Community Cloud GPUs never get your Hugging Face "
+            + "token, and ConceptStudio cannot yet publish a trained model from your Mac. Upload it there yourself."
+    }
+
+    func trainingStartedMessage(_ destination: TrainingResult.Destination, output: HubDestination) -> String {
+        if destination == .hub {
+            return "Training started. When it finishes, the LoRA is published to \(output.repo)."
+        }
+        let skipped = hubTokenKeptOffCloudGPU && !output.repo.isEmpty
+            ? " Community Cloud GPUs never get your Hugging Face token, so it is not published." : ""
+        return "Training started. When it finishes, the LoRA is saved into this project’s results folder." + skipped
     }
 }

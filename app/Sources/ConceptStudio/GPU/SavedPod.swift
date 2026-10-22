@@ -14,6 +14,9 @@ struct SavedPod: Codable {
     var volumeID = ""
     /// The RunPod secret holding this pod's agent bearer; deleted when the pod is removed.
     var agentSecret = ""
+    /// Whether the pod was created with the Hub token in its environment. Records from before this was
+    /// kept describe pods that got the token whenever there was one; an adopted pod is treated as without it.
+    var hubTokenOnPod = true
     var points: [TrainingPoint] = []
     var result: TrainingResult?
     var run: TrainingRun?
@@ -33,6 +36,7 @@ extension SavedPod {
         idleMinutes = try values.decodeIfPresent(Int.self, forKey: .idleMinutes) ?? 15
         volumeID = try values.decodeIfPresent(String.self, forKey: .volumeID) ?? ""
         agentSecret = try values.decodeIfPresent(String.self, forKey: .agentSecret) ?? ""
+        hubTokenOnPod = try values.decodeIfPresent(Bool.self, forKey: .hubTokenOnPod) ?? true
         points = try values.decodeIfPresent([TrainingPoint].self, forKey: .points) ?? []
         result = try values.decodeIfPresent(TrainingResult.self, forKey: .result)
         run = try values.decodeIfPresent(TrainingRun.self, forKey: .run)

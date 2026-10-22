@@ -12,6 +12,10 @@ struct CloudGPUList: View {
                 HStack(spacing: 20) { filters }
                 VStack(alignment: .leading, spacing: 8) { filters }
             }
+            Text("Community Cloud GPUs run on independent hosts, so ConceptStudio keeps your Hugging Face token "
+                + "off them and saves the trained model to your Mac instead of publishing it.")
+                .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                .fixedSize(horizontal: false, vertical: true)
             list
         }
         .disabled(workspace.hasRunningPod)

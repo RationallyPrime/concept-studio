@@ -92,6 +92,39 @@ struct GPUSecretsTests {
         #expect(await transport.secretValue(PodSecrets.hubTokenName) == "hub-write")
     }
 
+    @MainActor @Test(arguments: [GPUCloud.secure, .community])
+    func onlyASecureCloudRentalGetsTheHubToken(_ cloud: GPUCloud) async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport(agentAvailable: true, inferenceReady: true)
+        await transport.offerCommunityCloud()
+        let workspace = makeWorkspace(transport, preferences)
+        try workspace.configure(runpodKey: "provider-only", hubToken: "hub-write", imageName: "test")
+        workspace.includeCommunityCloud = true
+        await workspace.refreshOffers()
+        // Community Cloud GPUs cannot use saved storage, so both rentals use the GPU's own disk.
+        workspace.chooseStorage("")
+        workspace.selectedGPU = "\(cloud.rawValue)/test"
+        await workspace.rent()
+        #expect(workspace.hasRunningPod)
+        let body = try #require(await transport.createBodies.first)
+        #expect(body["cloud"]?.stringValue == cloud.rawValue)
+        let env = try #require(body["env"]?.objectValue)
+        #expect(env["PODAGENT_TOKEN"] != nil)
+        if cloud == .secure {
+            #expect(env["HF_TOKEN"]?.stringValue == PodSecrets.reference(PodSecrets.hubTokenName))
+            #expect(await transport.secretValue(PodSecrets.hubTokenName) == "hub-write")
+        } else {
+            #expect(env["HF_TOKEN"] == nil)
+            #expect(await transport.secretValue(PodSecrets.hubTokenName) == nil)
+        }
+        // A relaunch restores the record and keeps treating the cloud GPU as it was created.
+        let record = try #require(preferences.data(forKey: GPUWorkspace.activePodKey))
+        #expect(try JSONDecoder().decode(SavedPod.self, from: record).hubTokenOnPod == (cloud == .secure))
+        #expect(workspace.usesLocalDataset == (cloud == .community))
+        await workspace.stopEverything()
+    }
+
     @MainActor @Test
     func withoutAHubTokenNoHubSecretIsWrittenAndTheVariableIsAbsent() async throws {
         let (preferences, suite) = try temporaryPreferences()
