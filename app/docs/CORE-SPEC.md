@@ -1,23 +1,20 @@
 # ConceptCore: Swift design with parity to `concept_captioner` (Python)
 
-Status: architecture, 2026-10-10; contract ratified by the owner on 2026-10-11 (see "Contract revisions"). The
-Python package under `src/concept_captioner/` is the reference implementation;
-`docs/v0.2-plan.md` (including "Beyond v0.2") and `README.md` are the design it was built to.
-This document is the Swift port's contract. Every implementer edits only the files assigned to
-them and follows the signatures here; signature changes are proposed in this document first.
+ConceptCore runs concept-boundary captioning in native Swift with the same jobs, skills,
+profiles and records as `concept_captioner` in Python. This document defines its public APIs,
+wire formats, validation rules and parity requirements.
+
+The Python reference implementation is `src/concept_captioner/`; the design sources are
+`docs/v0.2-plan.md` (including "Beyond v0.2") and `README.md`. Implementers edit only their
+assigned files and follow the signatures here. Propose signature changes in this document
+before implementing them.
 
 ### Contract revisions
 
-Changes to the conventions and public surface after the 2026-10-10 architecture, so a reader
-comparing code with this document finds each one recorded rather than discovering it as drift.
-These revisions are **ratified by the owner on 2026-10-11**, including the existing rows and
-the new fix-round decisions recorded in
-[the overnight review](../../docs/process/overnight-review-2026-10-11.md#fix-round-decisions-decided-2026-10-11-afternoon).
-Ratification defines the required behavior; it does not claim that pending implementation or
-live verification has completed. Current-source notes include the 2026-10-11 review repairs;
-test results and live acceptance are recorded separately in CORE-STATUS and APP-STATUS.
-The 2026-10-12 rows implement the owner's subsequent walkthrough authorization, rather than
-retroactively extending the earlier ratification date.
+The owner ratified the 2026-10-10 architecture and the revisions through 2026-10-11,
+including [the overnight review's decisions](../../docs/process/overnight-review-2026-10-11.md#fix-round-decisions-decided-2026-10-11-afternoon).
+The 2026-10-12 revisions follow the owner's walkthrough authorization. This table records the
+contract; CORE-STATUS and APP-STATUS record implementation, test results and live acceptance.
 
 | Date | Change | Where |
 | --- | --- | --- |
@@ -52,7 +49,7 @@ retroactively extending the earlier ratification date.
 | 2026-10-11 | Gemini inline video carries `videoMetadata.fps = 24`; its existing 20 MiB encoded-request guard and other clients' video refusals are recorded | Video route contract, GeminiClient |
 | 2026-10-11 | Bundled `ltx-video` profile is shared verbatim with Python | Skills |
 | 2026-10-11 | ChatGPT retains indexed `response.output_item.done` items when a successful terminal response has an empty output array | ChatGPTModelClient |
-| 2026-10-11 | Video routes: Gemini inline, Swift OpenRouter/vLLM `video_url`; Python Gemini/OpenRouter through pydantic-ai, Python vLLM refused until supported; conservative 20 MiB client cap on each supported route | Video route contract |
+| 2026-10-11 | Video routes: Gemini inline, Swift OpenRouter/vLLM `video_url`; Python Gemini/OpenRouter through pydantic-ai, Python vLLM refused until supported; 20 MiB client cap on each supported route | Video route contract |
 | 2026-10-11 | `usable` describes the declared training target rather than requiring a visible person; `requiresLocatorMapping`, `wholeTargetMapping` and `mappingIncludingWholeTargets` replace the sole-style helper with automatic style/motion mappings | Schemas, Job |
 | 2026-10-11 | Job-relative skill and `.md` profile paths resolve in both languages; Deviation 10 is closed | Project folder, Skills, Runner |
 | 2026-10-11 | Python imagefolder Hub datasets dispatch images and clips by file name, including mixed datasets | Sources |
@@ -135,11 +132,11 @@ Conventions (non-negotiable):
 | response record | one JSON object per captioned image or clip, keys of `runner.py::_base_record` |
 | sidecars | `<stem>.txt` caption, `<stem>.json` record, `_summary.json` (CLI/app) |
 | Hub dataset | imagefolder convention: image/clip files + `metadata.jsonl` with `file_name`, `caption`, `caption_response`; dispatch by file name |
-| project folder | the layout below; job-relative skill/profile paths must work independently of the caller's working directory (implementation status below) |
+| project folder | the layout below; job-relative skill/profile paths resolve independently of the caller's working directory |
 
 #### Project folder
 
-The app's project is a folder the CLI can caption as is:
+The CLI captions an app project directly from its folder:
 
 ```
 <project>/
@@ -156,8 +153,8 @@ The app's project is a folder the CLI can caption as is:
 
 **Relative paths in a job file resolve against that job file's folder (owner decision,
 2026-10-11).** This covers `skill` and a `profile` given as a `.md` path; a bare profile name
-still resolves inside the selected skill. `~` expands and an absolute path is used as is, but
-the app writes project-contained relative paths.
+resolves inside the selected skill. `~` expands; absolute paths are used as written.
+The app writes project-contained relative paths.
 
 Swift implements this with `Job.directory`, set by `Job.load(contentsOf:)`, and
 `Skills.load(path:relativeTo:)` / `Skill.profile(_:relativeTo:)`. Python retains the job
@@ -168,8 +165,8 @@ part of job equality; rebuilding a job must preserve that loading context separa
 Command-line overrides (`--skill`, `--profile`) remain the caller's paths, resolved against
 the working directory; they do not rewrite the stored job's loading context.
 
-Both implementations use this loading context. CLI input/output folder arguments remain
-caller-relative; resolving a job's skill does not change the process's working directory.
+CLI input/output folder arguments remain caller-relative. Resolving a job's skill leaves
+the process's working directory unchanged.
 
 File stems are unique within `images/` (the source rejects colliding stems). The file name is
 the sample ID in the job, sidecars and published dataset. A clip remains the selected target;
@@ -182,21 +179,23 @@ column. Root `metadata.jsonl` with media files takes precedence over unrelated P
 files retained in the repository. Without that root metadata, tabular shards retain the
 datasets-library path even when loose media is present. Pure-video Python tables use
 `Video(decode=False)` descriptors; the Python sink refuses mixed tabular image/clip
-materialization. Swift's parquet limitation remains unchanged. These implementation limits do
-not reduce the required raw imagefolder interoperability.
+materialization. Swift supports imagefolder datasets and rejects Parquet-backed datasets.
+Raw imagefolder interoperability is required in both languages.
 
 ### Deviations from the Python code, decided here
 
-1. **Double trigger failure ends `rejected`, with a record.** `runner.py` currently lets
-   pydantic-ai's `UnexpectedModelBehavior` escape and reports `failed` with no record; the plan
-   and the runner's own docstring say `rejected`. Swift follows the design. (Python fix to file.)
-2. **`Job.dump()` keeps `null` samples.** `yaml.safe_dump(model_dump(exclude_none=True))` in
-   Python drops `samples: {x.png: null}` entries, losing "held for review". Swift keeps them;
-   they are the documented shape. (Python fix to file.)
-3. **Anthropic structured output uses `output_config.format` (JSON Schema), not a forced
-   tool.** Forced `tool_choice` returns HTTP 400 on current Claude models; `output_config.format`
-   is GA. Tool mode uses a `strict: true` tool with `tool_choice: {type: "auto"}` plus a system
-   instruction to call it. Thinking takes the form the model family supports, as pydantic-ai 2.55
+1. **Double trigger failure ends `rejected`, with a record.** Swift writes the rejection
+   record. Python's `runner.py` lets pydantic-ai's `UnexpectedModelBehavior` escape and reports
+   `failed` without a record. Swift follows the `rejected` outcome defined in the plan and the
+   Python runner's docstring.
+2. **`Job.dump()` keeps `null` samples in both languages.** Swift and Python preserve
+   `samples: {x.png: null}` for samples held for review. Python's `exclude_none=True` omits
+   null model fields; it preserves null values inside the `samples` dictionary. This is shared
+   behavior, not a language deviation.
+3. **Anthropic structured output uses `output_config.format` (JSON Schema).** Forced
+   `tool_choice` returns HTTP 400 on the supported Claude models. Tool mode uses a
+   `strict: true` tool with `tool_choice: {type: "auto"}` plus a system instruction to call it.
+   Thinking takes the form the model family supports, as pydantic-ai 2.55
    decides it (budget tokens for older families, adaptive for newer ones, `effort` only where
    supported); the tables are in AnthropicClient below.
 4. **`resolve` has a finite provider set**: `google`, `anthropic`, `openai`, `openrouter`,
@@ -208,9 +207,9 @@ not reduce the required raw imagefolder interoperability.
    `gemini` raises a message that names `kind: google`.
 5. **Keys come from an injected `KeyStore`**, never from the environment inside the library.
    The app's Keychain-backed store and the CLI's environment store both conform to it.
-6. **Parquet-backed Hub datasets are out of scope for the Swift core in v1.** The Hub source
-   and sink speak the imagefolder convention only (image/clip files + `metadata.jsonl`). A dataset
-   whose images live in parquet shards is rejected with a `HubError` naming this limitation.
+6. **The Swift core supports imagefolder Hub datasets.** Its source and sink use image/clip
+   files plus `metadata.jsonl`. A dataset whose images live in parquet shards is rejected with
+   a `HubError` naming this limitation.
 7. **Retry prompts render as plain user turns** in every output mode (pydantic-ai renders a
    tool-return retry in tool mode). The text is what pydantic-ai 2.55's
    `RetryPromptPart.model_response()` would send for the same failure (see `RetryPrompt`).
@@ -222,10 +221,10 @@ not reduce the required raw imagefolder interoperability.
 9. **The vLLM key is bound to an origin.** Swift attaches the stored vLLM key only when the
    job's `base_url` has the same scheme, host and port (default ports filled in) as the
    configured endpoint; another port on the same host is another service. Python has matched
-   since 2026-10-11 (`models.py` `_origin`). Closed; kept for the record.
-10. **Closed by owner decision, 2026-10-11: both languages resolve job-derived relative
-    skill and `.md` profile paths against the job file's folder.** Implemented in both languages.
-    Command-line overrides retain working-directory semantics.
+   the same origin rule (`models.py` `_origin`) since 2026-10-11.
+10. **Both languages resolve job-derived relative skill and `.md` profile paths against
+    the job file's folder** (owner decision, 2026-10-11). Command-line overrides retain
+    working-directory semantics.
 
 ---
 
@@ -263,7 +262,7 @@ public enum HubError: Error, LocalizedError, Sendable {
 
 ### JSONValue (`Models/JSONValue.swift`)
 
-An ordered JSON model. The prompt embeds `json.dumps(job.sample_view(mapping), ensure_ascii=False)`
+`JSONValue` preserves JSON key order. The prompt embeds `json.dumps(job.sample_view(mapping), ensure_ascii=False)`
 and the sidecar record is `json.dumps(record, ensure_ascii=False, indent=1)`; both are
 insertion-ordered with Python's default separators. `JSONEncoder` cannot reproduce either, so the
 library serializes JSON itself.
@@ -358,7 +357,7 @@ public struct Concept: Sendable, Equatable {
 ```
 
 Omitted Concept fields derive from `target_concept` in both languages; explicit values,
-including an explicitly empty list, are kept. These are the current source defaults:
+including an explicitly empty list, are kept. Defaults:
 
 | Category | Class noun | Traits to learn | Attributes to describe |
 | --- | --- | --- | --- |
@@ -370,13 +369,13 @@ including an explicitly empty list, are kept. These are the current source defau
 | `character_design` | `character` | the character's distinctive appearance and design | expression and gaze; pose and action; permitted clothing changes; setting; lighting; framing |
 | `custom` | `concept` | the concept described by the user | observable details outside the stated concept |
 
-Note on ordered dictionaries: `explicit_boundary_decisions`, `samples`, each sample's mapping and
+`explicit_boundary_decisions`, `samples`, each sample's mapping and
 `policy_overrides` are insertion-ordered in Python and that order reaches the prompt. They are
 `OrderedDictionary<Key, Value>`, a small `Equatable, ExpressibleByDictionaryLiteral, Sequence`
 struct in `JSONValue.swift` (keys, values, subscript get/set preserving position, `removeValue`,
-`count`, `isEmpty`; `Sendable`/`Equatable` conditionally). The job types are deliberately NOT
-`Codable`: `JSONDecoder`/`YAMLDecoder` lose key order and cannot forbid unknown keys, so the
-contract types convert through `init(json:)` / `jsonValue` only. `Caption` and `Critique` are
+`count`, `isEmpty`; `Sendable`/`Equatable` conditionally). Job types convert through
+`init(json:)` / `jsonValue` to preserve order and reject unknown keys. They do not use
+`Codable`, `JSONDecoder` or `YAMLDecoder`. `Caption` and `Critique` are
 `Codable` because model replies are decoded with `JSONDecoder` and their order is irrelevant.
 
 ```swift
@@ -449,7 +448,7 @@ public struct Job: Sendable, Equatable {
 }
 ```
 
-Validation rules (all `ConfigurationError`, messages as in Python where it has one):
+Validation rules (all raise `ConfigurationError`; use Python's message when a counterpart exists):
 
 - `trigger`, `class_noun`, endpoint `kind`/`model`: non-blank, no surrounding whitespace, no
   control characters (`"\(what) must be nonblank text without surrounding whitespace"`,
@@ -458,7 +457,7 @@ Validation rules (all `ConfigurationError`, messages as in Python where it has o
 - `concurrency` in 1...64.
 - `"concept triggers must be unique"` remains a load-time validation. Empty `concepts` is a valid
   draft project; `requireConcepts()` / `require_concepts()` raises `"Add a concept before captioning or training."`
-  before captioning or training. This lets new projects be saved and reopened without a fictional concept.
+  before captioning or training. New projects save and reopen with no concept configured.
 - per sample: `"sample '<id>': mapping must name at least one trigger"` (empty mapping),
   `"sample '<id>': unknown triggers [...]"` (sorted), `"sample '<id>': each trigger needs a locator sentence"`,
   `"single_subject_only jobs map exactly one trigger per sample"`.
@@ -467,8 +466,8 @@ Validation rules (all `ConfigurationError`, messages as in Python where it has o
 `sampleView(mapping:)` returns the base still-target view below, in this order. During prompt
 assembly, `isVideo: true` (Python `is_video=True`) replaces only `inputs.evidence` with
 `attached_target_video` and `inputs.audio_status` with `uninspected`, preserving key order and
-all other fields. The job file stores neither field. Video evidence does not claim that audio
-has been inspected.
+all other fields. These fields are assembled for the prompt and are absent from the job file.
+Audio remains `uninspected` for video attachments.
 
 **Mapping requirement, owner decision 2026-10-11:** person identity, object and character
 concepts retain a locator and explicit confirmation; style and motion map automatically to the
@@ -476,7 +475,7 @@ whole selected target. Custom concepts retain locator confirmation. The app uses
 above for import, approval, Undo, re-inclusion and reopening, and hides Mapping from its
 sidebar, Go menu and Back/Next order when no concept requires a locator. In mixed jobs, an
 unconfirmed mapping stays nil; confirming locator assignments merges the automatic entries.
-No new job field or a second mapping representation is introduced.
+These helpers use the existing job mapping format.
 
 Base view:
 
@@ -524,12 +523,11 @@ public struct Critique: Codable, Sendable, Equatable {
 }
 ```
 
-The category-neutral `usable` description below is implemented in both schema definitions.
-A style, object, character or motion target must not be deemed unusable merely because there
-is no visible person.
+Both schema definitions evaluate `usable` against the declared concept category. Style,
+object, character and motion targets require no visible person.
 
-One schema per type, written in the strict style every provider accepts (all properties
-required, `additionalProperties: false`, nullability via `"type": ["string", "null"]`):
+One strict output schema per type: all properties required, `additionalProperties: false`,
+nullability via `"type": ["string", "null"]`:
 
 ```json
 {"type": "object", "title": "Caption",
@@ -677,14 +675,14 @@ verbatim; otherwise look under `references/profiles/`; otherwise
 The bundled `h3-video` profile describes the actual selected clip using H3's three text
 fields: `integrated_multimodal_description`, `overall_soundscape`, then
 `non_diegetic_music`. Its chronology belongs to the selected segment. Concept boundaries,
-mapped triggers and the shared Caption envelope still apply. Audio claims require inspected
+mapped triggers and the shared Caption envelope apply. Audio claims require inspected
 audio; a video attachment alone does not establish silence or authorize invented sound.
-`h3-still` retains its single-frame instructions and `N/A` audio fields unchanged. These are
-caption-writing instructions, not new schema fields or mechanical caption-format validators.
+`h3-still` retains its single-frame instructions and `N/A` audio fields. Profiles supply
+caption-writing instructions; the Caption schema and mechanical validation remain unchanged.
 In a mixed image-and-clip job, `h3-video` applies that same single-frame convention to an
 attached still, and chronological clip instructions only to an attached video.
-Trainer admission and H3's frame-count, timing and component rules belong to POD-SPEC;
-choosing a caption profile alone does not make incompatible media trainable.
+POD-SPEC defines trainer admission and H3's frame-count, timing and component requirements.
+Training media must satisfy those requirements independently of the caption profile.
 
 Frontmatter regex equivalent: text starts with `---`, then `[ \t]*\r?\n`, capture up to the
 first line that is `---[ \t]*` followed by `\r?\n` or end of text; body is everything after.
@@ -725,7 +723,7 @@ public enum Prompt {
 }
 ```
 
-The current category-aware task texts are identical in Swift and Python, copied below verbatim
+Swift and Python use the following identical category-aware task texts
 (line breaks are literal newlines; no trailing newline). The generic user turns above apply
 to an image or clip; only the supplied evidence and `isVideo` flag distinguish them.
 
@@ -766,7 +764,7 @@ Python trims with `str.strip()` (all Unicode whitespace). Use
    solo mapping.
 3. Critic text contains `"REVIEW TASK"` and not `"RESPONSE\n"`.
 4. **Byte parity with Python.** For the bundled skill, profile `h3-still`, the fixture job and
-   mapping `{"NORA7": "The only person in the crop."}`, current UTF-8 SHA-256 and Python
+   mapping `{"NORA7": "The only person in the crop."}`, UTF-8 SHA-256 and Python
    character counts are:
 
    | Assembly | SHA-256 | Characters |
@@ -776,11 +774,9 @@ Python trims with `str.strip()` (all Unicode whitespace). Use
    | captioner, video (`isVideo: true`) | `85498d6f8e22404100fe15410d590708639861a44eabb487e001071e6a65b989` | 23624 |
    | critic, video | `e8716ca6011a9b4007588396330a35b702096ec6fca3998468896add9b8ad7b0` | 23357 |
 
-   Recomputed from current Python assembly on 2026-10-11; the Swift task literals and all ten
-   bundled skill resource files were compared with their Python counterparts. These are
-   source-derived reference values. `CategoryVideoParityTests` pins the captioner and critic
-   hashes for still and video inputs across all seven categories, alongside the existing still
-   fixture tests. Recompute if instruction, profile or job-view text changes.
+   `CategoryVideoParityTests` pins captioner and critic hashes for still and video inputs
+   across all seven categories. The still fixture tests pin the values above. Recompute
+   these references whenever instruction, profile or job-view text changes.
 
 5. A policy override `{"tone": "Plain."}` yields a section `# Job policy override: tone\n\nPlain.`
    between the profile and the job configuration.
@@ -800,9 +796,9 @@ public struct CaptionDeps: Sendable, Equatable {
 }
 
 public enum Triggers {
-    /// Whole-token occurrences of `trigger` in `text` as UTF-16 offset ranges (start, end), case-sensitive.
+    /// Whole-token occurrences of `trigger` in `text` as Unicode-scalar offset ranges (start, end), case-sensitive.
     /// A boundary character is anything that is not a letter (L*), mark (M*), number (N*) or "_".
-    /// Overlapping scan: the search restarts one code unit after each hit (Python `start = index + 1`).
+    /// Overlapping scan: the search restarts one Unicode scalar after each hit (Python `start = index + 1`).
     /// Both inputs are NFC-normalized by the caller; this function does not normalize.
     public static func exactTriggerSpans(in text: String, trigger: String) -> [(Int, Int)]
 
@@ -818,9 +814,9 @@ public enum Triggers {
 }
 ```
 
-Spans are reported in UTF-16 offsets to mirror Python's code-point indices closely enough for
-tests (`("NORA7 and NORA7x and xNORA7", "NORA7") == [(0, 5)]`). Implement over an array of
-`Character`s or unicode scalars; the test only checks that example and boundary behavior.
+Spans use Unicode-scalar offsets, exactly matching Python's code-point indices. Scan arrays
+of `unicodeScalars`; supplementary-plane characters count as one position. For example,
+`("NORA7 and NORA7x and xNORA7", "NORA7")` returns `[(0, 5)]`.
 
 ### Tests `TriggersTests.swift` must pass
 
@@ -867,7 +863,7 @@ Implementation notes (ImageIO):
   passed, so EXIF/IPTC/XMP are gone; the image's `colorSpace` travels with the `CGImage`, so the
   ICC profile is embedded (Python keeps `icc_profile` too).
 - Alpha: a JPEG destination drops alpha itself; for PNG keep it (Python converts non-RGB/L modes
-  to RGB; PNG with alpha is accepted by every provider, so keeping alpha is fine. Document it.)
+  to RGB). Swift preserves PNG alpha; providers accept that format.
 - Shrink loop: while `encoded.count > maxBytes`, draw into a `CGContext` of
   `max(1, Int(w * 0.8)) x max(1, Int(h * 0.8))` with high interpolation and re-encode. If the
   image is already 1x1, throw `"image could not be encoded below the byte cap"`.
@@ -964,9 +960,9 @@ Framing is WHATWG `text/event-stream`: lines end in CRLF, LF or CR (a CRLF split
 is one line ending); an empty line dispatches the buffered event; `data` lines join with "\n";
 lines starting with `:` are comments; one space after the field's colon is dropped; a leading
 BOM is ignored; `retry` and unknown fields are ignored; an event with no `data` is not
-dispatched. Two lenient rules keep a sloppy server from merging events: an `event:` or `id:`
-line that arrives while data is buffered dispatches the buffered event first, and an event
-still buffered when the body ends is dispatched.
+dispatched. The parser also accepts two additional boundaries: an `event:` or `id:` line
+received while data is buffered dispatches that event first; the end of the body dispatches
+any buffered event.
 
 ### Protocol and value types (`ModelClient/ModelClient.swift`)
 
@@ -1088,19 +1084,18 @@ Common rules for the API-key clients (ChatGPTModelClient has its own error type,
 
 ### Video route contract (owner decision, 2026-10-11)
 
-A clip goes to a route that can carry actual video evidence. Never replace it with a still and
-claim to have inspected motion. The selected model or local server must itself support video;
-a wire format does not guarantee that every model at the route accepts it. Unsupported routes
-raise a clear `ConfigurationError` before any network call, including credential refresh.
-No request switches provider or billing method automatically.
+Send the exact clip through a video-capable route to a video-capable model or local server.
+Never substitute a still for motion evidence. Unsupported routes raise `ConfigurationError`
+before any network call, including credential refresh. Provider and billing selections remain
+under user control; requests never switch either automatically.
 
 **One client size policy:** the fully encoded UTF-8 body of a video request must be **less than
 20 MiB (`20 * 1024 * 1024` bytes)** on every supported video route below, in both languages.
-This is a conservative client limit, not a claimed provider maximum. Count the actual body
-that will be sent, including base64 expansion, instructions, schema, settings and the entire
-conversation/retry history. Compare before transport sends it; refuse rather than truncate,
-resample or silently change the approved target. A tighter provider/model limit may still
-produce a normal provider error. No new job setting is needed for this shared policy.
+The client enforces this cap independently of provider limits. Count the body sent on the
+wire, including base64 expansion, instructions, schema, settings and the entire conversation
+and retry history. Check before transport and refuse oversized requests. Never truncate,
+resample or change the approved target to fit. Tighter provider or model limits surface as
+provider errors. This shared policy adds no job setting.
 
 | Route | Ratified video behavior | Swift implementation | Python implementation |
 | --- | --- | --- | --- |
@@ -1109,15 +1104,14 @@ produce a normal provider error. No new job setting is needed for this shared po
 | `vllm` | Data URL in a `video_url` content part to the configured video-capable server; shared client cap | Compatible client enables video and checks the encoded body | Clear refusal until pydantic-ai supports video on its OpenAI-compatible chat route |
 | `openai`, `gateway/openai`, `gateway/openai-responses`, `gateway/responses`; ChatGPT plan route | Refuse video before any network call | Responses encoder refuses; ChatGPT builds that body before requesting a credential | Runner refuses the route before invoking the captioner or critic |
 | `anthropic`, `gateway/anthropic` | Refuse video before any network call | Refused during body encoding before inference transport | Runner refuses the route before invoking the captioner or critic |
-| `vercel`, `gateway/openai-chat`, `gateway/chat`, other unlisted routes | No additional video support is claimed; refuse | Compatible encoder refuses unless a supported resolver route enables video | Runner refuses unknown video routes, including injected models without a supported route identity |
+| `vercel`, `gateway/openai-chat`, `gateway/chat`, other unlisted routes | Refuse video | Compatible encoder refuses unless a supported resolver route enables video | Runner refuses unknown video routes, including injected models without a supported route identity |
 
 The approved OpenRouter/vLLM content part is
 `{type: "video_url", video_url: {url: "data:<mediaType>;base64,<data>"}}`.
 See the [OpenRouter video format](https://openrouter.ai/docs/guides/overview/multimodal/videos)
 and [vLLM multimodal inputs](https://docs.vllm.ai/en/latest/features/multimodal_inputs/).
-Python keeps pydantic-ai as its model layer; it does not add a hand-written adapter to make
-vLLM video work ahead of library support. Video admission and body-size checks apply to the
-captioner, critic and retries. Python keeps exact `BinaryContent` bytes and uses pydantic-ai's
+Python uses pydantic-ai as its model layer and refuses vLLM video until that library supports
+the route. Video admission and body-size checks apply to the captioner, critic and retries. Python keeps exact `BinaryContent` bytes and uses pydantic-ai's
 public provider/HTTP-client injection points to check the SDK's actual wire body.
 
 **App-only progress requirement (owner decision, 2026-10-11):** carry per-sample partial text
@@ -1230,10 +1224,10 @@ or the first `function_call`'s `arguments` (tool); a `refusal` part, or no outpu
 
 ### ChatGPTModelClient (`ModelClient/ChatGPTModelClient.swift`)
 
-Plan-backed OpenAI captioning for a user who signed in with ChatGPT (APP-BRIEF "Log in with
-ChatGPT"). It is not an endpoint kind: the job file still says `kind: openai`, and the app
-chooses this client instead of `resolve` when the user picked their ChatGPT plan for it. No API
-key and no billing route other than the signed-in plan is ever used.
+`ChatGPTModelClient` captions through the user's signed-in ChatGPT plan (APP-BRIEF "Log in
+with ChatGPT"). The job retains `kind: openai`; the app selects this client when the user
+chooses plan-backed captioning. Requests use the signed-in plan exclusively, with no API key
+or alternate billing route.
 
 ```swift
 public struct ChatGPTModelClient: ModelClient {
@@ -1340,8 +1334,8 @@ public struct GeminiClient: ModelClient {
 ```
 
 Authentication style and API flavour are independent: `bearerAuth` decides headers, `api`
-decides model capabilities (today: the `gemini-3.1-flash-image` thinking levels, `[minimal,
-high]` on the Developer API, the full scale on Vertex). The gateway's Google routes use both
+decides model capabilities: `gemini-3.1-flash-image` supports thinking levels `[minimal,
+high]` on the Developer API and the full scale on Vertex. The gateway's Google routes use both
 `bearerAuth: true` and `.vertex`.
 
 The initializer removes one leading `models/` from the model identifier. Both a typed
@@ -1370,11 +1364,10 @@ generationConfig:
 ```
 
 For a video request, GeminiClient measures the serialized full request and refuses at or above
-the shared client cap before transport; this guard exists at `ce52a22`. The cap is specified
-once in the video-route section. Exact clip bytes are retained; `.mov` uses `video/quicktime`,
+the shared client cap before transport. The video-route section defines that cap. Exact clip
+bytes are retained; `.mov` uses `video/quicktime`,
 `.mp4`/`.m4v` use `video/mp4`. Explicit fps avoids the default sparse sampling of short clips;
-it does not retime, trim or replace the supplied clip, and does not assert that audio was
-inspected.
+the supplied clip's timing and bytes stay intact, and its audio remains `uninspected`.
 
 Reply: `candidates[0].content.parts[]` first part with `text` (native/prompted) or with
 `functionCall.args` re-serialized (tool); `servedModel = modelVersion`; usage from
@@ -1427,8 +1420,8 @@ extension Endpoints {
 - `kind == "gemini"`: `"unknown endpoint kind 'gemini' (Gemini is kind: google)"`.
 - Unknown kind: `ConfigurationError` listing the finite supported direct and gateway kinds.
 - `base_url` on `openai`: `"kind: openai always talks to api.openai.com and takes no base_url; for another
-  OpenAI-compatible server use kind: vllm with base_url (its key is VLLM_API_KEY)"`. A job file may have
-  been downloaded, so its `base_url` must never pair with the stored OpenAI key (Python `_model`).
+  OpenAI-compatible server use kind: vllm with base_url (its key is VLLM_API_KEY)"`. The job's
+  `base_url` must never receive the stored OpenAI key (Python `_model`).
 - `base_url` with a kind other than `vllm`: `"base_url is only meaningful for kind vllm, not '<k>'"`.
 - `vllm` without `base_url`: `"kind vllm needs base_url"` (the CLI may fill it from `VLLM_BASE_URL`; the library does not read the environment).
 - `vllm` `base_url` is checked like Python `check_base_url`: no host -> `"base_url '<u>' has no host"`;
@@ -1454,8 +1447,8 @@ extension Endpoints {
   origin: scheme and host compared case-insensitively, port compared with the scheme's default
   (80, 443) filled in. An absent configured endpoint, or any difference, means no key.
   Python uses `VLLM_BASE_URL` for that user configuration, including when it supplies the
-  endpoint omitted by the job, and compares the same origin since 2026-10-11 (Deviation 9 is
-  closed). Neither implementation reads the configured endpoint from the job.
+  endpoint omitted by the job, and applies the same origin comparison. In both implementations,
+  the trusted endpoint comes from user configuration, never from the job.
 - Reject URL userinfo, escaped hosts, whitespace, control characters, backslashes and invalid
   ports before requests. Check and send the same parsed URL in Swift.
 - Job `extra_headers` cannot set authentication or routing: reject names containing
@@ -1529,7 +1522,7 @@ public enum RetryPrompt {
 `missing` / "Field required" with the key appended to `loc`; `typeMismatch` and `valueNotFound`
 -> `<string|bool|int|float|list|dict>_type` / "Input should be a valid <string|boolean|integer|
 number|list|dictionary>"; `dataCorrupted` at the root -> `json_invalid` / "Invalid JSON: <detail>",
-elsewhere `value_error` / "Value error, <detail>". Documented deviations from pydantic-ai: always
+elsewhere `value_error` / "Value error, <detail>". Differences from pydantic-ai: always
 one record (`JSONDecoder` stops at the first problem where pydantic lists them all), the
 `json_invalid` detail is Foundation's parser message rather than serde's, and `input` is omitted
 in tool mode too (pydantic-ai keeps it only for tool-output retries).
@@ -1995,8 +1988,8 @@ public actor StubTransport: HTTPTransport {
 }
 ```
 
-The skeleton ships these three files fully implemented so every module's tests can be written
-from day one; they are owned by the architect until handed over.
+These three support files provide scripted clients, request recording and synthetic fixtures
+for every module's tests.
 
 ---
 
@@ -2015,18 +2008,16 @@ hub         <- models, sources, modelclient (HTTPTransport)
 testing     <- everything (test target)
 ```
 
-Implementation order that keeps `swift build` green: models -> (skills, triggers, images,
+Build order for `swift build`: models -> (skills, triggers, images,
 sources, modelclient transport+types) -> prompt -> clients + resolve + stage -> runner -> hub.
 
 ## Notes for implementers
 
-- The skeleton compiles with `fatalError("TODO: <module>")` bodies. Replace bodies; do not
-  change public signatures without updating this document.
-- `Bundle.module` requires the resources declaration in `Package.swift`; it is already there.
+- Update this document before changing public signatures.
+- Keep the resources declaration in `Package.swift`; `Bundle.module` requires it.
 - Yams: `try Yams.compose(yaml:)` gives a `Node` whose mapping keeps order; `Yams.serialize(node:)`
   emits block style. Do not use `YAMLEncoder` for `Job` (it sorts keys and cannot express the
   ordered maps); build the `Node` from `jsonValue`.
 - Swift 6: `AsyncThrowingStream` continuations are `Sendable`; closures handed to `Task` must
   capture only `Sendable` values. `URLRequest`, `Data`, `URL` are `Sendable`.
-- Keep the `fatalError` placeholders out of tests: a disabled test is the skeleton's marker.
 - Formatting: `swiftformat app/Sources app/Tests` and `swiftlint lint --quiet app/Sources app/Tests`.

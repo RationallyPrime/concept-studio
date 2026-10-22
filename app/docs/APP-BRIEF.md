@@ -1,134 +1,165 @@
-# ConceptStudio app: brief
+# ConceptStudio product brief
 
-Working name ConceptStudio; the owner may rename it. Read `docs/v0.2-plan.md` ("Beyond v0.2" in
-particular), `app/docs/CORE-STATUS.md` and `pod/docs/POD-STATUS.md` first. The ConceptCore
-library in this package is the pipeline; the app drives it and never reimplements it.
+**Turn your photos and clips into a trained image or video model adapter—all from your Mac.**
 
-The five standing owner decisions are restored verbatim below and also preserved in
-[ADR-LOG](../../docs/ADR-LOG.md). Implemented does not mean superseded. The dated records
-below identify only explicit owner-approved changes; retain the original text when a decision
-changes. Read the [overnight review, owner decisions and fix-round partition](../../docs/process/overnight-review-2026-10-11.md)
-before working on the assigned repairs.
+ConceptStudio brings the complete workflow into one native app: prepare examples, define the
+concept, generate and review captions, rent a cloud GPU, train, and collect the result. Teach
+a model a person, pet, object, style or movement, then use the LoRA in your image or video workflow.
 
 ## What it is
 
-A native macOS app for people with a MacBook on factory settings and no GPU, that takes them from
-a folder of photos to a trained diffusion LoRA on a rented GPU pod, with no terminal involved.
-Captions follow the concept-boundary policy (the trigger holds only the concept; everything else
-is described) and can be checked by a second model. Training happens on a pod; the Mac only
-curates, captions, publishes and watches.
+The Mac is the studio. It curates the dataset, directs captioning, controls the cloud GPU and
+brings the trained adapter home. RunPod supplies the compute; ConceptStudio handles the rental,
+training services, progress and results. Users work through the app without a terminal or a
+local graphics card.
 
-The owner-approved workflow also accepts clips. Training teaches a base model a person,
-object, style or activity; the resulting LoRA is a small adapter used with a compatible image
-or video model. These Mac roles include preparing approved targets, controlling remote work
-and collecting its results; GPU training and inference remain on the rented computer.
-
-The default is **one concept per LoRA**. Captions name it with a trigger and describe the observable
-details outside it. This separation is the concept boundary. Captioning guides learning; it does
-not guarantee that correlated details in the dataset are disentangled.
+One concept per LoRA is the default. Its trigger names what the model should learn; captions
+describe the clothing, lighting, pose, scene and other details the user wants to control.
+Categories shape the questions, subject mapping and caption instructions. The chosen training
+model supplies the recipe.
 
 ## Who it is for
 
-Someone with no programming or ML knowledge, using an ordinary MacBook. They bring photos and
-an intended result; no development environment or knowledge of model families is assumed.
+A first-time user brings examples and an idea. ConceptStudio supplies the guidance, model
+settings and explanations to finish the job without programming or machine-learning experience.
+An experienced user gets direct controls, keyboard shortcuts, saved settings and repeatable runs.
 
-Throughout the project's lifetime, that person must be able to finish, and the owner must find the
-same app useful enough to prefer it to running transformers in a terminal for convenience.
-Use guidance and sensible defaults for first runs; direct controls and remembered choices for
-efficient repeat runs. Keep model, skill, profile and training controls available without
-requiring beginners to configure everything or experts to repeat introductory guidance.
+- **Lead with the intended result.** Ask what to teach, what should stay changeable and what the
+  user wants to spend.
+- **Make the next action obvious.** Each screen explains its operation, inputs and consequences
+  in plain language. Errors identify the problem and the action that resolves it.
+- **Put expertise within reach.** Define real terms where they appear, including on hover,
+  selection and keyboard focus. Keep the substantive training introduction and searchable Help.
+- **Keep repeat work fast.** Remember choices and let experts navigate directly. Advanced
+  controls reveal depth without resetting retained settings or replaying introductory guidance.
+  Keep detailed “learn these traits” and “describe these details” controls under Advanced.
+- **Make cost visible.** Show prices before spending, progress while work runs and Stop everything
+  throughout the GPU journey.
 
-Lead with intent: what should be learned, what should stay changeable, and what it costs.
-Explain necessary terms in place; require no outside research. Every screen explains itself
-in a sentence, has one obvious next action, gives actionable errors without stack traces, and
-shows money before spending it. Preserve meaningful control and inspectable project data.
-Use the native interface conventions in [DESIGN.md](../DESIGN.md) when implementing these rules.
-
-Preserve the owner's substantive introduction to diffusion models, training data, captions and
-concept boundaries. Real terminology has definitions on hover, selection and keyboard focus.
-Every screen, menu, sheet, empty state and error explains the actual operation, its inputs and
-consequences. Buttons name actions. Do not write marketing copy, slogans or calls to action.
-Keep substantive explanations; follow the native design conventions.
+Interface copy names actions and explains consequences. Keep slogans out of controls and preserve
+the native Mac conventions in [DESIGN.md](../DESIGN.md).
 
 ## The user journey (one screen each, in this order)
 
-The nine screen names remain unchanged. Mapping is conditional on a concept needing a locator;
-style and motion skip that screen under the owner’s 2026-10-11 afternoon decision. Direct
-dataset upload without a Hub token is implemented in source and requires the updated pod
-agent; the published r2 images predate it.
+| Screen | What the user accomplishes |
+| --- | --- |
+| **Images** | Import photos and clips from folders, Hugging Face or Apple Photos. Inspect duplicate, capture-quality and readable-text warnings. Approve crops and exact video segments, inspect frames, include or exclude examples, and undo curation. Upscale and restore media with SeedVR2 and a before-and-after preview. Ask for dataset advice before committing to training. |
+| **Concepts** | Choose a category, describe the concept and give it a trigger and class noun. Use model-assisted drafting and reference photos for subjects that need them. Advanced settings expose multiple concepts and detailed boundaries. |
+| **Mapping** | Confirm the location of identity, object and character concepts in each target, using detected faces and model proposals as assistance. Find unconfirmed samples and track progress. Style and motion apply to the whole target and go straight to Captioning. |
+| **Captioning** | Choose the provider, model, skill, caption format and optional reviewer. Start or cancel a run; follow partial captions and per-sample outcomes as they arrive. |
+| **Review** | Inspect each caption beside its actual crop or playable segment. Edit and protect finished captions, re-caption a selection and compare captioning models. |
+| **Publish** | Prepare included targets, saved captions, response records and the shared job. Publish a Hub dataset with upload progress and a recorded revision, or check local inputs for direct GPU upload at training start. |
+| **Cloud GPU** | Compare GPU stock and prices, choose hardware and storage, set budgets and an idle limit, and manage the rental. See GPU spend and storage charges separately; Stop ends compute billing and Remove confirms deletion of the pod disk. |
+| **Training** | Choose a model-specific recipe, adjust settings and start a run. Read the allocation plan: caption then train on one GPU, or caption on GPU 0 and train on the remaining GPUs. Repeat a saved run with changes or resume its supported checkpoint state. |
+| **Monitor** | Follow curves, logs and TensorBoard. Retrieve the LoRA, choose a checkpoint, generate matched base-versus-trained comparisons on supported routes and inspect the saved gallery. Save the trained model to the Mac or publish it to the Hub. |
 
-1. **Images**: import from a folder, a Hugging Face dataset or Apple Photos; see the set with
-   duplicate, low-quality and readable-text warnings; ask for a dataset-level critique before
-   spending anything.
+Welcome offers recent projects, New, Open and Try the demo. Settings holds accounts and advanced
+controls. The offline demo provides a complete practice project with synthetic media, prepared
+captions and simulated services. Its **Demo · no charges** badge stays visible throughout.
 
-   Also import and curate clips, approve crops or exact segments, inspect frames, exclude
-   duplicate candidates and Undo curation. Use concrete capture-quality warnings, not a generic
-   aesthetics score. Captioning and training use the included approved targets.
+## Required features and implementation notes
 
-2. **Concepts**: choose one category, describe the concept, its trigger and class noun, with
-   help and model-drafted assistance from a plain description. Offer a reference when the
-   identity, object or character needs one. Multiple concepts and detailed boundary decisions
-   belong in Advanced settings; a reference face is not required for every category.
+### Projects that belong to the user
 
-3. **Mapping**: show this step only for concepts that need a locator, including identity,
-   object and character. Detected faces and model proposals assist where applicable; the user
-   confirms an assignment or types a locator. Progress is visible and unmapped samples are easy
-   to find. Style and motion map to the whole target automatically, without a face locator.
+Projects use the same media, job, caption sidecars and response records as the Python CLI.
+Custom skills are copied into the project and referenced with a relative path. Users can move
+projects, inspect their files and continue work from the app or CLI.
 
-4. **Captioning**: pick model, skill, profile and whether a critic runs; start, cancel, and watch
-   per-image outcomes arrive live with their notes.
+The approved target is the training target: the captioner, publisher and trainer all consume
+the included crop or exact video segment. Explain caption and mapping resets before replacing
+media. Preserve clips as clips and describe observed motion and inspected audio. Present
+unsupported routes explicitly. Use capture-quality warnings rather than a generic aesthetics score.
 
-   Keep provider, model, skill, profile/format and optional reviewer controls available.
-   Show per-sample partial text while a caption is written as well as its settled outcome;
-   this is an app-only progress hook through ConceptCore, not a shared job/CLI field.
+### Captioning with the user's accounts
 
-5. **Review**: see image and caption together; edit; mark as final so no model run overwrites it;
-   re-caption one image; compare two models side by side.
+Support ChatGPT-plan sign-in, OpenRouter browser connection, provider and gateway keys, and
+self-hosted vLLM. Lead key-based setup with one gateway key; put direct provider credentials
+under Advanced. Keep credentials in Keychain and show the active account, available models and
+usage-management controls. Switching billing routes is an explicit user choice.
 
-   Inspect the actual approved image or playable segment, protect saved final text,
-   re-caption a selection and compare captioning models. Explain any caption reset before
-   replacing a target.
+The optional reviewer checks captions against their training media and returns actionable notes.
+Partial text appears while a caption is being written; completed, validated captions are saved.
+Final human captions stay protected. Category-aware instructions cover people, objects,
+characters, styles and motion through one shared job contract.
 
-6. **Publish**: prepare the included targets, saved captions, response records and job for
-   training. With a Hub account, publish to its dataset with progress and a recorded revision.
-   Without a Hub token, upload to the pod’s network volume through the authenticated,
-   path-confined, size-limited endpoint in the same layout used by dataset pull before training.
-   Publish checks saved inputs locally; Start training captures and uploads them before launch.
+### Cloud compute with clear costs
 
-7. **GPU pods**: provider key status, GPU type with price, 1/2/4 GPUs, create, running cost,
-   stop, terminate with confirmation.
+Show hourly price, rental spend, storage charges, a training-run budget, a whole-computer budget
+and an idle interval. Preserve budget settings and recorded costs with each run. The app stops
+compute at the applicable limit and confirms the provider's stopped state. Keep Stop everything
+accessible and warn before quitting while a computer is billing.
 
-   Show hardware, price, running spend, saved-storage cost separately, budget and idle controls,
-   and the app’s running computers. Keep Stop everything accessible.
+Keep the app open and the Mac awake during a rental: the app enforces these controls. On launch,
+restore and reconcile tracked computers; present other discovered app-owned rentals with stop
+controls. Stop preserves persistent storage; Remove deletes the pod disk. Explain that choice
+and protect uncollected results.
 
-8. **Training**: choose trainer and run settings with sane defaults; read the plan in plain words
-   (one GPU: caption then train; several: captioning on GPU 0, training on the rest); start; see
-   status and logs.
+### The trained adapter reaches the user
 
-   Preserve settings and dataset revision in saved runs. Repeat with changes creates a new run;
-   Resume requires the selected trainer’s actual checkpoint/state support. The pod agent owns
-   GPU allocation; the app does not implement the training pipeline.
+Deliver the LoRA to a private Hub destination or save it in the project. Local delivery is a
+first-class outcome. Preserve uncollected results, checkpoint records and download state across
+sessions, and verify downloaded artifacts. Store each run's destination, dataset revision,
+settings and outputs with that run.
 
-9. **Monitor**: training curves in-app, TensorBoard from the pod in a tab.
+Publish and direct upload use the same dataset layout. A user can train without a Hub dataset
+account; the selected base model's access and licence requirements still apply. Repeat creates a
+new run, while Resume restores the selected trainer's checkpoint and optimizer state.
 
-   Collect the LoRA, select a checkpoint, generate matched base-versus-trained comparisons,
-   inspect saved galleries and offer Save trained model to this Mac. Use real output files;
-   simulated services do not establish training or generation success.
+### Native operation from first run to repeat run
 
-Plus a Welcome window (recent projects, new, open, try the demo) and Settings (keys, test
-connection, demo mode).
+Use SwiftUI, native keyboard and window behavior, user-selected folders and security-scoped
+bookmarks. Keep long-running work cancellable, report completed work after cancellation and
+make the state of rented compute clear when a project closes. Browser sign-in uses a temporary
+loopback callback listener that closes on completion, cancellation or timeout.
 
-Experts navigate directly without replaying the introduction.
+The app drives ConceptCore for captioning and the authenticated pod agent for remote services.
+Keep the pipeline in those components. RunPod is the first GPU provider; the provider interface
+and the project's own container images supply the remote execution contract.
+
+## Owner-approved overnight additions and current requirements
+
+The current workflow incorporates the accepted category, curation, video, run-history,
+comparison and direct-upload decisions described above. The
+[decision log](../../docs/ADR-LOG.md) preserves the five standing owner decisions and their
+implementation history. The [2026-10-11 review](../../docs/process/overnight-review-2026-10-11.md)
+records the later workflow decisions. The original five decisions remain verbatim here:
+
+- **Project on disk in the same layout the CLI uses** (images, job file, caption sidecars with
+  response records), so the app and the CLI interoperate and nothing is proprietary. A custom
+  skill the user picks is copied into the project (`skill/<name>/`, written as `skill: ./skill/<name>`); the
+  job never points outside the project. *(Owner decision, 2026-10-11.)*
+
+- **Log in with ChatGPT** as an alternative to a key: eligible users can caption with OpenAI
+  models on their ChatGPT plan. Captions stream, so progress shows while each one is written.
+  Show the active account, available models, plan usage and its management link. Keep
+  credentials in Keychain; never silently switch to separately billed API credits.
+  *(Owner decision, 2026-10-11.)*
+
+- **Money safety**: price before creating a pod, running cost while it is up, a per-run budget cap
+  that stops the pod, an idle watchdog, a warning on quit while a pod runs, and an always-visible
+  stop-everything action. Keep the Mac awake while a pod runs; on launch, find pods this app
+  created that are still running and show them. *(Owner decision, 2026-10-11.)*
+
+- **The trained LoRA reaches the user**: by default, if the user is signed in somewhere the
+  LoRA can be pushed to, push it to a private repo there when training finishes; otherwise
+  save the `.safetensors` file into the project. Many users have no GitHub or Hugging Face
+  account, so saving to disk is a first-class outcome, not an error. Today the push target is a
+  Hugging Face model repo, used when a Hub write token is configured. No stop discards a result
+  that has been neither pushed nor saved. *(Owner decision, 2026-10-11.)*
+
+- **Sandbox-compatible from day one** so the Mac App Store stays an option: user-selected
+  folders only, no subprocesses, outbound networking plus a temporary `127.0.0.1` callback
+  listener for ChatGPT sign-in. Close the listener on completion, cancellation or timeout.
+  *(Owner decision, 2026-10-11.)*
 
 ### Dated supersessions of the original screen wording
 
-The following clauses from `36617c8` are retained verbatim as the 2026-10-11 record, not
-instructions to restore superseded defaults. The owner-approved overnight flow keeps one
-concept in the ordinary interface and multiple concepts in Advanced; categories use references
-only when appropriate. The [afternoon decisions](../../docs/process/overnight-review-2026-10-11.md#owner-decisions-on-the-items-above-2026-10-11-afternoon)
-replace person-only Mapping with locator-only Mapping and automatic whole-target style/motion.
-The [final fix-round decision](../../docs/process/overnight-review-2026-10-11.md#fix-round-decisions-decided-2026-10-11-afternoon)
-adds training without a Hub account. The current rules above govern those changes.
+The [afternoon decisions](../../docs/process/overnight-review-2026-10-11.md#owner-decisions-on-the-items-above-2026-10-11-afternoon)
+established one concept in the ordinary flow, optional references by category, locator-based
+Mapping and automatic style/motion assignments. The
+[final fix-round decision](../../docs/process/overnight-review-2026-10-11.md#fix-round-decisions-decided-2026-10-11-afternoon)
+added training without a Hub account. The original clauses from `36617c8` follow as the historical
+record; the journey above defines the current flow.
 
 Original Concepts clause:
 
@@ -151,111 +182,25 @@ Original Publish clause:
 6. **Publish**: push the project to a Hub dataset, with progress.
 ```
 
-## Required features and implementation notes
-
-The five tagged paragraphs retain their exact original wording. Notes describe the current
-partial or implemented state without retiring any requirement; the ADR log holds the longer
-implementation snapshots. These notes include the 2026-10-11 review repairs; live evidence
-and remaining acceptance stay in the status documents.
-
-- **Project on disk in the same layout the CLI uses** (images, job file, caption sidecars with
-  response records), so the app and the CLI interoperate and nothing is proprietary. A custom
-  skill the user picks is copied into the project (`skill/<name>/`, written as `skill: ./skill/<name>`); the
-  job never points outside the project. *(Owner decision, 2026-10-11.)*
-
-Implementation: **Project storage, copied skills, job-relative paths and mixed image/clip Hub intake are implemented.** Parquet support remains outside the native app's scope. See [ADR-0001](../../docs/ADR-LOG.md#adr-0001--project-files-and-custom-skills).
-
-- **Keys in the Keychain**, entered once in Settings. For key-based access, lead with "one gateway key" (OpenRouter,
-  Vercel AI Gateway, Pydantic AI Gateway) and put direct provider keys under Advanced. The app
-  sells nothing; users bring accounts they already hold.
-- **Log in with ChatGPT** as an alternative to a key: eligible users can caption with OpenAI
-  models on their ChatGPT plan. Captions stream, so progress shows while each one is written.
-  Show the active account, available models, plan usage and its management link. Keep
-  credentials in Keychain; never silently switch to separately billed API credits.
-  *(Owner decision, 2026-10-11.)*
-
-Implementation: **Sign-in, model selection, Keychain storage, separate billing routes and visible partial caption text are implemented.** In-app plan usage/remaining allowance is still missing. See [ADR-0002](../../docs/ADR-LOG.md#adr-0002--chatgpt-plan-access-and-streaming).
-
-- **Demo mode**: a bundled sample project and fake model, provider and pod backends that walk the
-  entire journey, every status included, with a visible Demo badge and no network use. This is
-  for first runs, screenshots and App Review.
-- **Money safety**: price before creating a pod, running cost while it is up, a per-run budget cap
-  that stops the pod, an idle watchdog, a warning on quit while a pod runs, and an always-visible
-  stop-everything action. Keep the Mac awake while a pod runs; on launch, find pods this app
-  created that are still running and show them. *(Owner decision, 2026-10-11.)*
-
-Implementation: **Tracked-rental controls are implemented; the full decision is partial.** The current cap is per rental, not per training run; launch discovery depends on saved active-pod metadata. Guards run on the Mac, and separately billed storage is outside the GPU estimate. See [ADR-0003](../../docs/ADR-LOG.md#adr-0003--money-safety-and-running-computers).
-
-- **The trained LoRA reaches the user**: by default, if the user is signed in somewhere the
-  LoRA can be pushed to, push it to a private repo there when training finishes; otherwise
-  save the `.safetensors` file into the project. Many users have no GitHub or Hugging Face
-  account, so saving to disk is a first-class outcome, not an error. Today the push target is a
-  Hugging Face model repo, used when a Hub write token is configured. No stop discards a result
-  that has been neither pushed nor saved. *(Owner decision, 2026-10-11.)*
-
-Implementation: **Private Hub delivery, local collection and pending-result preservation are implemented, with admission gaps.** Hub write permission is not checked before choosing push, and an existing public destination is not made private. Direct training-data upload without a Hub token is implemented in source; updated pod images remain a separate delivery step. See [ADR-0004](../../docs/ADR-LOG.md#adr-0004--delivery-of-the-trained-lora).
-
-- **GPU provider abstraction** with RunPod first; the app creates pods from the project's own
-  images and talks to the pod only through the control agent's HTTP API.
-- **Sandbox-compatible from day one** so the Mac App Store stays an option: user-selected
-  folders only, no subprocesses, outbound networking plus a temporary `127.0.0.1` callback
-  listener for ChatGPT sign-in. Close the listener on completion, cancellation or timeout.
-  *(Owner decision, 2026-10-11.)*
-
-Implementation: **The architecture and callback cleanup are implemented in source; signed sandbox execution is unverified.** The preview is unsigned, and signing/notarization remain deferred at the owner’s request. See [ADR-0005](../../docs/ADR-LOG.md#adr-0005--sandbox-compatibility-and-callback-lifetime).
-
-- **Cancel everything long-running**, and nothing left running when a project closes without
-  the user knowing.
-- Not in v1, leave room for: Google Photos (via the Picker), Google Drive, Gemini batch.
-
-## Owner-approved overnight additions and current requirements
-
-These additions remain alongside the restored decisions; implementation status is recorded in
-[APP-STATUS](APP-STATUS.md), [CORE-STATUS](CORE-STATUS.md) and [POD-STATUS](../../pod/docs/POD-STATUS.md).
-Assigned repairs are requirements, not claims of completed behavior.
-
-- OpenRouter uses documented browser OAuth/PKCE, then direct API calls. Show available usage;
-  cancellation closes callback listeners. Never reuse another application's credentials.
-- The explicitly synthetic demo uses prepared captions/advice and simulated services, with no
-  network or charges. Never imply live evaluation or ask for real photos in the prepared lesson.
-  The owner-approved badge reads **Demo · no charges**.
-- Categories guide questions, mapping help and caption/reviewer prompts.
-  Keep “learn these traits” and “describe these details” lists out of the ordinary flow.
-  A sample is unusable when its declared training target cannot be found; person-only schema
-  wording must not contradict style, object or motion jobs. Style and motion use automatic
-  whole-target assignments; Mapping appears only when a concept needs a locator.
-- Curation groups duplicate candidates and supports Keep/Exclude with Undo, reliable HEIC/TIFF
-  intake, approved crop previews, clip trimming and frame inspection. Captions, publication and
-  training use the exact included crop or segment. No generic aesthetics score.
-- Distinguish real video training data from still-image training of a video model. Caption
-  observed motion; inspect audio before describing it. Explain unsupported combinations;
-  never substitute poster frames for clips.
-- Preserve run settings, dataset revision, outputs and available cost information across
-  reopening. Repeat with changes starts a new run; Resume requires actual trainer support.
-- Provide actual generation, saved galleries and base/LoRA comparisons with matched prompts
-  and seeds, checkpoint choice and Save trained model to this Mac. Preserve private publication
-  and local retrieval; never discard an unsaved result.
-- Training without a Hub account is a required input path: the app uploads approved images or
-  clips, captions and the job to the network volume through the authenticated agent. Keep the
-  same dataset layout and path/size limits; do not require a Hub account or silently upload
-  elsewhere. This does not remove the chosen base model's account or license requirements.
-
 ## Constraints
 
-Swift 6 language mode, macOS 15 minimum, SwiftPM only (Xcode opens the package), Yams is the only
-third-party dependency, Swift Testing, no network in tests. Lint and format clean. Verify through
-tests, builds and GUI walkthroughs. A script must produce a
-double-clickable `.app`; signing and notarization are documented, not done.
+- Swift 6 language mode, macOS 15 minimum and SwiftPM. Xcode opens the package directly.
+- Yams is the only third-party Swift dependency. Use Swift Testing and offline test doubles;
+  keep live provider runs separate from the ordinary test suite.
+- Build a double-clickable `.app` with the repository script. Support development signing,
+  Developer ID distribution and notarisation as documented in [RUNNING.md](RUNNING.md).
+- Keep the app free of subprocesses; remote execution goes through the pod agent.
+- Google Photos, Google Drive and Gemini batch are outside v1. Re-staging and the
+  caption-policy experiment require a separate owner decision.
 
 ## Done means
 
-Build, tests and lint green; the `.app` bundle builds; a user with no programming or ML knowledge
-can complete the whole journey in demo mode without outside research or a dead end; repeat
-users can reuse choices and reach the required controls without replaying introductory guidance;
-`app/docs/APP-STATUS.md` says what is really verified,
-what is fake-verified, what signing needs, and how to do a first run.
+A first-time user finishes the demo without outside research or a dead end. A repeat user reaches
+the required controls immediately, reuses saved choices and collects the resulting adapter.
+Every screen, sheet, menu, empty state and error supports that journey with clear operations,
+keyboard access and visible costs.
 
-Every UI surface must be reviewed. Distinguish offline, live and pending human checks; a demo,
-a build or an output file alone does not establish the full real-data journey. Document
-signing/notarization and its unverified distribution state. Re-staging and the caption-policy
-experiment remain deferred until the owner starts them.
+Builds, tests, lint and formatting pass. Review the complete interface in the running app.
+[APP-STATUS.md](APP-STATUS.md) records delivery and successful runs;
+[CORE-STATUS.md](CORE-STATUS.md) covers the captioning library, and
+[POD-STATUS.md](../../pod/docs/POD-STATUS.md) covers remote execution.

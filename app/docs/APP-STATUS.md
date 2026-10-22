@@ -1,515 +1,336 @@
 # ConceptStudio app status
 
-Updated 2026-10-14. A Developer ID-signed, notarised build has completed a full training run
-driven only through its own interface: rent, publish, regularisation images, training with REPA,
-the push to the Hub on finish, the saved-run record and the idle stop. See
-[the run below](#end-to-end-run-through-the-app-2026-10-14). The app defaults to the
-`v0.3.4-20261015` pod images. The model table has six verified recipes, and an **Advanced user**
-switch in Settings gathers the detailed controls and 20 unverified AI Toolkit recipes. There is
-no public download yet. The sections that follow are dated records; each keeps the scope of
-what was tested at the time.
+**ConceptStudio has completed the full training workflow in a signed,
+notarised Mac app:** private dataset publication, GPU rental, regularisation, training with
+REPA, private LoRA publication, saved-run history and automatic idle stop. The
+[Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for 10,004 steps in
+1 h 19 min at a recorded GPU cost of US$3.99.
 
-The 2026-10-12 baseline, for the walkthrough/glossary integration, includes all seven hardening
-lanes and follow-up `cd5f746`, with the review corrections and owner acceptance below. Source checks,
-native offline demo checks and bounded FLUX/LTX generation, resume and video training checks
-have completed. The GPU proofs predate the review repairs: FLUX used r1; LTX used r2.
-The current `v0.2.3-clean-20261011` images contain the review repairs, direct upload and the H3
-additions. The owner and Claude subsequently completed a real H3 still-image run on that tag,
-recorded in [the walkthrough](../../docs/process/walkthrough-2026-10-11.md). Earlier
-FLUX/LTX runtime checks retain their original image scope. See [RUNNING.md](RUNNING.md),
-[CORE-STATUS.md](CORE-STATUS.md) and [POD-STATUS.md](../../pod/docs/POD-STATUS.md).
+Updated 2026-10-22. The app defaults to **`v0.3.9-20261022`**, including SeedVR2 restoration. The model table contains
+**seven verified recipes** and **18 additional recipes** under Advanced user. Image publication
+and build checks are recorded in [the image release ledger](../../pod/images/README.md);
+completed runs and dated checks appear below. The [running guide](RUNNING.md) covers setup
+and operation; [Core status](CORE-STATUS.md) and [GPU status](../../pod/docs/POD-STATUS.md)
+cover their respective components.
+
+## Recent completed work, 2026-10-21–22
+
+**A complete 267-image captioning project.** The owner's 2026-10-22 briefing records taking a
+single-person dataset through ConceptStudio **0.3.1** the previous night: Hub import, concept
+definition, mapping, captioning on a rented GPU and private dataset publication. The resulting
+friction fixes are tracked in [PR #32](https://github.com/RationallyPrime/concept-studio/pull/32).
+This records the completed workflow on 0.3.1; the PR contains the subsequent improvements.
+
+**H3 adapter comparison.** The 2026-10-21 experiment trained both adapters for **3,000 steps** on
+the same **33-image dataset**, with rank 16, learning rate 1e-4, 768/1024 buckets and seed 42.
+On an RTX PRO 6000 with the **v0.3.7-20261021** image, Ostris v3 took about **21 minutes** and
+Circlestone about **26 minutes**. Matched base/LoRA images used checkpoints 1200, 2100 and 3000,
+seeds 42 and 43, **1024 × 1024**, **28 inference steps** and **guidance 1.0**. Downloaded renders
+passed SHA-256 checks; checkpoints were published privately and the GPU was stopped.
+
+Both arms peaked near step 2100, with mean ArcFace similarity **0.371 and 0.366**, respectively,
+for Circlestone and Ostris over six trigger-prompt faces per checkpoint. Visual review favoured
+Circlestone for natural rendering and the no-trigger control; Ostris trained about 20% faster.
+The comparison retained Circlestone as the stills default. Both arms also produced occasional
+white side bars, recorded for follow-up. The experiment covers one subject and two render seeds;
+clip-adapter comparisons are a separate experiment.
 
 ## Walkthrough integration, 2026-10-12
 
-The [repair record](../../docs/process/walkthrough-repairs-2026-10-12.md) maps every finding
-to current behavior. Settings groups captioning connections separately from publishing/training
-accounts, checks saved keys without generation, and moves selected-model testing to Captioning.
-Provider model catalogs respect reported capabilities and actual server/credential context.
-New projects have no demo concept; image imports preserve caption/response companions, and
-Captioning distinguishes existing, imported and final captions. Mapping proposals can be accepted
-in bulk with Undo. Disclosures open across their entire row and Welcome presents the workflow.
+The walkthrough delivered account setup, project import, caption review and GPU controls in one
+coherent flow. Settings separates captioning connections from publishing and training accounts.
+Connection checks validate saved keys; Captioning tests the selected model. Provider catalogs
+follow the account and server in use. Imports preserve captions and response records through
+renaming and normalization. Mapping supports bulk acceptance of proposals with Undo.
 
-The supplied 177-entry glossary, its two readings and all 81 sources are bundled unchanged;
-eighteen separate operational entries explain the app. Help supports section filtering, aliases,
-related-term navigation and the complete original introduction.
+Help bundles the supplied **177-entry glossary, two readings and 81 sources**, plus **18
+operational entries**. Search, aliases, related terms and contextual definitions connect it to
+every workflow screen. Welcome provides orientation; Images holds the full training explanation.
 
-GPU offers respect network-volume location; optional persistent pod disks survive Stop but not
-Remove. Unsettled results prevent removal, including lost start acknowledgements. A stale refresh
-cannot declare a newly started training/generation action failed. H3 exposes checkpoint cadence,
-retention, saved precision, multiple buckets and the training adapter; Circlestone guidance loss
-stays off and invalid imports/runs are refused. New valid requests use the published image’s existing parameter contract.
+GPU selection follows storage location. Stop preserves persistent pod disks; Remove deletes them.
+Output-custody guards protect unsettled results, including runs with lost start acknowledgements.
+H3 controls expose checkpoint cadence, retention, precision, buckets and the training adapter.
 
-Current offline gates: **550 Swift tests** (289 app and 261 Core), **118 Python reference tests**
-and **315 pod-script tests** passed. Strict SwiftLint reports zero violations; SwiftFormat and
-Python Ruff/format are clean. Independent source
-review accepted project/provider/UI changes; the integration review closed startup settlement
-and output-custody defects. Visual/native checks and delivery receipts are recorded in the repair
-record. Developer ID signing was not yet available on this Mac at that point; it was set up on
-2026-10-14.
+The integration gate passed **550 Swift tests** (289 app, 261 Core), **118 Python reference tests**
+and **315 pod-script tests**, with clean SwiftLint, SwiftFormat and Ruff checks. Independent
+review accepted the project, provider and UI changes and closed startup/output-custody defects.
+The [repair record](../../docs/process/walkthrough-repairs-2026-10-12.md) includes all seven
+hardening lanes, follow-up `cd5f746`, native checks and acceptance receipts. Developer ID signing
+followed on 2026-10-14.
 
 ## Model table
 
-The supported training models are rows of `Sources/ConceptStudio/Resources/Training/model-table.json`
-(format and how to add a model: [model-table.md](../../docs/model-table.md); the pod images copy the
-same file). The app loads it once through `ModelTable` (`GPU/ModelTable.swift`, `GPU/ModelRow.swift`)
-and the picker, defaults, GPU floor, checkpoint and resolution controls, run.json, saved-run
-capabilities, generation frame rules, video formats and caption titles all read the row for the
-selected trainer and model. Where a model genuinely differs the row names a hook (`ModelHooks`): the
-H3 native recipe, its guidance rules and the LTX video-bucket change to the trainer settings. No code
-outside a hook tests a model's name; the trainer (`aitoolkit`, `ltx`, `musubi`) is still branched on.
+One [model table](../Sources/ConceptStudio/Resources/Training/model-table.json) supplies the app
+and pod images with model choices, recipes, GPU requirements, checkpoints, resolutions, video
+rules, caption profiles and saved-run capabilities. Model-specific hooks handle H3 recipes,
+LTX buckets and generation. See [the model-table guide](../../docs/model-table.md) for the schema
+and extension points.
 
-The verified rows are FLUX.1-dev, LTX-2.3, LTX-2.5, MiniMax H3, Z-Image and Qwen-Image-2.1.
-LTX-2.3 and LTX-2.5 replaced LTX-2 on 2026-10-15, verified the same day on one 32 GB RTX 5090
-with the v0.3.4 LTX image: 100 steps each at 512 (5.0 and 5.8 min, 27.6 GB peak), then a matched
-base/LoRA clip each through `generate-ltx` (LTX-2.5 through the split-pack path). LTX-2.5's Hub
-repo is gated. Z-Image and
-Qwen-Image-2.1 count their training length in epochs (the app sends steps) and show their licence
-notice and first-download size under the picker. Both compare through the `aitoolkit_arch_image`
-generator hook; Z-Image's picker note says a Z-Image LoRA works on Z-Image-Turbo at about twice the
-strength. Qwen-Image-2.1 is offered only on GPUs with at least 80 GB.
+The seven `verified` rows are **FLUX.1-dev, LTX-2.3, LTX-2.5, MiniMax H3, Z-Image,
+Qwen-Image-2.1 and Krea 2**. Eighteen `unverified` rows expose the pinned AI Toolkit defaults for
+architectures including FLUX.2, FLUX.2 klein, Chroma, SDXL, Lumina 2 and HiDream-O1. Advanced user
+shows these as **Unverified recipe**, with their licences, GPU requirements and training notices.
 
-Each row has a `recipe_status`. The five rows above are `verified`. Twenty `unverified` rows carry AI
-Toolkit's own UI defaults for further architectures at the pinned commit (FLUX.2, the FLUX.2 klein
-models, Chroma, SDXL, Lumina 2, HiDream-O1, Krea 2 and others), each with its licence notice, a
-conservative GPU floor and a `training_notice` from an upstream issue check. The picker offers them
-only while **Settings → Advanced user** is on, labelled *Unverified recipe*. No GPU run has used
-one; they train once a pod image is built from a table that includes them. Superseded models get
-no row (owner decision, 2026-10-14; listed in [model-table.md](../../docs/model-table.md)).
+LTX-2.3 and LTX-2.5 replaced LTX-2 on 2026-10-15. Both completed 100 steps at 512 on a 32 GB RTX
+5090 with the v0.3.4 LTX image: **5.0 and 5.8 minutes, 27.6 GB peak**, followed by matched
+base/LoRA clips through `generate-ltx`. LTX-2.5 used the split-pack path and requires gated Hub
+access. Z-Image and Qwen-Image-2.1 present training length in epochs and send steps to the trainer;
+both compare through `aitoolkit_arch_image`. Z-Image's picker documents use on Z-Image-Turbo at
+about twice the strength. Qwen-Image-2.1 requires a GPU with at least 80 GB.
 
 ## Advanced user switch
 
-**Settings → Advanced user**, off by default and remembered per install, shows or hides the five
-detailed areas: custom servers and training images (Settings), model and batch controls
-(Captioning), multiple concepts and caption overrides (Concepts, two places), and the starting-model
-field with Advanced training controls (Training). Turning it off resets nothing: each screen
-lists the non-default settings still in force, and says to turn the switch on to edit them.
+**Settings → Advanced user** opens custom servers and images, model and batch controls,
+multiple concepts, caption overrides, starting-model selection and detailed training settings.
+The switch starts off and is remembered per install. Hiding advanced controls preserves their
+values; each screen identifies active non-default settings and where to edit them.
 
 ## Regularisation images and REPA
 
-Two optional row fields, `regularization` and `repa`, are decoded by `ModelRow` and read by the Training
-screen. They apply to AI Toolkit rows only; `regularization` needs a generator hook and no
-`trainer_config` hook, and `repa` needs an architecture in `ModelRow.repaArchitectures`. The
-Qwen-Image-2.1 row carries both, so the app offers them for that model only.
+Qwen-Image-2.1 offers **Regularisation images** and **Representation alignment (experimental)**
+on Training. The app shows the image count, class nouns, download sizes, preparation-time and
+cost estimates, and regularisation's roughly doubled training time. Advanced controls expose
+regularisation strength.
 
-On the Training screen, between "What to train" and "Run settings" (`GPU/TrainingAidsView.swift`), a
-model with the fields shows two sections in plain language, each with its own Definitions:
-**Regularisation images** (a toggle, the class nouns taken from the project's concepts, the number of
-images, a minutes-and-money estimate from the row's seconds per image and the quoted hourly price, and
-the note that training takes about twice as long) and **Representation alignment (experimental)** (one
-toggle and the size of the helper-model download). Advanced training controls add "Regularisation
-strength" while the toggle is on. A trigger with no concept stops the run with "Define a class noun for
-<trigger> in Concepts before training with regularisation images."
+The app draws regularisation images with the base model, then uses the project's captioner,
+skill and profile to describe them by class noun, without identity triggers. On one GPU it
+switches between drawing and captioning services. Saved runs capture the generation settings,
+captions and all six REPA settings so Repeat restores the original configuration. Epoch/step
+conversion accounts for alternating training and regularisation examples.
 
-`trainingParams` writes `regularization` then `repa` before `extra`, as explicit values: the row's
-generation settings and the six AI Toolkit REPA keys, so a saved run repeats the same way after the table
-changes (Repeat passes on the saved blocks for the same model). With regularisation on, a length in epochs
-doubles into trainer steps, since every other step looks at a regularisation image; Repeat halves it again
-to show epochs. Choosing a model resets both toggles to the row's `default_on` and keeps an edited image
-count or strength. Starting a run with regularisation on first draws the images (the `draw-regularization`
-service, "Drawing regularisation images: 12 of 40"), downloads them, and has the project's own captioner
-describe each one with `RegularizationCaptioner` (ConceptCore): the project's endpoint, skill and profile plus
-the skill's `references/regularization.md` and the class nouns, never a trigger. On a one-GPU computer the
-caption server is stopped for the drawing and started again if the project captions with it. The captions go
-to the trainer in `regularization.captions`; Saved runs says what each run used.
+The [model-table guide](../../docs/model-table.md) describes eligibility and configuration;
+bundled Help explains regularisation, prior preservation and representation alignment. The
+[2026-10-14 run](#end-to-end-run-through-the-app-2026-10-14) exercised both aids through the app.
 
-The glossary has an entry for `representation-alignment` (alias REPA, section Training progress and
-controls); the three terms the sections link to are `StudioTerm.regularizationImages`,
-`.priorPreservation` and `.representationAlignment`.
+## Upscale and restore with SeedVR2, 2026-10-22
 
-## Upscale and restore with SeedVR2 (source only, 2026-10-22)
+**Upscale and restore…** selects images and clips from Images, recommends samples below the
+training resolution, and offers SeedVR2 3B or 7B. The sheet shows the GPU price, weight-download
+size, model licence and restoration guidance. Results appear beside their originals for review.
+**Keep**, **Discard** and **Put back original** manage each result, including after project reopen.
 
-The Images screen has **Upscale and restore…** beside Undo curation and in each print's context menu.
-Its sheet chooses included samples (preselecting those whose short side is below the largest
-resolution the selected model trains at, also marked "Below 1024 px" on their prints), SeedVR2 3B or
-7B with the size of the first weight download, the running cloud GPU's hourly price, the model's
-over-generation caution and its Apache-2.0 notice with a link to the model card. Without a running
-cloud GPU (or while one trains or is busy) the sheet says why and offers Open Cloud GPU; the demo
-says it has none.
+The app uploads media under neutral names, starts `upscale-media`, displays completed-item
+progress and verifies downloaded SHA-256 hashes. Keep preserves the locator mapping and retains
+the original caption with the original media. The GPU stays active throughout processing.
 
-`GPUWorkspace.upscale` uploads the files under neutral names to an upload stage, frees a one-GPU
-computer's caption server, starts the pod's `upscale-media` service (POD-SPEC 3.9) with the short
-side and a cap of twice that on the longer side, shows "Upscaling on the cloud GPU: k of N ready",
-and downloads each result checked against the agent's SHA-256. The cloud GPU counts as busy, so the
-idle stop waits. Results wait in `.conceptstudio/upscaled/` as pending entries in
-`.conceptstudio/media.json`, shown in "Upscaled versions to review" with the original beside each
-and a larger comparison sheet. Keep replaces the sample through the crop-approval path (the locator
-mapping carries over; the caption stays with the original), and the print shows "Upscaled · SeedVR2
-3B". **Put back original** works at any time, also after reopening the project, from the record in
-`media.json`; the replaced result moves to the edits folder. Discard deletes only the result.
-
-Unit tests cover keep, discard, revert after reopening, naming against excluded samples, and the
-cloud GPU flow against a fake agent. Offscreen renders of the sheet and the review section were
-inspected in both appearances. Nothing has run against a real cloud GPU: the pod images must be
-rebuilt with the SeedVR2 venv first (POD-STATUS), and older images refuse the service.
+The **v0.3.9 images are built and published** with the SeedVR2 environment. Tests cover keep,
+discard, persistent revert, excluded-name collisions and the GPU flow through a fake agent.
+Light/dark offscreen renders cover the selection and review sheets. The release also passed
+SeedVR2 import/CLI checks and authenticated CPU agent checks. GPU image/clip run receipts are tracked alongside the build in
+[GPU status](../../pod/docs/POD-STATUS.md). Build receipts and service details are in
+[the image ledger](../../pod/images/README.md) and [POD-SPEC](../../pod/docs/POD-SPEC.md).
 
 ## Implemented
 
-- **Onboarding:** Images contains the owner's full explanation of diffusion
-  training, concepts, training data, captions and concept boundaries, with italic glossary
-  terms and hover, click and keyboard definitions. The same catalog now supplies contextual
-  Definitions on every journey screen, Settings, Advanced training controls, concept/media
-  editors, saved runs and generation. Help opens a searchable catalog and the full explanation
-  without changing the Images disclosure's remembered state. At the owner's later
-  walkthrough request, Welcome uses a brief orientation and ordinary project/account
-  actions rather than repeating that introduction. The demo uses photographic examples. Labels describe operations,
-  inputs and consequences.
-- **One concept by default:** category-specific questions and caption/mapping/reviewer
-  instructions for person, object/character, style and motion. Multiple concepts and detailed
-  overrides are under Advanced. Style and motion apply to the entire training target;
-  Mapping appears only when a concept needs a locator. Human confirmation remains required
-  for person, object, character and custom-concept proposals. Concepts restores its ⌘↩ action.
-- **Dataset curation:** duplicate candidate groups, Include/Exclude and session Undo, crop
-  inspection and approval, HEIC/TIFF normalization. Captioning and publication use only
-  included approved targets. Approval invalidates old captions and subject mappings; style
-  and motion are reassigned automatically. Previously published excluded targets are removed from
-  the next dataset commit; unrelated remote files are preserved and excluded from app training.
-- **Real clips:** import from files, folders, Photos or Hub imagefolder; playback, frame
-  inspection, exact segment approval and LTX/H3 video captions. The selected model determines
-  the permitted segment: LTX uses `8n+1` frames; H3 uses `17n+5` at exactly 24 fps.
-  Approved segments preserve the
-  selected frames and timing, with aspect-preserving 32-aligned dimensions. Variable-rate
-  selections are refused because pinned LTX preprocessing cannot preserve their timestamps;
-  constant-rate portions remain selectable. LTX derives its
-  preprocessing buckets from those targets. Native Gemini routes accept inline video;
-  OpenRouter and vLLM accept a video content part. Python uses pydantic-ai for Gemini and
-  OpenRouter and explicitly refuses vLLM video until supported by that library. OpenAI and
-  Anthropic refuse clips before sending. Both languages enforce the same encoded-body client
-  limit; model capability remains separate from route capability. Hashing and Photos video
-  transfer use files on disk, and timeline inspection reads compressed timestamps.
-- **Direct dataset upload:** when no Hub token is configured, Publish checks saved inputs and
-  Start training uploads an immutable copy directly through the authenticated agent. It includes
-  only approved included media, saved captions/records, metadata and the job, with 2 GiB/file
-  and 20 GiB/dataset limits. Training waits for atomic installation. Local Resume checks the
-  exact input digest in both app and pod; Repeat allows edited data as a new run. No Hub
-  dataset account is required; gated base-model access is unchanged. The current
-  `v0.2.2-clean-20261011` and later images include this route; the older r2 images do not.
-- **Saved training runs:** project-local dataset revisions or local input digests, settings, checkpoints, outputs and
-  available GPU cost information; reopen history, Load settings for repeat and supported
-  checkpoint resume. Each new run captures its budget and rental-spend baseline before
-  preparing inputs, and records them before transfer. Resume retains that cap and adds its continuation cost. The existing
-  whole-computer cap still applies. Missing revision or cost information is shown as unavailable.
-- **Generated results:** pod generation services for FLUX.1-dev, LTX-2.3/2.5 and H3, checkpoint
-  choice, paired base/LoRA generation with matched prompts and seeds, downloaded galleries,
-  and Save trained model to this Mac. A comparison is successful only when its downloaded
-  manifest says complete and every listed pair is present; partial files remain available
-  with a failure message. Other generation combinations explain their limits.
-- **OpenRouter browser authorization:** documented PKCE consent, temporary loopback callback,
-  Keychain key storage, cancellation, direct API calls afterward, key usage and allowance.
-  Manual keys remain available. ChatGPT sign-in remains a separate account path.
-- **Caption progress:** ChatGPT's actual deltas reach a per-sample preview while writing.
-  Retries, completion, failure and cancellation clear it; partial text never becomes a saved
-  caption or response record. Other clients do not simulate a stream.
-- **Recent projects:** a missing `job.yaml` has recovery advice distinct from an access failure.
-  Remove from recent projects only removes the saved entry, preserving files on disk.
-- **Workspace storage:** authenticated usage readout and explicit completed-dataset cleanup.
-  Pod starts retain active/current inputs and the last three resumable completed datasets;
-  Resume restores a pruned Hub dataset only from its saved exact revision. Pod-side step
-  validation refuses a total at or below the saved checkpoint step.
-- **Pod credentials as RunPod secrets:** the Hub token and each pod's agent bearer are written
-  to the account's secret store before a computer is rented and reach the pod only as
-  `{{ RUNPOD_SECRET_… }}` references, so a pod listing never shows a token. The agent secret
-  is deleted when the computer is removed; unreferenced ones are pruned at launch.
-- **Shared project and cost controls:** CLI-compatible job/sidecar formats, project-contained
-  custom skills, private Hub upload, local retrieval, budget/idle stop, launch reconciliation,
-  and explicit handling of pending outputs before a computer is stopped.
+- **Prepare training examples.** Import images and clips from files, folders, Photos or Hub
+  imagefolder datasets. Review duplicate groups, include/exclude examples, crop images, normalize
+  HEIC/TIFF and approve exact video segments. Undo restores curation changes. Publication removes
+  previously published excluded targets and preserves unrelated remote files.
+- **Define the concept.** Start with one person, object, character, style or movement. Style and
+  motion map to the whole target; locator concepts use confirmed subject assignments. Advanced
+  settings add concepts and caption-policy overrides.
+- **Work with exact clips.** Playback and frame inspection support approved constant-rate segments
+  with aspect-preserving, 32-aligned dimensions. LTX uses `8n+1` frames; H3 uses `17n+5` at 24 fps.
+  LTX derives its preprocessing buckets from those targets. The editor identifies variable-rate
+  selections that need a constant-rate portion. Provider support is listed in [Core status](CORE-STATUS.md).
+- **Caption and review.** Choose a provider, review captions beside the media and protect final
+  captions. ChatGPT streams real text into the per-sample preview; completed validated captions
+  are saved. Imports preserve existing captions and human-final records.
+- **Publish or upload directly.** Hub publication carries included targets, saved captions,
+  records, metadata and the shared job. Without a Hub token, Start training sends an immutable
+  snapshot directly to the agent: up to 2 GiB per file and 20 GiB per dataset. Resume checks the
+  exact input digest; Repeat accepts edited inputs as a new run. The direct route is included
+  in v0.2.2 and later images.
+- **Save, repeat and resume runs.** Project history records dataset revisions or input digests,
+  settings, checkpoints, outputs and available GPU cost data. Run budgets begin before input
+  preparation; Resume retains the cap and accumulates continuation cost alongside the computer cap.
+- **Compare and retrieve results.** Supported model routes generate base/LoRA pairs with matched
+  prompts, seeds and selected checkpoints. Downloads verify each manifest-listed file and retain
+  partial outputs for recovery. Models and comparison galleries can be saved to the Mac.
+- **Connect accounts.** ChatGPT sign-in and OpenRouter browser authorization have separate account
+  flows. OpenRouter uses PKCE and a loopback callback; credentials are stored in Keychain. Manual
+  provider keys remain available.
+- **Manage projects and storage.** Recent projects retain recoverable entries after access failures.
+  Storage controls report usage and clean completed datasets while retaining active inputs and the
+  last three resumable datasets. A pruned Hub dataset is restored from its saved exact revision.
+- **Control GPU cost and output custody.** Budget and idle stops, startup reconciliation and
+  pending-output guards run in the Mac app. RunPod secrets deliver Hub and agent credentials to
+  the pod through secret references. Project-contained skills and CLI-compatible job/sidecar
+  formats keep work portable.
 
 ## Exercised in the native window
 
-**Walkthrough clarity fixes, 2026-10-11:** the rebuilt offline demo was walked from Welcome
-through all nine steps. Finished footer messages clear when leaving their step. Concepts has
-one forward button and retains ⌘↩. The crop preview shows all four edges and dims excluded
-pixels. Local reference-face comparison reports agreement or no confident suggestion beside
-each already-confirmed sample, retaining the human assignments. Captioning explains the
-demo's fixed format. Editing a caption displays the unsaved notice without moving the image
-above the editor. Recent projects show parent folders. Training identifies the computer and
-run separately and describes the selected hosted captioning route. Monitor showed no run
-before training, then the simulated curve and **Training: Finished** alongside **Computer:
-Running**, matching the exited log. Saved-run copy explains data versions and continuation.
+**2026-10-11 offline demo:** a native walkthrough covered Welcome, all nine journey screens,
+Settings, Advanced controls, File/Go menus and scrolling. It exercised synthetic-photo import,
+Exclude/Undo, crop preview, prepared mapping and captions, Final/Save protection, simulated
+publication and rental, training completion, saved settings, Repeat and Stop. The walkthrough
+caught and repaired paragraph width and concept-sheet state; custom style details survived reopen
+and an unchanged Save.
 
-Welcome's accessibility press reports an error through the computer-control tool but opens
-the disclosure; the same tool error also occurred while successfully opening the demo.
-VoiceOver was started for the requested check, but its global navigation keys could not be
-verified through that control connection. It was off afterward. A trial storage-binding change
-did not alter the behavior and was removed. Full human VoiceOver acceptance remains unverified;
-this is not recorded as a repaired application defect.
+**Clarity and repair checks:** Concepts ⌘↩ opened Mapping for Person and Captioning for Style/Motion.
+The crop preview showed all four edges and dimmed excluded pixels. Reference comparison displayed
+agreement or no confident suggestion alongside human mappings. Caption edits showed the unsaved
+notice without moving the image. Recent entries displayed parent folders and removal controls.
+Monitor distinguished **Training: Finished** from **Computer: Running** in the simulated run.
+The expanded Concepts controls, **Demo · no charges** badge, simulated storage cleanup and Stop
+were inspected in the rebuilt window.
 
-The owner subsequently asked to remove the repeated introduction from Welcome. That screen
-now explains project creation/opening briefly; the full text remains on Images. This removes
-the redundant Welcome disclosure rather than changing the owner's explanation.
-
-**Review-repair check:** the rebuilt window showed recent-entry removal controls. In the
-offline demo, Concepts ⌘↩ opened Mapping for Person, and opened Captioning directly for
-Style and Motion with Mapping absent from the sidebar. The expanded Concepts Advanced
-section and exact **Demo · no charges** badge were visually inspected. A simulated computer
-displayed storage usage; its cleanup action completed with the retention explanation, then
-Stop everything returned it to Exited. No real computer or account was used. Two stale Mapping
-instructions found here were corrected and rebuilt. Missing-job removal, no-Hub preparation
-and streaming-caption edge cases are covered by automated checks, not a new live GUI claim.
-
-**Earlier overnight check:** the 2026-10-11 rebuilt unsigned app was opened and controlled directly:
-
-- Welcome and the full training explanation; an inline definition opens a native popover.
-- Images: three synthetic photographs, Exclude and Undo, crop sheet and Cancel.
-- Concepts and Mapping: one-concept presentation and prepared confirmed assignments.
-- Captioning: all three prepared captions written without any provider request.
-- Review: caption/image pairing, mark Final, Save, and disabled re-caption protection.
-- Publish, Cloud GPU and Training: simulated upload, rental, training completion and Stop.
-- Monitor: simulated loss, honest no-real-generation demo state, saved settings and Repeat.
-- Settings and Advanced settings, File and Go menus, visible native sidebar and scrolling.
-
-This was an agent walkthrough of the offline demo, not the owner's acceptance or a live paid
-training run. It found and repaired a native paragraph-width bug missed by offscreen rendering.
-The first Edit concept presentation also exposed a sheet-state defect; the rebuilt native
-check passed, including preserving custom style details through reopening and unchanged Save.
+Welcome now provides a brief orientation; the full introduction remains on Images. Keyboard
+access and real downloaded media received the [unlocked-Mac checks](#unlocked-mac-follow-up-2026-10-11).
+Full VoiceOver navigation is in the acceptance list below; the control connection could not
+complete that check.
 
 ## Offline verification
 
-- **Earlier walkthrough/H3/help gate (2026-10-11, before the 2026-10-12 walkthrough/glossary
-  integration):** 498 Swift tests passed (238 app tests in 39 suites; 260 Core tests in 38
-  suites), plus 117 Python reference tests. H3 media cases export
-  real synthetic 22- and 39-frame audiovisual segments and check exact caption/critic request
-  bytes, sidecars, publication and Undo. Budget checks include failed/cancelled preparation,
-  accumulated Resume cost and restoration without the original project open. The pod's
-  script and agent gates are recorded separately in POD-STATUS. These are offline tests;
-  the real provider/trainer evidence below retains its original scope.
-- **Earlier presentation checks (2026-10-11):** strict SwiftLint and SwiftFormat were clean across 164 Swift
-  files. The offscreen harness rendered 116 light/dark, minimum/default screen states,
-  including Help at 640 × 480 and 780 × 720. Bounded visual review covered all nine journey
-  screens, Welcome, Settings and Help; a narrow Captioning rerender confirmed that the demo
-  format explanation wraps without widening the minimum-size form. These are rendered views,
-  not fresh native interaction or VoiceOver acceptance. The complete native nine-screen demo
-  walkthrough above preceded the H3/global-help additions; their interactive acceptance and
-  actual H3 run remain separate.
+These are dated test receipts. The native demo, provider calls and GPU runs have their own records.
 
-- **Walkthrough clarity gate, 2026-10-11:** **478 Swift tests** pass (218 app and 260 Core),
-  strict SwiftLint reports zero violations, SwiftFormat is clean across 153 files (two
-  resource exclusions), and the debug bundle builds. Focused regressions cover navigation
-  during both work gates, crop/export geometry, actual Review editor placement, mapping
-  conclusions, the demo format lock, run-state explanations and recent-name disambiguation.
-  Existing sole-style approval tests also exercised saved mappings and Undo, including the
-  file-backed target path. These checks precede the in-progress H3 and per-run-budget work.
-- **Review-repair gate, 2026-10-11:** **450 Swift tests** (190 app in 29 suites, 260 Core in
-  38 suites), **116 Python tests**, **660 agent**, **291 pod scripts** and **125 podctl**
-  tests pass. Strict SwiftLint and SwiftFormat are clean across 145 files (two formatter
-  resource exclusions); Python Ruff/format are clean. The debug app bundle builds.
-  Independent source review accepted all six repair threads and their composed upload flow.
-  The final native-copy corrections were rebuilt and linted after the full test gate.
-- Current direct-upload tests use synthetic local inputs, stubbed native HTTP/agent seams
-  and the real local installer. They prove exact input preservation, quotas, admission and
-  changed-input refusals; they do not establish a live RunPod upload. Streaming-caption proof
-  uses actual URLSession SSE through the runner, with no provider request in this round.
-- Focused tests cover account authorization/cancellation, category-aware prompts, exact media,
-  curation/Undo, Hub file selection, output generation requests, run restore/repeat/resume and
-  cost/output custody. Independent source review has driven repairs at the integration seams.
-- Actual local video fixtures exercise frame counts, variable timing and visible-edge
-  preservation, plus HEIC/TIFF normalization and file/sidecar restoration.
-- The earlier 116-frame offscreen set covers Welcome, nine journey screens, Settings,
-  concept/crop editors, empty/error states and generated/saved-result surfaces in light and
-  dark at minimum/default sizes. None captures an expanded Advanced section. Native vibrancy
-  and interactions are verified separately.
-- The overnight implementation gate passed **402 Swift tests** (160 app, 242 Core) and **94 Python tests**.
-  The final dataset-switch repair then passed **23 focused session/history tests**, including
-  the offline demo and current-versus-saved dataset requests, with independent source acceptance.
-  Strict SwiftLint is clean; SwiftFormat is clean on 129 source/test files, with two resource
-  exclusions. Python Ruff and format checks are clean. The debug bundle builds and explicitly
-  links AVKit, whose absence was caught by a valid video-editor render.
-- Updated focused renders cover the actual video editor in both appearances, with start time
-  and duration visible before approval. Exact frames and image size remain in Advanced.
-  The unlocked-Mac follow-up verified keyboard activation and actual video frame selection;
-  see the native follow-up below.
+| Gate | Passing checks |
+| --- | --- |
+| Walkthrough/glossary integration, 2026-10-12 | 550 Swift: 289 app + 261 Core; 118 Python reference; 315 pod scripts |
+| Walkthrough/H3/help, 2026-10-11 | 498 Swift: 238 app in 39 suites + 260 Core in 38 suites; 117 Python reference |
+| Walkthrough clarity, 2026-10-11 | 478 Swift: 218 app + 260 Core; clean Swift formatting across 153 files |
+| Review repairs, 2026-10-11 | 450 Swift: 190 app in 29 suites + 260 Core in 38 suites; 116 Python; 660 agent; 291 pod scripts; 125 podctl |
+| Overnight implementation | 402 Swift: 160 app + 242 Core; 94 Python; subsequent dataset-switch repair: 23 session/history tests |
 
-## Live evidence and remaining acceptance
+SwiftLint, SwiftFormat and Python Ruff/format passed the respective gates. The review-repair and
+overnight formatter passes covered 145 and 129 Swift files, each with two resource exclusions.
+Debug app builds passed, including explicit AVKit linkage. Independent reviews covered the six
+repair threads, composed upload flow and dataset-switch fix.
 
-Earlier live proofs (2026-10-10) established Swift Hub upload/download, direct Gemini and
-vLLM image captions, native RunPod reads/stop, and FLUX/LTX training-event reads. Those proofs
-predate this redesign and do not establish its new generation, resume or video paths.
+Coverage includes authorization and cancellation; seven concept categories; exact media and
+sidecars; curation and Undo; Hub file selection; immutable direct upload, quotas and digest
+checks; generation requests; run restore/repeat/resume; budgets and output custody. Synthetic
+H3 fixtures export **22- and 39-frame audiovisual segments**. Video tests check variable timing,
+visible edges, HEIC/TIFF normalization and restoration. Actual URLSession SSE reaches the runner
+before sidecar creation and clears correctly on retry, failure and cancellation.
 
-On 2026-10-11, the native Gemini path sent one exact approved synthetic nine-frame,
-512 × 288 MP4 and returned HTTP 200 with a usable shared Caption object from
-`gemini-3.8-flash` (4,389 input / 76 output tokens). Explicit 24 FPS sampling repaired
-the initial default-sampling 400, verified first with a single-variable control and then
-the unmodified production client. The private notes receipt at
-`evidence/2026-10-11-video-native-proof/README.md` records all three requests. This
-is functional provider acceptance, not a caption-quality study, every-source-frame observation
-or actual trainer preprocessing proof.
+The offscreen harness rendered **116 light/dark, minimum/default states**, including Help at
+**640 × 480 and 780 × 720**, with clean lint/format across **164 Swift files** at the earlier
+presentation gate. Review covered all nine screens, Welcome, Settings and Help; focused rerenders
+checked Captioning width and video-editor start/duration controls. Expanded Advanced controls,
+keyboard interaction and native vibrancy were checked separately in the native window.
 
-The new FLUX generation service completed a real matched base/LoRA pair at 256 × 256, with
-one prompt, seed 42 and four inference steps. The downloaded PNGs and manifest matched their
-served hashes. Native `retrieveGeneration` and `downloadRun` fetched those real files; an
-offline project reopen restored one run and one comparison with no Keychain or network calls.
-The historical source lacked a dataset revision, start time and cost; the retained proof receipt
-records its row timestamp as the local import time rather than reconstructing those values.
-Resume continued the retained synthetic training run from step 2 to step 3,
-exited successfully and saved a distinct valid checkpoint with step-3 metadata. These small
-checks establish execution, not training quality. The proof GPU was stopped and independently
-read back as Exited. The final checkpoint-snapshot images passed source/hash and CPU control
-checks. LTX preprocessed the approved clip at its derived 512 × 288 × 9 bucket, completed two
-training steps, then resumed to step 3. It generated a real matched base/LoRA pair: each video
-decodes to 49 frames at 512 × 512 and 24 fps. Its complete manifest records the selected step-3
-checkpoint hash. Native collection and offline reopen passed for those model/video files and
-the recorded dataset revision. The LTX proof pod was also stopped and independently read back
-as Exited. The approved input hash is verified at native export and exact-revision Hub download,
-not directly on the pod filesystem.
+<a id="live-evidence-and-remaining-acceptance"></a>
 
-The current TensorBoard session/cookie handshake passed through the real RunPod proxy,
-including rejected unauthenticated and out-of-scope requests. This proves backend access,
-not native WebKit rendering. Both new proof pods used one 32 GB GPU and 62 GB host RAM; these
-small recipes do not establish a memory guarantee for other datasets or settings.
+## Live runs and follow-up checks
 
-Current trainer images are published under `v0.3.4-20261015`, a clean build of `1adc7c8` (PR #21: LTX-2.3 and LTX-2.5); before it, `v0.3.3-20261014`, a clean build of `126eb67` (regularisation and REPA with the licence-id
-fix, Qwen-Image-2.1 checkpoints every 500 steps and REPA on by default; `v0.3.2-20261014` is the regularisation and
-REPA change at `374e695`, `v0.3.1-20261014` is the same change before its review fixes, at `0124582`; the earlier `v0.3.0-20261014` was built from PR #10 at `f784947`, and
-`v0.2.3-clean-20261011` from `main` at `b7908618`) (digests in `pod/images/README.md`), and verified by
-anonymous tag-to-digest checks. The app default uses this tag. The owner/Claude H3 still-image training
-run used `v0.2.3-clean-20261011`;
-the earlier bounded FLUX/LTX proofs used the r1/r2 tags, which stay published. Their
-separate scopes and limits are recorded in POD-STATUS.
+The live record starts at lab commit `e620882` on 2026-10-10: private Hub upload/download,
+Gemini and vLLM image captioning, native RunPod status/stop and FLUX/LTX event reads.
 
-On 2026-10-11 the owner confirmed signing in and captioning live through both ChatGPT and
-OpenRouter. These are owner-reported native acceptance checks for account access and captioning;
-they supersede the earlier pending account/captioning notes. The OpenRouter credential method
-was not separately recorded, so this does not prove a particular OAuth callback URL. These
-checks do not establish a quality comparison or every model's video support.
+| Run or connection | Recorded result |
+| --- | --- |
+| Gemini native video, 2026-10-11 | Exact approved synthetic MP4: 9 frames, 512 × 288. `gemini-3.8-flash` returned HTTP 200 and a usable Caption; 4,389 input / 76 output tokens. Explicit 24 FPS sampling resolved the default-sampling 400, checked with a single-variable control and the production client. |
+| FLUX generation and Resume, r1 image | Matched 256 × 256 base/LoRA PNGs, seed 42, four inference steps; downloaded files and manifest matched their hashes. Resume advanced the synthetic run from step 2 to step 3 and saved a distinct checkpoint with step-3 metadata. |
+| LTX video, r2 image | Preprocessed the approved 512 × 288 × 9 clip, trained two steps and resumed to step 3. Matched videos each decoded to 49 frames at 512 × 512, 24 fps; the complete manifest recorded the step-3 checkpoint hash. |
+| Native retrieval and reopen | FLUX and LTX models/comparisons downloaded through the app and reopened offline. The FLUX import restored one run and one comparison; unavailable historical revision, start-time and cost fields stayed unset. |
+| TensorBoard access | Session/cookie handshake passed through the real RunPod proxy, including unauthenticated and out-of-scope rejection. |
+| ChatGPT and OpenRouter, 2026-10-11 | Owner confirmed native sign-in and live image captioning with both providers. |
+
+Both FLUX/LTX proof pods used **one 32 GB GPU and 62 GB host RAM** and were independently read back
+as **Exited** after output retrieval. FLUX execution used r1; the checkpoint-snapshot repair
+received source/hash and CPU checks afterward. LTX execution used final r2. The LTX input hash was
+checked at native export and exact-revision Hub download. These runs record functional execution
+and transfer; the H3 quality comparison is recorded above, and native TensorBoard rendering has its own
+follow-up check.
+
+The private Gemini receipt is `evidence/2026-10-11-video-native-proof/README.md` and records all
+three requests. The OpenRouter owner receipt records successful access and captioning without
+specifying the credential method. The [image ledger](../../pod/images/README.md) carries release
+commits, digests and build history; each run above retains its recorded image version.
 
 ## End-to-end run through the app, 2026-10-14
 
-The first training run driven entirely through the app's interface used a Developer ID-signed,
-notarised and stapled release build. On first use, the notarised build asked once per stored key
-for Keychain access. The project used a real single-person image dataset. In order:
+A **Developer ID-signed, notarised and stapled release build** completed the first full training
+run through the app's interface with a real single-person image dataset. macOS requested Keychain
+access once per stored key on first use.
 
-- **Publish:** the app published the dataset to a private Hub repository.
-- **Rent:** it rented one RTX PRO 6000 (96 GB) on the `v0.3.3-20261014` AI Toolkit image, with a
-  persistent pod disk.
-- **Regularisation:** the `draw-regularization` service drew 40 regularisation images with the
-  base model, and the project's captioner described them without the trigger.
-- **Training:** Qwen-Image-2.1 trained for 10,004 steps with regularisation and REPA (DINOv2
-  giant, block 8, weight 0.5), saving checkpoints every 500 steps. It took 1 h 19 min.
-- **Push:** when the trainer finished, the agent pushed the final LoRA to a private Hub model
-  repository.
-- **Record:** Saved runs recorded the model, dataset, length, regularisation, REPA, destination
-  and the run's GPU cost: US$3.99 against a US$10 run budget.
-- **Idle stop:** the app stopped the idle computer by itself.
+| Stage | Result |
+| --- | --- |
+| Publish | Dataset published to a private Hub repository. |
+| Rent | One RTX PRO 6000, 96 GB, with a persistent pod disk and `v0.3.3-20261014` AI Toolkit image. |
+| Regularisation | 40 base-model images generated and captioned without the identity trigger. |
+| Train | Qwen-Image-2.1, 10,004 steps, regularisation and REPA: DINOv2 giant, block 8, weight 0.5. Checkpoints every 500 steps; elapsed time 1 h 19 min. |
+| Deliver | Final LoRA pushed to a private Hub model repository. Intermediate checkpoints retained on the pod disk and copied separately. |
+| Record | Saved runs captured model, dataset, settings, destination and US$3.99 GPU cost against a US$10 run budget. |
+| Stop | Automatic idle stop ended GPU billing. |
 
-The run surfaced five problems, all since fixed:
+The run drove five fixes: removal of an absent computer under the current key (#16), project-owned
+training destinations, publication guidance and upload activity tracking, clearing stale 404 event
+status, and a labelled run budget (PR #17). The completed workflow above used v0.3.3. The later H3 adapter experiment adds a measured
+training-quality comparison.
 
-- Removing a computer that no longer existed under the current RunPod key failed with a 404
-  (#16).
-- The training destination carried over from another project.
-- Renting was possible before publishing, and the idle stop counted the app's own upload as idle
-  time. A stopped computer's host then had no free GPU, which needed a clear way out.
-- A stale "(404)" status line remained while the trainer had not yet created its events.
-- The run-budget field had no label.
+## Next checks
 
-PR #17 fixed the last four. Only the final LoRA was pushed automatically; the intermediate
-checkpoints stayed on the pod disk until copied separately. This run establishes that the signed
-sandboxed build and the v0.3.3 images work end to end. It says nothing about the trained model's
-quality, which is evaluated separately.
+- Add current-image GPU receipts for SeedVR2 image/clip restoration, direct dataset upload,
+  storage cleanup and generation/Resume. Keep each result attached to its image version;
+  the FLUX/LTX execution receipts above retain r1/r2, and the H3 comparison uses v0.3.7.
+- Close the H3 clip-training, clip-generation, external warm-start and same-run Resume items
+  in [GPU status](../../pod/docs/POD-STATUS.md) against the latest run receipts. H3 still training,
+  publication and matched image generation have completed.
+- Record native TensorBoard rendering during a live run alongside the successful proxy handshake.
+- Record human VoiceOver navigation and signed-build Photos/bookmark behavior across rebuilds.
+- Publish a public download. Developer ID signing, notarisation and stapling are complete.
 
-## Remaining acceptance and limits
-
-Owner acceptance and distribution still pending:
-
-- Live checks of direct upload, storage cleanup and repaired generation/Resume on the
-  published clean image. Its rebuild/default update and Hub-token secret integration have
-  landed separately; they are not work performed by this walkthrough repair round.
-  H3 still-image training on v0.2.3 has owner/Claude acceptance; H3 clips, external
-  warm-start, same-run Resume and matched generation still need live acceptance.
-- Native TensorBoard rendering during an actual run. Offline state and the live backend
-  handshake are verified separately; no GPU was restarted solely for this UI check.
-- A follow-up walkthrough of these repairs. The owner/Claude walkthrough and first real
-  H3 still-image training run have completed; this new UI has separate acceptance below.
-- VoiceOver acceptance, and Photos permission and bookmark persistence across builds in the
-  signed sandboxed build. Developer ID signing and notarisation are done (2026-10-14); a public
-  download is not yet published.
-
-The app's budget and idle limits run on the Mac. They cannot stop a rented computer while the
-app is absent or the Mac is asleep. Launch reconciliation resumes those guards. Separately
-billed saved storage remains after GPU stop. This limitation is unchanged; there is no claim of
-server-side budget enforcement.
+**Operating requirements:** keep ConceptStudio running and the Mac awake for budget and idle
+stops. Startup reconciliation resumes these guards. Stopped GPU storage continues to accrue
+storage charges. [RUNNING.md](RUNNING.md) covers account, cost and storage operation.
 
 ## Unlocked-Mac follow-up, 2026-10-11
 
-Native file import and playback passed with synthetic clips. A selected 17-frame segment
-starting at frame 19 exported as exactly 17 frames at 30 fps and 512 × 288; Undo restored the
-original file hash. Actual thumbnail clicks exposed imprecise AVPlayer seeking; the repair
-pauses playback, clears the old segment boundary and seeks with zero tolerance. The rebuilt
-window displayed the selected first and late frames correctly. Keyboard Tab reached glossary
-definitions; Space and Return now open the existing popover, and Escape dismisses it.
-All three keys passed in the final rebuilt window.
+Native synthetic-clip import and playback passed. A selected segment starting at frame 19 exported
+as **17 frames, 30 fps, 512 × 288**; Undo restored the original hash. A zero-tolerance seek repair
+made the selected first and late frames display correctly. Tab reached glossary terms; Space and
+Return opened their popovers and Escape closed them. All three keys passed in the rebuilt window.
 
-The real retained FLUX comparison appeared as two labelled images. Its gallery and model
-Reveal actions selected the correct folders in Finder. Save with stopped storage displayed the
-required connection instruction. The retained LTX comparison reopened as two native video
-players and playback was exercised. These checks reuse the earlier actual downloads; they are
-not another live training or download claim. Command-number navigation and Go Back worked.
-OpenRouter opened its real browser authorization entry and native Cancel returned to an
-unconnected state. ChatGPT reached the owner's two-factor challenge; cancellation also passed.
-The owner subsequently completed sign-in and live captioning with both providers, as recorded above.
+The retained FLUX comparison displayed two labelled images, with working gallery/model Reveal
+links in Finder. The retained LTX pair reopened in native video players and played successfully.
+Command-number navigation and Go Back passed. OpenRouter opened browser authorization and
+cancelled cleanly; ChatGPT reached two-factor authentication and cancelled cleanly. The owner
+subsequently completed both sign-in and live-captioning paths.
 
-Recent-project restoration passed after quitting and reopening the same preview build. A
-rebuild exposed an access-restoration failure that was incorrectly reported as a deleted
-folder. The development bundle uses an executable-specific ad hoc identity; signed-build
-bookmark persistence remains unverified. The error handling now preserves entries on access
-failures and asks users to reselect the folder rather than claiming it disappeared. The final
-rebuilt native check confirmed both the correct error and the retained Recent entry. These
-repairs passed 25 focused Swift tests, strict lint/format checks and independent source review.
+Recent-project restoration passed across restarts of the same preview build. An ad hoc rebuild
+exposed a bookmark-access failure; the repair retained the Recent entry and requested folder
+reselection. Native readback confirmed both behaviors. The repairs passed **25 focused Swift
+tests**, lint/format and independent review. The cross-build signed bookmark follow-up is listed above.
 
-### H3 source integration and remaining runtime proof
+<a id="h3-source-integration-and-remaining-runtime-proof"></a>
 
-The H3 route now uses the pinned AI Toolkit `minimax_h3` implementation, BF16 component
-downloads, exact approved clip groups and an optional imported native recipe. A new run can
-start from copied external LoRA weights; its old counters are discarded and its optimizer
-starts fresh. Same-run Resume remains a separate operation. Captions already name their
-mapped concepts, so the wrapper no longer injects the first trigger into every sample.
-H3 comparisons use the captured native network recipe and selected trained weights, with
-matched prompts/seeds for base and LoRA. Still-trained H3 LoRAs can generate stills or video.
+### H3 training and generation
 
-The native path checks for a 96 GB GPU before H3 input transfer, based on the known reference
-recipe. That does not establish memory fit for every setting. Metadata-only inspection of
-the 18 prepared project clips accepted their exact decoded frame counts, 24 fps timing and
-32-aligned dimensions under a 1024 resolution cap; no pixels or audio were inspected by
-that check. The new export, initializer, generation and budget source checks passed the
-offline integration gate; the earlier FLUX/LTX GPU proofs do not validate this H3 implementation. An
-AI Toolkit image containing these changes was subsequently published as v0.2.3 and
-the owner/Claude completed the 3,000-step still-image run described below. H3 clip training,
-warm-start, Resume and matched generation remain separate runtime checks. This repair
-session did not start a family training run.
+The H3 route uses pinned AI Toolkit `minimax_h3`, BF16 component downloads, exact approved clip
+groups and imported native recipes. New runs can initialize from external LoRA weights with fresh
+counters and optimizer state. Same-run Resume retains its separate continuation path. Comparisons
+capture the native network recipe and selected weights for matched base/LoRA prompts and seeds;
+still-trained adapters support still or video generation.
+
+The app applies a **96 GB GPU requirement** for the reference recipe. Metadata checks accepted
+**18 prepared clips** with exact decoded frame counts, **24 fps**, **32-aligned dimensions** and
+a **1024 resolution cap**. Export, initializer, generation and budget checks passed offline.
+The v0.2.3 release carried this implementation into the completed still-image run below; the
+later matched-image experiment is recorded above. Clip, warm-start and Resume tracking stays in
+[GPU status](../../pod/docs/POD-STATUS.md).
 
 ## Owner/Claude H3 run, recorded 2026-10-12
 
-The [walkthrough record](../../docs/process/walkthrough-2026-10-11.md) reports a completed
-3,000-step H3 identity LoRA run using 69 still images, Gemini captions and the clean
-v0.2.3 AI Toolkit image on a 96 GB RTX PRO 6000. The 179 MB result was pushed privately,
-and the computer was stopped after approximately 72 minutes. The record estimates about
-$3 GPU cost; this is not a newly queried settled invoice. These are owner/Claude runtime
-receipts, not a GPU run performed by this walkthrough-fix session. They establish the
-still-image train/publish/stop path, not H3 clips, warm-start, Resume or generation.
+The [walkthrough record](../../docs/process/walkthrough-2026-10-11.md) reports **3,000 training
+steps on 69 still images**, with Gemini captions, the clean **v0.2.3 AI Toolkit image** and a
+**96 GB RTX PRO 6000**. The **179 MB LoRA** was published privately and the GPU stopped after
+approximately **72 minutes**. The receipt estimates **US$3 GPU cost**. This owner/Claude run
+completed the H3 still-image train, publish and stop workflow.
 
 ## ChatGPT connection follow-up, 2026-10-11
 
-The reported invalid-stream-event failure came from the primary checkout's stale app bundle,
-built before the `60469b4` raw-byte SSE repair. Rebuilding the usual preview location
-includes that framing repair. A live request then exposed a second issue in current source: the
-provider sent the complete caption in `response.output_item.done`, followed by a successful
-completion with `output: []`. The client now retains those indexed completed items and uses
-them when that final output array is empty. It still requires `response.completed`, preserves
-a nonempty final output, and rejects failed, incomplete, interrupted and refused responses. Native Settings confirmed the saved ChatGPT
-account has plan access and the OpenRouter key remains in Keychain.
+The rebuilt ChatGPT client handles raw-byte SSE framing (`60469b4`) and captions delivered through
+`response.output_item.done` before a successful completion with `output: []`. It retains indexed
+completed items, requires `response.completed`, preserves a populated final output and rejects
+failed, incomplete, interrupted or refused responses.
 
-A fresh app restart also exposed an empty-model-catalog problem in Settings: testing the
-ChatGPT connection required visiting Captioning first. The connection test now prepares the
-selected account's model catalog inside its existing cancellable operation before resolving
-the client. It preserves the selected model and credentials and reports discovery errors.
-Gemini's existing local key was installed separately in the app's Keychain; no key values or
-account credentials are committed to the repository.
+Settings prepares the selected account's model catalog within its cancellable connection test,
+so a fresh launch can test the account immediately. Native Settings confirmed ChatGPT plan access
+and the OpenRouter credential in Keychain; Gemini's key was installed separately.
 
-The post-fix live check used the actual rebuilt `ChatGPTModelClient` with the owner's selected
-unexpired ChatGPT registration and one synthetic demo PNG. It received HTTP 200 and decoded a
-usable Caption from `gpt-6.1-sol` (2,067 input / 49 output tokens). This proves the production
-client's image/structured-output path; it is not a caption-quality evaluation or a native Runner
-sidecar-save check. Computer-control access timed out on the final Settings click; the owner
-subsequently confirmed that test succeeded and that live captioning worked. Focused gates
-passed 19 Core stream test methods and 23 app
-account test methods; both changes received independent source acceptance. The usual primary
-checkout preview is updated along with the worktree build. Development signing remains deferred
-at the owner's request.
+A live request through the rebuilt **`ChatGPTModelClient`** sent one synthetic demo PNG and
+received **HTTP 200** with a usable Caption from **`gpt-6.1-sol`**, using **2,067 input / 49 output
+tokens**. The owner then confirmed the native connection test and live captioning. Focused gates
+passed **19 Core stream test methods** and **23 app account test methods**, with independent
+source acceptance. Developer ID signing and notarisation followed on 2026-10-14.
