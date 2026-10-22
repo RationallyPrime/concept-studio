@@ -62,7 +62,7 @@ struct SelfHostedCaptionModelTests {
         session.providerChanged(from: "openrouter", to: "vllm")
         #expect(session.modelName == "someone/unmeasured-vl")
         // An unmeasured model starts with the measured Qwen3-VL-8B server settings.
-        let measured = GPUWorkspace.captionServerSettings(for: ProviderChoices.defaultModel(for: "vllm"))
+        let measured = GPUWorkspace.captionServerSettings(for: "Qwen/Qwen3-VL-8B-Instruct")
         #expect(session.gpu.captionStartParams == measured.params(model: "someone/unmeasured-vl"))
     }
 }

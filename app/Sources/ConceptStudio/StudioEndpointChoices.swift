@@ -20,7 +20,10 @@ enum ProviderChoices {
         Provider(kind: "google", title: "Google Gemini", defaultModel: "gemini-3.8-flash"),
         Provider(kind: "anthropic", title: "Anthropic Claude", defaultModel: "claude-sonnet-4-6"),
         Provider(kind: "openai", title: "OpenAI", defaultModel: "gpt-5.2"),
-        Provider(kind: "vllm", title: "My cloud GPU / custom server", defaultModel: "Qwen/Qwen3-VL-8B-Instruct"),
+        Provider(
+            kind: "vllm", title: "My cloud GPU / custom server",
+            defaultModel: "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4"
+        ),
     ]
 
     /// The provider a fresh install starts with.

@@ -19,15 +19,23 @@ struct CaptionServerSettings: Equatable {
 
 extension GPUWorkspace {
     /// Measured, not universal: each row is what fit and served captions on the GPUs it was tried
-    /// on (Qwen3-VL-8B on the 32 GB RTX PRO 4500 pods, POD-STATUS 2026-10-10). A different model or
-    /// GPU size needs its own measured row; until then it gets the 8B row, the smallest footprint
-    /// known to work, rather than the agent's generic defaults (POD-SPEC 3.1).
+    /// on (Qwen3-VL-8B on the 32 GB RTX PRO 4500 pods, POD-STATUS 2026-10-10; the FP8/NVFP4
+    /// CapQwen3.6-27B on a 32 GB RTX 5090 with vLLM 0.31.0, 2026-10-22). A different model or GPU
+    /// size needs its own measured row; until then it gets the 8B row, the smallest footprint known
+    /// to work, rather than the agent's generic defaults (POD-SPEC 3.1).
     nonisolated static let measuredCaptionServers: [String: CaptionServerSettings] = [
-        "Qwen/Qwen3-VL-8B-Instruct": CaptionServerSettings(
+        "Qwen/Qwen3-VL-8B-Instruct": fallbackCaptionServer,
+        "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4": CaptionServerSettings(
             maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
             extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
         ),
     ]
+
+    /// The Qwen3-VL-8B row, which a model without a measured row starts with.
+    nonisolated static let fallbackCaptionServer = CaptionServerSettings(
+        maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
+        extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
+    )
 
     /// Where `captionModel` is remembered between launches.
     static let captionModelKey = "ConceptStudio.selfHostedCaptionModel"
@@ -37,7 +45,7 @@ extension GPUWorkspace {
     }
 
     nonisolated static func captionServerSettings(for model: String) -> CaptionServerSettings {
-        measuredCaptionServers[model] ?? measuredCaptionServers["Qwen/Qwen3-VL-8B-Instruct"]!
+        measuredCaptionServers[model] ?? fallbackCaptionServer
     }
 
     var captionStartParams: JSONObject {
