@@ -44,9 +44,12 @@ extension StudioSession {
             throw StudioError.message("Open the project whose captioner should describe the regularisation images.")
         }
         let skill = try selectedSkill()
+        let row = gpu.exactModelRow
+        let profile = project.job.profile == row?.captions.videoProfile
+            ? (row?.captions.imageProfile ?? project.job.profile) : project.job.profile
         let captioner = try RegularizationCaptioner(
-            captioner: endpoint(), skill: skill, profile: project.job.profile,
-            profileText: skill.profile(project.job.profile, relativeTo: project.job.directory),
+            captioner: endpoint(), skill: skill, profile: profile,
+            profileText: skill.profile(profile, relativeTo: project.job.directory),
             classNouns: classNouns
         )
         return RegularizationCaptioning(

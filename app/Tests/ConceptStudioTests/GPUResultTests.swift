@@ -153,7 +153,10 @@ struct GPUResultTests {
         await transport.signIn("tester")
         let workspace = makeWorkspace(transport, preferences)
         try workspace.configure(runpodKey: "provider-only", hubToken: "hub-write", imageName: "test")
-        workspace.projectFolder = FileManager.default.temporaryDirectory.appendingPathComponent("My Nora!")
+        let root = temporaryTestDirectory("suggested-output")
+        defer { try? FileManager.default.removeItem(at: root) }
+        workspace.projectFolder = try await captionedUploadProject(at: root.appendingPathComponent("My Nora!"))
+            .directory
         await workspace.refreshOffers()
         await workspace.rent()
         let suggested = await workspace.suggestedOutputRepo()

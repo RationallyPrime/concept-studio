@@ -154,6 +154,8 @@ struct GeneratedComparison: Codable, Equatable, Identifiable {
     var state: State
     var folder: String?
     var failure: String?
+    var reportGroupID: String?
+    var reportPromptIDs: [String]?
     let paramsJSON: Data
     var params: JSONObject {
         (try? JSONValue(parsing: paramsJSON).objectValue) ?? [:]
@@ -188,8 +190,19 @@ struct ComparisonPair: Decodable, Identifiable {
 }
 
 struct ComparisonManifest: Decodable {
+    struct Style: Decodable {
+        let method: String
+        let scores: [String: [String: Double]]
+    }
+
     let state: String
     let pairs: [ComparisonPair]
+    let style: Style?
+    let styleError: String?
+    enum CodingKeys: String, CodingKey {
+        case state, pairs, style
+        case styleError = "style_error"
+    }
 }
 
 extension GPUWorkspace {
@@ -244,6 +257,7 @@ extension GPUWorkspace {
     }
 
     func captureRunProgress() {
+        captureReportCost()
         guard let index = runHistory.firstIndex(where: { $0.runID == runID }) else {
             // Global billing remains accurate while Welcome or a different project is open.
             if var run = saved?.run, run.runID == runID, run.result?.state == .training {
@@ -326,6 +340,9 @@ extension GPUWorkspace {
         steps = lengthToRepeat(run, row: row)
         trainerSettings = TrainerSettings(restoring: run.params, row: row)
         restoreTrainingAids(from: run)
+        trainingAugmentation = TrainingAugmentation(rawValue: run.params["augmentation"]?.stringValue ?? "none") ??
+            .none
+        squareAugmentationAllowed = trainingAugmentation == .square
         nativeRecipe = nil
         trainingAdapterChoice = nil
         nativeRecipeOriginal = nil
@@ -445,6 +462,7 @@ extension GPUWorkspace {
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
+            try self.resetReportForResumedTraining(run.runID)
             trainerStartAttempted = true
             try await agent.start("trainer-\(run.trainer)", gpus: plan.train?.gpus ?? [], params: params)
             self.trainingState = "running"

@@ -22,9 +22,9 @@ Three lookups, used consistently (docs/model-table.md, "Lookup rules"):
   else from a family match (custom paths such as ``/workspace/models/MiniMax-H3``), else the
   name only. A family match supplies the block and nothing else.
 
-A row may also carry two optional AI Toolkit fields, ``regularization`` (a generated
-prior-preservation set; ``regularization.py`` and ``generate_results.render_base`` act on it) and
-``repa`` (representation alignment; the launcher writes it to ``process.repa``). The pod reads them
+Each row declares ``regularization.mode``: generated class images, supplied images only, or an
+unsupported prior-preservation mode. AI Toolkit rows may also carry ``repa`` (representation
+alignment; the launcher writes it to ``process.repa``). The pod reads them
 only to admit a run and never for a run's settings, which arrive as explicit values in run.json.
 
 No code outside a hook tests a model's name. A hook is a named strategy for one concern; the
@@ -107,6 +107,16 @@ def exact_row(
         if row["model_ref"] == base_model and (trainer is None or row["trainer"] == trainer):
             return row
     return None
+
+
+def supports_regularization(row: dict[str, Any] | None, source: str) -> bool:
+    """The row declares generated, supplied-folder, or unsupported prior preservation."""
+    if row is None:
+        return source == "folder"  # custom AI Toolkit models retain their native folder path
+    mode = (row.get("regularization") or {}).get("mode")
+    return row["trainer"] == "aitoolkit" and (
+        mode == "generate" or (mode == "folder" and source == "folder")
+    )
 
 
 def trainer_default_row(trainer: str, table: dict[str, Any] | None = None) -> dict[str, Any]:

@@ -19,7 +19,7 @@ extension GPUJourneyView {
                         TextField("Caption model", text: $workspace.captionModel)
                         TextField("Minimum model memory (GB)", value: $workspace.captionMemoryGB, format: .number)
                             .help(
-                                "32 GB was measured for the default caption model and for Qwen3-VL-8B. "
+                                "32 GB was measured for CapQwen3.6 and Qwen3-VL-8B. "
                                     + "Set the requirement for a custom model here."
                             )
                     } else {

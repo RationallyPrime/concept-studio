@@ -80,7 +80,10 @@ def probe_clip(media: Path, resolution: int) -> dict[str, int]:
 def dataset_groups(cfg: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
     dataset = Path(cfg["dataset"]["path"])
     media = sorted(
-        p for p in dataset.rglob("*") if p.suffix.lower() in IMAGE_SUFFIXES | VIDEO_SUFFIXES
+        p
+        for p in dataset.rglob("*")
+        if p.suffix.lower() in IMAGE_SUFFIXES | VIDEO_SUFFIXES
+        and "training_masks" not in p.relative_to(dataset).parts
     )
     groups: dict[int, list[Path]] = {}
     facts: list[dict[str, Any]] = []

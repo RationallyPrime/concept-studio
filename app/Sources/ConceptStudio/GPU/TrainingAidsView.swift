@@ -33,7 +33,12 @@ struct RegularizationSection: View {
 
     /// What the section says before the person turns anything on.
     var explanation: String {
-        "Before training, the cloud GPU draws ordinary pictures of \(subjects) with the original model, from your "
+        if workspace.ownRegularizationImages {
+            return "Your class images are captioned without concept triggers and trained alongside your photos "
+                + "to preserve the model's broader idea of \(subjects). Choose the folder in Advanced."
+        }
+        return "Before training, the cloud GPU draws ordinary pictures of \(subjects) with the original model, "
+            + "from your "
             + "captions with the names taken out, and your captioning model describes each one without being told "
             + "the names. Training looks at them alongside your photos so the model does not start drawing your "
             + "subject whenever you ask for \(subjects)."
@@ -45,9 +50,11 @@ struct RegularizationSection: View {
                 Toggle("Use regularisation images", isOn: $workspace.regularizationOn).disabled(locked)
                 if workspace.regularizationOn {
                     LabeledContent("Images of") { concepts }
-                    TextField("Number", value: $workspace.regularizationImages, format: .number.grouping(.never))
-                        .disabled(locked)
-                        .help("How many ordinary pictures to draw. They are kept on this storage and reused.")
+                    if !workspace.ownRegularizationImages {
+                        TextField("Number", value: $workspace.regularizationImages, format: .number.grouping(.never))
+                            .disabled(locked)
+                            .help("How many ordinary pictures to draw. They are kept on this storage and reused.")
+                    }
                 }
             }.formStyle(.columns)
             if workspace.regularizationOn, let estimate = workspace.regularizationEstimate {

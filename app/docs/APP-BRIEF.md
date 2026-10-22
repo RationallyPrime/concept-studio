@@ -43,15 +43,15 @@ the native Mac conventions in [DESIGN.md](../DESIGN.md).
 
 | Screen | What the user accomplishes |
 | --- | --- |
-| **Images** | Import photos and clips from folders, Hugging Face or Apple Photos. Inspect duplicate, capture-quality and readable-text warnings. Approve crops and exact video segments, inspect frames, include or exclude examples, and undo curation. Upscale and restore media with SeedVR2 and a before-and-after preview. Use dataset advice to refine the training set. |
+| **Images** | Import photos and clips from folders, Hugging Face or Apple Photos. Keep the best duplicates, drag crops, rotate, straighten, and adjust tone and colour while retaining originals. Correct individual dataset outliers. Crop around a chosen person, exclude unwanted samples, or draw supported training loss masks. Select exact video segments. Upscale and restore media with SeedVR2 and a before-and-after preview. |
 | **Concepts** | Choose a category, describe the concept and give it a trigger and class noun. Draft concepts with a model and add reference photos to identify subjects. Advanced settings expose multiple concepts and detailed boundaries. |
-| **Mapping** | Use detected faces and model proposals to confirm identity, object and character locations in each target. Find unconfirmed samples and track progress. Style and motion apply to the whole target and go straight to Captioning. |
+| **Mapping** | Match identities locally with SFace in Match, Needs review and No match bands, or request contact-sheet model proposals. Confirm eligible matches in batches and keep uncertain samples for review. Identify object and character locations in each target. Style and motion apply to the whole target and go straight to Captioning. |
 | **Captioning** | Choose the provider, model, skill, caption format and optional reviewer. Start or cancel a run; follow partial captions and per-sample outcomes as they arrive. |
 | **Review** | Inspect each caption beside its actual crop or playable segment. Edit and protect finished captions, re-caption a selection and compare captioning models. |
 | **Publish** | Prepare included targets, saved captions, response records and the shared job. Publish a Hub dataset with upload progress and a recorded revision, or check local inputs for direct GPU upload at training start. |
 | **Cloud GPU** | Compare GPU stock and prices, choose hardware and storage, set budgets and an idle limit, and manage the rental. See GPU spend and storage charges separately; Stop ends compute billing and Remove confirms deletion of the pod disk. |
-| **Training** | Choose a model-specific recipe, adjust settings and start a run. Read the allocation plan: caption then train on one GPU, or caption on GPU 0 and train on the remaining GPUs. Repeat a saved run with changes or resume its supported checkpoint state. |
-| **Monitor** | Follow curves, logs and TensorBoard. Retrieve the LoRA, choose a checkpoint, generate matched base-versus-trained comparisons on supported routes and inspect the saved gallery. Save the trained model to the Mac or publish it to the Hub. |
+| **Training** | Choose a model-specific recipe, regularisation source and supported augmentation. Review the report prompts and shared run budget. Read the allocation plan: caption then train on one GPU, or caption on GPU 0 and train on the remaining GPUs. Repeat a saved run with changes or resume its supported checkpoint state. |
+| **Monitor** | Follow curves, logs and TensorBoard. Retrieve the LoRA and its automatic report, compare runs within a frozen prompt group, and inspect identity, bleed, style and adherence scores beside their renders. Generate further matched comparisons on supported routes. Save the trained model to the Mac or publish it to the Hub. |
 
 Welcome offers recent projects, New, Open and Try the demo. Settings holds accounts and advanced
 controls. The offline demo provides a complete practice project with synthetic media, prepared

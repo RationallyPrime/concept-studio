@@ -42,16 +42,19 @@ extension StudioSession {
         } catch { errorMessage = Self.describe(error) }
     }
 
-    func confirmRemainingSinglePerson() {
-        guard let project, project.job.concepts.count == 1,
+    func confirmRemainingSinglePerson(except held: Set<String> = []) {
+        guard !busy, !editing, let project, project.job.concepts.count == 1,
               let concept = project.job.concepts.first, concept.targetConcept.isPersonIdentity else { return }
         let remaining = project.images
             .filter { project.job.mapping(for: $0.id) == nil && projectState.notSure[$0.id] == nil }
-        let eligible = remaining.filter { analyses[$0.id]?.faces.count == 1 }
-        mappingReviewExceptions = remaining.filter { analyses[$0.id]?.faces.count != 1 }.map(\.id)
+        let eligible = remaining.filter {
+            !held.contains($0.id) && faceRecognitionResults[$0.id]?.singleMatch(for: concept.trigger) == true
+        }
+        let eligibleIDs = Set(eligible.map(\.id))
+        mappingReviewExceptions = remaining.filter { !eligibleIDs.contains($0.id) }.map(\.id)
         guard let locator = MappingLocatorDefaults.singleFaceClassNoun(for: concept, faceCount: 1) else { return }
         confirmMappings(ids: Set(eligible.map(\.id)), mapping: [concept.trigger: locator])
-        message = "\(eligible.count) single-face samples confirmed. "
+        message = "\(eligible.count) matching single-face samples confirmed. "
             + "\(mappingReviewExceptions.count) need review; Not sure samples were skipped."
     }
 

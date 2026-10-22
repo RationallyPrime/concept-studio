@@ -44,6 +44,26 @@ def test_prepare_moves_the_upload_into_the_run(paths: Paths) -> None:
     assert argv[0].endswith("venvs/seedvr2/bin/python")
 
 
+@pytest.mark.parametrize("trainer", ["aitoolkit", "musubi", "ltx"])
+def test_upscale_requires_the_trainers_shared_torch(paths: Paths, trainer: str) -> None:
+    python = Path(paths.venv_bin("seedvr2", "python"))
+    python.parent.mkdir(parents=True)
+    python.touch()
+    service = CATALOG["upscale-media"]
+    assert not service.available(paths)  # Thin base has packages but no GPU runtime.
+
+    source = paths.prefix / "venvs" / trainer / "lib/python3.12/site-packages/torch"
+    source.mkdir(parents=True)
+    (source / "__init__.py").touch()
+    shared = python.parent.parent / "lib/python3.12/site-packages/torch"
+    shared.parent.mkdir(parents=True)
+    shared.symlink_to(source, target_is_directory=True)
+    assert service.available(paths)
+
+    (source / "__init__.py").unlink()
+    assert not service.available(paths)
+
+
 @pytest.mark.parametrize(
     ("setup", "overrides", "loc"),
     [

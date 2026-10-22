@@ -43,3 +43,42 @@ Mapping skips confirmed samples and samples marked Not sure. Completed suggestio
 A transient sheet failure retries its images individually, up to twice. A failure for one image does not discard completed siblings. Cancellation preserves completed results. On a self-hosted vLLM endpoint, up to four batches run concurrently, bounded by the chosen concurrency setting; hosted providers use one batch at a time. Pending requests count as GPU activity. A count and estimated remaining time are shown during the run.
 
 The local tests cover response order, tile-number validation through the structured stage, downsampled sheet dimensions, transient retries, cancellation, saved resume state, uncertainty, batch undo and reference replacement. The authorized RTX 5090 Secure Cloud trial could not run because the requested GPU was unavailable; these measurements therefore make no claim about vLLM throughput.
+
+## Local face matching and review states
+
+Mapping also offers **Match faces on this Mac**, using OpenCV Zoo's SFace 2021dec through native ONNX Runtime and Apple Vision landmarks. The first run downloads the 39 MB Apache-2.0 model; photos stay on the Mac. Results show match, needs review or no match, with similarity scores. Single-person bulk confirmation accepts only a unique match in a single-face sample. Tilted faces, collapsed landmarks, missing faces and all other results remain for review. Reference checks flag small or blurry faces before matching.
+
+A missing or `null` job mapping means **unconfirmed/held**, never “confirmed absent.” Exclusion is separate: the media lives in `.conceptstudio/excluded/`. A confirmed nonempty mapping establishes which concepts are present; another concept omitted from that mapping is absent. The shared job format rejects empty mappings, so a sample with none of the project's concepts should be excluded. No migration converts null mappings into negative labels. Evaluation scripts must use included media and nonempty confirmed mappings for ground truth.
+
+For a single-concept project whose trigger was edited outside the app, opening the project recovers a sole reference stored under an old UTF-8 hex filename to the current canonical filename. Multiple concepts or multiple reference images require an explicit choice; the app does not guess which reference belongs to which person.
+
+## Native SFace measurement, 2026-10-22
+
+The native implementation processed the same 69 confirmed photographs on the Mac in **6.00 seconds**
+with the model already downloaded. It used the real project references, pinned OpenCV weights,
+Vision landmarks and RGB 0–255 input. All samples completed; the answer key and references remained
+byte-identical. The thresholds stayed at match above 0.39, review above 0.33 through 0.39, and no match
+at or below 0.33, with the roll and landmark quality gates applied before confirmation.
+
+| Confirmed state | Match | Needs review | No match |
+| --- | ---: | ---: | ---: |
+| Concept 1 present, 39 decisions | 26 | 12 | 1 |
+| Concept 1 absent, 30 decisions | 0 | 3 | 27 |
+| Concept 2 present, 39 decisions | 10 | 12 | 17 |
+| Concept 2 absent, 30 decisions | 0 | 4 | 26 |
+
+There were **zero false-positive match bands across 60 confirmed absences**. Both presence decisions
+were decisive and correct in 30 of 69 photographs. In the nine photographs with both subjects,
+each subject matched in five and both matched in four. This measures concept presence, not
+face-to-locator correctness. These local SFace counts and the hosted contact-sheet counts above
+measure different workflows; review-band results are retained for human review.
+
+The second reference triggered both the small-face and low-clarity warnings. Its missed matches
+also appeared in the original experiment: 11 matches, seven reviews and 21 no-matches among its
+39 positive examples. Recomputing the documented nose-mean alignment with the same weights and
+reference reproduced the native second-concept counts. No threshold was adjusted to fit this run.
+Seven samples had quality-gated faces: four beyond 35° roll and three with collapsed landmarks.
+
+The [anonymous aggregate receipt](native-sface-benchmark-2026-10-22.json) contains counts, timings,
+weight identity and reference-quality warnings. Private photos, names, per-image scores and
+sample identifiers remain outside the repository.

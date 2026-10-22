@@ -136,19 +136,29 @@ struct ModelRow: Sendable, Identifiable, Equatable {
 
     /// Regularisation images the base model draws before training and the trainer looks at beside the subject's
     /// own (`regularization` in docs/model-table.md). A row without the field does not offer them.
+    enum RegularizationMode: String, Sendable { case generate, folder, unsupported }
+
     struct Regularization: Sendable, Equatable {
+        let mode: RegularizationMode
         let defaultOn: Bool
-        let images: Int
+        let images: Int?
         let weight: Double
-        let generationSteps: Int
-        let guidanceScale: Double
+        let generationSteps: Int?
+        let guidanceScale: Double?
         /// Estimated generation time for one image, for the time shown before the images are drawn.
-        let secondsPerImage: Double
+        let secondsPerImage: Double?
         let note: String
     }
 
     /// Representation alignment (`repa` in docs/model-table.md): an auxiliary loss that ties a transformer block's
     /// image tokens to a frozen vision encoder's features. The six AI Toolkit keys go to the pod as they are.
+    struct TrainingTransforms: Sendable, Equatable {
+        let horizontalFlip: Bool
+        let squareSymmetry: Bool
+        let lossMask: Bool
+        let note: String
+    }
+
     struct Repa: Sendable, Equatable {
         let defaultOn: Bool
         let encoder: String
@@ -191,6 +201,7 @@ struct ModelRow: Sendable, Identifiable, Equatable {
     let notes: String
     let regularization: Regularization?
     let repa: Repa?
+    let trainingTransforms: TrainingTransforms
 
     /// The model picker's label: the name and whether the model trains on video too.
     var pickerTitle: String {
@@ -352,6 +363,7 @@ extension ModelRow {
         notes = try row.string("notes")
         regularization = try row.childIfPresent("regularization").map(Regularization.init)
         repa = try row.childIfPresent("repa").map(Repa.init)
+        trainingTransforms = try TrainingTransforms(row.child("training_transforms"))
     }
 }
 
@@ -488,14 +500,21 @@ extension ModelRow.License {
 
 extension ModelRow.Regularization {
     init(_ object: TableObject) throws {
+        guard let mode = try ModelRow.RegularizationMode(rawValue: object.string("mode")) else {
+            throw ModelTableError("\(object.path).mode must be generate, folder or unsupported")
+        }
+        self.mode = mode
         defaultOn = try object.bool("default_on")
-        images = try object.int("images")
+        images = try object.optionalInt("images")
         weight = try object.double("weight")
-        let generation = try object.child("generation")
-        generationSteps = try generation.int("steps")
-        guidanceScale = try generation.double("guidance_scale")
-        secondsPerImage = try generation.double("seconds_per_image")
+        let generation = try object.childIfPresent("generation")
+        generationSteps = try generation?.int("steps")
+        guidanceScale = try generation?.double("guidance_scale")
+        secondsPerImage = try generation?.double("seconds_per_image")
         note = try object.string("note")
+        if mode == .generate, images == nil || generation == nil {
+            throw ModelTableError("\(object.path) needs images and generation defaults")
+        }
     }
 }
 
@@ -522,11 +541,11 @@ extension ModelRow {
 
     /// Checks that `regularization` and `repa` sit on a row that can carry them; `path` names the row in a message.
     func validateTrainingAids(path: String) throws {
-        if regularization != nil {
+        if let regularization, regularization.mode != .unsupported {
             let field = "\(path).regularization"
             guard trainer == "aitoolkit" else { throw ModelTableError("\(field) is only for AI Toolkit rows") }
-            guard hooks.generator != nil, hooks.trainerConfig == nil else {
-                throw ModelTableError("\(field) needs a generator hook and no trainer_config hook")
+            if regularization.mode == .generate, hooks.generator == nil {
+                throw ModelTableError("\(field) needs a generator hook")
             }
         }
         if repa != nil {
@@ -537,5 +556,14 @@ extension ModelRow {
                     + Self.repaArchitectures.joined(separator: ", "))
             }
         }
+    }
+}
+
+extension ModelRow.TrainingTransforms {
+    init(_ object: TableObject) throws {
+        horizontalFlip = try object.bool("horizontal_flip")
+        squareSymmetry = try object.bool("square_symmetry")
+        lossMask = try object.bool("loss_mask")
+        note = try object.string("note")
     }
 }

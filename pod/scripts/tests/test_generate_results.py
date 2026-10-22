@@ -363,3 +363,48 @@ def test_musubi_krea2_renders_both_sides_on_the_rows_generation_weights(tmp_path
     assert all((tmp_path / row[key]).read_bytes() == b"synthetic output"
                for row in rows for key in ("base_path", "lora_path"))  # fmt: skip
     assert rows[0]["base_path"].endswith(".png")
+
+
+@pytest.mark.parametrize("scoring_fails", [False, True])
+def test_style_report_preserves_renders_and_records_actual_scores_or_error(
+    tmp_path, monkeypatch, scoring_fails
+):
+    path, request = setup(tmp_path, monkeypatch)
+    request["style_references"] = {"upload": "style-one", "groups": {"STYLE7": ["reference.png"]}}
+    path.write_text(json.dumps(request))
+
+    def inference(cfg, checkpoint, params, rows, out):
+        for row in rows:
+            for key in ("base_path", "lora_path"):
+                (out / row[key]).write_bytes(b"synthetic output")
+
+    def scores(groups, references, outputs, workspace):
+        assert groups == {"STYLE7": ["reference.png"]}
+        assert references == path.parent / "style-references"
+        if scoring_fails:
+            raise ValueError("synthetic unavailable encoder")
+        return {
+            "method": "test-only",
+            "scores": {output.name: {"STYLE7": 0.75} for output in outputs},
+        }
+
+    original = generation.runpy.run_path
+
+    def helper(file):
+        return (
+            {"score_outputs": scores}
+            if str(file).endswith("style_embedding.py")
+            else original(file)
+        )
+
+    monkeypatch.setattr(generation, "flux_generate", inference)
+    monkeypatch.setattr(generation.runpy, "run_path", helper)
+    assert generation.generate(path, "aitoolkit") == 0
+    manifest = json.loads((path.parent / "output/comparison.json").read_text())
+    assert manifest["state"] == "complete"
+    if scoring_fails:
+        assert "style" not in manifest
+        assert "synthetic unavailable encoder" in manifest["style_error"]
+    else:
+        assert manifest["style"]["scores"]["pair-000-lora.png"]["STYLE7"] == 0.75
+        assert "style_error" not in manifest

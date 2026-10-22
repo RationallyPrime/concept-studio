@@ -93,14 +93,16 @@ final class GPUWorkspace {
 
     /// Training resolution in pixels; one of `resolutionChoices`. Shown under Advanced.
     var trainingResolutions: [Int]
-    var resolution: Int {
-        get { trainingResolutions.max() ?? modelTable.defaultRow.resolution.defaults.max() ?? 0 }
-        set { trainingResolutions = [newValue] }
-    }
 
     /// Regularisation images drawn from the base model and trained beside the person's own (the row's
     /// `regularization` field). Only meaningful while the selected model offers it.
+    var trainingAugmentation = TrainingAugmentation.none
+    var squareAugmentationAllowed = false
     var regularizationOn = false
+    var ownRegularizationImages = false
+    var regularizationFolder: URL?
+    /// A saved run may reuse its already captioned class folder on retained cloud storage.
+    var regularizationRemotePath: String?
     var regularizationImages: Int
     var regularizationWeight: Double
     /// The offer the count and strength last followed, to tell a value the person edited from one still at a default.
@@ -125,6 +127,12 @@ final class GPUWorkspace {
     var selectedHistoryRunID = ""
     var repeatSourceRunID = ""
     var generations: [GeneratedComparison] = []
+    var reportGroups: [TrainingReportGroup] = []
+    var trainingReports: [TrainingReport] = []
+    var selectedReportGroupID = ""
+    var reportSetupFailure: String?
+    var activeReportRunID: String?
+    @ObservationIgnored var reportTask: Task<Void, Never>?
     var generation: GeneratedComparison?
     var triggerWords = "NORA7"
     var profile: String
@@ -224,6 +232,8 @@ final class GPUWorkspace {
         regularizationImages = reference?.images ?? 1
         regularizationWeight = reference?.weight ?? 1
         regularizationAligned = reference
+        regularizationOn = start.regularization?.defaultOn ?? false
+        ownRegularizationImages = start.regularization?.mode == .folder
         profile = start.captions.imageProfile
         self.transport = transport
         self.preferences = preferences
@@ -384,6 +394,7 @@ final class GPUWorkspace {
             ) }
             if settlementRevision == operationRevision,
                !isBusy { try await settleGeneration(agent, services: services) }
+            startAutomaticReport()
             clearRefreshFailure()
         } catch is CancellationError {
             return
@@ -462,6 +473,11 @@ final class GPUWorkspace {
 }
 
 extension GPUWorkspace {
+    var resolution: Int {
+        get { trainingResolutions.max() ?? modelTable.defaultRow.resolution.defaults.max() ?? 0 }
+        set { trainingResolutions = [newValue] }
+    }
+
     func watch() {
         monitorTask?.cancel()
         monitorTask = Task { [weak self] in

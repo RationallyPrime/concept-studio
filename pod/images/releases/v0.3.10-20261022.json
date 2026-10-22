@@ -1,0 +1,181 @@
+{
+  "release": "v0.3.10-20261022",
+  "source_commit": "6589efbabcc2d84ea0a1d0efb1aa21d83ee52768",
+  "source_delivery": "git archive of the exact commit; no source overlay",
+  "platform": "linux/amd64",
+  "builder": "Docker BuildKit on cx53",
+  "images": [
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-base:v0.3.10-20261022",
+      "digest": "sha256:988da89c82a16fa80bbcf160a260b85ff2d3c5468f074275d16fd378e2bfa390",
+      "compressed_bytes": 3558835344
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.10-20261022",
+      "digest": "sha256:aafc08df6cad122b0c1dcd3f7d4edd665e85543d5a85da8e07ba4d50fe357dbb",
+      "compressed_bytes": 7416448037
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.10-20261022",
+      "digest": "sha256:9fd661ef91ff2e2139b40a4cea2189948dfd901c0663b325176c25bde5d4a08d",
+      "compressed_bytes": 7164759799
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.10-20261022",
+      "digest": "sha256:a61a77db140a448513b770b7f3ed2b14c489df21ea660304bba124f5376b425f",
+      "compressed_bytes": 6605151484
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.10-20261022-captioning",
+      "digest": "sha256:92b63d54272a9f5179d79c9cebfcb6437d80aef44eeadb94845186f1747169e0",
+      "compressed_bytes": 14356560201
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.10-20261022-captioning",
+      "digest": "sha256:1b962a4ebac7142f8eb8f67becb1cdea57488d641a6cb66f316b796bcac00bb1",
+      "compressed_bytes": 14104871963
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.10-20261022-captioning",
+      "digest": "sha256:9e51ba9964fdf9e28de564e249fa19d7269fc87cb50e25816433a4eac1eeb9f4",
+      "compressed_bytes": 13545263645
+    }
+  ],
+  "seedvr2": {
+    "source_commit": "5a4bf428f3735cc72ac760d40f372f94dec28422",
+    "version": "2.5.23",
+    "environment_layer_bytes": 202239791,
+    "previous_environment_layer_bytes": 2963701894,
+    "runtime": "isolated small dependencies; symlinks to each trainer PyTorch/CUDA packages"
+  },
+  "shared_vllm_layer": {
+    "digest": "sha256:7ece648aeae9cb074bda637f2718abbcec59d4c4269ae9c7dbb06a9662f7f6b2",
+    "compressed_bytes": 6940110489
+  },
+  "control_checks": {
+    "image_count": 7,
+    "anonymous_manifest_readbacks": 7,
+    "unauthenticated_health_status": 401,
+    "authenticated_health_status": 200,
+    "workspace_scoped_storage": {
+      "allocation_bytes": 80000000000,
+      "fixture_bytes": 3,
+      "reported_used_bytes": 3
+    },
+    "upscale_available": "trainer images only",
+    "vllm_available": "captioning variants only",
+    "trainer_seedvr2_import_and_cli_checks": 3,
+    "caption_vllm_allowlist_flags": 23
+  },
+  "runtime_versions": {
+    "aitoolkit_torch": "2.13.0+cu130",
+    "musubi_torch": "2.13.0+cu130",
+    "ltx_torch": "2.13.0+cu132",
+    "seedvr2_diffusers": "0.36.0",
+    "vllm": "0.31.0+cu129",
+    "vllm_torch": "2.13.0+cu129",
+    "flashinfer": "0.7.0.post1"
+  },
+  "liveAcceptance": {
+    "date": "2026-10-22",
+    "scope": "Real GPU execution on bundled synthetic safe-for-work media; functional acceptance, not training or caption quality evidence.",
+    "imageSourceCommit": "6589efbabcc2d84ea0a1d0efb1aa21d83ee52768",
+    "runtimeSourceOverlays": false,
+    "seedVR2": {
+      "model": "3B FP16",
+      "seed": 42,
+      "outputPixels": [
+        1024,
+        1024
+      ],
+      "clipFrames": 21,
+      "clipFPS": 24,
+      "firstImageIncludes": "Empty-cache model download, SHA-256 verification and image inference",
+      "cpuComponentOffload": true,
+      "blockSwap": false,
+      "runs": [
+        {
+          "gpu": "RTX PRO 4500 Blackwell",
+          "nominalVRAMGB": 32,
+          "image": "aitoolkit:v0.3.10-20261022",
+          "firstImageSeconds": 51.88,
+          "cachedClipSeconds": 25.86,
+          "peakMemoryMiB": 22934,
+          "vaeEncodeDecodeTiling": true
+        },
+        {
+          "gpu": "RTX PRO 6000 Blackwell Server Edition",
+          "nominalVRAMGB": 96,
+          "image": "aitoolkit:v0.3.10-20261022-captioning",
+          "firstImageSeconds": 42.21,
+          "cachedClipSeconds": 15.19,
+          "peakMemoryMiB": 23299,
+          "vaeEncodeDecodeTiling": false
+        }
+      ],
+      "outputChecks": [
+        "dimensions",
+        "all 21 frames",
+        "24 fps",
+        "video duration",
+        "downloaded SHA-256",
+        "visual image and clip-frame inspection"
+      ],
+      "audio": {
+        "encoding": "AAC re-encoded by existing wrapper",
+        "waveformCosine": 0.9999945694,
+        "paddingMaximumAACFrames": 1
+      }
+    },
+    "h3RegularizationAndReport": {
+      "image": "aitoolkit:v0.3.10-20261022-captioning",
+      "gpu": "RTX PRO 6000 Blackwell Server Edition",
+      "entryPoint": "Native GPUWorkspace actions through an opt-in acceptance harness",
+      "trainingStills": 4,
+      "resolution": 512,
+      "rank": 4,
+      "trainingSteps": 6,
+      "generatedClassImages": 16,
+      "captionedClassImages": 16,
+      "regularizationWeight": 1.0,
+      "nativeRegularizationDatasets": 1,
+      "batchRoutingEvidence": "Effective native config and six completed steps; pinned trainer alternates regularization at non-save even steps. No instrumented batch trace.",
+      "checkpointBytes": 44757776,
+      "checkpointSHA256": "05049a924a4073a09f722820d03d3e3496cfc236049d9f01ea68b7baa1d0a749",
+      "reportState": "complete",
+      "reportPairs": 2,
+      "renderedOutputs": 4,
+      "promptAdherence": {
+        "model": "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4",
+        "judgedOutputs": 4
+      },
+      "identity": {
+        "method": "SFace cosine",
+        "scoredOutputs": 2,
+        "outputsWithoutUsableFace": 2,
+        "missingFaceBehavior": "Scores remain nil; no fabricated zero or match"
+      },
+      "styleComponent": {
+        "method": "vgg19-imagenet1k-v1-gram-relu1_1-2_1-3_1-4_1-5_1-cosine-v1",
+        "pretrainedWeightsLoaded": true,
+        "scoredOutputs": 4,
+        "scores": {
+          "pair-000-base.png": 0.7358912229537964,
+          "pair-000-lora.png": 0.732032299041748,
+          "pair-001-base.png": 0.6844463348388672,
+          "pair-001-lora.png": 0.6850790977478027
+        },
+        "scope": "Style references injected into one planned report batch to exercise the actual VGG19 component; no style-training quality claim"
+      },
+      "endToEndSeconds": 870.62
+    },
+    "costAndCleanup": {
+      "seed32AndSeed96H3BudgetUSD": 10,
+      "seed32AndSeed96H3EstimatedComputeAndRunningStorageUSD": 1.06448,
+      "costMethod": "Conservative elapsed-time estimate using quoted GPU and running-storage rates; includes stopped gaps on Seed32. Excludes brief stopped-disk storage before termination; not an account invoice.",
+      "seed32AndSeed96H3PodsStoppedAndRemoved": true,
+      "taskAgentSecretsRemoved": true,
+      "verification": "Stopped status EXITED; terminate204 followed by pod404; secret delete204 followed by secret404"
+    }
+  }
+}

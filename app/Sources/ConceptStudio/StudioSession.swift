@@ -77,6 +77,11 @@ enum WorkGate {
 final class StudioSession {
     var project: StudioProject? {
         didSet {
+            if oldValue?.directory != project?.directory || oldValue?.job.concepts != project?.job.concepts {
+                invalidateFaceRecognition(referencesChanged: true)
+            } else if oldValue?.allMedia.map(\.url) != project?.allMedia.map(\.url) {
+                invalidateFaceRecognition()
+            }
             if step == .mapping, project?.job.requiresLocatorMapping == false { step = .captioning }
             if project?.job.concepts.isEmpty == true, step != .images, step != .concepts, step != .pods {
                 step = .concepts
@@ -137,6 +142,11 @@ final class StudioSession {
         set { updateProjectState { $0.mappingDescriptions = newValue } }
     }
 
+    var faceRecognitionResults: [String: FaceRecognitionResult] = [:]
+    var faceReferenceWarnings: [String: [String]] = [:]
+    let faceRecognizer = SFaceRecognizer()
+    @ObservationIgnored var faceRecognitionGeneration = 0
+    @ObservationIgnored var referenceWarningTask: Task<Void, Never>?
     var mappingReviewExceptions: [String] = []
     var referenceRevision = 0
     var mappingBatchSize = 9
@@ -239,6 +249,7 @@ final class StudioSession {
     }
 
     func invalidateMediaDraft(id: String) {
+        invalidateFaceRecognition()
         captionDrafts[id] = nil
         mappingProposals[id] = nil
         invalidateMappingUndo()

@@ -47,6 +47,7 @@ extension GPUWorkspace {
     var podImage: String {
         let override = imageName.trimmingCharacters(in: .whitespacesAndNewlines)
         let captioning = rentsCaptionServer || keepCaptionServer
+            || (projectFolder != nil && exactModelRow?.hooks.generator != nil)
         let image = override.isEmpty
             ? StudioSession.defaultPodImageName + (captioning ? Self.captioningTagSuffix : "")
             : override

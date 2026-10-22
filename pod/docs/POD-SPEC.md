@@ -759,6 +759,21 @@ Resume of a pruned Hub dataset uses the source run's saved `dataset-manifest.jso
 re-pulled into the saved dataset path before the trainer starts. Missing pinned source facts
 cause a clear refusal, never a pull of current `main`. Local mode recovery is defined in 3.4.
 
+### Training loss masks
+
+An imagefolder metadata row may include `training_mask`, a relative PNG path. The app publishes
+`training_masks/<stem>.png`; its flat direct-upload snapshot uses a flat PNG filename referenced
+by the same column. `pull_dataset` installs both at `training_masks/<stem>.png`, preserves the
+PNG bytes and lists only the training target in metadata. Referenced masks and the
+`training_masks` directory are excluded from unlisted-media enumeration.
+
+AI Toolkit uses the native `mask_path` with `mask_min_value: 0` and
+`train.inverted_mask_prior: false`; white trains and black ignores. Masked targets use native
+file lists so masks cannot be discovered as image samples. The LTX and musubi launchers refuse
+active masks before preprocessing. Regularisation copies clear masks and all subject
+augmentation flags. The app publishes a mask only while its embedded source-image digest
+matches the approved target; editing pixels invalidates it and restoring those bytes restores it.
+
 ### 3.8 `draw-regularization` — GPUs 1
 
 Draws the pictures of a generated regularisation set (4.3) before the run, so the app can caption
@@ -858,6 +873,7 @@ no `/opt/venvs/seedvr2`; the agent then reports the service unavailable and refu
 | `initialization` | no | null | AI Toolkit H3 new-run preload: `{name,lora_sha256,recipe_sha256}` identifies the two fixed staged artifacts; never a client filesystem path |
 | `regularization` | no | null | AI Toolkit only (the LTX trainer refuses it). A regularisation (prior-preservation) set trained beside the subject: `{"source": "generate", "images", "weight", "class_nouns", "generation": {"steps", "guidance_scale", "seed"}, "captions"}` (drawn on the pod by `draw-regularization` from the subject captions with each trigger replaced by its class noun; `captions` maps each drawn picture's key to the caption the app's captioner wrote for it) or `{"source": "folder", "path", "weight"}` (images and sidecar captions already under `datasets/`). Explicit values, copied by the app from the model table. Details below |
 | `repa` | no | null | AI Toolkit only. Representation alignment: `{"encoder", "block_index", "weight", "projector", "projector_dim", "encoder_resolution"}`, all six explicit, written one to one as ai-toolkit's `process.repa` block. Details below |
+| `augmentation` | no | absent/off | AI Toolkit only: `none`, `horizontal` or `square`. Horizontal flips are the person-concept option. Square mode requires a saved style-only job and applies `RandomRotate90` plus `HorizontalFlip` to square unmasked stills; masked or rectangular samples use horizontal flips. Caption rows containing standalone `left` or `right` never flip. Native JSON file lists select the original media; no transformed media files are written. |
 | `caption_dropout` | no | null | Trainer setting (below). The share of training images seen without their caption, a number from 0 to 1: every dataset's `caption_dropout_rate`, the regularisation copy included. Null: the row's `recipe.caption_dropout` |
 | `gradient_checkpointing` | no | null | Trainer setting. `train.gradient_checkpointing`: recompute activations rather than keep them, slower but far less GPU memory. Null: the row's `architecture.gradient_checkpointing` |
 | `optimizer` | no | null | Trainer setting. `train.optimizer`, an ai-toolkit optimizer name (`^[A-Za-z0-9_]{1,32}$`; the app offers `adamw8bit` and `adamw`). Null: the row's `recipe.optimizer` |

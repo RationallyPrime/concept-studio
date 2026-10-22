@@ -48,7 +48,13 @@ struct LocalTrainingDataset {
                 }
                 let caption = image.caption
                 let record = try await copiedSink.record(image.id)
-                rows.append(MetadataRow(fileName: image.id, caption: caption, record: record))
+                var extra: JSONObject = [:]
+                if let mask = try TrainingMasks.source(for: image, project: project) {
+                    let maskName = TrainingMasks.uploadName(for: image.id)
+                    try copy(mask, name: maskName, to: folder, total: &copiedBytes)
+                    extra[TrainingMasks.metadataColumn] = .string(maskName)
+                }
+                rows.append(MetadataRow(fileName: image.id, caption: caption, record: record, extra: extra))
             }
             let metadata = ImageFolderMetadata.serialize(rows)
             guard metadata.count <= maximumFileBytes, copiedBytes + Int64(metadata.count) <= maximumDatasetBytes else {

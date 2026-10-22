@@ -78,7 +78,6 @@ MAX_RESOLUTION = 8192
 UNSUPPORTED_REGULARIZATION = (
     "Generated regularisation images need a supported model. Provide your own images instead."
 )
-NO_REGULARIZATION_HERE = "Regularisation images are not available for this model."
 UNSUPPORTED_REPA = "Representation alignment is not available for this model."
 LTX_NO_REGULARIZATION = "regularization/repa are not available on the LTX trainer"
 MUSUBI_NO_REGULARIZATION = "regularization/repa are not available on the musubi-tuner trainer"
@@ -476,6 +475,7 @@ class RunConfig(ServiceParams):
     initialization: Initialization | None = None
     regularization: Regularization | None = None
     repa: Repa | None = None
+    augmentation: Literal["none", "horizontal", "square"] | None = None
     caption_dropout: float | None = Field(default=None, ge=0, le=1)
     gradient_checkpointing: bool | None = None
     optimizer: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_]{1,32}$")
@@ -565,6 +565,8 @@ class LtxRunConfig(RunConfig):
     def _ai_toolkit_only(self) -> LtxRunConfig:
         if self.regularization is not None or self.repa is not None:
             raise ValueError(LTX_NO_REGULARIZATION)
+        if self.augmentation is not None:
+            raise ValueError("LTX does not support training-time augmentation")
         settings = self.trainer_settings()
         if settings:
             raise ValueError(", ".join(settings) + ": " + LTX_TRAINER_SETTINGS)
@@ -590,6 +592,8 @@ class MusubiRunConfig(RunConfig):
     def _musubi_only(self) -> MusubiRunConfig:
         if self.regularization is not None or self.repa is not None:
             raise ValueError(MUSUBI_NO_REGULARIZATION)
+        if self.augmentation is not None:
+            raise ValueError("musubi-tuner does not support training-time augmentation")
         if self.initialization is not None:
             raise ValueError(NO_INITIALIZATION_HERE)
         settings = self.trainer_settings()
@@ -680,6 +684,29 @@ class PushLoraParams(ServiceParams):
         return None if value is None else _text(value, "commit_message")
 
 
+class StyleReferences(BaseModel):
+    """Frozen class-style reference images uploaded for a report generation batch."""
+
+    model_config = ConfigDict(extra="forbid")
+    upload: str = Field(pattern=NAME_PATTERN)
+    groups: dict[str, list[str]]
+
+    @field_validator("groups")
+    @classmethod
+    def _groups(cls, groups: dict[str, list[str]]) -> dict[str, list[str]]:
+        if not groups or any(not trigger.strip() or not files for trigger, files in groups.items()):
+            raise ValueError("style reference groups need a concept and at least one image")
+        for files in groups.values():
+            for name in files:
+                if (
+                    not name
+                    or any(char in name for char in ("/", "\\", "\0"))
+                    or Path(name).suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}
+                ):
+                    raise ValueError("style references must name uploaded image basenames")
+        return groups
+
+
 class GenerationParams(ServiceParams):
     """One matched base/LoRA batch, from a checkpoint already on this storage."""
 
@@ -694,6 +721,7 @@ class GenerationParams(ServiceParams):
     guidance_scale: float = Field(default=4, ge=0, le=20)
     num_frames: int = Field(default=1, ge=1, le=257)
     frame_rate: float = Field(default=24, gt=0, le=60)
+    style_references: StyleReferences | None = None
 
     @field_validator("prompts")
     @classmethod
@@ -939,19 +967,15 @@ def _row_hook(table: dict[str, Any], row: dict[str, Any] | None, concern: str) -
 def _validate_regularization_and_repa(name: str, params: RunConfig, paths: Paths) -> None:
     """The model-dependent rules for ``regularization`` and ``repa`` (POD-SPEC 4.1).
 
-    A generated set needs a row that offers it; a row whose ``trainer_config`` hook rebuilds the
-    datasets takes no regularisation of either kind; ``repa`` needs a row that offers it. The
+    The model row declares generated/folder support; ``repa`` needs a row that offers it. The
     launcher keeps its own copy of these rules.
     """
     table = _model_table(paths)
     row = table["exact_row"](params.base_model, name.removeprefix("trainer-"))
-    if params.regularization is not None:
-        if _row_hook(table, row, "trainer_config") is not None:
-            _invalid(params, NO_REGULARIZATION_HERE, ("regularization",))
-        if isinstance(params.regularization, GeneratedRegularization) and (
-            row is None or not row.get("regularization")
-        ):
-            _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
+    if params.regularization is not None and not table["supports_regularization"](
+        row, params.regularization.source
+    ):
+        _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
     if params.repa is not None and (row is None or not row.get("repa")):
         _invalid(params, UNSUPPORTED_REPA, ("repa",))
 
@@ -962,9 +986,7 @@ def _validate_draw(params: DrawRegularizationParams, paths: Paths) -> None:
         _invalid(params, "Choose a new run_id; existing outputs are kept")
     table = _model_table(paths)
     row = table["exact_row"](params.base_model, "aitoolkit")
-    if _row_hook(table, row, "trainer_config") is not None:
-        _invalid(params, NO_REGULARIZATION_HERE, ("regularization",))
-    if row is None or not row.get("regularization"):
+    if row is None or not table["supports_regularization"](row, "generate"):
         _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
 
 
@@ -1168,6 +1190,19 @@ def _validate_generation(name: str, params: GenerationParams, paths: Paths) -> N
             _invalid(params, f"{short} generation needs {shape} frames")
         if video["fixed_fps"] is not None and params.frame_rate != video["fixed_fps"]:
             _invalid(params, f"{short} generation uses exactly {video['fixed_fps']} fps")
+    if params.style_references is not None:
+        try:
+            folder = upload_folder(paths, params.style_references.upload)
+            stage_bytes(folder)
+            for files in params.style_references.groups.values():
+                for file in files:
+                    image = folder / file
+                    if not image.is_file() or image.is_symlink() or image.stat().st_size == 0:
+                        raise ValueError(
+                            "Upload every frozen style reference before generating its report"
+                        )
+        except (OSError, ValueError, AgentError) as error:
+            _invalid(params, str(error), ("style_references",))
     precondition = _GENERATOR_HOOKS[generator].precondition
     if precondition is not None:
         precondition(params, paths)
@@ -1420,7 +1455,7 @@ def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
     run_dir = paths.run_dir(cfg.run_id)
     payload = cfg.model_dump(mode="json", exclude=set(SECRET_FIELDS))
     # Absent means off, or the recipe's value: a plain run's run.json is unchanged.
-    for key in ("regularization", "repa", *TRAINER_SETTINGS):
+    for key in ("regularization", "repa", "augmentation", *TRAINER_SETTINGS):
         if payload.get(key) is None:
             payload.pop(key, None)
     table = _model_table(paths)
@@ -1463,6 +1498,19 @@ def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
         while chunk := src.read(1024 * 1024):
             out.write(chunk)
             digest.update(chunk)
+    if cfg.style_references is not None:
+        with STAGING_LOCK:
+            folder = upload_folder(paths, cfg.style_references.upload)
+            stage_bytes(folder)
+            destination = run_dir / "style-references"
+            destination.mkdir()
+            for file in set(
+                name for files in cfg.style_references.groups.values() for name in files
+            ):
+                image = folder / file
+                if image.is_symlink() or not image.is_file():
+                    raise ValueError("The frozen style reference upload changed")
+                shutil.copyfile(image, destination / file)
     (run_dir / "generation.json").write_text(
         json.dumps(
             {**cfg.model_dump(mode="json"), "checkpoint_sha256": digest.hexdigest()}, indent=2
@@ -1704,7 +1752,16 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_upscale_prepare,
         run_id=_params_run_id,
-        available=lambda paths: Path(paths.venv_bin("seedvr2", "python")).is_file(),
+        available=lambda paths: (
+            Path(paths.venv_bin("seedvr2", "python")).is_file()
+            and any(
+                module.is_file()
+                for module in (paths.prefix / "venvs" / "seedvr2" / "lib").glob(
+                    "python*/site-packages/torch/__init__.py"
+                )
+            )
+        ),
+        missing="This image has no SeedVR2 GPU runtime. Rent a GPU with a current trainer image to upscale.",
     ),
     "push-lora": ServiceSpec(
         name="push-lora",

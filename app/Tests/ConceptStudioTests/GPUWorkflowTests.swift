@@ -13,8 +13,9 @@ struct GPUWorkflowTests {
         let params = try #require(body?["params"]?.objectValue)
         #expect(params["model"]?.stringValue == model)
         #expect(params["max_model_len"]?.intValue == 16384)
-        #expect(params["max_num_seqs"]?.intValue == 2)
-        #expect(params["gpu_memory_utilization"]?.doubleValue == 0.85)
+        let isCapQwen = model == ProviderChoices.defaultSelfHostedModel
+        #expect(params["max_num_seqs"]?.intValue == (isCapQwen ? 4 : 2))
+        #expect(params["gpu_memory_utilization"]?.doubleValue == (isCapQwen ? 0.90 : 0.85))
         #expect(params["extra_args"] == .array([.string("--enforce-eager"), .string("--max-num-batched-tokens=4096")]))
     }
 
@@ -354,6 +355,11 @@ struct GPUWorkflowTests {
         #expect(measured.maxNumSeqs == 2)
         #expect(GPUWorkspace.captionServerSettings(for: "someone/unmeasured") == measured)
         #expect(measured.params(model: "someone/unmeasured")["model"]?.stringValue == "someone/unmeasured")
+        let capQwen = GPUWorkspace.captionServerSettings(for: ProviderChoices.defaultSelfHostedModel)
+        #expect(capQwen.maxModelLen == 16384)
+        #expect(capQwen.maxNumSeqs == 4)
+        #expect(capQwen.gpuMemoryUtilization == 0.90)
+        #expect(capQwen.extraArgs == ["--enforce-eager", "--max-num-batched-tokens=4096"])
     }
 
     @Test

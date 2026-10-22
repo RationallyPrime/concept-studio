@@ -58,7 +58,7 @@ struct StudioSessionTests {
         let expected = if let saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             saved.replacingOccurrences(of: "{trainer}", with: trainer)
         } else {
-            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.9-20261022"
+            "ghcr.io/rationallyprime/concept-captioner-pod-\(trainer):v0.3.10-20261022"
         }
         #expect(await transport.createdImages == [expected])
         await session.gpu.stopEverything()
@@ -82,7 +82,7 @@ struct StudioSessionTests {
         session.gpu.keepCaptionServer = keepCaptionModel
         await session.gpu.refreshOffers()
         await session.gpu.rent()
-        let slim = "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.9-20261022"
+        let slim = "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.10-20261022"
         let captioning = slim + GPUWorkspace.captioningTagSuffix
         #expect(await transport.createdImages == [fromCaptioning || keepCaptionModel ? captioning : slim])
         // The selected purpose stays visible after rental and applies to the next one.
@@ -174,7 +174,7 @@ struct StudioSessionTests {
         await session.task?.value
         #expect(!session.datasetAdvice.isEmpty)
         let pendingMappings = session.unmappedCount
-        session.proposeMappings(useModel: true)
+        session.proposeMappings()
         await session.task?.value
         #expect(session.mappingProposals.count == pendingMappings)
         for (id, mapping) in session.mappingProposals {

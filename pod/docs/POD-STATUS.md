@@ -1,7 +1,87 @@
 # POD-STATUS
 
+ConceptStudio's GPU services caption datasets, train adapters, restore images and clips, and
+render matched base/LoRA comparisons. The [image release ledger](../images/README.md) records
+the current tags, exact registry digests, compressed sizes and build source. The service
+contract is [POD-SPEC.md](POD-SPEC.md); [APP-STATUS](../../app/docs/APP-STATUS.md) records the
+native app's completed workflows.
+
+## Current services and follow-up verification
+
+- **Control agent:** authenticated GPU inventory, topology, service supervision, logs and
+  training events. Workspace storage accounting reports the pod's actual workspace allocation.
+  TensorBoard uses the authenticated agent proxy.
+- **Training and generation:** AI Toolkit, LTX and musubi routes follow the shared model table.
+  Regularisation coverage is recorded for all 25 model rows. AI Toolkit supports sample-aware
+  flips and loss masks; unsupported trainers reject those requests explicitly.
+- **Post-training reports:** generation freezes checkpoint bytes and optional style references,
+  then records matched outputs and real VGG19 Gram-feature style scores. Completed outputs
+  remain available if scoring fails. The app adds SFace identity/bleed and GPU-captioner adherence.
+- **Images:** the base control image, three trainer images and their optional captioning variants
+  are published on GHCR. Build and runtime receipts are in the linked release ledger.
+
+**32 GB caption-to-publication acceptance passed.** The exact CapQwen FP8/NVFP4 checkpoint ran
+on an RTX PRO 4500 Blackwell using the existing v0.3.8 captioning image. The native app's actions
+produced nine responses, saved eight captions and privately published the eight captioned samples.
+The window publication was also exercised and the destination read back as private. Peak observed
+memory was 28,554 MiB of 32,623 MiB. The owner approved CapQwen as the fresh self-hosted default
+with a 32 GB GPU minimum. Details and evidence boundaries are in APP-STATUS.
+
+### SeedVR2 on the trainer's PyTorch
+
+The rebuilt SeedVR2 environment shares the trainer's PyTorch 2.13 and CUDA packages. Its own
+compressed environment/source layer shrank from 2.96 GB to 202 MB; the base image shrank from
+6.32 GB to 3.56 GB. Each trainer passed real imports and the SeedVR2 command-line startup check.
+The base control image correctly reports upscaling unavailable until a trainer runtime is present.
+
+The real **32 GB** test on the new image completed first-use weight download, a 1024 × 1024 image,
+and a 21-frame 24 fps 1024 × 1024 clip. Download plus image took 51.88 seconds; the cached clip
+pass took 25.86 seconds. Peak memory was 22,934 MiB. The returned clip retained its audio;
+the wrapper's AAC re-encoding was verified with waveform cosine above 0.99 and at most one AAC
+frame of padding. Both outputs passed downloaded SHA-256 checks. The task pod was stopped,
+verified and removed after outputs were secured.
+
+The matching **96 GB RTX PRO 6000 Blackwell** pass completed first-use weights plus image in
+42.21 seconds and the cached clip in 15.19 seconds, peaking at 23,299 MiB. The same output,
+frame-count, timing, audio and downloaded-hash checks passed. Both runs used the published
+v0.3.10 images. The 32 GB recipe used VAE tiling; the 96 GB recipe did not. Both used CPU
+component offload without BlockSwap. The image ledger records the complete settings.
+
+### H3 regularisation and automatic report
+
+The native app completed the full H3 workflow on the **96 GB RTX PRO 6000 Blackwell**, using the
+published AI Toolkit captioning image. The project used four bundled synthetic safe-for-work
+demo images and automatically drafted report prompts, with Adult content off. It generated
+**16 class stills**, captioned all 16 through
+CapQwen, trained **six real steps** with the native `is_reg: true` dataset and `reg_weight: 1.0`,
+and retrieved the **44,757,776-byte checkpoint**. Both trainer events and safetensors metadata
+record step 6. The checkpoint SHA-256 is
+`05049a924a4073a09f722820d03d3e3496cfc236049d9f01ea68b7baa1d0a749`.
+The effective native configuration and completed steps establish the regularisation path;
+individual class-batch routing was not instrumented.
+
+The automatic report completed **two prompt pairs / four renders**, saved the results and ran
+four real CapQwen adherence judgments. All four rubric scores were 1.0. SFace scored the identity
+pair at **0.279628 base / 0.214995 LoRA**, with one usable frame on each side. Neither no-trigger
+control had a usable face, so both bleed scores remain missing with 0/1 coverage. The run took
+**870.62 seconds end to end**. This six-step run is a functional acceptance check.
+
+A component check on those same four renders downloaded the real pretrained VGG19 weights and
+returned four finite Gram-feature cosine scores, **0.684446–0.735891**, through the published
+wrapper. It verifies the style-scoring component; the test did not train a style concept.
+
+The native app verified the pod stopped after saving the checkpoint and report. The exact test
+pod and its task-created agent secret were then removed, with independent absence checks.
+Estimated compute plus running storage was **$1.06 for the combined SeedVR2/H3 runs** against
+their $10 cap, and **$0.33 for the separate 32 GB captioning run** against its own $10 cap.
+These estimates exclude the brief stopped-disk interval before removal. All three test pods
+were removed after artifact retrieval; other account resources were preserved.
+
+
+## Earlier release record, 2026-10-10–15
+
 State after the 2026-10-11 source review repairs and the Phase 2 H3 source additions. The
-current published tag, `v0.3.4-20261015`, is a clean build of `1adc7c8` (LTX-2.3 and LTX-2.5 Hub sources, the LTX trainer at `be6d6d0`; both LTX rows verified on a 32 GB RTX 5090 on 2026-10-15); `v0.3.3-20261014` is a clean build of `126eb67` (adds the Hub licence ids, the
+then-current published tag, `v0.3.4-20261015`, is a clean build of `1adc7c8` (LTX-2.3 and LTX-2.5 Hub sources, the LTX trainer at `be6d6d0`; both LTX rows verified on a 32 GB RTX 5090 on 2026-10-15); `v0.3.3-20261014` is a clean build of `126eb67` (adds the Hub licence ids, the
 Qwen-Image-2.1 checkpoint cadence and REPA on by default); `v0.3.2-20261014` is a clean build of `374e695`
 (regularisation sets and REPA on top of the model table, with its review fixes); `v0.3.1-20261014` is the same change at `0124582`; `v0.3.0-20261014` is a clean build of PR #10 at `f784947` (the model table);
 the tag before, `v0.2.3-clean-20261011`, is a clean build of `main` at
@@ -26,37 +106,8 @@ contract is [POD-SPEC.md](POD-SPEC.md). The day-by-day record, with every timest
 hash and billing bucket, is in
 [status-history-2026-10-10.md](../../docs/process/status-history-2026-10-10.md#pod-status).
 
-## What exists
 
-- **Control agent** (`pod/agent`): authenticated HTTP API for GPU inventory, topology plan,
-  a nine-service catalog (vLLM, both trainers, both generators, TensorBoard, dataset pull,
-  LoRA push and dataset cleanup), supervisor, logs and training
-  events. TensorBoard listens on loopback and is reached only through the agent's
-  authenticated `/tensorboard/` proxy. vLLM and LTX preprocessing arguments are allowlisted.
-- **Transfer scripts and trainer wrappers** (`pod/scripts`): Hub dataset pull or authenticated
-  local dataset installation, AI Toolkit
-  (FLUX/H3) and LTX launchers, LoRA push. H3 still-image training has the owner/Claude runtime acceptance above;
-  clip training, external warm-start, Resume and matched generation remain unexercised live.
-- **podctl** (`pod/podctl`): command-line client for the agent.
-- **Images** on GHCR under tag `v0.3.9-20261022` (clean build from commit `21247aa`; digests in
-  [images/README](../images/README.md)): `concept-captioner-pod-base`, `-aitoolkit`, `-ltx`,
-  `-musubi`, each trainer also as `-captioning` with vLLM; plus a fake image for compose tests.
-  No GPU run has used this tag yet; the H3 adapter A/B ran on the `v0.3.7` test build. Public RunPod template
-  `87fxs5v8fn` points at the base image; it carries no token, and the agent refuses to start
-  without one.
-
-### SeedVR2 upscaling (built, not yet run on a GPU, 2026-10-22)
-
-The `upscale-media` service (POD-SPEC 3.9), `scripts/upscale_media.py` and the SeedVR2 venv in
-`Dockerfile.base` have fake-mode agent tests and script tests against a stand-in command line, and
-are in the `v0.3.9-20261022` images. Images on `v0.3.8-20261021` or older report the service
-unavailable. The build ran the venv's import check and `inference_cli.py --help`; the venv adds
-2.96 GB compressed (5.0 GB unpacked) to every tag; a CPU smoke of both musubi tags reports
-`upscale-media` available. Still open: first-use weight download to `/workspace/models/seedvr2`, an
-image pass and a clip pass (frame count and audio kept) on a 32 GB and a 96 GB GPU, and the memory
-thresholds in `upscale_media.memory_flags`.
-
-## Verified live
+### Verified live, 2026-10-10
 
 On RTX PRO 4500 Blackwell pods (one GPU and two GPUs, 32 GB each), 2026-10-10:
 
@@ -281,9 +332,11 @@ The r2 history: runtime source
   H3 clips, external warm-start, Resume and generation still need live acceptance. Earlier
   FLUX/LTX receipts remain evidence for their exact images.
 
-## Open
+## Checks recorded as open in the 2026-10-12 review
 
-- **Current baseline:** v0.2.3 includes the H3 initializer/recipe/clip/generator code and has
+Later receipts above and in APP-STATUS supersede this dated checklist.
+
+- **Then-current baseline:** v0.2.3 includes the H3 initializer/recipe/clip/generator code and has
   the owner/Claude still-image training acceptance above. The new walkthrough controls
   send explicit save and guidance fields through the image’s existing `extra` contract;
   [the source witness](../../docs/process/walkthrough-gpu-source-witness-2026-10-12.json)

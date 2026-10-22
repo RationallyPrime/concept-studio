@@ -38,7 +38,8 @@ struct AdvancedTrainingControls: View {
             TextField("Learning rate", value: $workspace.learningRate, format: .number)
                 .help("How much the model changes at each step. Keep the default for your first run.")
             if workspace.editsTrainerSettings { trainerSettingControls }
-            if workspace.usesRegularization { regularizationControls }
+            regularizationControls
+            TrainingAugmentationControls(workspace: workspace)
             TextField("Triggers", text: $workspace.triggerWords)
             TextField("Caption profile", text: $workspace.profile)
             TextField("Training seed", value: $workspace.seed, format: .number)
@@ -100,12 +101,48 @@ struct AdvancedTrainingControls: View {
         }
     }
 
-    /// Shown only while the regularisation toggle is on.
     @ViewBuilder private var regularizationControls: some View {
-        let standard = workspace.regularizationOffer.map { String(format: "%g", $0.weight) } ?? "1"
-        TextField("Regularisation strength", value: $workspace.regularizationWeight, format: .number)
-            .help("How much each regularisation image counts compared with one of yours. "
-                + "\(standard) is the default for this model.")
+        if let offer = workspace.regularizationOffer {
+            Toggle("Use my own regularisation images", isOn: Binding(
+                get: { workspace.ownRegularizationImages },
+                set: { selected in
+                    workspace.ownRegularizationImages = selected
+                    if selected { workspace.regularizationOn = true }
+                }
+            )).disabled(offer.mode == .folder)
+            if workspace.ownRegularizationImages {
+                LabeledContent("Class-image folder") {
+                    HStack {
+                        Text(workspace.regularizationFolder?.lastPathComponent
+                            ??
+                            (workspace
+                                .regularizationRemotePath == nil ? "Choose a folder" : "Saved on this cloud GPU"))
+                        Button("Choose…") {
+                            if let folder = ProjectAccess.chooseFolder(prompt: "Use regularisation images") {
+                                workspace.regularizationFolder = folder
+                                workspace.regularizationRemotePath = nil
+                                workspace.regularizationOn = true
+                            }
+                        }
+                    }
+                }
+                Text("The project's captioner describes these images before upload, without your concept triggers. "
+                    + "Your original files and captions stay in their folder.")
+                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+            }
+            if workspace.usesRegularization {
+                TextField("Regularisation strength", value: $workspace.regularizationWeight, format: .number)
+                    .help("How much each class image counts compared with one of yours. "
+                        + "\(String(format: "%g", offer.weight)) is the default for this model.")
+            }
+            Text(offer.note).font(.callout).foregroundStyle(StudioStyle.supportingText)
+        } else {
+            LabeledContent("Regularisation") {
+                Text(workspace.exactModelRow?.regularization?.note
+                    ?? "Choose a listed model to see its regularisation support.")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     @ViewBuilder private var checkpointControls: some View {

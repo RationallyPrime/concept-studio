@@ -89,7 +89,7 @@ struct ConceptsView: View {
                 .background(InstantPrint.ground)
         }
         .sheet(item: $editor) { ConceptEditor(session: session, existing: $0.existing) }
-        .onAppear { multipleConcepts = concepts.count > 1 }
+        .onAppear { multipleConcepts = concepts.count > 1; session.inspectReferenceFaces() }
     }
 
     private struct EditorSelection: Identifiable {
@@ -137,6 +137,9 @@ struct ConceptsView: View {
                                 }
                             }.disabled(session.busy || session.editing)
                     }
+                }
+                if let warnings = session.faceReferenceWarnings[concept.trigger], !warnings.isEmpty {
+                    StudioNotice(warnings.joined(separator: " "), symbol: "exclamationmark.triangle")
                 }
                 if concept.targetConcept.requiresLocator {
                     Text(concept.targetConcept.isPersonIdentity

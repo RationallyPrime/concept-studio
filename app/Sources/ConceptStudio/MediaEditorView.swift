@@ -7,6 +7,13 @@ struct MediaEditorView: View {
     let media: ProjectImage
     @Environment(\.dismiss) private var dismiss
     @State private var image: CGImage?
+    @State private var originalImage: CGImage?
+    @State private var adjustments = PhotoAdjustments()
+    @State private var photoPreviewTask: Task<Void, Never>?
+    @State private var chosenPerson = ""
+    @State private var personCropTask: Task<Void, Never>?
+    @State private var suggestingPerson = false
+    @State private var showLossMask = false
     @State private var rectangle = CGRect(x: 0, y: 0, width: 1, height: 1)
     @State private var info: VideoInfo?
     @State private var frames: [MediaFrame] = []
@@ -53,7 +60,7 @@ struct MediaEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(isVideo ? "Inspect and select a training segment" : "Approve a training crop").font(.title2.bold())
+            Text(isVideo ? "Inspect and select a training segment" : "Edit your training photo").font(.title2.bold())
             Text(media.id).foregroundStyle(StudioStyle.supportingText).lineLimit(1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -76,7 +83,7 @@ struct MediaEditorView: View {
             HStack {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Spacer()
-                Button(isVideo ? "Approve segment" : "Approve crop") {
+                Button(isVideo ? "Approve segment" : "Apply photo edits") {
                     if hasCaptionToReset { confirmReset = true } else { approve() }
                 }.buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
                     .disabled(session.busy || session.editing || (isVideo ?
@@ -94,9 +101,16 @@ struct MediaEditorView: View {
                         frameCount = format.initialSelectionFrames(available: decoded.times.count)
                         frames = try await MediaEditor.frames(url: media.url)
                     } else {
-                        image = try await Task.detached {
-                            try MediaEditor.orientedImage(Data(contentsOf: media.url))
+                        let source = try session.project?.photoEditSource(for: media) ?? media.url
+                        adjustments = session.project?.mediaState.selections[media.id]?.photoEdit?.adjustments
+                            ?? PhotoAdjustments()
+                        rectangle = adjustments.crop
+                        chosenPerson = session.project?.job.concepts.first(where: \.targetConcept.isPersonIdentity)?
+                            .trigger ?? ""
+                        originalImage = try await Task.detached {
+                            try MediaEditor.orientedImage(Data(contentsOf: source))
                         }.value
+                        refreshPhotoPreview()
                     }
                 } catch { self.error = error.localizedDescription }
             }
@@ -113,50 +127,121 @@ struct MediaEditorView: View {
                     previewLongEdge = longEdge
                 } catch is CancellationError {} catch { self.error = error.localizedDescription }
             }
-            .onDisappear { player?.pause(); player?.replaceCurrentItem(with: nil); player = nil }
+            .onDisappear {
+                player?.pause(); player?.replaceCurrentItem(with: nil); player = nil
+                photoPreviewTask?.cancel()
+                personCropTask?.cancel()
+            }
+            .onChange(of: adjustments) { old, new in
+                if old.quarterTurns != new.quarterTurns { rectangle = new.crop }
+                refreshPhotoPreview()
+            }
             .onChange(of: format) { _, selected in
                 guard let timeline else { return }
                 frameCount = selected.initialSelectionFrames(available: timeline.times.count)
                 startFrame = min(max(0, startFrame), maximumStartFrame)
             }
             .confirmationDialog("Replace this training target and reset its caption?", isPresented: $confirmReset) {
-                Button(isVideo ? "Approve segment and reset caption" : "Approve crop and reset caption") { approve() }
+                Button(isVideo ? "Approve segment and reset caption" : "Apply edits and reset caption") { approve() }
                 Button("Keep current target", role: .cancel) {}
             }
+            .sheet(isPresented: $showLossMask) { TrainingLossMaskEditor(session: session, media: media) }
     }
 
     @ViewBuilder private var cropControls: some View {
         if let image {
-            GeometryReader { geometry in
-                let crop = CropPreviewGeometry(
-                    imageSize: CGSize(width: image.width, height: image.height),
-                    availableSize: geometry.size, crop: rectangle
-                )
-                ZStack(alignment: .topLeading) {
-                    Image(decorative: image, scale: 1).resizable()
-                        .frame(width: crop.imageRect.width, height: crop.imageRect.height)
-                        .position(x: crop.imageRect.midX, y: crop.imageRect.midY)
-                    crop.excludedPixels.fill(.black.opacity(0.5), style: FillStyle(eoFill: true))
-                    Rectangle().strokeBorder(.black, lineWidth: 4)
-                        .overlay { Rectangle().strokeBorder(.orange, lineWidth: 2) }
-                        .frame(width: crop.cropRect.width, height: crop.cropRect.height)
-                        .position(x: crop.cropRect.midX, y: crop.cropRect.midY)
-                }
-                .allowsHitTesting(false)
-            }.frame(height: 300)
+            InteractivePhotoCrop(image: image, rectangle: $rectangle).frame(height: 300)
             HStack {
                 Button("Whole image") { rectangle = CGRect(x: 0, y: 0, width: 1, height: 1) }
-                if let face = session.analyses[media.id]?.faces.first {
-                    Button("Suggest face-centered crop") { rectangle = MediaEditor.suggestedCrop(face: face) }
+                if session.project?.mediaState.selections[media.id]?.photoEdit != nil {
+                    Button("Put back original") { session.restoreOriginalPhoto(id: media.id); dismiss() }
                 }
             }
-            cropSlider("Left", keyPath: \.origin.x, range: 0 ... 0.95)
-            cropSlider("Top", keyPath: \.origin.y, range: 0 ... 0.95)
-            cropSlider("Width", keyPath: \.size.width, range: 0.05 ... (1 - rectangle.minX))
-            cropSlider("Height", keyPath: \.size.height, range: 0.05 ... (1 - rectangle.minY))
+            personCropControls
+            cropSlider("Left", keyPath: \.origin.x, range: 0 ... (1 - InteractivePhotoCrop.minimumFraction))
+            cropSlider("Top", keyPath: \.origin.y, range: 0 ... (1 - InteractivePhotoCrop.minimumFraction))
+            cropSlider("Width", keyPath: \.size.width, range: InteractivePhotoCrop.sizeRange(after: rectangle.minX))
+            cropSlider("Height", keyPath: \.size.height, range: InteractivePhotoCrop.sizeRange(after: rectangle.minY))
             Text("Only the approved crop will be captioned and sent to the trainer.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)
+            Divider()
+            PhotoAdjustmentControls(adjustments: $adjustments)
+            Text(
+                "Edits stay on this Mac. The original and your settings stay in the project, including after reopening."
+            )
+            .font(.callout).foregroundStyle(StudioStyle.supportingText)
         } else { ProgressView("Loading image…") }
+    }
+
+    private func refreshPhotoPreview() {
+        guard let originalImage else { return }
+        photoPreviewTask?.cancel()
+        let settings = adjustments
+        photoPreviewTask = Task {
+            do {
+                try await Task.sleep(for: .milliseconds(60))
+                let rendered = try await Task.detached {
+                    try PhotoEditing.render(originalImage, adjustments: settings, crop: false)
+                }.value
+                try Task.checkCancellation()
+                image = rendered
+            } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        }
+    }
+
+    @ViewBuilder private var personCropControls: some View {
+        let people = session.project?.job.concepts.filter(\.targetConcept.isPersonIdentity) ?? []
+        if !people.isEmpty {
+            HStack {
+                Picker("Crop around", selection: $chosenPerson) {
+                    ForEach(people, id: \.trigger) { Text($0.trigger).tag($0.trigger) }
+                }
+                Button("Suggest person crop") { suggestPersonCrop() }
+                    .disabled(suggestingPerson || chosenPerson.isEmpty || session.references[chosenPerson] == nil)
+            }
+            Text(
+                "SFace uses the chosen person's reference on this Mac. First use downloads OpenCV's 39 MB model. "
+                    + "Review the crop; leave other people outside it."
+            )
+            .font(.callout).foregroundStyle(StudioStyle.supportingText)
+            HStack {
+                Link("SFace by OpenCV Zoo", destination: SFaceRecognizer.modelPage)
+                Link("Apache 2.0 license", destination: SFaceRecognizer.licenseURL)
+            }.font(.caption)
+            HStack {
+                Button("Exclude this image instead") { session.includeMedia(media.id, included: false); dismiss() }
+                Button("Mask other people in the saved photo…") { showLossMask = true }
+            }
+            Text("Apply crop and colour edits before drawing a training loss mask.")
+                .font(.caption).foregroundStyle(StudioStyle.supportingText)
+        }
+    }
+
+    private func suggestPersonCrop() {
+        personCropTask?.cancel()
+        let trigger = chosenPerson, projectDirectory = session.project?.directory
+        suggestingPerson = true
+        personCropTask = Task {
+            defer { suggestingPerson = false }
+            do {
+                guard let reference = session.references[trigger] else { return }
+                let source = try session.project?.photoEditSource(for: media) ?? media.url
+                let result = try await session.faceRecognizer.recognize(
+                    images: [source],
+                    references: [trigger: reference]
+                )
+                try Task.checkCancellation()
+                guard chosenPerson == trigger, session.project?.directory == projectDirectory else { return }
+                guard let face = result.samples[source.lastPathComponent]?.faces
+                    .first(where: { $0.match?.trigger == trigger }) else {
+                    throw StudioError.message("This person needs review. Drag the crop handles to choose the subject.")
+                }
+                var settings = adjustments
+                settings.quarterTurns = 0; settings.straightenDegrees = 0
+                settings.crop = MediaEditor.suggestedCrop(face: face.box)
+                adjustments = settings; rectangle = settings.crop
+            } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        }
     }
 
     private func cropSlider(
@@ -175,7 +260,9 @@ struct MediaEditorView: View {
                 .frame(width: 50)
         }
     }
+}
 
+extension MediaEditorView {
     @ViewBuilder private var videoControls: some View {
         if let info {
             Picker("Training model", selection: $format) {
@@ -372,7 +459,9 @@ struct MediaEditorView: View {
                 format: format
             )
         } else {
-            session.approveCrop(id: media.id, rectangle: rectangle)
+            var settings = adjustments
+            settings.crop = rectangle
+            session.approvePhotoEdits(id: media.id, adjustments: settings)
         }
         dismiss()
     }

@@ -16,12 +16,13 @@ creating with it.
 ## Your examples. Your model.
 
 - **Build the training set you want.** Import from folders, Apple Photos or Hugging Face.
-  Keep the best copy of each duplicate, crop images and select exact video segments.
+  Keep the best copy of each duplicate, drag a crop around your subject, and select exact video segments.
+  Adjust light and colour on your Mac, bring individual outliers into line, and keep every original.
   Start a project directly from a Hugging Face dataset URL, down to the folder you want.
   Upscale and restore images and clips with SeedVR2, with a before-and-after preview.
 - **Teach the subject, keep the scene.** Define your person, pet, object, style or movement.
-  Map nine photos per AI request with numbered contact sheets, confirm subjects in batches, and set uncertain
-  samples aside for review. Model-specific captions describe the surroundings, pose and lighting
+  Match faces locally with SFace, or map nine photos per AI request with numbered contact sheets.
+  Confirm matches in batches and set uncertain samples aside for review. Model-specific captions describe the surroundings, pose and lighting
   that make each example distinct.
 - **Caption with your choice of AI.** Use your ChatGPT plan, OpenRouter, a provider key or
   your own vLLM server. Launch a captioning model on a cloud GPU directly from the app.
@@ -31,17 +32,20 @@ creating with it.
   and set your budget. ConceptStudio rents and controls the GPU for you. Keep stopped GPUs and their model caches,
   then switch computers when you need different hardware.
 - **Train with settings ready to go.** Choose a model and start from its prepared recipe.
+  Add class images to preserve the base model's range, mask unwanted people out of training,
+  and flip eligible examples on the fly. Each trainer exposes the controls it supports.
   Follow the learning curve and logs live, save checkpoints, and repeat runs with your saved
   settings. Advanced controls put the details within reach.
-- **See what changed.** Compare base and trained models with matching prompts and seeds on
-  supported generation routes. Save your adapter to your Mac or publish it to Hugging Face.
+- **Measure what you taught.** Get a report with matched renders, fixed seeds, identity and
+  style similarity, and prompt-adherence scores. Compare training runs against the same frozen
+  prompt set. Save your adapter to your Mac or publish it to Hugging Face.
 
 ## Image and video models
 
-Train image adapters for **FLUX.1-dev**, **Z-Image** and **Qwen-Image-2.1**, and image or video
-adapters for **LTX-2.3**, **LTX-2.5** and **MiniMax H3**. Each comes with a model-specific recipe.
+Train image adapters for **FLUX.1-dev**, **Z-Image**, **Qwen-Image-2.1** and **Krea 2**, and image
+or video adapters for **LTX-2.3**, **LTX-2.5** and **MiniMax H3**. Each comes with a model-specific recipe.
 
-Want more control? **Advanced user** unlocks detailed training settings and 20 additional
+Want more control? **Advanced user** unlocks detailed training settings and 18 additional
 AI Toolkit architectures, including FLUX.2, Chroma, SDXL, Lumina 2 and HiDream-O1.
 Explore [models, recipes and licences](docs/model-table.md) and
 [training settings and hardware requirements](app/docs/RUNNING.md#prepare-and-train).

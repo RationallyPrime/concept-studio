@@ -24,12 +24,6 @@ struct GPURunHistoryTests {
         return workspace
     }
 
-    private func temporaryFolder() throws -> URL {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("gpu-history-" + UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder
-    }
-
     private func fixtureRun(
         trainer: String = "aitoolkit", datasetRepo: String = "me/old-data", baseModel: String? = nil
     ) -> TrainingRun {
@@ -587,5 +581,17 @@ extension GPURunHistoryTests {
         #expect(start.params["inference_steps"] == .int(8) && start.params["guidance_scale"] == .double(1))
         #expect(start.params["width"] == .int(1024))
         #expect(fixtureRun().generationDefaults(in: workspace.modelTable) == TrainingRun.defaultGeneration)
+    }
+}
+
+extension GPURunHistoryTests {
+    private func temporaryFolder() throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("gpu-history-" + UUID().uuidString)
+        try FileManager.default.createDirectory(
+            at: folder.appendingPathComponent("images"), withIntermediateDirectories: true
+        )
+        try Job(profile: "plain", concepts: [Concept(trigger: "NORA7")])
+            .save(to: folder.appendingPathComponent("job.yaml"))
+        return folder
     }
 }

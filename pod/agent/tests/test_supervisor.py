@@ -605,7 +605,8 @@ def test_vllm_is_reported_unavailable_and_refused_on_an_image_without_it(
     assert "-captioning" in excinfo.value.message
     with pytest.raises(AgentError) as excinfo:
         sup.start("upscale-media", [0], {"run_id": "upscale-001", "upload": "upscale-001"})
-    assert "current image" in excinfo.value.message
+    assert excinfo.value.code == "unavailable" and excinfo.value.status == 409
+    assert "SeedVR2" in excinfo.value.message and "trainer image" in excinfo.value.message
     executable = Path(real.paths.venv_bin("vllm", "vllm"))
     executable.parent.mkdir(parents=True)
     executable.write_text("")

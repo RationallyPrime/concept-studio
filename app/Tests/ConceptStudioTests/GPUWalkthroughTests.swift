@@ -227,7 +227,7 @@ struct GPUWalkthroughTests {
     func lostRemoteStartReplyRetainsPodDiskOutputCustody(_ generation: Bool) async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = try await captionedUploadProject().directory
         defer { try? FileManager.default.removeItem(at: folder) }
         let agent = HistoryAgent()
         await agent.loseStartAcknowledgements()

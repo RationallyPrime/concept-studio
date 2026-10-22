@@ -18,17 +18,14 @@ struct CaptionServerSettings: Equatable {
 }
 
 extension GPUWorkspace {
-    /// Measured, not universal: each row is what fit and served captions on the GPUs it was tried
-    /// on (Qwen3-VL-8B on the 32 GB RTX PRO 4500 pods, POD-STATUS 2026-10-10; the FP8/NVFP4
-    /// CapQwen3.6-27B on a 32 GB RTX 5090 with vLLM 0.31.0, 2026-10-22). A different model or GPU
-    /// size needs its own measured row; until then it gets the 8B row, the smallest footprint known
-    /// to work, rather than the agent's generic defaults (POD-SPEC 3.1).
+    /// Caption launch recipes verified on 32 GB RTX PRO 4500 pods. CapQwen served four concurrent
+    /// requests on 2026-10-22; the earlier 8B recipe remains the fallback for custom model choices.
     nonisolated static let measuredCaptionServers: [String: CaptionServerSettings] = [
-        "Qwen/Qwen3-VL-8B-Instruct": fallbackCaptionServer,
-        "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4": CaptionServerSettings(
-            maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
+        ProviderChoices.defaultSelfHostedModel: CaptionServerSettings(
+            maxModelLen: 16384, maxNumSeqs: 4, gpuMemoryUtilization: 0.90,
             extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
         ),
+        "Qwen/Qwen3-VL-8B-Instruct": fallbackCaptionServer,
     ]
 
     /// The Qwen3-VL-8B row, which a model without a measured row starts with.
@@ -108,6 +105,7 @@ extension GPUWorkspace {
             )
             let captioning = try self.captioningForRegularization(regularizationCaptioning)
             let initialization = try self.trainingInitialization()
+            let reportGroupID = try await self.prepareTrainingReport()
             let dataset = "concept-" + UUID().uuidString.prefix(12).lowercased()
             var params = self.trainingParams(dataset: dataset, inputFacts: inputFacts, items: items)
             let servicesBeforeStart = try await agent.services()
@@ -122,6 +120,7 @@ extension GPUWorkspace {
                 dataset, params: params, repo: repo, local: local, revision: revision,
                 budget: (cap, baseline), inputs: (containsVideo, items), output: output
             )
+            self.attachTrainingReport(runID: dataset, groupID: reportGroupID)
             let destination = self.result?.destination ?? .download
             var trainerStartAttempted = false
             defer { if !trainerStartAttempted { self.finishFailedPreparation() } }
@@ -314,6 +313,9 @@ extension GPUWorkspace {
             "seed": .int(seed),
             "save_every": .int(saveInterval), "sample_every": .int(samplesEnabled ? saveInterval : 0),
         ]
+        if effectiveAugmentation != .none {
+            params["augmentation"] = .string(effectiveAugmentation.rawValue)
+        }
         if samplesEnabled {
             params["sample_prompts"] = .array([.string(words.joined(separator: " "))])
         }
@@ -379,22 +381,28 @@ extension GPUWorkspace {
 
     /// Starts the caption server on the rented computer unless it already serves `captionModel`, and waits until it
     /// does. A server still running an earlier choice is stopped and started with the current one.
-    func ensureCaptionServer(_ agent: any PodAgent, plan: TrainingPlan, services: [AgentService]) async throws {
+    func ensureCaptionServer(
+        _ agent: any PodAgent, plan: TrainingPlan, services: [AgentService], model: String? = nil
+    ) async throws {
+        let requestedModel = model ?? captionModel
         var running = services.contains(where: { $0.name == "vllm" && $0.active })
-        if running, !demoMode, let served = try await servedCaptionModels(), !served.contains(captionModel) {
-            message = "Switching the caption server to \(captionModel)."
+        if running, !demoMode, let served = try await servedCaptionModels(), !served.contains(requestedModel) {
+            message = "Switching the caption server to \(requestedModel)."
             try await agent.stop("vllm")
             try await waitForService("vllm", allowStopped: true)
             running = false
         }
         if !running {
-            try await agent.start("vllm", gpus: plan.caption?.gpus ?? [], params: captionStartParams)
+            try await agent.start(
+                "vllm", gpus: plan.caption?.gpus ?? [],
+                params: Self.captionServerSettings(for: requestedModel).params(model: requestedModel)
+            )
             captionServerActive = nil
         }
         lastActivity = Date()
         message = "The caption model is starting. Large models can take several minutes to download."
         if !demoMode {
-            try await waitForCaptionModel()
+            try await waitForCaptionModel(requestedModel)
         }
     }
 
@@ -415,13 +423,13 @@ extension GPUWorkspace {
         }
     }
 
-    private func waitForCaptionModel() async throws {
+    private func waitForCaptionModel(_ model: String) async throws {
         let clock = ContinuousClock()
         let began = Date()
         let deadline = clock.now.advanced(by: .seconds(600))
         while clock.now < deadline {
             try Task.checkCancellation()
-            if try await servedCaptionModels()?.contains(captionModel) == true { return }
+            if try await servedCaptionModels()?.contains(model) == true { return }
             if let agent {
                 let services = try? await agent.services()
                 if let service = services?.first(where: { $0.name == "vllm" }),
@@ -431,7 +439,7 @@ extension GPUWorkspace {
                 }
                 let log = await (try? agent.serviceLog("vllm")) ?? ""
                 let lastLine = log.split(whereSeparator: \.isNewline).last.map(String.init)
-                captionStartupProgress = lastLine ?? "Loading \(captionModel)…"
+                captionStartupProgress = lastLine ?? "Loading \(model)…"
                 message = "Starting caption model · \(Int(Date().timeIntervalSince(began))) seconds · "
                     + (captionStartupProgress ?? "")
             }

@@ -352,10 +352,14 @@ struct MappingFrictionTests {
         session.project = project
         let ids = Array(project.images.prefix(4).map(\.id))
         session.markNotSure(id: ids[1], note: "Face hidden")
-        session.analyses[ids[0]] = ImageAnalysis(faces: [CGRect(x: 0, y: 0, width: 1, height: 1)])
-        session.analyses[ids[1]] = session.analyses[ids[0]]
-        session.analyses[ids[2]] = ImageAnalysis(faces: [])
-        session.analyses[ids[3]] = ImageAnalysis(faces: [CGRect.zero, CGRect.zero])
+        let face = RecognizedFace(
+            box: CGRect(x: 0, y: 0, width: 1, height: 1),
+            scores: [FaceIdentityScore(trigger: "PERSON8", similarity: 0.6, band: .match)]
+        )
+        session.faceRecognitionResults[ids[0]] = FaceRecognitionResult(faces: [face])
+        session.faceRecognitionResults[ids[1]] = FaceRecognitionResult(faces: [face])
+        session.faceRecognitionResults[ids[2]] = FaceRecognitionResult(reviewReason: "No face detected")
+        session.faceRecognitionResults[ids[3]] = FaceRecognitionResult(faces: [face, face])
         session.confirmRemainingSinglePerson()
         #expect(session.project?.job.mapping(for: ids[0])?["PERSON8"] == "the woman")
         #expect(session.project?.job.mapping(for: ids[1]) == nil)

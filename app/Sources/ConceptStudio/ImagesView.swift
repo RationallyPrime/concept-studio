@@ -7,8 +7,10 @@ struct ImagesView: View {
     @State private var photos: [PhotosPickerItem] = []
     @State private var showHub = false
     @State private var showDuplicateExclusions = false
+    @State private var showOutliers = false
     @State private var warningsOnly = false
     @State private var editingMedia: ProjectImage?
+    @State private var maskingMedia: ProjectImage?
     @State private var confirmUndo = false
     /// The samples the Upscale sheet opens with; nil while it is closed.
     @State private var upscaling: UpscaleChoice?
@@ -39,6 +41,8 @@ struct ImagesView: View {
                         )
                     )
                 } else {
+                    Button("Bring outliers into line…", systemImage: "slider.horizontal.3") { showOutliers = true }
+                        .disabled(session.busy || session.editing)
                     if !duplicateGroups.isEmpty { duplicateSection }
                     if !session.pendingUpscales.isEmpty { UpscaleReviewSection(session: session) }
                     gallery
@@ -67,6 +71,7 @@ struct ImagesView: View {
         }
         .onChange(of: photos) { _, items in session.importPhotos(items); photos = [] }
         .sheet(item: $editingMedia) { media in MediaEditorView(session: session, media: media) }
+        .sheet(item: $maskingMedia) { media in TrainingLossMaskEditor(session: session, media: media) }
         .sheet(item: $upscaling) { choice in UpscaleSheet(session: session, selection: choice.ids) }
         .confirmationDialog("Undo this target edit and discard its unsaved caption edits?", isPresented: $confirmUndo) {
             Button("Undo target edit and discard edits", role: .destructive) { session.undoMediaCuration() }
@@ -78,6 +83,7 @@ struct ImagesView: View {
         .sheet(isPresented: $showDuplicateExclusions) {
             DuplicateExclusionSheet(session: session, groups: includedDuplicateGroups)
         }
+        .sheet(isPresented: $showOutliers) { PhotoOutliersSheet(session: session) }
     }
 
     @ViewBuilder private var importButtons: some View {
@@ -215,8 +221,8 @@ struct ImagesView: View {
                     }
                     .buttonStyle(.plain).foregroundStyle(InstantPrint.inkSecondary)
                     .disabled(locked || !included)
-                    .help(isVideo ? "Preview and trim clip…" : "Inspect and crop…")
-                    .accessibilityLabel(isVideo ? "Preview and trim \(image.id)" : "Inspect and crop \(image.id)")
+                    .help(isVideo ? "Preview and trim clip…" : "Edit photo, crop, and colour…")
+                    .accessibilityLabel(isVideo ? "Preview and trim \(image.id)" : "Edit photo \(image.id)")
                 }
                 Toggle("Include in training", isOn: Binding(
                     get: { included },
@@ -265,12 +271,14 @@ struct ImagesView: View {
         let isVideo = Sources.isVideo(Sources.suffix(of: image.id))
         let locked = session.busy || session.editing
         let upscaled = session.upscaleRecord(for: image.id)
-        Button(isVideo ? "Preview and trim clip…" : "Inspect and crop…") { editingMedia = image }
+        Button(isVideo ? "Preview and trim clip…" : "Edit photo, crop, and colour…") { editingMedia = image }
             .disabled(locked || !included)
         Button(included ? "Exclude from training" : "Include in training") {
             session.includeMedia(image.id, included: !included)
         }.disabled(locked)
         if !isVideo {
+            Button("Mask other people out of training…") { maskingMedia = image }
+                .disabled(locked || !included)
             ForEach(session.project?.job.concepts ?? [], id: \.trigger) { concept in
                 Button("Use as reference photo for \(concept.trigger)") {
                     session.useAsReference(image: image, trigger: concept.trigger)

@@ -75,7 +75,8 @@ struct RegularizationCaptioning {
 extension GPUWorkspace {
     /// What the selected model offers; nil when its row does not have the field.
     var regularizationOffer: ModelRow.Regularization? {
-        exactModelRow?.regularization
+        guard let offer = exactModelRow?.regularization, offer.mode != .unsupported else { return nil }
+        return offer
     }
 
     var repaOffer: ModelRow.Repa? {
@@ -122,12 +123,11 @@ extension GPUWorkspace {
     }
 
     var regularizationEstimate: RegularizationEstimate? {
-        regularizationOffer.map {
-            RegularizationEstimate(
-                images: regularizationImages, secondsPerImage: $0.secondsPerImage * regularizationAreaScale,
-                hourlyRate: regularizationHourlyRate
-            )
-        }
+        guard !ownRegularizationImages, let seconds = regularizationOffer?.secondsPerImage else { return nil }
+        return RegularizationEstimate(
+            images: regularizationImages, secondsPerImage: seconds * regularizationAreaScale,
+            hourlyRate: regularizationHourlyRate
+        )
     }
 
     /// The pictures are drawn at the largest chosen bucket, and the row's time per picture is for its default size:
@@ -151,25 +151,31 @@ extension GPUWorkspace {
     /// them alone, so an edit survives a visit to one.
     func adoptTrainingAidDefaults(to new: ModelRow) {
         regularizationOn = new.regularization?.defaultOn ?? false
+        if new.regularization?.mode == .folder { ownRegularizationImages = true }
+        if new.regularization?.mode == .generate, regularizationFolder == nil,
+           regularizationRemotePath == nil { ownRegularizationImages = false }
         repaOn = new.repa?.defaultOn ?? false
-        guard let target = new.regularization else { return }
+        guard let target = new.regularization, target.mode != .unsupported else { return }
         if let aligned = regularizationAligned {
-            if regularizationImages == aligned.images { regularizationImages = target.images }
+            if regularizationImages == aligned.images, let images = target.images { regularizationImages = images }
             if regularizationWeight == aligned.weight { regularizationWeight = target.weight }
         } else {
-            regularizationImages = target.images
+            if let images = target.images { regularizationImages = images }
             regularizationWeight = target.weight
         }
-        regularizationAligned = target
+        if target.images != nil { regularizationAligned = target }
     }
 
     /// Restores the toggles, image count and strength from a saved run's `regularization` and `repa` blocks.
-    /// Generated regularisation images are the only kind the app offers, so a run that used a folder of the
-    /// person's own images repeats without regularisation.
+    /// Supplied folders keep their path on retained storage; choosing a new folder replaces that path.
     func restoreTrainingAids(from run: TrainingRun) {
         let offered = run.modelRow(in: modelTable)
         let regularization = run.params["regularization"]?.objectValue
-        regularizationOn = offered?.regularization != nil && regularization?["source"]?.stringValue == "generate"
+        regularizationOn = offered?.regularization.map { $0.mode != .unsupported } == true && regularization != nil
+        ownRegularizationImages = regularization?["source"]?.stringValue == "folder"
+            || offered?.regularization?.mode == .folder
+        regularizationFolder = nil
+        regularizationRemotePath = regularization?["path"]?.stringValue
         regularizationImages = regularization?["images"]?.intValue
             ?? offered?.regularization?.images ?? regularizationImages
         regularizationWeight = regularization?["weight"]?.doubleValue
@@ -185,12 +191,20 @@ extension GPUWorkspace {
     /// The `regularization` block for the next run, or nil when it is off or the model does not offer it.
     func regularizationBlock(triggers: [String]) -> JSONObject? {
         guard let offer = regularizationOffer, regularizationOn else { return nil }
+        if ownRegularizationImages {
+            return [
+                "source": .string("folder"),
+                "path": .string(regularizationRemotePath ?? ""),
+                "weight": .double(regularizationWeight),
+            ]
+        }
+        guard let steps = offer.generationSteps, let guidance = offer.guidanceScale else { return nil }
         var nouns = JSONObject()
         for trigger in triggers {
             if let noun = conceptClassNouns[trigger] { nouns[trigger] = .string(noun) }
         }
         let generation = repeatedBlock("regularization")?["generation"]?.objectValue ?? [
-            "steps": .int(offer.generationSteps), "guidance_scale": .double(offer.guidanceScale), "seed": .int(0),
+            "steps": .int(steps), "guidance_scale": .double(guidance), "seed": .int(0),
         ]
         return [
             "source": .string("generate"), "images": .int(regularizationImages),
@@ -219,7 +233,11 @@ extension GPUWorkspace {
     // MARK: Validation
 
     func validateTrainingAids() throws {
-        guard usesRegularization else { return }
+        guard usesRegularization, !demoMode else { return }
+        if ownRegularizationImages, regularizationFolder == nil, regularizationRemotePath == nil {
+            throw StudioError.message("Choose your folder of regularisation images in Advanced before training.")
+        }
+        if ownRegularizationImages, regularizationFolder == nil { return }
         if let missing = triggerClassNouns.first(where: { $0.noun == nil }) {
             throw StudioError.message(
                 "Define a class noun for \(missing.trigger) in Concepts before training with regularisation images."
@@ -234,7 +252,8 @@ extension GPUWorkspace {
     func captioningForRegularization(
         _ make: (@MainActor ([String]) throws -> RegularizationCaptioning)?
     ) throws -> RegularizationCaptioning? {
-        guard usesRegularization else { return nil }
+        guard usesRegularization, !demoMode else { return nil }
+        if ownRegularizationImages, regularizationFolder == nil, regularizationRemotePath != nil { return nil }
         guard let make else {
             throw StudioError.message("Regularisation images are described by the captioner of the open project. "
                 + "Open the project and start training from the Training screen.")
@@ -250,6 +269,9 @@ extension GPUWorkspace {
         _ params: JSONObject, plan: TrainingPlan, captioning: RegularizationCaptioning?, agent: any PodAgent
     ) async throws -> JSONObject {
         guard !demoMode, let captioning, let block = params["regularization"]?.objectValue else { return params }
+        if block["source"]?.stringValue == "folder" {
+            return try await captionedOwnRegularization(params, plan: plan, captioning: captioning, agent: agent)
+        }
         try await prepareCaptionServerForTraining(agent, plan: plan) // a one-GPU computer frees its GPU to draw
         let drawID = "regularization-" + UUID().uuidString.prefix(12).lowercased()
         message = "Drawing regularisation images."

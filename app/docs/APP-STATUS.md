@@ -6,7 +6,7 @@ The [Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for
 in 1 h 19 min at US$3.99 of GPU cost**. The signed, notarised app handled the full workflow,
 including regularisation, REPA, private publication and automatic idle stop.
 
-Updated 2026-10-22. The app defaults to **`v0.3.9-20261022`**, including SeedVR2 restoration,
+Updated 2026-10-22. The app defaults to **`v0.3.10-20261022`**, including SeedVR2 restoration,
 with **seven verified recipes** and **18 additional recipes** under Advanced user.
 [Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
 [GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
@@ -45,11 +45,53 @@ Verification completed:
 - Live ChatGPT Mapping trials and the locator cross-check selected 3×3 contact sheets. See
   [measurement and anonymous receipts](MAPPING-BENCHMARK.md). Source mappings were preserved.
 
+PR #32 merged at `03d5e5d` after all seven CI checks passed. The cancellation-test crash was
+reproduced and fixed; review repairs covered Not sure state across target replacement, stale
+kept-pod records, private adult training outputs, and custom-skill import into existing folders.
 The hosted Mapping measurements are recorded in [the benchmark](MAPPING-BENCHMARK.md).
-The requested RTX 5090 Secure Cloud placement was unavailable during this verification run;
-the follow-up cloud-captioning acceptance targets a 32 GB Blackwell GPU. The app uses the
-published **v0.3.9-20261022** images. Workspace storage accounting changes in this PR need the
-next pod-image rebuild; older-agent host totals are suppressed in the app.
+
+**32 GB Blackwell captioning passed on an RTX PRO 4500**, using the exact
+`RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4` checkpoint and the
+`v0.3.8-20261021-captioning` image. Nine photos spanning three confirmed assignment combinations
+went through the native app's captioning action. Eight captions were saved; one response
+marked a partly visible assigned subject unusable. The native publication action uploaded the
+eight captioned samples to a private dataset and read back the matching metadata and revision.
+The test used copies; the confirmed source project stayed intact. No family names or images
+are included in this repository.
+
+The first synthetic-image request took 122 seconds while the runtime warmed. A separate batch
+of four concurrent requests on the same synthetic image took 22.3 seconds. Across the full
+native-action run, observed memory peaked at 28,554 MiB of 32,623 MiB. The GPU ran for 26.7
+minutes and was verified stopped; estimated compute and running storage cost was $0.33.
+These are capacity and functional measurements, not a caption-quality ranking. Following this
+run, the owner selected this checkpoint as the default self-hosted captioner with a **32 GB**
+caption GPU minimum. Explicit custom model and memory choices remain intact.
+
+After macOS Keychain approval, the native window reopened the saved project, showed eight
+captioned samples selected and the uncaptioned sample excluded, and published successfully
+with **Private dataset** on. A fresh Hub read verified the private destination and all eight
+captioned metadata rows. Both the native actions and the window publication used real services.
+
+## Local Mapping, photo preparation and training reports, 2026-10-22
+
+**SFace matches identities on the Mac.** The app downloads the licensed weights on first use,
+aligns faces with Vision, presents Match / Needs review / No match bands, warns about small or
+blurry references, and bulk-confirms only confident single faces. The native pass over 69
+confirmed-copy photos had no processing failures and no false Match-band assignments across
+60 confirmed-absent concept cases. Reference-dependent misses remain visible in the
+[anonymous benchmark](MAPPING-BENCHMARK.md).
+
+**Photo preparation keeps the originals.** Tone, colour, auto-enhance, drag crops, rotation,
+straightening and face-assisted crop suggestions work locally. Outlier correction applies an
+individual adjustment to each selected photo. Supported loss masks exclude unwanted regions
+from training; on-the-fly augmentation respects trainer support, image shape and captioned sides.
+
+**Training reports compare matched renders against frozen prompts, seeds and reference bytes.**
+Prompts use attributes absent from the project's captions; adult projects use manually written
+prompts. Identity and bleed use SFace, style uses VGG19 features, and the GPU captioner scores
+prompt adherence. Resuming a run refreshes its report against the new checkpoint while keeping
+prior renders in Generation history. Report judging preserves the user's caption-model choice.
+The [running guide](RUNNING.md#try-a-trained-result-and-reuse-a-run) explains report controls and score meanings.
 
 ## Recent completed work, 2026-10-21–22
 
@@ -122,10 +164,17 @@ values; each screen identifies active non-default settings and where to edit the
 
 ## Regularisation images and REPA
 
-Qwen-Image-2.1 offers **Regularisation images** and **Representation alignment (experimental)**
-on Training. The app shows the image count, class nouns, download sizes, preparation-time and
-cost estimates, and regularisation's roughly doubled training time. Advanced controls expose
-regularisation strength.
+**Regularisation images** offers generated class sets for FLUX.1-dev, Z-Image,
+Qwen-Image-2.1 and H3. Eighteen additional AI Toolkit rows accept an existing class-image folder.
+Both LTX rows and Krea 2's musubi route explain that their pinned trainer lacks native prior
+preservation. The [per-row table](../../docs/model-table.md#regularisation-coverage) records the
+mode and reason for all 25 rows. Advanced controls expose the folder choice and regularisation
+strength; the app captions supplied images through the project's captioner.
+
+H3 defaults to 16 reusable class stills; the three image-model defaults use 40. The app shows
+image counts, class nouns and preparation work before training. Qwen-Image-2.1 also offers
+**Representation alignment (experimental)**. Regularisation alternates subject and class
+examples, adding training work to preserve the base model's range.
 
 The app draws regularisation images with the base model, then uses the project's captioner,
 skill and profile to describe them by class noun, without identity triggers. On one GPU it
@@ -136,6 +185,14 @@ conversion accounts for alternating training and regularisation examples.
 The [model-table guide](../../docs/model-table.md) describes eligibility and configuration;
 bundled Help explains regularisation, prior preservation and representation alignment. The
 [2026-10-14 run](#end-to-end-run-through-the-app-2026-10-14) exercised both aids through the app.
+
+The **2026-10-22 H3 acceptance run** generated and captioned all 16 class stills, trained six
+steps with native prior preservation, saved a hash-verified checkpoint and completed its
+automatic two-prompt report. Four matched renders received real GPU prompt-adherence scores;
+SFace recorded identity scores and explicit missing-face coverage. The same renders exercised
+the pretrained VGG19 style component. End-to-end time was 14 minutes 31 seconds on a 96 GB
+Blackwell. [GPU status](../../pod/docs/POD-STATUS.md#h3-regularisation-and-automatic-report)
+records the exact scope, measurements and resource cleanup.
 
 ## Upscale and restore with SeedVR2, 2026-10-22
 
@@ -148,9 +205,12 @@ The app uploads media under neutral names, starts `upscale-media`, displays comp
 progress and verifies downloaded SHA-256 hashes. Keep preserves the locator mapping and retains
 the original caption with the original media. The GPU stays active throughout processing.
 
-The **published v0.3.9 images include SeedVR2** and passed import/CLI and authenticated CPU agent
-checks. Automated tests cover keep, discard, persistent revert, name collisions and the app's GPU
-flow through a fake agent; light/dark renders cover selection and review.
+The **published v0.3.10 images run SeedVR2 on the trainer's PyTorch 2.13**. Its compressed
+environment and source layer shrank from 2.96 GB to 202 MB. All seven images passed authenticated
+CPU controls; all three trainer stacks passed SeedVR2 import and command-line checks. A real
+32 GB Blackwell and a 96 GB Blackwell each completed first-use weight download, a 1024 × 1024
+image and a 21-frame clip with verified audio and output hashes. Automated tests cover keep, discard, persistent revert,
+name collisions and the app's GPU flow; light/dark renders cover selection and review.
 [GPU status](../../pod/docs/POD-STATUS.md), [published images](../../pod/images/README.md) and
 [the service contract](../../pod/docs/POD-SPEC.md) carry the runtime results and implementation details.
 
@@ -216,6 +276,7 @@ Keyboard controls and downloaded media passed the
 
 | Gate | Passing checks |
 | --- | --- |
+| Local Mapping, photo controls and reports, 2026-10-22 | 399 app + 267 core Swift tests; 753 agent + 375 pod-script tests; strict lint, format and type checks; native signed packaging and four-size/appearance UI renders |
 | Walkthrough/glossary integration, 2026-10-12 | 550 Swift: 289 app + 261 Core; 118 Python reference; 315 pod scripts |
 | Walkthrough/H3/help, 2026-10-11 | 498 Swift: 238 app in 39 suites + 260 Core in 38 suites; 117 Python reference |
 | Walkthrough clarity, 2026-10-11 | 478 Swift: 218 app + 260 Core; clean Swift formatting across 153 files |
@@ -287,8 +348,8 @@ status, and a labelled run budget (PR #17).
 
 ## Next checks
 
-- Update [GPU status](../../pod/docs/POD-STATUS.md) with current-image results for SeedVR2
-  restoration, direct upload, storage cleanup and generation/Resume.
+- Extend current-image live coverage for storage cleanup and same-run Resume; SeedVR2 on
+  32/96 GB and H3 direct upload, regularisation and automatic generation/reporting passed.
 - Reconcile H3 clip training/generation, external warm-start and same-run Resume follow-ups with
   the latest runs; add a clip-adapter comparison alongside the completed still-image experiment.
 - Record native TensorBoard rendering during a live run.

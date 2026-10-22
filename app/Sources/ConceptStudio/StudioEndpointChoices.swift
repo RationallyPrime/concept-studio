@@ -4,6 +4,8 @@ import Foundation
 /// The captioning providers the app offers, in menu order, with their display names and default
 /// models. Views list providers from here; nothing else hard-codes provider vocabulary.
 enum ProviderChoices {
+    static let defaultSelfHostedModel = "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4"
+
     struct Provider: Equatable, Identifiable {
         let kind: String
         let title: String
@@ -20,10 +22,7 @@ enum ProviderChoices {
         Provider(kind: "google", title: "Google Gemini", defaultModel: "gemini-3.8-flash"),
         Provider(kind: "anthropic", title: "Anthropic Claude", defaultModel: "claude-sonnet-4-6"),
         Provider(kind: "openai", title: "OpenAI", defaultModel: "gpt-5.2"),
-        Provider(
-            kind: "vllm", title: "My cloud GPU / custom server",
-            defaultModel: "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4"
-        ),
+        Provider(kind: "vllm", title: "My cloud GPU / custom server", defaultModel: defaultSelfHostedModel),
     ]
 
     /// The provider a fresh install starts with.
@@ -40,12 +39,26 @@ enum ProviderChoices {
     static func defaultModel(for kind: String) -> String {
         all.first { $0.kind == kind }?.defaultModel ?? ""
     }
+
+    /// CapQwen's measured caption path disables reasoning. An explicit request setting always wins.
+    static func captionSettings(kind: String, model: String, settings: JSONObject) -> JSONObject {
+        guard kind == "vllm", model == defaultSelfHostedModel else { return settings }
+        if let extra = settings["extra_body"], extra.objectValue == nil { return settings }
+        var result = settings
+        var extra = settings["extra_body"]?.objectValue ?? [:]
+        if let template = extra["chat_template_kwargs"], template.objectValue == nil { return settings }
+        var template = extra["chat_template_kwargs"]?.objectValue ?? [:]
+        if template["enable_thinking"] == nil { template["enable_thinking"] = .bool(false) }
+        extra["chat_template_kwargs"] = .object(template)
+        result["extra_body"] = .object(extra)
+        return result
+    }
 }
 
 @MainActor
 extension StudioSession {
     static let defaultPodImageName =
-        "ghcr.io/rationallyprime/concept-captioner-pod-{trainer}:v0.3.9-20261022"
+        "ghcr.io/rationallyprime/concept-captioner-pod-{trainer}:v0.3.10-20261022"
 
     /// Builds before 2026-10-12 saved the shipped default image as the training-image preference,
     /// where it read as a manual override. Once per install, a stored value that is exactly such a
@@ -82,7 +95,7 @@ extension StudioSession {
 
     func loadSavedChoices() {
         endpointKind = preferences.string(forKey: "endpointKind") ?? ProviderChoices.defaultKind
-        modelName = preferences.string(forKey: "modelName") ?? ProviderChoices.defaultModel(for: endpointKind)
+        modelName = preferences.string(forKey: "modelName") ?? defaultModel(for: endpointKind)
         openAIUsesChatGPT = preferences.bool(forKey: "openAIUsesChatGPT")
         criticKind = endpointKind
         criticModel = modelName
@@ -165,13 +178,17 @@ extension StudioSession {
     ) throws -> ResolvedEndpoint {
         if demoMode { return ResolvedEndpoint(client: DemoModelClient(scenario: scenario)) }
         let selectedKind = kind ?? endpointKind
+        let selectedModel = model ?? modelName
         let targetURL = baseURL ?? vllmTargetURL
         let spec = try EndpointSpec(
             kind: selectedKind,
-            model: model ?? modelName,
+            model: selectedModel,
             baseURL: selectedKind == "vllm" ? targetURL : nil,
             outputMode: outputMode,
-            settings: settings ?? project?.job.endpoints?.captioner.settings ?? [:],
+            settings: ProviderChoices.captionSettings(
+                kind: selectedKind, model: selectedModel,
+                settings: settings ?? project?.job.endpoints?.captioner.settings ?? [:]
+            ),
             concurrency: concurrency
         )
         if selectedKind == "openai", openAIUsesChatGPT {
@@ -267,6 +284,8 @@ extension StudioSession {
     func updateTrainingProjectDefaults(preservingTrainer: Bool = false) {
         guard gpu.repeatSourceRunID.isEmpty else { return }
         gpu.triggerWords = project?.job.triggers.joined(separator: ",") ?? ""
+        gpu.squareAugmentationAllowed = project?.job.concepts.isEmpty == false
+            && project?.job.concepts.allSatisfy { $0.targetConcept == .style } == true
         gpu.conceptClassNouns = Dictionary(
             (project?.job.concepts ?? []).map { ($0.trigger, $0.classNoun) }, uniquingKeysWith: { first, _ in first }
         )

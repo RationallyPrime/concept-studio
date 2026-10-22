@@ -26,7 +26,13 @@ enum ProjectPublisher {
             operations.append(.addFile(path: path, url: image.url))
             let record = try await sink.record(image.id)
             let caption = (try? String(contentsOf: sink.captionURL(for: image.id), encoding: .utf8))
-            rows.append(MetadataRow(fileName: path, caption: caption, record: record))
+            var extra: JSONObject = [:]
+            if let mask = try TrainingMasks.source(for: image, project: project) {
+                let maskPath = TrainingMasks.publishedPath(for: image.id)
+                operations.append(.addFile(path: maskPath, url: mask))
+                extra[TrainingMasks.metadataColumn] = .string(maskPath)
+            }
+            rows.append(MetadataRow(fileName: path, caption: caption, record: record, extra: extra))
             for url in [sink.captionURL(for: image.id), sink.recordURL(for: image.id)]
                 where FileManager.default.fileExists(atPath: url.path) {
                 operations.append(.addFile(path: url.lastPathComponent, url: url))
@@ -37,6 +43,10 @@ enum ProjectPublisher {
         let retained = Set(operations.map(\.path))
         var removed: Set<String> = []
         for row in previousRows where Sources.mediaSuffixes.contains(Sources.suffix(of: row.fileName)) {
+            if let mask = row.extra[TrainingMasks.metadataColumn]?.stringValue,
+               mask.hasPrefix("training_masks/"), remotePaths.contains(mask), !retained.contains(mask) {
+                removed.insert(mask)
+            }
             guard !retained.contains(row.fileName) else { continue }
             let stem = Sources.stem(of: row.fileName)
             for path in [row.fileName, stem + ".txt", stem + ".json"]

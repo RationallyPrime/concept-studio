@@ -2,10 +2,39 @@ import Foundation
 
 @MainActor
 extension GPUWorkspace {
+    /// A report can continue on a new pod whose spend counter starts at zero. Each segment adds
+    /// to the run's recorded training/report cost and starts from this pod's current counter.
+    func beginReportBudget(_ runID: String) {
+        guard let index = runHistory.firstIndex(where: { $0.runID == runID }) else { return }
+        runHistory[index].previousGPUCostUSD = runHistory[index].estimatedGPUCostUSD
+            ?? runHistory[index].previousGPUCostUSD
+        runHistory[index].podSpendAtStart = estimatedPodCost
+        runHistory[index].hourlyRateUSD = saved?.hourlyRate
+        activeReportRunID = runID
+        saveProjectRecord()
+    }
+
+    func captureReportCost() {
+        guard let id = activeReportRunID, let index = runHistory.firstIndex(where: { $0.runID == id }) else { return }
+        runHistory[index].estimatedGPUCostUSD = currentRunCost(runHistory[index], podCost: estimatedPodCost)
+        runHistory[index].updatedAt = Date()
+    }
+
+    func finishReportBudget() {
+        captureReportCost()
+        activeReportRunID = nil
+        saveProjectRecord()
+    }
+
     /// Welcome can retain the active global rental while another project is open. The pod's
     /// saved run is its budget source in that case; it is not imported into the other project.
     var activeBudgetedRun: TrainingRun? {
-        guard hasRunningPod, trainingState != "stopped", let result, result.state == .training else { return nil }
+        guard hasRunningPod else { return nil }
+        if let activeReportRunID,
+           let run = runHistory.first(where: { $0.runID == activeReportRunID }), run.volumeID == currentVolumeID {
+            return run
+        }
+        guard trainingState != "stopped", let result, result.state == .training else { return nil }
         let run = runHistory.first { $0.runID == result.runID } ?? saved?.run
         guard let run, run.runID == result.runID, run.volumeID == currentVolumeID else { return nil }
         return run

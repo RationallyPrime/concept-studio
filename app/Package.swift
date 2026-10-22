@@ -10,6 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.0.2"),
+        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", exact: "1.24.2"),
     ],
     targets: [
         .target(
@@ -20,7 +21,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "ConceptStudio",
-            dependencies: ["ConceptCore", .product(name: "Yams", package: "Yams")],
+            dependencies: [
+                "ConceptCore", .product(name: "Yams", package: "Yams"),
+                .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
+            ],
             resources: [
                 .copy("Resources/Demo"), .process("Resources/OpenAI"), .copy("Resources/Training"),
                 .copy("Resources/Glossary"), .copy("Resources/Fonts"),
