@@ -139,7 +139,7 @@ final class StudioSession {
 
     var mappingReviewExceptions: [String] = []
     var referenceRevision = 0
-    var mappingBatchSize = 1
+    var mappingBatchSize = 9
     var mappingUndo: [MappingUndo] = []
     var comparison = ""
     var captionDrafts: [String: CaptionDraft] = [:]

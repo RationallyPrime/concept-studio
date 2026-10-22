@@ -122,3 +122,27 @@ extension MappingRequestsTests {
         #expect(await client.count == 2)
     }
 }
+
+extension MappingRequestsTests {
+    @Test @MainActor func invalidTileNumberIsRetriedBeforeIndexingTheImage() async throws {
+        let project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let client = MappingReplyClient([
+            .success(ModelReply(text: """
+            {"tiles":[{"tile":99,"description":"wrong tile number","locators":[]}]}
+            """, servedModel: "test")),
+            .success(ModelReply(text: """
+            {"tiles":[{"tile":1,"description":"correct tile number","locators":[]}]}
+            """, servedModel: "test")),
+        ])
+        let assistant = StudioAssistant(endpoint: ResolvedEndpoint(client: client), demo: false)
+        let image = try #require(project.images.first)
+        let result = try await assistant.proposeMappingSheet(
+            images: [image],
+            references: [:],
+            concepts: project.job.concepts
+        )
+        #expect(result[image.id]?.description == "correct tile number")
+        #expect(await client.count == 2)
+    }
+}

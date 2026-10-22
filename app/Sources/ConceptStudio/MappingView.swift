@@ -461,6 +461,7 @@ private extension MappingView {
         }
         selection.formIntersection(images.map(\.id))
         if selection.isEmpty, let id = session.selectedImageID { selection = [id] }
+        if !images.contains(where: { $0.id == selectionAnchor }) { selectionAnchor = session.selectedImageID }
     }
 
     private func choose(_ id: String, modifiers: NSEvent.ModifierFlags = NSEvent.modifierFlags) {
