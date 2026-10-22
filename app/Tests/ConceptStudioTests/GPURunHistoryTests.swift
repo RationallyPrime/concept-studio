@@ -551,8 +551,9 @@ extension GPURunHistoryTests {
 }
 
 /// A trainer the model table marks resume: false (musubi-tuner) offers no Continue.
+@MainActor
 extension GPURunHistoryTests {
-    @MainActor @Test
+    @Test
     func musubiRunsAreNotContinued() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -567,7 +568,7 @@ extension GPURunHistoryTests {
         #expect(workspace.message.contains("cannot continue a run"))
     }
 
-    @MainActor @Test
+    @Test
     func krea2ComparisonStartsWithTheRowsTurboSettings() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
