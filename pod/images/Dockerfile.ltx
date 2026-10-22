@@ -79,3 +79,8 @@ RUN uv pip install --python /opt/venvs/ltx/bin/python "tensorboard==${LTX_TENSOR
 # the trainer config keys, where checkpoints land and whether it logs to TensorBoard natively. The
 # trainer README recommends 80 GB of VRAM for the standard configs and ships a low-VRAM (INT8)
 # variant for 32 GB cards; which one the wrapper writes is the wrapper's decision.
+
+# SeedVR2 keeps its small dependencies isolated and reuses this trainer's PyTorch/CUDA.
+RUN /opt/venvs/ltx/bin/python /opt/share_seedvr2_torch.py /opt/venvs/seedvr2 \
+ && /opt/venvs/seedvr2/bin/python -c "from pathlib import Path; import torch, torchvision, cuda.bindings.runtime, diffusers, cv2, gguf, rotary_embedding_torch; assert torch.__version__ == '${LTX2_TORCH}'; assert Path(torch.__file__).resolve().is_relative_to('/opt/venvs/ltx'); print('SeedVR2 shared torch', torch.__version__, 'diffusers', diffusers.__version__, 'cv2', cv2.__version__)" \
+ && /opt/venvs/seedvr2/bin/python /opt/seedvr2/inference_cli.py --help > /dev/null

@@ -24,7 +24,7 @@ checkout); see "The model table" below.
 | `h3_recipe.py`, `h3_dataset.py` | stdlib admission, then AI Toolkit | canonical H3 quality/initializer contracts, fixed pinned BF16 asset download, exact approved clip grouping |
 | `generate_results.py` | selected trainer venv | actual matched base/LoRA inference for each model whose table row names a generator; incremental manifest and private checkpoint cleanup |
 | `regularization.py` | `/opt/venvs/aitoolkit` (the `draw-regularization` service runs `draw`; the launcher loads the module) | the regularisation set of an AI Toolkit run: class-only prompts from the subject captions, the drawn pictures in the shared cache `/workspace/regsets`, the run's copy with the app's captions, or a provided folder checked for triggers |
-| `upscale_media.py` | stdlib; runs the SeedVR2 command line in `/opt/venvs/seedvr2` (the `upscale-media` service) | upscales and restores uploaded images and clips to `<run>/output/`, clips keeping frame count and audio (POD-SPEC 3.9, 7.6) |
+| `upscale_media.py` | stdlib; runs SeedVR2 in `/opt/venvs/seedvr2`, sharing the trainer's PyTorch/CUDA (the `upscale-media` service) | upscales and restores uploaded images and clips to `<run>/output/`, clips keeping frame count and audio (POD-SPEC 3.9, 7.6) |
 | `launch_ltx.py` | `/opt/venvs/ltx` | `run.json` → preprocess + LTX-2 trainer config → train; same tee and scraper (POD-SPEC §4.3) |
 | `launch_musubi.py` | `/opt/venvs/musubi` | `run.json` + its musubi row → pinned weights, `dataset.jsonl`/`dataset.toml`, latent and text-encoder caches → musubi-tuner LoRA training; same tee, scraper reading `avr_loss` (POD-SPEC §4.3) |
 

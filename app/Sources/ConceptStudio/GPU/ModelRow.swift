@@ -136,14 +136,17 @@ struct ModelRow: Sendable, Identifiable, Equatable {
 
     /// Regularisation images the base model draws before training and the trainer looks at beside the subject's
     /// own (`regularization` in docs/model-table.md). A row without the field does not offer them.
+    enum RegularizationMode: String, Sendable { case generate, folder, unsupported }
+
     struct Regularization: Sendable, Equatable {
+        let mode: RegularizationMode
         let defaultOn: Bool
-        let images: Int
+        let images: Int?
         let weight: Double
-        let generationSteps: Int
-        let guidanceScale: Double
+        let generationSteps: Int?
+        let guidanceScale: Double?
         /// Estimated generation time for one image, for the time shown before the images are drawn.
-        let secondsPerImage: Double
+        let secondsPerImage: Double?
         let note: String
     }
 
@@ -488,14 +491,21 @@ extension ModelRow.License {
 
 extension ModelRow.Regularization {
     init(_ object: TableObject) throws {
+        guard let mode = try ModelRow.RegularizationMode(rawValue: object.string("mode")) else {
+            throw ModelTableError("\(object.path).mode must be generate, folder or unsupported")
+        }
+        self.mode = mode
         defaultOn = try object.bool("default_on")
-        images = try object.int("images")
+        images = try object.optionalInt("images")
         weight = try object.double("weight")
-        let generation = try object.child("generation")
-        generationSteps = try generation.int("steps")
-        guidanceScale = try generation.double("guidance_scale")
-        secondsPerImage = try generation.double("seconds_per_image")
+        let generation = try object.childIfPresent("generation")
+        generationSteps = try generation?.int("steps")
+        guidanceScale = try generation?.double("guidance_scale")
+        secondsPerImage = try generation?.double("seconds_per_image")
         note = try object.string("note")
+        if mode == .generate, images == nil || generation == nil {
+            throw ModelTableError("\(object.path) needs images and generation defaults")
+        }
     }
 }
 
@@ -522,11 +532,11 @@ extension ModelRow {
 
     /// Checks that `regularization` and `repa` sit on a row that can carry them; `path` names the row in a message.
     func validateTrainingAids(path: String) throws {
-        if regularization != nil {
+        if let regularization, regularization.mode != .unsupported {
             let field = "\(path).regularization"
             guard trainer == "aitoolkit" else { throw ModelTableError("\(field) is only for AI Toolkit rows") }
-            guard hooks.generator != nil, hooks.trainerConfig == nil else {
-                throw ModelTableError("\(field) needs a generator hook and no trainer_config hook")
+            if regularization.mode == .generate, hooks.generator == nil {
+                throw ModelTableError("\(field) needs a generator hook")
             }
         }
         if repa != nil {

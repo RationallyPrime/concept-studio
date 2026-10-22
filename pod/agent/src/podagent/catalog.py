@@ -78,7 +78,6 @@ MAX_RESOLUTION = 8192
 UNSUPPORTED_REGULARIZATION = (
     "Generated regularisation images need a supported model. Provide your own images instead."
 )
-NO_REGULARIZATION_HERE = "Regularisation images are not available for this model."
 UNSUPPORTED_REPA = "Representation alignment is not available for this model."
 LTX_NO_REGULARIZATION = "regularization/repa are not available on the LTX trainer"
 MUSUBI_NO_REGULARIZATION = "regularization/repa are not available on the musubi-tuner trainer"
@@ -939,19 +938,15 @@ def _row_hook(table: dict[str, Any], row: dict[str, Any] | None, concern: str) -
 def _validate_regularization_and_repa(name: str, params: RunConfig, paths: Paths) -> None:
     """The model-dependent rules for ``regularization`` and ``repa`` (POD-SPEC 4.1).
 
-    A generated set needs a row that offers it; a row whose ``trainer_config`` hook rebuilds the
-    datasets takes no regularisation of either kind; ``repa`` needs a row that offers it. The
+    The model row declares generated/folder support; ``repa`` needs a row that offers it. The
     launcher keeps its own copy of these rules.
     """
     table = _model_table(paths)
     row = table["exact_row"](params.base_model, name.removeprefix("trainer-"))
-    if params.regularization is not None:
-        if _row_hook(table, row, "trainer_config") is not None:
-            _invalid(params, NO_REGULARIZATION_HERE, ("regularization",))
-        if isinstance(params.regularization, GeneratedRegularization) and (
-            row is None or not row.get("regularization")
-        ):
-            _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
+    if params.regularization is not None and not table["supports_regularization"](
+        row, params.regularization.source
+    ):
+        _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
     if params.repa is not None and (row is None or not row.get("repa")):
         _invalid(params, UNSUPPORTED_REPA, ("repa",))
 
@@ -962,9 +957,7 @@ def _validate_draw(params: DrawRegularizationParams, paths: Paths) -> None:
         _invalid(params, "Choose a new run_id; existing outputs are kept")
     table = _model_table(paths)
     row = table["exact_row"](params.base_model, "aitoolkit")
-    if _row_hook(table, row, "trainer_config") is not None:
-        _invalid(params, NO_REGULARIZATION_HERE, ("regularization",))
-    if row is None or not row.get("regularization"):
+    if row is None or not table["supports_regularization"](row, "generate"):
         _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
 
 
@@ -1704,7 +1697,16 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_upscale_prepare,
         run_id=_params_run_id,
-        available=lambda paths: Path(paths.venv_bin("seedvr2", "python")).is_file(),
+        available=lambda paths: (
+            Path(paths.venv_bin("seedvr2", "python")).is_file()
+            and any(
+                module.is_file()
+                for module in (paths.prefix / "venvs" / "seedvr2" / "lib").glob(
+                    "python*/site-packages/torch/__init__.py"
+                )
+            )
+        ),
+        missing="This image has no SeedVR2 GPU runtime. Rent a GPU with a current trainer image to upscale.",
     ),
     "push-lora": ServiceSpec(
         name="push-lora",

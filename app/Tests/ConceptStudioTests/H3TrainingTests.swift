@@ -172,6 +172,7 @@ struct H3TrainingTests {
         let recipe = project.directory.appendingPathComponent("input.yaml")
         try Data(Self.recipe.utf8).write(to: recipe)
         try workspace.importTrainingRecipe(from: recipe, row: Self.h3Row)
+        workspace.regularizationOn = false // this fixture isolates initializer/config settings
         #expect(workspace.steps == 200)
         #expect(workspace.checkpointEvery == 300 && workspace.checkpointRetention == 40)
         #expect(workspace.checkpointPrecision == "float32" && workspace.guidanceLoss)

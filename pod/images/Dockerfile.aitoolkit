@@ -78,6 +78,11 @@ RUN set -eux \
  && /opt/venvs/aitoolkit/bin/python -c "import torch, flash_attn, natten, torchcodec, diffusers, transformers; v = torch.__version__; assert v == '${TORCH_VERSION}+${AI_TOOLKIT_CUDA}', v; print('torch', v, 'flash_attn', flash_attn.__version__, 'natten', natten.__version__, 'torchcodec', torchcodec.__version__, 'diffusers', diffusers.__version__, 'transformers', transformers.__version__)" \
  && uv pip freeze --python /opt/venvs/aitoolkit/bin/python > /opt/venvs/aitoolkit/freeze.txt
 
+# SeedVR2 keeps its small dependencies isolated and reuses this trainer's PyTorch/CUDA.
+RUN /opt/venvs/aitoolkit/bin/python /opt/share_seedvr2_torch.py /opt/venvs/seedvr2 \
+ && /opt/venvs/seedvr2/bin/python -c "from pathlib import Path; import torch, torchvision, cuda.bindings.runtime, diffusers, cv2, gguf, rotary_embedding_torch; assert torch.__version__ == '${TORCH_VERSION}+${AI_TOOLKIT_CUDA}'; assert Path(torch.__file__).resolve().is_relative_to('/opt/venvs/aitoolkit'); print('SeedVR2 shared torch', torch.__version__, 'diffusers', diffusers.__version__, 'cv2', cv2.__version__)" \
+ && /opt/venvs/seedvr2/bin/python /opt/seedvr2/inference_cli.py --help > /dev/null
+
 # H3 registration/network/loader contracts are checked against this exact source. The new
 # BF16 H3 wrapper path still needs hosted training/generation capacity acceptance. Per-example
 # captions supply concepts; the wrapper does not inject a global trigger_word.

@@ -350,11 +350,14 @@ func makeWorkspace(
     saveAgentToken: @escaping (String, String) throws -> Void = { _, _ in },
     deleteAgentToken: @escaping (String) throws -> Void = { _ in }
 ) -> GPUWorkspace {
-    GPUWorkspace(
+    let workspace = GPUWorkspace(
         demoMode: false, transport: transport, preferences: preferences, readAgentToken: readAgentToken,
         saveAgentToken: saveAgentToken, deleteAgentToken: deleteAgentToken, downloader: downloader,
         uploader: RecordingUploader(), keepAwake: sleep.assertion
     )
+    // These service fixtures test training lifecycle without a project captioner/class-image generation.
+    workspace.regularizationOn = false
+    return workspace
 }
 
 func temporaryPreferences() throws -> (UserDefaults, String) {

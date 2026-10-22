@@ -770,7 +770,6 @@ REGULARIZATION_DIR = "regularization"  # <run>/regularization/: the copy the tra
 UNSUPPORTED_REGULARIZATION = (
     "Generated regularisation images need a supported model. Provide your own images instead."
 )
-NO_REGULARIZATION_HERE = "Regularisation images are not available for this model."
 RECIPE_SETS_THESE = "this model's own recipe sets these; change them through extra"
 UNSUPPORTED_REPA = "Representation alignment is not available for this model."
 GENERATION_KEYS = frozenset({"steps", "guidance_scale", "seed"})
@@ -898,10 +897,7 @@ def _regularization_errors(
     if source not in needed:
         return ["regularization.source: must be 'generate' or 'folder'"]
     errors = [f"regularization.{key}: required" for key in needed[source] if key not in block]
-    # A trainer_config hook builds datasets[] from its own groups: no kind of set fits (H3).
-    if row is not None and model_table()["hook"](row, "trainer_config") is not None:
-        errors.append(NO_REGULARIZATION_HERE)
-    elif source == "generate" and (row is None or not row.get("regularization")):
+    if not model_table()["supports_regularization"](row, source):
         errors.append(UNSUPPORTED_REGULARIZATION)
     if errors:
         return errors
@@ -1032,8 +1028,6 @@ def build_native_config(cfg: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     # by itself; nothing is deleted here, so a restart with an existing output/ resumes.
     extra = cfg["extra"]
     process = deep_merge(process, {k: v for k, v in extra.items() if k not in ROOT_KEYS})
-    if regularization is not None:
-        add_regularization_dataset(process, run_dir)
     document: dict[str, Any] = {
         "job": "extension",
         "config": {"name": cfg["run_id"], "process": [process]},
@@ -1042,6 +1036,8 @@ def build_native_config(cfg: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     document = deep_merge(document, {k: v for k, v in extra.items() if k in ROOT_KEYS})
     if hook is not None:
         TRAINER_CONFIG_HOOKS[hook].build(cfg, run_dir, document, extra)
+    if regularization is not None:
+        add_regularization_dataset(document["config"]["process"][0], run_dir)
     check_native_paths(document, run_dir)
     return document
 
@@ -1051,7 +1047,7 @@ def add_regularization_dataset(process: dict[str, Any], run_dir: Path) -> None:
 
     Copying keeps resolution, caption extension and dropout, and the caching settings (ai-toolkit
     requires ``cache_text_embeddings`` equal on all datasets). Done after ``extra`` merged, so the
-    copy follows whatever the first dataset became; ``extra`` defining its own ``is_reg`` dataset
+    copy follows the final custom or generic recipe; ``extra`` defining its own ``is_reg`` dataset
     would leave two sources of truth, so that is refused.
     """
     datasets = process.get("datasets")
@@ -1065,6 +1061,12 @@ def add_regularization_dataset(process: dict[str, Any], run_dir: Path) -> None:
             **copy.deepcopy(datasets[0]),
             "folder_path": str(run_dir / REGULARIZATION_DIR),
             "is_reg": True,
+            # Regularisation is a still-image set, including when the subject dataset is video.
+            "num_frames": 1,
+            "do_audio": False,
+            "mask_path": None,
+            "alpha_mask": False,
+            "invert_mask": False,
         },
     ]
 

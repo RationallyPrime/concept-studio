@@ -71,7 +71,7 @@ apply.
 | `license` | `id`, `name`, `url`, `notice`, `show_notice`. With `show_notice` the picker shows the notice, a link and the download size, and the pushed model card carries the licence. `id` is the Hub's licence identifier when the Hub lists one (the card says `license: <id>`); otherwise the card says `license: other` with `id` as `license_name`, which the Hub accepts only as lowercase letters, digits, `-` and `.`. |
 | `usage_note` | Optional. A sentence about using a LoRA trained on this model, shown under the picker and in the model card's `## Use` section. |
 | `hooks` | Concern to hook name; an absent concern is the generic behaviour. |
-| `regularization` | Optional. A generated regularisation (prior-preservation) set is offered for this row, with its defaults. See [Regularisation and REPA fields](#regularisation-and-repa-fields). |
+| `regularization` | Prior-preservation mode (`generate`, `folder`, `unsupported`), defaults and explanation for this row. See [Regularisation and REPA fields](#regularisation-and-repa-fields). |
 | `repa` | Optional. Representation alignment is offered for this row, with its defaults. See [Regularisation and REPA fields](#regularisation-and-repa-fields). |
 | `notes` | Free text for maintainers. Not displayed. |
 
@@ -130,9 +130,9 @@ A row without a `generator` hook does not support comparison generation.
 
 ## Regularisation and REPA fields
 
-Two optional row fields, both for AI Toolkit rows only. A row without the field does not offer the
-feature. The app copies the row's values into run.json as explicit values, so a saved run repeats
-the same way after the table changes; the pod reads the field only to admit a run.
+Each row declares its regularisation support; REPA remains an optional AI Toolkit field. The app
+copies enabled settings into run.json, so saved runs keep their explicit settings when the table changes.
+The pod reads the same row to admit generated or supplied class-image sets.
 
 ### `regularization`
 
@@ -148,6 +148,7 @@ those captions. The captioner is told only the class nouns, with the skill's
 
 ```json
 "regularization": {
+  "mode": "generate",
   "default_on": true,
   "images": 40,
   "weight": 1.0,
@@ -158,25 +159,81 @@ those captions. The captioner is told only the class nouns, with the skill's
 
 | Field | Meaning |
 | --- | --- |
-| `default_on` | Whether a new run starts with regularisation on when this model is selected. App only. |
-| `images` | Default number of images in a generated set; editable in the app. |
+| `mode` | `generate`: offered, including your own images; `folder`: own images only; `unsupported`: not possible with this pinned trainer. Advanced displays the reason. |
+| `default_on` | Whether a new run starts with regularisation on when this model is selected. Generated sets default on; supplied sets start when a folder is chosen. |
+| `images` | Default number of generated images; editable. `null` for supplied-only or unsupported rows. |
 | `weight` | Default `train.reg_weight`: how much a regularisation image counts against one of the subject's. |
 | `generation.steps`, `guidance_scale` | Sampling settings for the generated images. |
 | `generation.seconds_per_image` | Time per image at the row's largest default resolution, for the estimate the app shows; the app scales it by the area of the largest chosen bucket. Display only. |
-| `note` | Free text for maintainers. Not displayed. |
+| `note` | Support explanation shown in Advanced. |
 
-The row needs a `generator` hook, because the images are drawn through the same model class as
-comparison generation (`generate_results.render_base`), and no `trainer_config` hook, because such
-a hook builds `datasets[]` from its own groups.
+Generated sets require a registered `generator` hook. `generate_results.render_base` loads the
+row's base model without a LoRA. H3 uses the pinned BF16 asset paths from its native recipe and
+omits the training adapter. Its 16-image default produces stills even for a video training run;
+clip captions also supply class prompts. Generation-time figures are planning estimates, not
+benchmarks. Existing cached images are reused.
+
+**Use my own regularisation images** in Advanced accepts a local class-image folder. The app
+normalises the images through its standard importer, captions them with the project's provider,
+model and endpoint, and uploads only usable images with their new captions. For a video profile,
+class stills use that model's image caption profile. The source folder and existing captions are
+preserved. A repeated run can reuse its captioned folder on retained cloud storage.
 
 run.json carries a top-level `regularization` object: `source: "generate"` with `images`, `weight`,
 `class_nouns` (trigger to class noun), `generation` (`steps`, `guidance_scale`, `seed`) and
 `captions` (picture key to caption, written by the app), or `source: "folder"` with `path` (a
-folder under `datasets/`) and `weight`. The launcher turns it into `train.reg_weight` and a second
-`datasets[]` entry, a copy of the first with `is_reg: true` over the run's copy of the images. Half
-of the trainer's steps then look at a regularisation image, so the app sends twice the steps an
-`epochs` row computes for the subject. Generated images are cached under `<workspace>/regsets` and
-reused.
+folder under `datasets/`) and `weight`. The launcher writes `train.reg_weight` and appends an
+`is_reg: true` dataset **after** the final custom or generic configuration is built. The class dataset
+keeps matching caption/cache settings and uses `num_frames: 1`, `do_audio: false`, including when
+H3's subject datasets contain clips. AI Toolkit alternates class and subject batches (save/sample
+steps keep subject batches), so the app doubles the steps computed for an `epochs` row.
+Generated images are cached under `<workspace>/regsets`; each run keeps its own captioned copy.
+
+### Regularisation coverage
+
+Surveyed against the shipped trainer pins on 2026-10-22. **Offered** rows enable generation by
+default and also accept supplied images. **Own images only** rows use AI Toolkit's weighted class
+loss without requiring a new generation integration. These capabilities do not change a row's
+separate training-recipe verification status.
+
+AI Toolkit's [dataset classification and alternating loader](https://github.com/ostris/ai-toolkit/blob/f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47/jobs/process/BaseSDTrainProcess.py)
+and [reg_weight configuration](https://github.com/ostris/ai-toolkit/blob/f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47/toolkit/config_modules.py)
+provide the dedicated prior-preservation path. The pinned
+[musubi dataset schema](https://github.com/kohya-ss/musubi-tuner/blob/30c658c4f4b0bf05038b3346eff9670259b10fc7/src/musubi_tuner/dataset/config_utils.py)
+and [training loss](https://github.com/kohya-ss/musubi-tuner/blob/30c658c4f4b0bf05038b3346eff9670259b10fc7/src/musubi_tuner/training/trainer_base.py)
+provide ordinary datasets/repeats and flow-matching loss, with no separate class-loss weight.
+The pinned [LTX trainer](https://github.com/Lightricks/LTX-2/blob/be6d6d0a69d11a0a399c462ed92606692e5f8697/packages/ltx-trainer/src/ltx_trainer/trainer.py)
+loads one precomputed dataset and averages its loss, without a separate class/prior branch.
+Mixing class examples into either ordinary dataset is different from this dedicated weighted
+prior-preservation mode. “Not possible” below describes those pins, not an inherent model limitation.
+
+| Model row | Trainer | Regularisation | Default / reason |
+| --- | --- | --- | --- |
+| `flux1-dev` | aitoolkit | offered | On; 40 stills, 28 generation steps, weight 1. |
+| `ltx-2.3` | ltx | not possible | Pinned trainer has no separate class/prior-preservation loss or class-loss weight. |
+| `ltx-2.5` | ltx | not possible | Pinned trainer has no separate class/prior-preservation loss or class-loss weight. |
+| `minimax-h3` | aitoolkit | offered | On; 16 stills, 28 generation steps, weight 1. Reuse stills for image or video training. |
+| `z-image` | aitoolkit | offered | On; 40 stills, 28 generation steps, weight 1. |
+| `qwen-image-2.1` | aitoolkit | offered | On; 40 stills, 40 generation steps, weight 1. |
+| `anima` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `chroma` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `lumina2` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `ming-image` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `sdxl` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `omnigen2` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `flux2` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `zimage-turbo` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `zimage-deturbo` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `flux2-klein-4b` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `ernie-image` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `flux2-klein-9b` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `nucleus-image` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `hidream-o1` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `prx-pixel` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `iris3b` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `krea2` | musubi | not possible | Pinned trainer has no separate class/prior-preservation loss or class-loss weight. |
+| `boogu-image` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `flex2` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
 
 ### `repa`
 

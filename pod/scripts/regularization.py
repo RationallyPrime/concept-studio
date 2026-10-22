@@ -72,6 +72,7 @@ from typing import Any
 
 SCRIPT_NAME = "regularization"
 IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp"})
+VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".m4v"})
 PLAN_VERSION = 1
 PLAN_FILE = "regularization-plan.json"
 MANIFEST_FILE = "regularization.json"
@@ -353,7 +354,11 @@ def subject_prompts(
     extension = cfg["dataset"]["caption_ext"].lstrip(".")
     nouns = block["class_nouns"]
     images = sorted(
-        (p for p in dataset.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES),
+        (
+            p
+            for p in dataset.iterdir()
+            if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES | VIDEO_SUFFIXES
+        ),
         key=lambda p: p.name,
     )
     prompts: list[dict[str, Any]] = []
@@ -376,7 +381,8 @@ def subject_prompts(
         if problem is not None:
             skip(image.name, problem)
             continue
-        aspect = image_aspect(image)
+        # Video captions also seed still class images; no clip generation is required.
+        aspect = 1.0 if image.suffix.lower() in VIDEO_SUFFIXES else image_aspect(image)
         if aspect is None:
             say(f"size of {image.name} is unreadable; drawing its prompt at a square size")
             aspect = 1.0
@@ -396,7 +402,7 @@ def plan_generated(cfg: dict[str, Any], run_dir: Path, workspace: Path) -> dict[
     block = cfg["regularization"]
     table = model_table()
     row = table["exact_row"](cfg["base_model"], "aitoolkit")
-    if row is None or not row.get("regularization") or table["hook"](row, "trainer_config"):
+    if row is None or not table["supports_regularization"](row, "generate"):
         raise InputError(UNSUPPORTED)
     ai_pin = _sibling("generate_results.py")["AI_PIN"]
     generation = block["generation"]

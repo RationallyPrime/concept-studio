@@ -60,3 +60,8 @@ RUN set -eux \
  && /opt/venvs/musubi/bin/python -c "import torch, importlib.metadata as m, accelerate.commands.launch, huggingface_hub, musubi_tuner.krea2_train_network; v = torch.__version__; assert v == '${TORCH_VERSION}+${MUSUBI_CUDA}', v; assert m.version('tensorboard') == '${MUSUBI_TENSORBOARD_VERSION}'; print('musubi-tuner', m.version('musubi-tuner'), 'torch', v, 'accelerate', m.version('accelerate'), 'huggingface_hub', m.version('huggingface-hub'), 'tensorboard', m.version('tensorboard'))" \
  && /opt/venvs/musubi/bin/python -m accelerate.commands.launch --help > /dev/null \
  && uv pip freeze --python /opt/venvs/musubi/bin/python > /opt/venvs/musubi/freeze.txt
+
+# SeedVR2 keeps its small dependencies isolated and reuses this trainer's PyTorch/CUDA.
+RUN /opt/venvs/musubi/bin/python /opt/share_seedvr2_torch.py /opt/venvs/seedvr2 \
+ && /opt/venvs/seedvr2/bin/python -c "from pathlib import Path; import torch, torchvision, cuda.bindings.runtime, diffusers, cv2, gguf, rotary_embedding_torch; assert torch.__version__ == '${TORCH_VERSION}+${MUSUBI_CUDA}'; assert Path(torch.__file__).resolve().is_relative_to('/opt/venvs/musubi'); print('SeedVR2 shared torch', torch.__version__, 'diffusers', diffusers.__version__, 'cv2', cv2.__version__)" \
+ && /opt/venvs/seedvr2/bin/python /opt/seedvr2/inference_cli.py --help > /dev/null

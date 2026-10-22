@@ -16,7 +16,8 @@ frame count and its original audio track. SeedVR2 is a video restoration model, 
 one-frame video.
 
 The work is done by the SeedVR2 command line of numz/ComfyUI-SeedVR2_VideoUpscaler (Apache-2.0),
-checked out at ``/opt/seedvr2`` in its own venv (``/opt/venvs/seedvr2``). Its weights download on
+checked out at ``/opt/seedvr2``. Its thin venv (``/opt/venvs/seedvr2``) uses the trainer's existing
+PyTorch and CUDA libraries; its other dependencies stay isolated. Its weights download on
 first use, with SHA-256 checks, to ``<workspace>/models/seedvr2`` on the network volume, so a
 second pod on the same storage does not download them again. Images run as one directory pass with
 the models kept loaded; each clip runs on its own, then has its audio put back with ffmpeg and its
