@@ -43,11 +43,13 @@ struct MappingRequestsTests {
 
 private actor MappingReplyClient: ModelClient {
     nonisolated let requestedModel = "mapping-test"
-    var replies: [Result<ModelReply, ModelError>]
+    let replies: [Result<ModelReply, ModelError>]
+    let cancelAfterReply: Int?
     var count = 0
 
-    init(_ replies: [Result<ModelReply, ModelError>]) {
+    init(_ replies: [Result<ModelReply, ModelError>], cancelAfterReply: Int? = nil) {
         self.replies = replies
+        self.cancelAfterReply = cancelAfterReply
     }
 
     func request(
@@ -55,7 +57,11 @@ private actor MappingReplyClient: ModelClient {
         onPartialText: (@Sendable (String) async -> Void)?
     ) async throws -> ModelReply {
         count += 1
-        return try replies.removeFirst().get()
+        let reply = try #require(replies.dropFirst(count - 1).first, "Unexpected model request \(count)")
+        let result = try reply.get()
+        // Cancel this request's task at the scripted boundary, independent of the test observer's scheduling.
+        if count == cancelAfterReply { withUnsafeCurrentTask { $0?.cancel() } }
+        return result
     }
 }
 
@@ -108,16 +114,12 @@ extension MappingRequestsTests {
             .success(ModelReply(text: """
             {"tiles":[{"tile":1,"description":"first scene","locators":[{"trigger":"NORA7","locator":"the person"}]}]}
             """, servedModel: "test")),
-        ])
+        ], cancelAfterReply: 2)
         let assistant = StudioAssistant(endpoint: ResolvedEndpoint(client: client), demo: false)
         let images = Array(project.images.prefix(2))
         let work = Task {
             await assistant.mappingResult(images: images, references: [:], concepts: project.job.concepts)
         }
-        while await client.count < 2 {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        work.cancel()
         let result = await work.value
         #expect(result.suggestions[images[0].id]?.mapping["NORA7"] == "the person")
         #expect(result.failures == [images[1].id])
