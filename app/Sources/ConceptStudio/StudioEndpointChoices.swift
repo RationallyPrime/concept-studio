@@ -20,7 +20,7 @@ enum ProviderChoices {
         Provider(kind: "google", title: "Google Gemini", defaultModel: "gemini-3.8-flash"),
         Provider(kind: "anthropic", title: "Anthropic Claude", defaultModel: "claude-sonnet-4-6"),
         Provider(kind: "openai", title: "OpenAI", defaultModel: "gpt-5.2"),
-        Provider(kind: "vllm", title: "My pod / custom server", defaultModel: "Qwen/Qwen3-VL-8B-Instruct"),
+        Provider(kind: "vllm", title: "My cloud GPU / custom server", defaultModel: "Qwen/Qwen3-VL-8B-Instruct"),
     ]
 
     /// The provider a fresh install starts with.
@@ -97,7 +97,7 @@ extension StudioSession {
         kind == "vllm" ? gpu.captionModel : ProviderChoices.defaultModel(for: kind)
     }
 
-    /// "My pod / custom server" has one model choice, the one made on Captioning. It is also the model the
+    /// "My cloud GPU / custom server" has one model choice, the one made on Captioning. It is also the model the
     /// cloud GPU's caption server starts, including the one kept running during training, so the GPU
     /// workspace follows it.
     func followSelfHostedModel() {
@@ -200,7 +200,7 @@ extension StudioSession {
             guard let trustedURL = gpu.captionEndpoint,
                   !gpu.agentToken.isEmpty else {
                 throw StudioError
-                    .message("Your captioning computer is stopped or changed. Start its caption server again.")
+                    .message("The cloud GPU you caption with is stopped or changed. Start its caption server again.")
             }
             return try Endpoints.resolve(
                 spec,

@@ -47,7 +47,8 @@ extension PodAgentClient {
               let receipt = try JSONValue(parsing: response.body).objectValue,
               receipt["name"]?.stringValue == name, receipt["file_name"]?.stringValue == fileName,
               receipt["size"]?.intValue == Int(size) else {
-            throw StudioError.message("The computer did not confirm the complete training upload (\(response.status)).")
+            throw StudioError
+                .message("The cloud GPU did not confirm the complete training upload (\(response.status)).")
         }
     }
 }

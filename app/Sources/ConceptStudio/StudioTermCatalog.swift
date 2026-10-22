@@ -50,7 +50,7 @@ struct StudioGlossaryCatalog: Decodable, Sendable {
         description: "What each kind of concept teaches the model, and how its captions and mapping work."
     ), GlossarySection(
         id: "using-conceptstudio", title: "Using ConceptStudio",
-        description: "Accounts, project settings and rented computers in this application."
+        description: "Accounts, project settings and cloud GPUs in this application."
     )]
 
     private static func decode<T: Decodable>(_ name: String) -> T {

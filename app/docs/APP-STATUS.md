@@ -227,7 +227,7 @@ and streaming-caption edge cases are covered by automated checks, not a new live
 - Concepts and Mapping: one-concept presentation and prepared confirmed assignments.
 - Captioning: all three prepared captions written without any provider request.
 - Review: caption/image pairing, mark Final, Save, and disabled re-caption protection.
-- Publish, GPU pods and Training: simulated upload, rental, training completion and Stop.
+- Publish, Cloud GPU and Training: simulated upload, rental, training completion and Stop.
 - Monitor: simulated loss, honest no-real-generation demo state, saved settings and Repeat.
 - Settings and Advanced settings, File and Go menus, visible native sidebar and scrolling.
 

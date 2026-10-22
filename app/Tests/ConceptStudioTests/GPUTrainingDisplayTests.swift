@@ -76,7 +76,7 @@ struct GPUTrainingDisplayTests {
         session.useCritic = true
         session.criticKind = "vllm"
         #expect(session.trainingPlanExplanation.contains("Captioning uses Google Gemini"))
-        #expect(session.trainingPlanExplanation.contains("caption reviewer uses this computer"))
+        #expect(session.trainingPlanExplanation.contains("caption reviewer uses this cloud GPU"))
         #expect(session.trainingPlanExplanation.contains("Finish captioning or review work"))
     }
 
@@ -92,12 +92,13 @@ struct GPUTrainingDisplayTests {
         session.usingPodCaptioner = true
         session.gpu.captionServerActive = false
         #expect(session.trainingPlanExplanation.contains("Training uses GPUs 1, 2, 3"))
-        #expect(session.trainingPlanExplanation.contains("No pod caption model is started"))
+        #expect(session.trainingPlanExplanation.contains("start no caption model on the cloud GPU"))
         #expect(session.trainingPlanExplanation.contains("Start its model from Captioning"))
         session.gpu.keepCaptionServer = true
-        #expect(session.trainingPlanExplanation.contains("start a pod caption model on GPU 0"))
+        #expect(session.trainingPlanExplanation.contains("start a caption model on GPU 0"))
         session.gpu.captionServerActive = true
-        #expect(session.trainingPlanExplanation.contains("existing pod caption model stays on GPU 0"))
+        #expect(session.trainingPlanExplanation
+            .contains("caption model already running on the cloud GPU stays on GPU 0"))
     }
 
     @Test func serviceCacheComesFromFetchedAgentServicesAndResetsForAnotherOrStoppedComputer() async throws {
@@ -147,7 +148,7 @@ struct GPUTrainingDisplayTests {
             runID: run.runID, outputRepo: "fixture/model", destination: .hub, volumeID: run.volumeID,
             state: .pushed(repo: "fixture/model")
         )
-        #expect(run.resultExplanation == "Uploaded to Hugging Face: fixture/model")
+        #expect(run.resultExplanation == "Published to Hugging Face: fixture/model")
     }
 
     @Test func reopenedFinishedRunKeepsItsRecordedCurveInsteadOfClaimingNoRun() throws {

@@ -33,7 +33,7 @@ struct RegularizationSection: View {
 
     /// What the section says before the person turns anything on.
     var explanation: String {
-        "Before training, the computer draws ordinary pictures of \(subjects) with the original model, from your "
+        "Before training, the cloud GPU draws ordinary pictures of \(subjects) with the original model, from your "
             + "captions with the names taken out, and your captioning model describes each one without being told "
             + "the names. Training looks at them alongside your photos so the model does not start drawing your "
             + "subject whenever you ask for \(subjects)."
@@ -94,7 +94,7 @@ struct RepaSection: View {
             }.formStyle(.columns)
             Text("Nudges the model's early layers to see your photos the way a strong image-recognition model does. "
                 + "It is experimental and may not help. The first run downloads a "
-                + "\(String(format: "%.1f", offer.encoderDownloadGB)) GB helper model to this computer's storage; "
+                + "\(String(format: "%.1f", offer.encoderDownloadGB)) GB helper model to this cloud GPU's storage; "
                 + "training speed is unchanged after a short preparation.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 .fixedSize(horizontal: false, vertical: true)

@@ -206,8 +206,8 @@
     "term": "Container image",
     "section_id": "using-conceptstudio",
     "aliases": [],
-    "plain_language": "The package of software used to start the rented computer, including its trainer.",
-    "good_stuff": "The packaged software environment used to start the rented computer. It includes the control agent, trainer and required libraries. The chosen training model must have a compatible image; it is separate from your dataset and LoRA weights.",
+    "plain_language": "The package of software used to start the cloud GPU, including its trainer.",
+    "good_stuff": "The packaged software environment used to start the cloud GPU. It includes the control agent, trainer and required libraries. The chosen training model must have a compatible image; it is separate from your dataset and LoRA weights.",
     "related_terms": [
       "training-recipe",
       "compatibility"

@@ -274,7 +274,7 @@ extension GPUWorkspace {
         await perform {
             guard let run = self.runHistory.first(where: { $0.runID == id }), let agent = self.agent,
                   self.hasRunningPod, run.volumeID == self.currentVolumeID else {
-                throw StudioError.message("Connect a computer to this run's saved storage to list its checkpoints.")
+                throw StudioError.message("Connect a cloud GPU to this run's saved storage to list its checkpoints.")
             }
             let files = try await agent.runFiles(runID: id)
             if let index = self.runHistory.firstIndex(where: { $0.runID == id }) {
@@ -312,7 +312,8 @@ extension GPUWorkspace {
         guard !isBusy,
               !isTraining else { message = "Finish the active action before selecting saved settings."; return }
         if hasRunningPod, trainer != run.trainer {
-            message = "This computer has the other trainer image. Stop it and choose \(run.trainer) to repeat this run."
+            message = "This cloud GPU has the other trainer image. "
+                + "Stop it and choose \(run.trainer) to repeat this run."
             return
         }
         trainer = run.trainer

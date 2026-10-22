@@ -40,7 +40,7 @@ struct RegularizationEstimate: Equatable {
     var sentence: String {
         let duration = "About \(minutes) minute\(minutes == 1 ? "" : "s") the first time"
         guard let cost else { return duration + "." }
-        return duration + ", about \(StudioMoney.format(cost)) at this computer's price."
+        return duration + ", about \(StudioMoney.format(cost)) at this cloud GPU's price."
     }
 }
 
@@ -267,7 +267,7 @@ extension GPUWorkspace {
         regularizationProgress = nil
         let files = try await agent.runFiles(runID: drawID).filter { $0.path.hasSuffix(".png") }
         guard !files.isEmpty else {
-            throw StudioError.message("The computer drew no regularisation images. Read the log of run \(drawID).")
+            throw StudioError.message("The cloud GPU drew no regularisation images. Read the log of run \(drawID).")
         }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("studio-" + drawID)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -307,7 +307,7 @@ extension TrainingRun {
         var lines: [String] = []
         if let block = params["regularization"]?.objectValue {
             if block["source"]?.stringValue == "folder" {
-                let folder = block["path"]?.stringValue ?? "a folder on the computer"
+                let folder = block["path"]?.stringValue ?? "a folder on the cloud GPU"
                 lines.append("Regularisation: your images (\(folder))")
             } else {
                 let nouns = block["class_nouns"]?.objectValue?.pairs.compactMap(\.value.stringValue) ?? []

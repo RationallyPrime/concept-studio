@@ -34,7 +34,7 @@ struct StudioPrompt: Identifiable {
         case .discardCaptionDrafts: "Discard unsaved caption edits?"
         case let .stopWork(work):
             work.hasRunningPod
-                ? "Stop the rented computer before \(work.purpose.verb)?"
+                ? "Stop the cloud GPU before \(work.purpose.verb)?"
                 : "Cancel the current work before \(work.purpose.verb)?"
         case .stopWithPendingResult: "Your trained model has not been collected yet"
         case let .raiseBudget(_, to, _): "Raise the spending limit to \(StudioMoney.format(to))?"
@@ -47,12 +47,12 @@ struct StudioPrompt: Identifiable {
         case let .stopWork(work): return Self.stopMessage(work)
         case .stopWithPendingResult:
             return "The trained model has not been saved to your Mac or published. Retrieve it first, "
-                + "or stop and keep it on this computer's saved storage for later retrieval. "
-                + "Removing a computer deletes files on its pod disk."
+                + "or stop and keep it on the cloud GPU's storage for later retrieval. "
+                + "Removing a cloud GPU deletes the files on its disk."
         case let .raiseBudget(from, to, rate):
             let hours = rate.map { $0 > 0 ? " That is about \(Self.hours((to - from) / $0)) more at this price." : "" }
                 ?? ""
-            return "The computer stops automatically at \(StudioMoney.format(to)) "
+            return "The cloud GPU stops automatically at \(StudioMoney.format(to)) "
                 + "instead of \(StudioMoney.format(from))." + hours
         }
     }
@@ -84,7 +84,7 @@ struct StudioPrompt: Identifiable {
 
     var alternateTitle: String? {
         switch kind {
-        case let .stopWork(work) where work.offerKeepRunning: "Keep the computer running"
+        case let .stopWork(work) where work.offerKeepRunning: "Keep the cloud GPU running"
         case .stopWithPendingResult: "Stop anyway"
         default: nil
         }
@@ -103,7 +103,7 @@ struct StudioPrompt: Identifiable {
         }
         let price = work.hourlyRate.map { "It costs \(StudioMoney.format($0)) per hour" } ?? "It is still billing"
         var text = "\(price) and has used about \(StudioMoney.format(work.spent)) so far. "
-            + "Stop ends GPU billing; network storage and this computer's pod disk remain. "
+            + "Stop ends GPU billing; saved storage and the cloud GPU's disk remain. "
             + "If the stop cannot be confirmed, ConceptStudio stays open so you can retry."
         if work.offerKeepRunning {
             text += "\n\nIf you keep it running, it keeps billing after ConceptStudio closes, and your budget "

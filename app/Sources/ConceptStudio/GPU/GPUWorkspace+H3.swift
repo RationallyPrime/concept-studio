@@ -194,7 +194,7 @@ extension GPUWorkspace {
                 ? "Repository files total about \(String(format: "%.1f", row.source.firstDownloadGB)) GB. "
                 + row.source.downloadNote
                 : "The first run downloads about \(String(format: "%.1f", row.source.firstDownloadGB)) GB "
-                + "of model files to the computer."
+                + "of model files to the cloud GPU."
         )
     }
 
@@ -231,7 +231,7 @@ extension GPUWorkspace {
             inventory.contains { $0.index == index && $0.memoryTotalMiB >= minimumMiB }
         }) else {
             throw StudioError.message(row.gpu.verifyMessage
-                ?? "Choose a computer with at least \(row.gpu.minVRAMGB) GB of memory per GPU.")
+                ?? "Choose a cloud GPU with at least \(row.gpu.minVRAMGB) GB of memory per GPU.")
         }
     }
 
@@ -245,14 +245,14 @@ extension GPUWorkspace {
         guard !isBusy, !isTraining, model != baseModel else { return }
         let neededRow = modelTable.row(modelRef: model) ?? modelTable.defaultRow
         guard !hasRunningPod || trainer == neededRow.trainer else {
-            message = "This computer has a different trainer. Stop and remove it before choosing this model."
+            message = "This cloud GPU has a different trainer. Stop and remove it before choosing this model."
             return
         }
         // The rental filter used the current model's GPU floor; a running computer may not meet a higher one.
         // Rows that verify memory on the pod check the actual GPU before training instead.
         guard !hasRunningPod || neededRow.gpu.verifyOnPod || neededRow.gpu.minVRAMGB <= requiredGPUMemoryGB else {
             message = "\(neededRow.shortName) needs at least \(neededRow.gpu.minVRAMGB) GB of memory per GPU, "
-                + "more than this computer was chosen for. Stop and remove it before choosing this model."
+                + "more than this cloud GPU was chosen for. Stop and remove it before choosing this model."
             return
         }
         let previousRow = effectiveModelRow
@@ -304,7 +304,7 @@ extension GPUWorkspace {
         }
         guard !hasRunningPod || trainer == recipeRow.trainer else {
             throw StudioError.message(
-                "\(recipeRow.shortName) uses the AI Toolkit trainer. Choose a matching computer first."
+                "\(recipeRow.shortName) uses the AI Toolkit trainer. Choose a matching cloud GPU first."
             )
         }
         let recipe = try NativeTrainingRecipe.load(Data(contentsOf: source), row: recipeRow, table: modelTable)

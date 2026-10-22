@@ -120,7 +120,7 @@ extension GPUWorkspace {
         self.generation = generation
         saveProjectRecord()
         persist()
-        message = complete ? "Generated outputs saved into this project. The computer can now be stopped."
+        message = complete ? "Generated outputs saved into this project. The cloud GPU can now be stopped."
             : generation.failure ?? "Generation did not finish."
     }
 

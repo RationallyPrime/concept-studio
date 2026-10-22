@@ -36,7 +36,7 @@ struct WelcomeView: View {
         }
         .sheet(isPresented: $showRetainedComputer) {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Running rented computer").font(.title2.bold())
+                Text("Running cloud GPU").font(.title2.bold())
                 GPUJourneyView(session: session, step: .pods)
                 Button("Close controls") { showRetainedComputer = false }
                     .keyboardShortcut(.cancelAction)
@@ -68,7 +68,7 @@ struct WelcomeView: View {
                 VStack(alignment: .leading, spacing: 10) { startButtons }
             }
             .controlSize(.large).disabled(session.busy)
-            Text("The demo uses practice photos and simulated training. No account or rented computer is needed.")
+            Text("The demo uses practice photos and simulated training. No account or cloud GPU is needed.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -93,8 +93,8 @@ struct WelcomeView: View {
             workflowStage(
                 3,
                 title: "Train and compare",
-                screens: "GPU pods · Training · Monitor",
-                detail: "Choose a computer and budget, run training, then save and try the model."
+                screens: "Cloud GPU · Training · Monitor",
+                detail: "Choose a cloud GPU and budget, run training, then save and try the model."
             )
         }.fixedSize(horizontal: false, vertical: true)
     }
@@ -121,30 +121,30 @@ struct WelcomeView: View {
         .help("Opens a project folder containing its images, captions and job configuration.")
         Button("Try the demo", systemImage: "play.circle") { session.useDemo() }
             .disabled(session.gpu.hasRunningPod || session.gpu.isBusy)
-            .help(session.gpu.hasRunningPod ? "Stop the rented computer first." : "Opens a simulated project offline.")
+            .help(session.gpu.hasRunningPod ? "Stop the cloud GPU first." : "Opens a simulated project offline.")
     }
 
     private var retainedComputer: some View {
-        StudioSection(title: "A rented computer is still running") {
+        StudioSection(title: "A cloud GPU is still running") {
             HStack {
                 Text(retainedCost).font(.headline).monospacedDigit()
                 Spacer()
-                Button("Open computer controls") { showRetainedComputer = true }
-                    .help("Shows the provider status, hourly cost and stop controls for this running computer.")
+                Button("Open cloud GPU controls") { showRetainedComputer = true }
+                    .help("Shows the provider status, hourly cost and stop controls for this running cloud GPU.")
                 Button(session.gpu.isStopping ? "Stopping…" : "Stop everything", systemImage: "stop.circle") {
                     session.requestStopEverything()
                 }.disabled(session.gpu.isStopping)
             }
             Text(session.gpu.message).font(.callout)
-            Text("Stop this computer before starting a different project or demo.")
+            Text("Stop this cloud GPU before starting a different project or demo.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)
         }
     }
 
-    /// Computers this app created that the provider still lists, though this Mac had lost their record.
+    /// Cloud GPUs this app created that the provider still lists, though this Mac had lost their record.
     private var reconciledComputers: some View {
         StudioSection(
-            title: "Found running computers from an earlier session",
+            title: "Found running cloud GPUs from an earlier session",
             subtitle: "ConceptStudio created these, but this Mac had lost track of them. They are still billing."
         ) {
             ForEach(session.gpu.strayPods) { pod in

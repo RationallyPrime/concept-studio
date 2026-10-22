@@ -42,7 +42,7 @@ extension StudioSession {
             try gpu.configure(runpodKey: "", hubToken: "", imageName: podImageName)
         } catch {
             errorMessage = Self.describe(error)
-            gpu.message = "A retained computer may still be billing. Add your RunPod key in Settings and stop it."
+            gpu.message = "A retained cloud GPU may still be billing. Add your RunPod key in Settings and stop it."
         }
         configureGPU()
     }
@@ -55,7 +55,7 @@ extension StudioSession {
 
     func useDemo() {
         restoreStartupComputer()
-        guard !refuseWhileComputerBusy("Stop the rented computer before switching to the demo.") else { return }
+        guard !refuseWhileComputerBusy("Stop the cloud GPU before switching to the demo.") else { return }
         whenConfirmed(discardDraftsConfirmation) {
             self.perform("Opening the offline demo…") {
                 await self.releaseProject()
@@ -75,7 +75,7 @@ extension StudioSession {
 
     func createProject(at url: URL) {
         guard !refuseWhileComputerBusy(
-            "Finish the current computer action or Stop everything before changing projects."
+            "Finish the current cloud GPU action or Stop everything before changing projects."
         ) else { return }
         whenConfirmed(discardDraftsConfirmation) {
             self.perform("Creating your project…") {
@@ -97,7 +97,7 @@ extension StudioSession {
 
     func openProject(url selected: URL) {
         guard !refuseWhileComputerBusy(
-            "Finish the current computer action or Stop everything before changing projects."
+            "Finish the current cloud GPU action or Stop everything before changing projects."
         ) else { return }
         whenConfirmed(discardDraftsConfirmation) {
             self.perform("Opening your project…") {

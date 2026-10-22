@@ -16,7 +16,7 @@ enum StudioStep: Int, CaseIterable, Identifiable, Codable {
             "Captioning",
             "Review",
             "Publish",
-            "GPU pods",
+            "Cloud GPU",
             "Training",
             "Monitor",
         ][rawValue]

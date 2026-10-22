@@ -35,7 +35,7 @@ struct TrainingResult: Codable, Equatable {
         switch state {
         case .training: "Training"
         case .pending: "Finished; not yet saved"
-        case let .pushed(repo): "Pushed to \(repo)"
+        case let .pushed(repo): "Published to \(repo)"
         case let .saved(folder): "Saved to \(folder)"
         case .failed: "Ended without a trained model"
         }
@@ -223,7 +223,7 @@ extension GPUWorkspace {
             found = try await provider.list()
         } catch {
             reconciled = false // the next configure (key or settings change) tries again
-            let warning = "Could not check your RunPod account for computers this app left running "
+            let warning = "Could not check your RunPod account for cloud GPUs this app left running "
                 + "(\(error.localizedDescription)). Open the RunPod console to make sure nothing is billing."
             message = warning
             failure = warning
@@ -250,12 +250,12 @@ extension GPUWorkspace {
             lastActivity = Date()
             persist()
             watch()
-            message = "Found a running computer this app created (\(adopted.name ?? adopted.id)) that this Mac "
+            message = "Found a running cloud GPU this app created (\(adopted.name ?? adopted.id)) that this Mac "
                 + "had lost track of. Its spending limit and idle stop apply from now; stop it if you do not need it."
         }
         strayPods = running.filter { $0.id != pod?.id }
         if !strayPods.isEmpty {
-            message = "\(strayPods.count) more running computer(s) from this app are billing on your RunPod "
+            message = "\(strayPods.count) more running cloud GPU(s) from this app are billing on your RunPod "
                 + "account. Stop them below or in RunPod."
         }
         await pruneAgentSecrets(provider)
@@ -275,7 +275,7 @@ extension GPUWorkspace {
         do {
             try await provider.stop(id: id)
             strayPods.removeAll { $0.id == id }
-            message = "Stop was sent to that computer. Its saved storage remains."
+            message = "Stop was sent to that cloud GPU. Its saved storage remains."
         } catch { message = error.localizedDescription }
     }
 
@@ -293,7 +293,7 @@ extension GPUWorkspace {
             if own == nil, trainers.contains(where: \.active) { return }
             if own?.state == "exited", result.destination == .hub {
                 updateResult(.pushed(repo: result.outputRepo))
-                message = "Training finished and the LoRA was pushed to \(result.outputRepo)."
+                message = "Training finished and the LoRA was published to \(result.outputRepo)."
                 return
             }
             guard try await !RunArtifacts.selection(agent.runFiles(runID: result.runID)).isEmpty else {
@@ -302,7 +302,7 @@ extension GPUWorkspace {
                 return
             }
             updateResult(.pending)
-            message = "Training finished. Saving the LoRA before the computer can be stopped."
+            message = "Training finished. Saving the LoRA before the cloud GPU can be stopped."
             startAutomaticRetrieval()
         case .pending:
             startAutomaticRetrieval()
@@ -361,25 +361,25 @@ extension GPUWorkspace {
         guard let agent, hasRunningPod, resultIsOnThisPod(result) else {
             throw StudioError.message(
                 result.volumeID.hasPrefix("pod:")
-                    ? "Start the original computer for run \(result.runID), then retrieve its outputs."
-                    : "Rent a computer on the storage that holds run \(result.runID), then retrieve it."
+                    ? "Start the original cloud GPU for run \(result.runID), then retrieve its outputs."
+                    : "Rent a cloud GPU on the storage that holds run \(result.runID), then retrieve it."
             )
         }
         if result.destination == .hub, canPushToHub, !result.outputRepo.isEmpty {
             do {
-                message = "Pushing the LoRA to \(result.outputRepo)…"
+                message = "Publishing the LoRA to \(result.outputRepo)…"
                 try await agent.start("push-lora", gpus: [], params: [
                     "run_id": .string(result.runID), "repo_id": .string(result.outputRepo),
                     "private": .bool(result.isPrivate ?? true),
                 ])
                 try await waitForService("push-lora")
                 updateResult(.pushed(repo: result.outputRepo))
-                message = "Your LoRA was pushed to \(result.outputRepo)."
+                message = "Your LoRA was published to \(result.outputRepo)."
                 return
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                message = "The push to \(result.outputRepo) failed; saving the LoRA to this Mac instead."
+                message = "Publishing to \(result.outputRepo) failed; saving the LoRA to this Mac instead."
             }
         }
         let folder = try resultsFolder(for: result.runID)
@@ -419,7 +419,7 @@ extension GPUWorkspace {
     /// The sentence after "saved to <folder>." about the logs `saveRunLogs` saved.
     nonisolated static func logsSentence(_ saved: Int?) -> String {
         guard let saved else {
-            return " Its training logs could not be saved here; they stay on the computer's storage."
+            return " Its training logs could not be saved here; they stay on the cloud GPU's storage."
         }
         return saved > 0 ? " Its training logs are in the logs folder beside it." : ""
     }
@@ -437,7 +437,7 @@ extension GPUWorkspace {
         // before creating directories, so a nested symlink cannot redirect that creation.
         let parts = localPath.split(separator: "/", omittingEmptySubsequences: false)
         guard !parts.contains(where: { ["", ".", ".."].contains(String($0)) }) else {
-            throw StudioError.message("The computer listed an invalid run file: \(file.path).")
+            throw StudioError.message("The cloud GPU listed an invalid run file: \(file.path).")
         }
         var parent = root
         for part in parts.dropLast() {
@@ -450,7 +450,7 @@ extension GPUWorkspace {
               destination.deletingLastPathComponent().resolvingSymlinksInPath().path.hasPrefix(root.path + "/")
               || destination.deletingLastPathComponent().resolvingSymlinksInPath().path == root.path,
               destination.resolvingSymlinksInPath().path.hasPrefix(root.path + "/") else {
-            throw StudioError.message("The computer listed a file outside the run: \(file.path).")
+            throw StudioError.message("The cloud GPU listed a file outside the run: \(file.path).")
         }
         try manager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         let partial = destination.appendingPathExtension("part")

@@ -54,7 +54,7 @@ struct AdvancedTrainingControls: View {
             if workspace.keepCaptionServer {
                 LabeledContent("Caption model", value: workspace.captionModel)
                     .textSelection(.enabled)
-                Text("Choose this model on Captioning, with the provider My pod / custom server.")
+                Text("Choose this model on Captioning, with the provider My cloud GPU / custom server.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
             StudioTermsHelp(terms: [

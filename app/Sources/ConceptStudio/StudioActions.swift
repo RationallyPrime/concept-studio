@@ -6,7 +6,7 @@ import SwiftUI
 @MainActor
 extension StudioSession {
     func usePodCaptionServer() {
-        perform("Starting your computer's caption server…") {
+        perform("Starting your cloud GPU's caption server…") {
             guard await self.gpu.startCaptioning(), let url = self.gpu.captionEndpoint else {
                 throw StudioError.message(self.gpu.message)
             }

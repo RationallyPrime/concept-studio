@@ -226,7 +226,7 @@ enum PodSecrets {
     static func newAgentSecretName() throws -> String {
         var bytes = [UInt8](repeating: 0, count: 12)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
-            throw StudioError.message("Your Mac could not generate a key for the computer. Try again.")
+            throw StudioError.message("Your Mac could not generate a key for the cloud GPU. Try again.")
         }
         return agentPrefix + bytes.map { String(format: "%02x", $0) }.joined()
     }
@@ -302,7 +302,7 @@ struct RunPodProvider: GPUProvider {
 
     func create(_ request: PodCreation) async throws -> RentedPod {
         guard [1, 2, 4].contains(request.count), request.count <= request.offer.maxCount else {
-            throw StudioError.message("Choose 1, 2 or 4 GPUs available for this computer.")
+            throw StudioError.message("Choose 1, 2 or 4 GPUs available for this GPU type.")
         }
         guard request.volume == nil || request.offer.cloud == .secure else {
             throw StudioError.message("Saved storage works only with Secure Cloud GPUs. Choose a Secure Cloud GPU.")
@@ -467,7 +467,7 @@ struct RunPodProvider: GPUProvider {
             case 401, 403: throw StudioError.message("RunPod could not accept your key. Check it in Settings.")
             case 402: throw StudioError.message("RunPod reports insufficient account balance. Add funds in RunPod.")
             case 409, 429, 503:
-                throw StudioError.message("This computer is not available now. Refresh the list or choose another.")
+                throw StudioError.message("This cloud GPU is not available now. Refresh the list or choose another.")
             default:
                 throw StudioError.message("RunPod could not complete this action (\(response.status)). "
                     + "Check your account and try again.")
@@ -483,18 +483,18 @@ actor DemoGPUProvider: GPUProvider {
     func offers(count: Int, minCudaVersion: String) -> [GPUOffer] {
         [
             GPUOffer(
-                gpuID: "demo-80", name: "Demo training computer", memory: 80, price: 1.50, maxCount: 4,
+                gpuID: "demo-80", name: "Demo GPU", memory: 80, price: 1.50, maxCount: 4,
                 dataCenters: [.init(id: "demo", availability: "HIGH")]
             ),
             GPUOffer(
-                gpuID: "demo-80", cloud: .community, name: "Demo training computer", memory: 80, price: 0.90,
+                gpuID: "demo-80", cloud: .community, name: "Demo GPU", memory: 80, price: 0.90,
                 maxCount: 4, dataCenters: [.init(id: "demo-community", availability: "MEDIUM")]
             ),
         ]
     }
 
     func volumes() -> [GPUVolume] {
-        [GPUVolume(id: "demo-volume", name: "Demo project storage", size: 100, dataCenter: "demo")]
+        [GPUVolume(id: "demo-volume", name: "Demo saved storage", size: 100, dataCenter: "demo")]
     }
 
     func create(_ request: PodCreation) -> RentedPod {

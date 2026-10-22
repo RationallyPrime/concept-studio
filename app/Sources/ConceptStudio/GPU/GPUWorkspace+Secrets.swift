@@ -11,7 +11,7 @@ extension GPUWorkspace {
     nonisolated static func newAgentToken() throws -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
-            throw StudioError.message("Your Mac could not generate a key for the computer. Try again.")
+            throw StudioError.message("Your Mac could not generate a key for the cloud GPU. Try again.")
         }
         return bytes.map { String(format: "%02x", $0) }.joined()
     }
@@ -50,8 +50,8 @@ extension GPUWorkspace {
     }
 
     nonisolated static let captioningTagSuffix = "-captioning"
-    nonisolated static let noCaptionServer = "This computer was rented without the caption server. "
-        + "Use hosted captioning, or rent a captioning computer from the Captioning screen."
+    nonisolated static let noCaptionServer = "This cloud GPU was rented without the caption server. "
+        + "Use hosted captioning, or rent a cloud GPU for captioning from the Captioning screen."
 
     /// Creates the pod. A creation that fails leaves no agent secret behind.
     func createPod(

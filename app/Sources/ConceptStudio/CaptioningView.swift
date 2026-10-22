@@ -485,22 +485,22 @@ private extension CaptioningView {
 }
 
 extension CaptioningView {
-    /// The optional pod caption server: rent a computer that carries it, then start it on GPU 0.
+    /// The optional cloud GPU caption server: rent a cloud GPU that carries it, then start it on GPU 0.
     var podCaptioning: some View {
-        DisclosureGroup("Optional: caption on a rented computer") {
+        DisclosureGroup("Optional: caption on a cloud GPU") {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Hosted captioning needs no rented GPU. To use a local model, rent a computer, "
+                Text("Hosted captioning needs no cloud GPU. To use a local model, rent a cloud GPU, "
                     + "caption on GPU 0, then review and publish before training.")
                     .foregroundStyle(StudioStyle.supportingText)
-                Button("Rent or choose a captioning computer") {
+                Button("Rent or choose a cloud GPU for captioning") {
                     session.gpu.rentsCaptionServer = true
                     session.step = .pods
                 }
                 Text("The caption server starts \(session.gpu.captionModel). "
-                    + "Choose this model above, with the provider My pod / custom server.")
+                    + "Choose this model above, with the provider My cloud GPU / custom server.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Start caption server and use this computer") { session.usePodCaptionServer() }
+                Button("Start caption server and use this cloud GPU") { session.usePodCaptionServer() }
                     .disabled(session.busy || !session.gpu.hasRunningPod
                         || !session.gpu.captionServerInstalled)
                 if session.gpu.hasRunningPod, !session.gpu.captionServerInstalled {
@@ -509,7 +509,7 @@ extension CaptioningView {
                 }
                 if session.usingPodCaptioner {
                     StudioNotice(
-                        "Using your authenticated computer’s caption server.",
+                        "Using your authenticated cloud GPU’s caption server.",
                         symbol: "server.rack"
                     )
                     Button("Use my Settings server instead") {

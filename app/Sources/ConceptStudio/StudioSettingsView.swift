@@ -205,7 +205,7 @@ struct StudioSettingsView: View {
     private var publishingAndTrainingAccounts: some View {
         StudioSection(
             title: "Publishing and training accounts",
-            subtitle: "Use these accounts to publish datasets and rent training computers."
+            subtitle: "Use these accounts to publish datasets and rent cloud GPUs."
         ) {
             Form {
                 LabeledContent("Hugging Face", value: keyStatus("huggingface"))
@@ -243,7 +243,7 @@ struct StudioSettingsView: View {
                 .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
                 .disabled(session.demoMode || session.busy || checkingAccount != nil
                     || runPodKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help("Saves the key, then reads the RunPod computer list; it creates and rents nothing.")
+                .help("Saves the key, then lists your cloud GPUs on RunPod; it creates and rents nothing.")
                 Button("Remove saved key") { removeKey("runpod") }
                     .disabled(session.demoMode || session.busy || checkingAccount != nil
                         || keyPresence["runpod"] != true)
@@ -263,8 +263,8 @@ struct StudioSettingsView: View {
                     text: $session.podImageName,
                     prompt: Text(StudioSession.defaultPodImageName)
                 )
-                .help("Leave blank to use the published default image when renting a computer.")
-                TextField("RunPod network volume ID", text: $session.volumeID, prompt: Text("Optional"))
+                .help("Leave blank to use the published default image when renting a cloud GPU.")
+                TextField("Saved storage ID", text: $session.volumeID, prompt: Text("Optional"))
                     .help("An existing persistent storage volume in the RunPod data center used for a rental.")
             }.formStyle(.columns)
             HStack(spacing: 12) {
@@ -277,7 +277,7 @@ struct StudioSettingsView: View {
                     preferencesNote = "Preferences saved."
                 }
                 .disabled(session.demoMode)
-                .help("Saves these Mac-level choices and configures computer controls; it rents nothing.")
+                .help("Saves these Mac-level choices and configures cloud GPU controls; it rents nothing.")
                 if !preferencesNote.isEmpty {
                     Label(preferencesNote, systemImage: "checkmark.circle").font(.callout)
                 }

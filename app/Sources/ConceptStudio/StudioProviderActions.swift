@@ -36,7 +36,7 @@ extension StudioSession {
 
         if usesRunningPod {
             guard let endpoint = gpu.captionEndpoint, !gpu.agentToken.isEmpty else {
-                throw ProviderModelCatalogError.unreachable("your captioning computer")
+                throw ProviderModelCatalogError.unreachable("The cloud GPU you caption with")
             }
             key = gpu.agentToken
             targetURL = vllmTargetURL

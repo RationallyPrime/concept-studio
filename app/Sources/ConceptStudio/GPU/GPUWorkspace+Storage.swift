@@ -5,7 +5,7 @@ extension GPUWorkspace {
     func refreshStorage() async {
         await perform {
             guard let agent = self.agent, self.hasRunningPod else {
-                throw StudioError.message("Connect a computer to read its workspace storage usage.")
+                throw StudioError.message("Connect a cloud GPU to read its workspace storage usage.")
             }
             self.storage = try await agent.storageUsage()
         }
@@ -14,7 +14,7 @@ extension GPUWorkspace {
     func cleanupDatasets() async {
         await perform {
             guard let agent = self.agent, self.hasRunningPod else {
-                throw StudioError.message("Connect a computer to clean completed dataset copies on its storage.")
+                throw StudioError.message("Connect a cloud GPU to clean completed dataset copies on its storage.")
             }
             self.message = "Removing eligible completed dataset copies. Models and results are kept."
             try await agent.start("cleanup-datasets", gpus: [], params: [:])
@@ -57,7 +57,7 @@ extension GPUWorkspace {
     /// What keeping this stopped computer's pod disk costs, stated as an estimate.
     var stoppedPodDiskCostExplanation: String {
         let monthly = Double(RunPodProvider.podDiskGB) * Self.stoppedPodDiskUSDPerGBMonth
-        return "While stopped, its \(RunPodProvider.podDiskGB) GB pod disk costs about "
+        return "While stopped, its \(RunPodProvider.podDiskGB) GB disk costs about "
             + "\(StudioMoney.format(monthly)) a month (estimated)."
     }
 
@@ -71,18 +71,18 @@ extension GPUWorkspace {
     /// What removing this computer to rent another would cost on its disk.
     var removalLossExplanation: String {
         guard currentVolumeID.hasPrefix("pod:") else {
-            return "Its files are on network storage, which stays; rent the new computer on that storage."
+            return "Its files are on saved storage, which stays; rent the new cloud GPU on that storage."
         }
         let lost = undeliveredPodOutputs
-        return "Removing it deletes its pod disk: the uploaded dataset copies, downloaded models and checkpoints"
+        return "Removing it deletes its disk: the uploaded dataset copies, downloaded models and checkpoints"
             + (lost.isEmpty ? "." : ", including " + lost.joined(separator: ", ") + ", which were never saved.")
     }
 
     var outputCustodyExplanation: String {
         currentVolumeID.hasPrefix("pod:")
-            ? "Your files stay on this computer's pod disk while stopped. Start this same computer to retrieve "
+            ? "Your files stay on this cloud GPU's disk while stopped. Start this same cloud GPU to retrieve "
             + "them; removing it deletes that disk. Storage charges continue while stopped."
-            : "Your files stay on network storage. Rent a computer on the same storage to retrieve them."
+            : "Your files stay on saved storage. Rent a cloud GPU on the same storage to retrieve them."
     }
 
     func freezePodCost() {
@@ -102,10 +102,10 @@ extension GPUWorkspace {
         await perform {
             guard let provider = self.provider, let pod = self.pod, !pod.isRunning,
                   var saved = self.saved else {
-                throw StudioError.message("Choose the stopped computer before starting it.")
+                throw StudioError.message("Choose the stopped cloud GPU before starting it.")
             }
             guard self.budget.isFinite, self.budget > saved.accruedGPUCostUSD else {
-                throw StudioError.message("Set a whole-computer budget above its GPU cost so far before starting it.")
+                throw StudioError.message("Set the cloud GPU's budget above its GPU cost so far before starting it.")
             }
             // Only the latest attempt's refusal describes the host.
             self.restartBlockedByHost = false
@@ -114,7 +114,7 @@ extension GPUWorkspace {
             } catch {
                 guard Self.hostHasNoFreeGPU(error) else { throw error }
                 self.restartBlockedByHost = true
-                throw StudioError.message("This computer's host has no free GPU, so it cannot start now. "
+                throw StudioError.message("This cloud GPU's host has no free GPU, so it cannot start now. "
                     + "Try again later, or remove it and rent a new one.")
             }
             saved.started = Date()
@@ -137,7 +137,7 @@ extension GPUWorkspace {
             self.lastActivity = Date()
             self.persist()
             self.watch()
-            self.message = "Computer start requested. GPU billing resumes; its original workspace files are kept."
+            self.message = "Cloud GPU start requested. GPU billing resumes; its original workspace files are kept."
         }
     }
 }
