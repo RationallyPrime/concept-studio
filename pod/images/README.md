@@ -45,9 +45,11 @@ complete image-and-clip run.
 Both GPUs’ outputs passed dimensions, all 21 frames, 24 fps and video-duration checks. Each clip
 retains the original tone through the wrapper’s AAC encoding (waveform cosine above 0.99999; audio
 padding within one AAC frame). Both images and a frame from each clip were visually inspected.
-Outputs were downloaded and hash-checked. The 32 GB test pod was stopped and removed; the 96 GB
-pod continues with H3 regularisation and report acceptance on the same image. Full runtime
-receipts, captioning and H3 acceptance are in [POD-STATUS](../docs/POD-STATUS.md).
+Outputs were downloaded and hash-checked. The 96 GB pod then completed H3 regularisation and
+report acceptance on the same image: 16 generated and captioned class images, six training
+steps, a saved checkpoint, four matched renders, prompt-adherence judgments and actual VGG19
+style scores. Both test pods were stopped and removed after their outputs were secured.
+Full runtime receipts, captioning and H3 acceptance are in [POD-STATUS](../docs/POD-STATUS.md).
 
 ## Earlier releases
 

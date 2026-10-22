@@ -47,8 +47,36 @@ frame-count, timing, audio and downloaded-hash checks passed. Both runs used the
 v0.3.10 images. The 32 GB recipe used VAE tiling; the 96 GB recipe did not. Both used CPU
 component offload without BlockSwap. The image ledger records the complete settings.
 
-The real H3 regularisation/report run is the remaining live acceptance step for this release;
-its receipt will be recorded here when complete.
+### H3 regularisation and automatic report
+
+The native app completed the full H3 workflow on the **96 GB RTX PRO 6000 Blackwell**, using the
+published AI Toolkit captioning image. The project used four bundled synthetic safe-for-work
+demo images and automatically drafted report prompts, with Adult content off. It generated
+**16 class stills**, captioned all 16 through
+CapQwen, trained **six real steps** with the native `is_reg: true` dataset and `reg_weight: 1.0`,
+and retrieved the **44,757,776-byte checkpoint**. Both trainer events and safetensors metadata
+record step 6. The checkpoint SHA-256 is
+`05049a924a4073a09f722820d03d3e3496cfc236049d9f01ea68b7baa1d0a749`.
+The effective native configuration and completed steps establish the regularisation path;
+individual class-batch routing was not instrumented.
+
+The automatic report completed **two prompt pairs / four renders**, saved the results and ran
+four real CapQwen adherence judgments. All four rubric scores were 1.0. SFace scored the identity
+pair at **0.279628 base / 0.214995 LoRA**, with one usable frame on each side. Neither no-trigger
+control had a usable face, so both bleed scores remain missing with 0/1 coverage. The run took
+**870.62 seconds end to end**. This six-step run is a functional acceptance check.
+
+A component check on those same four renders downloaded the real pretrained VGG19 weights and
+returned four finite Gram-feature cosine scores, **0.684446–0.735891**, through the published
+wrapper. It verifies the style-scoring component; the test did not train a style concept.
+
+The native app verified the pod stopped after saving the checkpoint and report. The exact test
+pod and its task-created agent secret were then removed, with independent absence checks.
+Estimated compute plus running storage was **$1.06 for the combined SeedVR2/H3 runs** against
+their $10 cap, and **$0.33 for the separate 32 GB captioning run** against its own $10 cap.
+These estimates exclude the brief stopped-disk interval before removal. All three test pods
+were removed after artifact retrieval; other account resources were preserved.
+
 
 ## Earlier release record, 2026-10-10–15
 

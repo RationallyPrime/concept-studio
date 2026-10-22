@@ -184,9 +184,9 @@ struct TrainingReportResultsView: View {
                             Text(report.runID).font(.caption)
                             if let sample = report.samples
                                 .first(where: { $0.promptID == prompt.id && $0.seed == seed }),
-                               let comparison = workspace.generations
-                                   .first(where: { $0.runID == sample.comparisonID }),
-                               let url = workspace.comparisonFile(sample.loraPath, in: comparison) {
+                                let comparison = workspace.generations
+                                .first(where: { $0.runID == sample.comparisonID }),
+                                let url = workspace.comparisonFile(sample.loraPath, in: comparison) {
                                 if url.pathExtension == "mp4" { GeneratedVideo(url: url) } else { PhotoView(url: url) }
                                 ForEach(
                                     [sample.identity, sample.style, sample.adherence].compactMap(\.self).indices,

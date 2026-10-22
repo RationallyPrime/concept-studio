@@ -72,6 +72,27 @@ captioned samples selected and the uncaptioned sample excluded, and published su
 with **Private dataset** on. A fresh Hub read verified the private destination and all eight
 captioned metadata rows. Both the native actions and the window publication used real services.
 
+## Local Mapping, photo preparation and training reports, 2026-10-22
+
+**SFace matches identities on the Mac.** The app downloads the licensed weights on first use,
+aligns faces with Vision, presents Match / Needs review / No match bands, warns about small or
+blurry references, and bulk-confirms only confident single faces. The native pass over 69
+confirmed-copy photos had no processing failures and no false Match-band assignments across
+60 confirmed-absent concept cases. Reference-dependent misses remain visible in the
+[anonymous benchmark](MAPPING-BENCHMARK.md).
+
+**Photo preparation keeps the originals.** Tone, colour, auto-enhance, drag crops, rotation,
+straightening and face-assisted crop suggestions work locally. Outlier correction applies an
+individual adjustment to each selected photo. Supported loss masks exclude unwanted regions
+from training; on-the-fly augmentation respects trainer support, image shape and captioned sides.
+
+**Training reports compare matched renders against frozen prompts, seeds and reference bytes.**
+Prompts use attributes absent from the project's captions; adult projects use manually written
+prompts. Identity and bleed use SFace, style uses VGG19 features, and the GPU captioner scores
+prompt adherence. Resuming a run refreshes its report against the new checkpoint while keeping
+prior renders in Generation history. Report judging preserves the user's caption-model choice.
+The [running guide](RUNNING.md#try-a-trained-result-and-reuse-a-run) explains report controls and score meanings.
+
 ## Recent completed work, 2026-10-21–22
 
 **A complete 267-image captioning project.** The owner's 2026-10-22 briefing records taking a
@@ -165,6 +186,14 @@ The [model-table guide](../../docs/model-table.md) describes eligibility and con
 bundled Help explains regularisation, prior preservation and representation alignment. The
 [2026-10-14 run](#end-to-end-run-through-the-app-2026-10-14) exercised both aids through the app.
 
+The **2026-10-22 H3 acceptance run** generated and captioned all 16 class stills, trained six
+steps with native prior preservation, saved a hash-verified checkpoint and completed its
+automatic two-prompt report. Four matched renders received real GPU prompt-adherence scores;
+SFace recorded identity scores and explicit missing-face coverage. The same renders exercised
+the pretrained VGG19 style component. End-to-end time was 14 minutes 31 seconds on a 96 GB
+Blackwell. [GPU status](../../pod/docs/POD-STATUS.md#h3-regularisation-and-automatic-report)
+records the exact scope, measurements and resource cleanup.
+
 ## Upscale and restore with SeedVR2, 2026-10-22
 
 **Upscale and restore…** selects images and clips from Images, recommends samples below the
@@ -247,6 +276,7 @@ Keyboard controls and downloaded media passed the
 
 | Gate | Passing checks |
 | --- | --- |
+| Local Mapping, photo controls and reports, 2026-10-22 | 399 app + 267 core Swift tests; 753 agent + 375 pod-script tests; strict lint, format and type checks; native signed packaging and four-size/appearance UI renders |
 | Walkthrough/glossary integration, 2026-10-12 | 550 Swift: 289 app + 261 Core; 118 Python reference; 315 pod scripts |
 | Walkthrough/H3/help, 2026-10-11 | 498 Swift: 238 app in 39 suites + 260 Core in 38 suites; 117 Python reference |
 | Walkthrough clarity, 2026-10-11 | 478 Swift: 218 app + 260 Core; clean Swift formatting across 153 files |
@@ -318,8 +348,8 @@ status, and a labelled run budget (PR #17).
 
 ## Next checks
 
-- Update [GPU status](../../pod/docs/POD-STATUS.md) with current-image results for SeedVR2
-  restoration, direct upload, storage cleanup and generation/Resume.
+- Extend current-image live coverage for storage cleanup and same-run Resume; SeedVR2 on
+  32/96 GB and H3 direct upload, regularisation and automatic generation/reporting passed.
 - Reconcile H3 clip training/generation, external warm-start and same-run Resume follow-ups with
   the latest runs; add a clip-adapter comparison alongside the completed still-image experiment.
 - Record native TensorBoard rendering during a live run.
