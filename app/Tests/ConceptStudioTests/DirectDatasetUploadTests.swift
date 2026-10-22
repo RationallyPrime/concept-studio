@@ -26,6 +26,10 @@ actor DatasetUploadAgent: PodAgent {
         TrainingPlan(mode: "sequential", caption: .init(gpus: [0]), train: .init(gpus: [0]))
     }
 
+    func gpus() -> [AgentGPU] {
+        [.init(index: 0, name: "Test GPU", memoryTotalMiB: 81920)]
+    }
+
     func services() -> [AgentService] {
         starts.map { AgentService(name: $0.service, state: "exited", groupAlive: false, runID: nil) }
     }
@@ -98,6 +102,7 @@ struct DirectDatasetUploadTests {
         preferences: UserDefaults
     ) -> GPUWorkspace {
         let workspace = makeWorkspace(GPUTransport(), preferences)
+        workspace.chooseTrainingModel(ungatedModel)
         workspace.projectFolder = project.directory
         workspace.pod = RentedPod(id: "offline", status: "RUNNING", cost: 0, gpu: .init(count: 1))
         workspace.selectedVolume = "storage"
@@ -140,6 +145,21 @@ struct DirectDatasetUploadTests {
         #expect(run.datasetRepo.isEmpty && run.datasetRevision == nil)
         let reopened = ProjectTrainingRecord.load(from: project.directory)
         #expect(reopened.runs.last?.localInputDigest == run.localInputDigest)
+    }
+
+    @MainActor @Test func aGatedModelWithoutAHubTokenIsRefusedBeforeAnyUploadOrStart() async throws {
+        let project = try await captionedProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let agent = DatasetUploadAgent()
+        let workspace = connected(project: project, agent: agent, preferences: preferences)
+        workspace.chooseTrainingModel("black-forest-labs/FLUX.1-dev")
+        await workspace.train(datasetRepo: "")
+        #expect(workspace.message.contains("Add a Hugging Face token in Settings"))
+        #expect(workspace.runHistory.isEmpty)
+        #expect(await agent.uploads.isEmpty)
+        #expect(await agent.starts.isEmpty)
     }
 
     @MainActor @Test func localResumeReuploadsAfterPruneAndRefusesChangedInputsBeforeAnyAgentAction() async throws {

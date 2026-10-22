@@ -39,7 +39,7 @@ struct GPUOfferListTests {
         let transport = CloudCatalogTransport()
         let workspace = makeWorkspace(transport, preferences)
         try workspace.configure(runpodKey: "fixture", hubToken: "", imageName: "")
-        workspace.chooseTrainingModel("Alpha-VLLM/Lumina-Image-2.0") // ungated, so Community Cloud stays open
+        workspace.chooseTrainingModel(ungatedModel) // ungated, so Community Cloud stays open
         await workspace.refreshOffers()
         #expect(await Set(transport.catalogClouds) == ["SECURE", "COMMUNITY"])
         workspace.chooseStorage("")
@@ -86,7 +86,7 @@ struct GPUOfferListTests {
 
     @MainActor @Test func savedStorageNeedsSecureCloudStockInItsDataCentre() {
         let workspace = GPUWorkspace(demoMode: true)
-        workspace.chooseTrainingModel("Alpha-VLLM/Lumina-Image-2.0") // ungated, so Community Cloud stays open
+        workspace.chooseTrainingModel(ungatedModel) // ungated, so Community Cloud stays open
         let needed = workspace.requiredGPUMemoryGB
         workspace.volumes = [.init(id: "ro", name: "Dataset", size: 300, dataCenter: "EU-RO-1")]
         workspace.selectedVolume = "ro"
@@ -113,6 +113,7 @@ struct GPUOfferListTests {
         defer { preferences.removePersistentDomain(forName: suite) }
         let workspace = makeWorkspace(CloudCatalogTransport(communityFails: true), preferences)
         try workspace.configure(runpodKey: "fixture", hubToken: "", imageName: "")
+        workspace.chooseTrainingModel(ungatedModel)
         workspace.includeCommunityCloud = true
         await workspace.refreshOffers()
         workspace.chooseStorage("")
@@ -131,6 +132,27 @@ struct GPUOfferListTests {
 
         workspace.rentsCaptionServer = true
         #expect(workspace.availableOffers.map(\.id) == ["SECURE/gpu", "COMMUNITY/gpu"])
+    }
+
+    @MainActor @Test func withoutAHubTokenAGatedModelGreysOutEveryCloudGPUUnlessTheRentalIsForCaptioning() throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let workspace = makeWorkspace(UnreachableAgentTransport(), preferences)
+        workspace.includeCommunityCloud = true
+        workspace.chooseTrainingModel("black-forest-labs/FLUX.1-dev")
+        let needed = workspace.requiredGPUMemoryGB
+        workspace.offers = [offer("gpu", memory: needed), offer("gpu", memory: needed, cloud: .community)]
+        let model = try #require(workspace.exactModelRow).shortName
+        #expect(workspace.availableOffers.isEmpty)
+        #expect(workspace.gpuChoices.map(\.unavailability) == Array(
+            repeating: .gatedModelNeedsHubTokenInSettings(model: model), count: 2
+        ))
+
+        workspace.rentsCaptionServer = true
+        #expect(workspace.availableOffers.map(\.id) == ["SECURE/gpu", "COMMUNITY/gpu"])
+        workspace.rentsCaptionServer = false
+        workspace.hubToken = "hub-read"
+        #expect(workspace.availableOffers.map(\.id) == ["SECURE/gpu"])
     }
 
     @MainActor @Test func listSortsByTheChosenColumnWithChoosableGPUsFirst() {

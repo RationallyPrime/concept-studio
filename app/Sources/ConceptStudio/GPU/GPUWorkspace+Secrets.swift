@@ -96,11 +96,23 @@ extension GPUWorkspace {
         !demoMode && !hubToken.isEmpty && !cloudGPUHoldsHubToken
     }
 
+    /// The training model when it is gated and no Hub token is configured, so no cloud GPU could download it.
+    var gatedModelWithoutHubToken: ModelRow? {
+        guard !demoMode, hubToken.isEmpty, let row = exactModelRow, row.source.gated else { return nil }
+        return row
+    }
+
     /// A gated model downloads only with the Hub token, so it cannot train on a cloud GPU kept without it.
     func checkModelDownloadsWithoutHubToken() throws {
+        if let row = gatedModelWithoutHubToken {
+            throw StudioError.message("\(row.shortName) downloads from Hugging Face only with a token, and none "
+                + "is set. Add a Hugging Face token in Settings, then remove this cloud GPU and rent a Secure Cloud "
+                + "GPU to train it.")
+        }
         guard hubTokenKeptOffCloudGPU, let row = exactModelRow, row.source.gated else { return }
-        throw StudioError.message("\(row.shortName) downloads from Hugging Face only with your token, and "
-            + "Community Cloud GPUs never get it. Remove this cloud GPU and rent a Secure Cloud GPU to train it.")
+        throw StudioError.message("\(row.shortName) downloads from Hugging Face only with your token, and this "
+            + "cloud GPU was rented without it (Community Cloud GPUs never get it). Remove this cloud GPU and rent "
+            + "a Secure Cloud GPU to train it.")
     }
 
     /// The sentence after "saved to <folder>." for a result whose Hugging Face destination was skipped

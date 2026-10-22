@@ -3,6 +3,7 @@ import Foundation
 /// Why a listed cloud GPU cannot be chosen.
 enum GPUUnavailability: Equatable {
     case notEnoughMemory(model: String)
+    case gatedModelNeedsHubTokenInSettings(model: String)
     case gatedModelNeedsHubToken(model: String)
     case notOffered(count: Int)
     case storageNotFound
@@ -13,6 +14,7 @@ enum GPUUnavailability: Equatable {
     var explanation: String {
         switch self {
         case let .notEnoughMemory(model): "Not enough graphics memory for \(model)"
+        case let .gatedModelNeedsHubTokenInSettings(model): "\(model) needs a Hugging Face token in Settings"
         case let .gatedModelNeedsHubToken(model): "\(model) needs your Hugging Face token, kept off Community Cloud"
         case let .notOffered(count): "Not available as \(count) GPUs"
         case .storageNotFound: "Your saved storage was not found. Refresh the list."
@@ -104,8 +106,11 @@ extension GPUWorkspace {
 
     private func unavailability(of offer: GPUOffer, volume: GPUVolume?, stock: GPUStock) -> GPUUnavailability? {
         if offer.memory < requiredGPUMemoryGB { return .notEnoughMemory(model: effectiveModelRow.shortName) }
-        // A gated model downloads only with the Hub token, which Community Cloud GPUs never get. A rental
-        // made from Captioning trains nothing, so it may still use Community Cloud.
+        // A gated model downloads only with the Hub token: none is configured, or Community Cloud GPUs never
+        // get it. A rental made from Captioning trains nothing, so neither applies to it.
+        if !rentsCaptionServer, let row = gatedModelWithoutHubToken {
+            return .gatedModelNeedsHubTokenInSettings(model: row.shortName)
+        }
         if offer.cloud == .community, !rentsCaptionServer, let row = exactModelRow, row.source.gated {
             return .gatedModelNeedsHubToken(model: row.shortName)
         }

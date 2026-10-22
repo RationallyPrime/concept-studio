@@ -139,7 +139,8 @@ signing and notarisation.
 - **Captioning:** one of the routes above. Image and video support depend on the model you pick.
 - **Training:** your RunPod account. Hugging Face is optional. Without it, datasets upload
   directly to the cloud GPU and the adapter is saved to your project folder. Some base models
-  are gated and need a Hugging Face token and an accepted licence.
+  are gated and need a Hugging Face token and an accepted licence; without a token in Settings,
+  the app won't rent a cloud GPU for one or start training it.
 - **Secure or Community Cloud:** GPUs come from RunPod's Secure Cloud by default. Community
   Cloud is cheaper and runs on independent hosts, so it is opt-in: those GPUs never receive your
   Hugging Face token, gated models can't train there, and the adapter comes back to your Mac

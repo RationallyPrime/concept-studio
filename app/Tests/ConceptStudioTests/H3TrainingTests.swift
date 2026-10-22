@@ -379,6 +379,7 @@ struct H3TrainingTests {
         await agent.setMemory(32768)
         let workspace = Self.connected(preferences, folder: project.directory, agent: agent)
         workspace.hubToken = ""
+        workspace.chooseTrainingModel(ungatedModel)
         await workspace.train(datasetRepo: "", captureLocal: {
             let prepared = try await LocalTrainingDataset.prepare(projectFolder: project.directory)
             workspace.baseModel = GPUWorkspace.h3BaseModel
