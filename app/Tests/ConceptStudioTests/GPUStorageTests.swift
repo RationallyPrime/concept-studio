@@ -76,9 +76,9 @@ struct GPUStorageTests {
             dataCenter: "EU-RO-1",
             type: "STANDARD"
         )
-        #expect(workspace.keptStorageCost(saved).contains("$0.70/day"))
+        #expect(workspace.keptStorageCost(saved).contains(StudioMoney.format(0.70) + "/day"))
         saved.networkVolume?.type = "HIGH_PERFORMANCE"
-        #expect(workspace.keptStorageCost(saved).contains("$1.40/day"))
+        #expect(workspace.keptStorageCost(saved).contains(StudioMoney.format(1.40) + "/day"))
         saved.networkVolume = nil
         #expect(workspace.keptStorageCost(saved).contains("unavailable"))
     }
