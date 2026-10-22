@@ -20,7 +20,7 @@ creating with it.
   Start a project directly from a Hugging Face dataset URL, down to the folder you want.
   Upscale and restore images and clips with SeedVR2, with a before-and-after preview.
 - **Teach the subject, keep the scene.** Define your person, pet, object, style or movement.
-  Confirm subjects in batches, use numbered contact sheets for AI mapping, and set uncertain
+  Map nine photos per AI request with numbered contact sheets, confirm subjects in batches, and set uncertain
   samples aside for review. Model-specific captions describe the surroundings, pose and lighting
   that make each example distinct.
 - **Caption with your choice of AI.** Use your ChatGPT plan, OpenRouter, a provider key or
@@ -95,7 +95,7 @@ The [CLI guide](docs/CLI.md) covers providers, custom instructions, caption prof
 ## Explore the project
 
 - [App and workflow](app/docs/APP-BRIEF.md) · [Running guide](app/docs/RUNNING.md) · [CLI guide](docs/CLI.md)
-- [Engineering](docs/ENGINEERING.md) · [GPU services](pod/README.md) · [Model table](docs/model-table.md)
+- [Mapping benchmark](app/docs/MAPPING-BENCHMARK.md) · [Engineering](docs/ENGINEERING.md) · [GPU services](pod/README.md) · [Model table](docs/model-table.md)
 - [Captioning contract](app/docs/CORE-SPEC.md) · [Pod contract](pod/docs/POD-SPEC.md) · [Decision log](docs/ADR-LOG.md)
 - [App status](app/docs/APP-STATUS.md) · [Captioning status](app/docs/CORE-STATUS.md) · [GPU status](pod/docs/POD-STATUS.md)
 
