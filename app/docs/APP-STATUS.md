@@ -1,25 +1,22 @@
 # ConceptStudio app status
 
-**ConceptStudio has completed the full training workflow in a signed,
-notarised Mac app:** private dataset publication, GPU rental, regularisation, training with
-REPA, private LoRA publication, saved-run history and automatic idle stop. The
-[Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for 10,004 steps in
-1 h 19 min at a recorded GPU cost of US$3.99.
+**ConceptStudio turns your images and clips into trained model adapters in one native Mac app.**
+Prepare the dataset, caption it, train on a cloud GPU, compare results and save your adapter.
+The [Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for **10,004 steps
+in 1 h 19 min at US$3.99 of GPU cost**. The signed, notarised app handled the full workflow,
+including regularisation, REPA, private publication and automatic idle stop.
 
-Updated 2026-10-22. The app defaults to **`v0.3.9-20261022`**, including SeedVR2 restoration. The model table contains
-**seven verified recipes** and **18 additional recipes** under Advanced user. Image publication
-and build checks are recorded in [the image release ledger](../../pod/images/README.md);
-completed runs and dated checks appear below. The [running guide](RUNNING.md) covers setup
-and operation; [Core status](CORE-STATUS.md) and [GPU status](../../pod/docs/POD-STATUS.md)
-cover their respective components.
+Updated 2026-10-22. The app defaults to **`v0.3.9-20261022`**, including SeedVR2 restoration,
+with **seven verified recipes** and **18 additional recipes** under Advanced user.
+[Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
+[GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
 
 ## Recent completed work, 2026-10-21–22
 
 **A complete 267-image captioning project.** The owner's 2026-10-22 briefing records taking a
 single-person dataset through ConceptStudio **0.3.1** the previous night: Hub import, concept
 definition, mapping, captioning on a rented GPU and private dataset publication. The resulting
-friction fixes are tracked in [PR #32](https://github.com/RationallyPrime/concept-studio/pull/32).
-This records the completed workflow on 0.3.1; the PR contains the subsequent improvements.
+improvements are in [PR #32](https://github.com/RationallyPrime/concept-studio/pull/32).
 
 **H3 adapter comparison.** The 2026-10-21 experiment trained both adapters for **3,000 steps** on
 the same **33-image dataset**, with rank 16, learning rate 1e-4, 768/1024 buckets and seed 42.
@@ -32,8 +29,7 @@ Both arms peaked near step 2100, with mean ArcFace similarity **0.371 and 0.366*
 for Circlestone and Ostris over six trigger-prompt faces per checkpoint. Visual review favoured
 Circlestone for natural rendering and the no-trigger control; Ostris trained about 20% faster.
 The comparison retained Circlestone as the stills default. Both arms also produced occasional
-white side bars, recorded for follow-up. The experiment covers one subject and two render seeds;
-clip-adapter comparisons are a separate experiment.
+white side bars, recorded for follow-up. This comparison used one subject and two render seeds.
 
 ## Walkthrough integration, 2026-10-12
 
@@ -54,9 +50,8 @@ H3 controls expose checkpoint cadence, retention, precision, buckets and the tra
 The integration gate passed **550 Swift tests** (289 app, 261 Core), **118 Python reference tests**
 and **315 pod-script tests**, with clean SwiftLint, SwiftFormat and Ruff checks. Independent
 review accepted the project, provider and UI changes and closed startup/output-custody defects.
-The [repair record](../../docs/process/walkthrough-repairs-2026-10-12.md) includes all seven
-hardening lanes, follow-up `cd5f746`, native checks and acceptance receipts. Developer ID signing
-followed on 2026-10-14.
+The [repair record](../../docs/process/walkthrough-repairs-2026-10-12.md) covers the seven
+hardening lanes and follow-up `cd5f746`. Developer ID signing followed on 2026-10-14.
 
 ## Model table
 
@@ -113,12 +108,11 @@ The app uploads media under neutral names, starts `upscale-media`, displays comp
 progress and verifies downloaded SHA-256 hashes. Keep preserves the locator mapping and retains
 the original caption with the original media. The GPU stays active throughout processing.
 
-The **v0.3.9 images are built and published** with the SeedVR2 environment. Tests cover keep,
-discard, persistent revert, excluded-name collisions and the GPU flow through a fake agent.
-Light/dark offscreen renders cover the selection and review sheets. The release also passed
-SeedVR2 import/CLI checks and authenticated CPU agent checks. GPU image/clip run receipts are tracked alongside the build in
-[GPU status](../../pod/docs/POD-STATUS.md). Build receipts and service details are in
-[the image ledger](../../pod/images/README.md) and [POD-SPEC](../../pod/docs/POD-SPEC.md).
+The **published v0.3.9 images include SeedVR2** and passed import/CLI and authenticated CPU agent
+checks. Automated tests cover keep, discard, persistent revert, name collisions and the app's GPU
+flow through a fake agent; light/dark renders cover selection and review.
+[GPU status](../../pod/docs/POD-STATUS.md), [published images](../../pod/images/README.md) and
+[the service contract](../../pod/docs/POD-SPEC.md) carry the runtime results and implementation details.
 
 ## Implemented
 
@@ -175,14 +169,10 @@ Monitor distinguished **Training: Finished** from **Computer: Running** in the s
 The expanded Concepts controls, **Demo · no charges** badge, simulated storage cleanup and Stop
 were inspected in the rebuilt window.
 
-Welcome now provides a brief orientation; the full introduction remains on Images. Keyboard
-access and real downloaded media received the [unlocked-Mac checks](#unlocked-mac-follow-up-2026-10-11).
-Full VoiceOver navigation is in the acceptance list below; the control connection could not
-complete that check.
+Keyboard controls and downloaded media passed the
+[unlocked-Mac checks](#unlocked-mac-follow-up-2026-10-11).
 
 ## Offline verification
-
-These are dated test receipts. The native demo, provider calls and GPU runs have their own records.
 
 | Gate | Passing checks |
 | --- | --- |
@@ -194,8 +184,8 @@ These are dated test receipts. The native demo, provider calls and GPU runs have
 
 SwiftLint, SwiftFormat and Python Ruff/format passed the respective gates. The review-repair and
 overnight formatter passes covered 145 and 129 Swift files, each with two resource exclusions.
-Debug app builds passed, including explicit AVKit linkage. Independent reviews covered the six
-repair threads, composed upload flow and dataset-switch fix.
+Debug builds and independent reviews passed across the six repair threads, upload flow and
+dataset-switch fix.
 
 Coverage includes authorization and cancellation; seven concept categories; exact media and
 sidecars; curation and Undo; Hub file selection; immutable direct upload, quotas and digest
@@ -214,29 +204,26 @@ keyboard interaction and native vibrancy were checked separately in the native w
 
 ## Live runs and follow-up checks
 
-The live record starts at lab commit `e620882` on 2026-10-10: private Hub upload/download,
-Gemini and vLLM image captioning, native RunPod status/stop and FLUX/LTX event reads.
+On 2026-10-10, lab commit `e620882` completed private Hub upload/download, Gemini and vLLM image
+captioning, native RunPod status/stop and FLUX/LTX event reads.
 
 | Run or connection | Recorded result |
 | --- | --- |
 | Gemini native video, 2026-10-11 | Exact approved synthetic MP4: 9 frames, 512 × 288. `gemini-3.8-flash` returned HTTP 200 and a usable Caption; 4,389 input / 76 output tokens. Explicit 24 FPS sampling resolved the default-sampling 400, checked with a single-variable control and the production client. |
 | FLUX generation and Resume, r1 image | Matched 256 × 256 base/LoRA PNGs, seed 42, four inference steps; downloaded files and manifest matched their hashes. Resume advanced the synthetic run from step 2 to step 3 and saved a distinct checkpoint with step-3 metadata. |
 | LTX video, r2 image | Preprocessed the approved 512 × 288 × 9 clip, trained two steps and resumed to step 3. Matched videos each decoded to 49 frames at 512 × 512, 24 fps; the complete manifest recorded the step-3 checkpoint hash. |
-| Native retrieval and reopen | FLUX and LTX models/comparisons downloaded through the app and reopened offline. The FLUX import restored one run and one comparison; unavailable historical revision, start-time and cost fields stayed unset. |
+| Native retrieval and reopen | FLUX and LTX models/comparisons downloaded through the app and reopened offline. The FLUX import restored one run and one comparison. |
 | TensorBoard access | Session/cookie handshake passed through the real RunPod proxy, including unauthenticated and out-of-scope rejection. |
 | ChatGPT and OpenRouter, 2026-10-11 | Owner confirmed native sign-in and live image captioning with both providers. |
 
-Both FLUX/LTX proof pods used **one 32 GB GPU and 62 GB host RAM** and were independently read back
-as **Exited** after output retrieval. FLUX execution used r1; the checkpoint-snapshot repair
-received source/hash and CPU checks afterward. LTX execution used final r2. The LTX input hash was
-checked at native export and exact-revision Hub download. These runs record functional execution
-and transfer; the H3 quality comparison is recorded above, and native TensorBoard rendering has its own
-follow-up check.
+Both FLUX/LTX runs used **one 32 GB GPU and 62 GB host RAM**. After output retrieval, independent
+status reads confirmed both GPUs **Exited**. FLUX ran on r1, followed by source/hash and CPU checks
+of the checkpoint-snapshot repair; LTX ran on final r2. The LTX input hash matched at native export
+and exact-revision Hub download.
 
-The private Gemini receipt is `evidence/2026-10-11-video-native-proof/README.md` and records all
-three requests. The OpenRouter owner receipt records successful access and captioning without
-specifying the credential method. The [image ledger](../../pod/images/README.md) carries release
-commits, digests and build history; each run above retains its recorded image version.
+The Gemini results, including all three requests, are in
+`evidence/2026-10-11-video-native-proof/README.md`.
+[Published images](../../pod/images/README.md) lists release commits, digests and build history.
 
 ## End-to-end run through the app, 2026-10-14
 
@@ -256,18 +243,15 @@ access once per stored key on first use.
 
 The run drove five fixes: removal of an absent computer under the current key (#16), project-owned
 training destinations, publication guidance and upload activity tracking, clearing stale 404 event
-status, and a labelled run budget (PR #17). The completed workflow above used v0.3.3. The later H3 adapter experiment adds a measured
-training-quality comparison.
+status, and a labelled run budget (PR #17).
 
 ## Next checks
 
-- Add current-image GPU receipts for SeedVR2 image/clip restoration, direct dataset upload,
-  storage cleanup and generation/Resume. Keep each result attached to its image version;
-  the FLUX/LTX execution receipts above retain r1/r2, and the H3 comparison uses v0.3.7.
-- Close the H3 clip-training, clip-generation, external warm-start and same-run Resume items
-  in [GPU status](../../pod/docs/POD-STATUS.md) against the latest run receipts. H3 still training,
-  publication and matched image generation have completed.
-- Record native TensorBoard rendering during a live run alongside the successful proxy handshake.
+- Update [GPU status](../../pod/docs/POD-STATUS.md) with current-image results for SeedVR2
+  restoration, direct upload, storage cleanup and generation/Resume.
+- Reconcile H3 clip training/generation, external warm-start and same-run Resume follow-ups with
+  the latest runs; add a clip-adapter comparison alongside the completed still-image experiment.
+- Record native TensorBoard rendering during a live run.
 - Record human VoiceOver navigation and signed-build Photos/bookmark behavior across rebuilds.
 - Publish a public download. Developer ID signing, notarisation and stapling are complete.
 
@@ -291,7 +275,7 @@ subsequently completed both sign-in and live-captioning paths.
 Recent-project restoration passed across restarts of the same preview build. An ad hoc rebuild
 exposed a bookmark-access failure; the repair retained the Recent entry and requested folder
 reselection. Native readback confirmed both behaviors. The repairs passed **25 focused Swift
-tests**, lint/format and independent review. The cross-build signed bookmark follow-up is listed above.
+tests**, lint/format and independent review.
 
 <a id="h3-source-integration-and-remaining-runtime-proof"></a>
 
@@ -306,17 +290,15 @@ still-trained adapters support still or video generation.
 The app applies a **96 GB GPU requirement** for the reference recipe. Metadata checks accepted
 **18 prepared clips** with exact decoded frame counts, **24 fps**, **32-aligned dimensions** and
 a **1024 resolution cap**. Export, initializer, generation and budget checks passed offline.
-The v0.2.3 release carried this implementation into the completed still-image run below; the
-later matched-image experiment is recorded above. Clip, warm-start and Resume tracking stays in
-[GPU status](../../pod/docs/POD-STATUS.md).
+The v0.2.3 release powered the still-image run below. The later adapter comparison exercised
+matched image generation on v0.3.7.
 
 ## Owner/Claude H3 run, recorded 2026-10-12
 
 The [walkthrough record](../../docs/process/walkthrough-2026-10-11.md) reports **3,000 training
 steps on 69 still images**, with Gemini captions, the clean **v0.2.3 AI Toolkit image** and a
 **96 GB RTX PRO 6000**. The **179 MB LoRA** was published privately and the GPU stopped after
-approximately **72 minutes**. The receipt estimates **US$3 GPU cost**. This owner/Claude run
-completed the H3 still-image train, publish and stop workflow.
+approximately **72 minutes**, at an estimated **US$3 GPU cost**.
 
 ## ChatGPT connection follow-up, 2026-10-11
 

@@ -13,8 +13,8 @@ brings the trained adapter home. RunPod supplies the compute; ConceptStudio hand
 training services, progress and results. Users work through the app without a terminal or a
 local graphics card.
 
-One concept per LoRA is the default. Its trigger names what the model should learn; captions
-describe the clothing, lighting, pose, scene and other details the user wants to control.
+One concept per LoRA is the default. Its trigger names the concept; captions describe the
+clothing, lighting, pose, scene and other details the user wants to control.
 Categories shape the questions, subject mapping and caption instructions. The chosen training
 model supplies the recipe.
 
@@ -24,7 +24,7 @@ A first-time user brings examples and an idea. ConceptStudio supplies the guidan
 settings and explanations to finish the job without programming or machine-learning experience.
 An experienced user gets direct controls, keyboard shortcuts, saved settings and repeatable runs.
 
-- **Lead with the intended result.** Ask what to teach, what should stay changeable and what the
+- **Lead with the intended result.** Ask what to teach, which details to keep changeable and what the
   user wants to spend.
 - **Make the next action obvious.** Each screen explains its operation, inputs and consequences
   in plain language. Errors identify the problem and the action that resolves it.
@@ -43,9 +43,9 @@ the native Mac conventions in [DESIGN.md](../DESIGN.md).
 
 | Screen | What the user accomplishes |
 | --- | --- |
-| **Images** | Import photos and clips from folders, Hugging Face or Apple Photos. Inspect duplicate, capture-quality and readable-text warnings. Approve crops and exact video segments, inspect frames, include or exclude examples, and undo curation. Upscale and restore media with SeedVR2 and a before-and-after preview. Ask for dataset advice before committing to training. |
-| **Concepts** | Choose a category, describe the concept and give it a trigger and class noun. Use model-assisted drafting and reference photos for subjects that need them. Advanced settings expose multiple concepts and detailed boundaries. |
-| **Mapping** | Confirm the location of identity, object and character concepts in each target, using detected faces and model proposals as assistance. Find unconfirmed samples and track progress. Style and motion apply to the whole target and go straight to Captioning. |
+| **Images** | Import photos and clips from folders, Hugging Face or Apple Photos. Inspect duplicate, capture-quality and readable-text warnings. Approve crops and exact video segments, inspect frames, include or exclude examples, and undo curation. Upscale and restore media with SeedVR2 and a before-and-after preview. Use dataset advice to refine the training set. |
+| **Concepts** | Choose a category, describe the concept and give it a trigger and class noun. Draft concepts with a model and add reference photos to identify subjects. Advanced settings expose multiple concepts and detailed boundaries. |
+| **Mapping** | Use detected faces and model proposals to confirm identity, object and character locations in each target. Find unconfirmed samples and track progress. Style and motion apply to the whole target and go straight to Captioning. |
 | **Captioning** | Choose the provider, model, skill, caption format and optional reviewer. Start or cancel a run; follow partial captions and per-sample outcomes as they arrive. |
 | **Review** | Inspect each caption beside its actual crop or playable segment. Edit and protect finished captions, re-caption a selection and compare captioning models. |
 | **Publish** | Prepare included targets, saved captions, response records and the shared job. Publish a Hub dataset with upload progress and a recorded revision, or check local inputs for direct GPU upload at training start. |
@@ -96,14 +96,15 @@ and protect uncollected results.
 
 ### The trained adapter reaches the user
 
-Deliver the LoRA to a private Hub destination or save it in the project. Local delivery is a
-first-class outcome. Preserve uncollected results, checkpoint records and download state across
+Deliver the LoRA to the user's chosen destination: a private Hub repository or the project
+folder on their Mac. Preserve uncollected results, checkpoint records and download state across
 sessions, and verify downloaded artifacts. Store each run's destination, dataset revision,
 settings and outputs with that run.
 
-Publish and direct upload use the same dataset layout. A user can train without a Hub dataset
-account; the selected base model's access and licence requirements still apply. Repeat creates a
-new run, while Resume restores the selected trainer's checkpoint and optimizer state.
+Publish and direct upload use the same dataset layout. Direct upload trains from the project
+without a Hub dataset account. Meet the selected base model's access and licence requirements
+on either route. Repeat creates a new run; Resume restores the selected trainer's checkpoint
+and optimizer state.
 
 ### Native operation from first run to repeat run
 
@@ -118,11 +119,9 @@ and the project's own container images supply the remote execution contract.
 
 ## Owner-approved overnight additions and current requirements
 
-The current workflow incorporates the accepted category, curation, video, run-history,
-comparison and direct-upload decisions described above. The
-[decision log](../../docs/ADR-LOG.md) preserves the five standing owner decisions and their
-implementation history. The [2026-10-11 review](../../docs/process/overnight-review-2026-10-11.md)
-records the later workflow decisions. The original five decisions remain verbatim here:
+The five standing owner decisions follow verbatim. Their implementation history is in the
+[decision log](../../docs/ADR-LOG.md); the [2026-10-11 review](../../docs/process/overnight-review-2026-10-11.md)
+records the later category, curation, video, run-history, comparison and direct-upload decisions.
 
 - **Project on disk in the same layout the CLI uses** (images, job file, caption sidecars with
   response records), so the app and the CLI interoperate and nothing is proprietary. A custom

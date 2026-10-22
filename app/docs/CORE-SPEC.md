@@ -1,8 +1,9 @@
 # ConceptCore: Swift design with parity to `concept_captioner` (Python)
 
-ConceptCore runs concept-boundary captioning in native Swift with the same jobs, skills,
-profiles and records as `concept_captioner` in Python. This document defines its public APIs,
-wire formats, validation rules and parity requirements.
+ConceptCore captions and reviews training media in native Swift, following each concept's
+boundaries. It shares jobs, skills, profiles and response records with `concept_captioner`
+in Python. The APIs, wire formats, validation rules and parity requirements below define
+that shared contract.
 
 The Python reference implementation is `src/concept_captioner/`; the design sources are
 `docs/v0.2-plan.md` (including "Beyond v0.2") and `README.md`. Implementers edit only their
@@ -114,11 +115,11 @@ Conventions (non-negotiable):
   `ModelError` for provider/transport problems; `HubError` for Hub HTTP problems. All carry a
   human-readable `message` and conform to `LocalizedError`. The one provider-specific type is
   `ChatGPTInferenceError`: the plan route's failures carry codes (usage limit, eligibility) that
-  the app must act on, and its text is written for a person, not a log.
+  the app must act on. Its message explains the failure to the user.
 - `swiftformat` and `swiftlint lint --quiet` clean (configs in `app/.swiftformat`,
   `app/.swiftlint.yml`).
 - Synthetic test fixtures and examples use the placeholder triggers `NORA7` / `IVAN9`.
-  This fixture convention does not restrict the owner's actual concept names or triggers.
+  User projects use their own concept names and triggers, unrestricted by fixture naming.
 - Key names in JSON/YAML are the Python snake_case names, always. Swift property names are
   camelCase; `CodingKeys` (or explicit `JSONObject` construction) maps them.
 
@@ -209,7 +210,7 @@ Raw imagefolder interoperability is required in both languages.
    The app's Keychain-backed store and the CLI's environment store both conform to it.
 6. **The Swift core supports imagefolder Hub datasets.** Its source and sink use image/clip
    files plus `metadata.jsonl`. A dataset whose images live in parquet shards is rejected with
-   a `HubError` naming this limitation.
+   a `HubError` identifying the required imagefolder format.
 7. **Retry prompts render as plain user turns** in every output mode (pydantic-ai renders a
    tool-return retry in tool mode). The text is what pydantic-ai 2.55's
    `RetryPromptPart.model_response()` would send for the same failure (see `RetryPrompt`).
@@ -1779,8 +1780,8 @@ Stem = file name without its last extension (`Path.stem`).
 
 ## Module `hub`
 
-Python counterpart: `sources/hf.py` (semantics; the mechanism differs: Swift speaks the Hub
-HTTP API directly, imagefolder convention only). Files: `Hub/HubClient.swift`,
+Swift implements the imagefolder behavior of Python's `sources/hf.py` through the Hub HTTP
+API. Files: `Hub/HubClient.swift`,
 `Hub/ImageFolderMetadata.swift`, `Hub/HubFolderSource.swift`, `Hub/HubFolderSink.swift`.
 
 ### HubClient

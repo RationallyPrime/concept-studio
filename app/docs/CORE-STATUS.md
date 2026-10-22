@@ -1,16 +1,15 @@
 # CORE-STATUS
 
 **ConceptCore powers captioning, review and dataset exchange in the Mac app**, with the same
-job, skill, profile and sidecar formats as the Python CLI. Live checks have completed private
-Hub round trips, vLLM image captioning, Gemini image/video captioning and ChatGPT image captioning.
+job, skill, profile and sidecar formats as the Python CLI. It captions images through vLLM and
+ChatGPT, images and video through Gemini, and exchanges private datasets with Hugging Face.
 The owner also confirmed native ChatGPT and OpenRouter sign-in and captioning, and completed a
 267-image project through GPU captioning and private publication in ConceptStudio 0.3.1 on
 2026-10-21, reported in the following day's briefing.
 
-Updated 2026-10-22. The dated receipts below cover the 2026-10-10 lab checks at `e620882`,
-2026-10-11 provider checks, 2026-10-12 walkthrough integration and the later owner run. Implementation details live in
-[CORE-SPEC.md](CORE-SPEC.md); the original chronology is in
-[status-history-2026-10-10.md](../../docs/process/status-history-2026-10-10.md).
+Updated 2026-10-22. [CORE-SPEC.md](CORE-SPEC.md) defines the shared contract;
+[development history](../../docs/process/status-history-2026-10-10.md) records the original
+2026-10-10 integration at `e620882`.
 
 ## Capabilities
 
@@ -33,8 +32,8 @@ All nine CORE-SPEC modules are implemented:
 ## Walkthrough contract changes, 2026-10-12
 
 Empty `concepts: []` projects load and save in both languages; adding a concept enables execution.
-The Gemini client normalizes Google's `models/` prefix. Provider catalogs use read-only discovery,
-with caption execution available separately.
+The Gemini client normalizes Google's `models/` prefix. Provider catalogs list available models;
+Captioning runs the selected model.
 
 Native imports retain matching captions and response records through file renaming and
 normalization. Text-only captions retain imported status; human-final records retain their
@@ -75,12 +74,11 @@ protection. The app and CLI share the serialized job and sidecar formats.
 The **2026-10-11 Gemini video check** sent the exact approved synthetic MP4: **nine frames at
 512 × 288**. `gemini-3.8-flash` returned HTTP 200 and a usable shared Caption with **4,389 input /
 76 output tokens**. Explicit **24 FPS sampling** resolved the initial default-sampling 400;
-a single-variable control and the production client confirmed the change. The private receipt
-`evidence/2026-10-11-video-native-proof/README.md` records all three requests, including their decoded structured output.
+a single-variable control and the production client confirmed the change. All three requests and
+their decoded outputs are in `evidence/2026-10-11-video-native-proof/README.md`.
 
-[APP-STATUS](APP-STATUS.md#chatgpt-connection-follow-up-2026-10-11) records the ChatGPT stream
-repair and native acceptance. [GPU status](../../pod/docs/POD-STATUS.md) records training,
-Resume, generation and stop, with the image versions used.
+See the [ChatGPT results](APP-STATUS.md#chatgpt-connection-follow-up-2026-10-11) and
+[GPU training, Resume and generation results](../../pod/docs/POD-STATUS.md).
 
 ## Automated test coverage
 
@@ -96,21 +94,19 @@ Coverage includes:
   through stubbed transports.
 - ChatGPT streaming, interruption, failure, incomplete/malformed output, image/schema requests,
   cancellation and usage-limit handling.
-- Actual URLSession SSE reaching the runner before sidecar creation, with preview clearing on
+- URLSession SSE reaching the runner before sidecar creation, with preview clearing on
   retry, failure and cancellation.
 - Credential headers for matching/different origins and selected ambiguous URL inputs.
 
 Independent source review accepted the media and progress integration.
 
-## Open
+<a id="open"></a>
 
-Next provider records:
+## Next checks
 
-- Attach live request/save receipts for direct OpenAI API-key access, Anthropic and the remaining
-  gateway routes to their existing transport tests.
-- Record the partial-caption preview and native save flow in a live run. The dated
-  URLSession-to-runner check already covers preview streaming and settlement offline.
-- Attach live OpenRouter/vLLM video results to the request-body and refusal checks.
+- Update provider results for direct OpenAI API-key access, Anthropic and the remaining gateways.
+- Record partial-caption preview and native saving in a live run.
+- Add OpenRouter/vLLM video results alongside their request-body tests.
 
 **Dataset format:** Hub inputs use imagefolder datasets. Convert Parquet-backed datasets to
 imagefolder before importing.
