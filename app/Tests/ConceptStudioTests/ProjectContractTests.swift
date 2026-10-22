@@ -87,7 +87,8 @@ struct ProjectContractTests {
         #expect(try session.selectedSkill().name == Skills.defaultSkillName)
     }
 
-    @Test func skillOutsideTheProjectIsCopiedInWhenTheProjectOpens() async throws {
+    @Test(arguments: [false, true])
+    func skillOutsideTheProjectIsCopiedInWhenTheProjectOpens(throughNew: Bool) async throws {
         let parent = temporaryTestDirectory("ConceptStudio-skills")
         defer { try? FileManager.default.removeItem(at: parent) }
         let outside = try makeSkill(named: "old-skill", in: parent)
@@ -99,7 +100,7 @@ struct ProjectContractTests {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
         let session = makeTestSession(preferences: preferences.defaults)
-        session.openProject(url: directory)
+        if throughNew { session.createProject(at: directory) } else { session.openProject(url: directory) }
         await session.task?.value
         #expect(session.errorMessage == nil)
         #expect(session.project?.job.skill == "./skill/old-skill")

@@ -17,7 +17,12 @@ extension StudioSession {
             updated.job.adultContent = enabled
             try updated.save()
             project = updated
-            if enabled { updateProjectState { $0.dataset.isPrivate = true } }
+            if enabled {
+                updateProjectState {
+                    $0.dataset.isPrivate = true
+                    $0.trainingOutput.isPrivate = true
+                }
+            }
         } catch { errorMessage = Self.describe(error) }
     }
 

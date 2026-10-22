@@ -92,6 +92,33 @@ struct GPUWorkflowTests {
     }
 
     @MainActor @Test
+    func removingMissingKeptPodClearsRecordAndCredentials() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        var removedAccounts: [String] = []
+        let workspace = makeWorkspace(transport, preferences, deleteAgentToken: { removedAccounts.append($0) })
+        try workspace.configure(runpodKey: "fixture", hubToken: "fixture", imageName: "fixture")
+        await workspace.refreshOffers()
+        await workspace.rent()
+        workspace.monitorTask?.cancel()
+        let id = try #require(workspace.pod?.id)
+        let secret = try #require(workspace.saved?.agentSecret)
+        await workspace.stopEverything()
+        await workspace.keepStoppedPod()
+        #expect(workspace.keptPods.count == 1)
+        await transport.removePodOutside()
+        await workspace.removeKeptPod(id: id)
+        #expect(workspace.failure == nil)
+        #expect(workspace.keptPods.isEmpty)
+        #expect(removedAccounts == ["pod.\(id)"])
+        #expect(await transport.deletedSecrets.contains(secret))
+        let persisted = try #require(preferences.data(forKey: GPUWorkspace.keptPodsKey))
+        #expect(try JSONDecoder().decode([SavedPod].self, from: persisted).isEmpty)
+        #expect(workspace.message.contains("no longer tracks it"))
+    }
+
+    @MainActor @Test
     func offersMustHaveStockBesideTheSelectedStorage() async {
         let workspace = GPUWorkspace(demoMode: true)
         await workspace.refreshOffers()

@@ -103,7 +103,10 @@ extension StudioSession {
                 self.step = .images
                 self.message = existing ? "Project opened."
                     : "Project created. Import the images or clips for your concept."
-                if existing { self.startImageAnalysis() }
+                if existing {
+                    self.migrateOutsideSkill()
+                    self.startImageAnalysis()
+                }
                 // An existing project is opened as-is, never silently appended to by New project.
                 if let location, !existing { try await self.downloadHub(location) }
             }

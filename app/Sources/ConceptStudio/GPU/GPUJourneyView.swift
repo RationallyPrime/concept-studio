@@ -184,7 +184,7 @@ struct GPUJourneyView: View {
                     Task {
                         await session.fillDefaultTrainingOutput()
                         await workspace.train(
-                            datasetRepo: datasetRepo, output: session.projectState.trainingOutput,
+                            datasetRepo: datasetRepo, output: session.trainingOutput,
                             captureLocal: session.captureTrainingInputs,
                             regularizationCaptioning: session.regularizationCaptioning
                         )

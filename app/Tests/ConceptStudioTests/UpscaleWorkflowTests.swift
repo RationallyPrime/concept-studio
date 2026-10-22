@@ -94,6 +94,25 @@ struct UpscaleWorkflowTests {
         #expect(try await StudioProject.open(at: project.directory).mediaState.upscaled.isEmpty)
     }
 
+    @MainActor @Test func notSureFollowsUpscaleAndOriginalRestoration() async throws {
+        let session = makeTestSession()
+        session.project = try await makeDemoProject()
+        let project = try #require(session.project)
+        defer { session.stopImageAnalysis(); try? FileManager.default.removeItem(at: project.directory) }
+        let original = "garden.jpg"
+        let pending = try pendingResult(in: project, for: original)
+        session.project?.mediaState.pendingUpscales = [pending]
+        session.markNotSure(id: original, note: "Check face")
+        session.keepUpscale(original)
+        #expect(session.errorMessage == nil)
+        #expect(session.projectState.notSure == ["garden.png": "Check face"])
+        #expect(ProjectAppState.load(from: project.directory).notSure == session.projectState.notSure)
+        session.revertUpscale("garden.png")
+        #expect(session.errorMessage == nil)
+        #expect(session.projectState.notSure == [original: "Check face"])
+        #expect(ProjectAppState.load(from: project.directory).notSure == session.projectState.notSure)
+    }
+
     @Test func discardLeavesTheOriginalAlone() async throws {
         var project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }

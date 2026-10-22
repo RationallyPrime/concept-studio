@@ -223,8 +223,12 @@ extension StudioSession {
     func undoMediaCuration() {
         guard !busy, !editing else { return }
         do {
-            let replaced = project?.curationUndo.last?.replacedIDs ?? []
+            let undo = project?.curationUndo.last
+            let replaced = undo?.replacedIDs ?? []
             try project?.undoCuration()
+            if case let .replacement(image, _, _, _, _, newID, _, _) = undo {
+                transferReviewState(from: newID, to: image.id)
+            }
             invalidateMappingUndo()
             for id in replaced {
                 invalidateMediaDraft(id: id)

@@ -34,8 +34,12 @@ extension StudioSession {
     }
 
     var trainingOutputPrivate: Bool {
-        get { projectState.trainingOutput.isPrivate }
-        set { updateProjectState { $0.trainingOutput.isPrivate = newValue } }
+        get { project?.job.adultContent == true || projectState.trainingOutput.isPrivate }
+        set { updateProjectState { $0.trainingOutput.isPrivate = project?.job.adultContent == true || newValue } }
+    }
+
+    var trainingOutput: HubDestination {
+        HubDestination(repo: trainingOutputRepo, isPrivate: trainingOutputPrivate)
     }
 
     /// Gives a project with no training destination its own default, `<account>/<project>-lora`, when

@@ -12,6 +12,7 @@ extension GPUJourneyView {
         Toggle("Keep the trained model private", isOn: Binding(
             get: { session.trainingOutputPrivate }, set: { session.trainingOutputPrivate = $0 }
         ))
+        .disabled(session.project?.job.adultContent == true)
     }
 }
 

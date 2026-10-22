@@ -61,15 +61,21 @@ extension GPUWorkspace {
         await perform {
             guard let kept = self.keptPods.first(where: { $0.pod.id == id }),
                   let provider = self.provider else { return }
-            guard try await !(provider.status(id: id)).isRunning else {
-                throw StudioError.message("This cloud GPU is running. Start managing it before removing it.")
+            let exists = try await provider.exists(id: id)
+            if exists {
+                guard try await !(provider.status(id: id)).isRunning else {
+                    throw StudioError.message("This cloud GPU is running. Start managing it before removing it.")
+                }
+                try await provider.terminate(id: id)
             }
-            try await provider.terminate(id: id)
             self.keptPods.removeAll { $0.pod.id == id }
             self.persistKeptPods()
             if !self.demoMode { try? self.deleteAgentToken("pod.\(id)") }
             if !kept.agentSecret.isEmpty { try? await provider.deleteSecret(name: kept.agentSecret) }
-            self.message = "Kept cloud GPU removed. Its disk was deleted; separate saved storage remains."
+            self.message = exists
+                ? "Kept cloud GPU removed. Its disk was deleted; separate saved storage remains."
+                : "RunPod has no cloud GPU \(id) under the current key, so this app no longer tracks it. "
+                + "If you changed RunPod accounts, it may still exist, and bill storage, in the other account."
         }
     }
 
