@@ -132,6 +132,11 @@ extension GPUWorkspace {
         rentsCaptionServer ? captionMemoryGB : effectiveModelRow.gpu.minVRAMGB
     }
 
+    /// The caption model's repository name without its owner, short enough for the availability column.
+    var captionModelShortName: String {
+        captionModel.split(separator: "/").last.map(String.init) ?? captionModel
+    }
+
     /// The sentence under "Choose a cloud GPU".
     var computerSubtitle: String {
         "\(rentsCaptionServer ? "Captioning" : "Training") runs on a cloud GPU you rent by the hour. "

@@ -64,7 +64,7 @@ protection. The app and CLI share the serialized job and sidecar formats.
 | Connection | Completed check |
 | --- | --- |
 | Hugging Face Hub | Private synthetic dataset uploaded, LFS objects verified before commit, and media downloaded with matching bytes, hashes and records. |
-| vLLM on an owned pod | Native structured image captions from Qwen 2.5 VL 3B and Qwen3 VL 8B, with credentials bound to the configured host. |
+| vLLM on an owned pod | Native structured image captions from Qwen 2.5 VL 3B and Qwen3 VL 8B, with credentials bound to the configured host. On 2026-10-22 the app started the FP8/NVFP4 CapQwen3.6-27B on a rented 32 GB RTX 5090 (vLLM 0.31.0; server ready in 143 s, 20 H3 captions in 141 s). |
 | Gemini | Direct image captioning and the 2026-10-11 native video check described below. |
 | ChatGPT | Production image request returned HTTP 200 and a usable Caption from `gpt-6.1-sol`; 2,067 input / 49 output tokens. Owner confirmed native sign-in and captioning. |
 | OpenRouter | Owner confirmed native sign-in and live image captioning on 2026-10-11. |
