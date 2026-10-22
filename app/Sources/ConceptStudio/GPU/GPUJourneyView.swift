@@ -93,13 +93,8 @@ struct GPUJourneyView: View {
                         ? "Captioning and training share this GPU, one after the other."
                         : "One GPU captions while the others train.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                    Picker("Cloud GPU", selection: $workspace.selectedGPU) {
-                        ForEach(workspace.availableOffers) { offer in
-                            Text(offer.summary).tag(offer.id)
-                        }
-                    }
-                    .disabled(workspace.hasRunningPod)
                 }.formStyle(.columns)
+                CloudGPUList(workspace: workspace)
                 Button("Refresh prices and availability") { Task { await workspace.refreshOffers() } }
                     .disabled(workspace.isBusy)
             }
