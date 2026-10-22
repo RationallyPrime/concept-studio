@@ -38,23 +38,23 @@ hash and billing bucket, is in
   (FLUX/H3) and LTX launchers, LoRA push. H3 still-image training has the owner/Claude runtime acceptance above;
   clip training, external warm-start, Resume and matched generation remain unexercised live.
 - **podctl** (`pod/podctl`): command-line client for the agent.
-- **Images** on GHCR under tag `v0.3.8-20261021` (clean build from commit `fd40c60`; digests in
+- **Images** on GHCR under tag `v0.3.9-20261022` (clean build from commit `21247aa`; digests in
   [images/README](../images/README.md)): `concept-captioner-pod-base`, `-aitoolkit`, `-ltx`,
   `-musubi`, each trainer also as `-captioning` with vLLM; plus a fake image for compose tests.
-  No GPU run has used this tag yet; the H3 adapter A/B ran on its `v0.3.7` test build. Public RunPod template
+  No GPU run has used this tag yet; the H3 adapter A/B ran on the `v0.3.7` test build. Public RunPod template
   `87fxs5v8fn` points at the base image; it carries no token, and the agent refuses to start
   without one.
 
-### SeedVR2 upscaling (source only, 2026-10-22)
+### SeedVR2 upscaling (built, not yet run on a GPU, 2026-10-22)
 
 The `upscale-media` service (POD-SPEC 3.9), `scripts/upscale_media.py` and the SeedVR2 venv in
-`Dockerfile.base` are in source with fake-mode agent tests and script tests against a stand-in
-command line. Nothing has been built or run on a GPU: the base and every trainer image (and their
-`-captioning` tags) need rebuilding under a new tag before the app's Upscale action can work, and
-images on `v0.3.8-20261021` or older report the service unavailable. Open checks for that build:
-the venv's import and `--help` checks, the image size it adds, first-use weight download to
-`/workspace/models/seedvr2`, an image pass and a clip pass (frame count and audio kept) on a
-32 GB and a 96 GB GPU, and the memory thresholds in `upscale_media.memory_flags`.
+`Dockerfile.base` have fake-mode agent tests and script tests against a stand-in command line, and
+are in the `v0.3.9-20261022` images. Images on `v0.3.8-20261021` or older report the service
+unavailable. The build ran the venv's import check and `inference_cli.py --help`; the venv adds
+2.96 GB compressed (5.0 GB unpacked) to every tag; a CPU smoke of both musubi tags reports
+`upscale-media` available. Still open: first-use weight download to `/workspace/models/seedvr2`, an
+image pass and a clip pass (frame count and audio kept) on a 32 GB and a 96 GB GPU, and the memory
+thresholds in `upscale_media.memory_flags`.
 
 ## Verified live
 

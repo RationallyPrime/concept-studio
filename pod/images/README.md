@@ -1,6 +1,35 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.8-20261021`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.9-20261022`
+and the trainers' `-captioning` tags, a **clean build from commit `21247aa`** (PR #31 and PR #29): the base
+gains SeedVR2 upscaling and restoration, the numz/ComfyUI-SeedVR2_VideoUpscaler v2.5.23 command line at
+`/opt/seedvr2` with its own venv `/opt/venvs/seedvr2` (torch 2.9.1+cu130, diffusers 0.36.0), behind the
+agent's new `upscale-media` service for the SeedVR2 3B and 7B models; and the app refuses gated models
+when no Hugging Face token is set. Built on cx53 with `docker buildx build` from the committed Dockerfiles
+and no overlay, pushed 2026-10-22. Every tag resolves anonymously.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.9-20261022` | `sha256:1c2379a8e866dcccfb8d41db9ab5d73c072f009d65664384726e3aad95937328` | 6.32 GB |
+| `aitoolkit:v0.3.9-20261022` | `sha256:d0085a4ef3744d093073a1ebd914943306bd67e3036063c64c87f09f865da5fa` | 10.17 GB |
+| `ltx:v0.3.9-20261022` | `sha256:182edbb4de5fd33851d6695dc7af9540271b7737593203c38ed3fe09446495b0` | 9.92 GB |
+| `musubi:v0.3.9-20261022` | `sha256:143081fda83ac0dd829644d61a931821c4a92c96e1d1a496f0e1ce5af70c195b` | 9.36 GB |
+| `aitoolkit:v0.3.9-20261022-captioning` | `sha256:e138addb19b359a97ccc8e587b79a2225538d9d8657c79c9a667f5c3c664aca2` | 17.11 GB |
+| `ltx:v0.3.9-20261022-captioning` | `sha256:00460fb653d9fdbbc5de53b374875ca67c55931e9346b32f69f5cd40f20ba063` | 16.86 GB |
+| `musubi:v0.3.9-20261022-captioning` | `sha256:333b4c7bc459095e5b92da396520b00be452cf0b28cb6a9073b03ca7fa3fd20c` | 16.30 GB |
+
+The SeedVR2 layer (`sha256:690803ed1090…`) is 2.96 GB compressed and 5.0 GB unpacked; every tag carries it
+through the base, so each download is that much larger than its `v0.3.8` counterpart. The vLLM layer
+(`sha256:11b265ae92f4…`, 6.94 GB compressed) is again one blob shared by the three `-captioning` tags. Build
+checks: the SeedVR2 checkout at `5a4bf42`, its import check (torch 2.9.1+cu130, diffusers 0.36.0, cv2
+4.11.0) and `inference_cli.py --help`; vLLM 0.31.0+cu129 with torch 2.13.0+cu129 and FlashInfer
+0.7.0.post1, and the flag allowlist (23 flags) in each variant. A CPU smoke on cx53 ran the agent in both
+musubi tags without fake GPUs: both answer 401 without the bearer and report `upscale-media` available
+(`/opt/venvs/seedvr2/bin/python inference_cli.py --help` also ran inside each); the slim tag reports `vllm`
+unavailable and the variant reports it available. No GPU run has used this tag yet; the SeedVR2 image and
+clip passes are still open (POD-STATUS).
+
+The previous release, `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.8-20261021`
 and the trainers' `-captioning` tags, a **clean build from commit `fd40c60`**: H3 trains on a chosen frozen
 adapter (Circlestone's image adapter or Ostris's v3, `model.training_adapter`), stills default to
 Circlestone and runs with clips to Ostris; H3 stills train without gradient checkpointing; `push-lora`
@@ -229,9 +258,9 @@ Every venv's build ends with an import check that needs no GPU (vLLM: torch buil
 package versions; ai-toolkit: `import flash_attn, natten, torchcodec, diffusers, transformers`,
 the same check upstream's Dockerfile runs; LTX-2: the exact torch build and that the `natten` extra
 landed) and writes `/opt/venvs/<name>/freeze.txt`, so a broken pin fails the build rather than the
-first service start. Expect the base to download as about 3.4 GB, each trainer image as 6.4–7.2 GB, and
-each `-captioning` tag as 6.9 GB more (sizes measured before the SeedVR2 venv joined the base; it
-adds a torch stack of its own, estimated at 3–4 GB compressed and not yet measured); the builds download several gigabytes of wheels.
+first service start. Expect the base to download as about 6.3 GB (3.0 GB of it the SeedVR2 venv), each
+trainer image as 9.4–10.2 GB, and each `-captioning` tag as 6.9 GB more; the builds download several
+gigabytes of wheels.
 
 There is no `.dockerignore` in the repository root yet, so the build context carries `.git`, the
 local `.venv`s and `app/`. The Dockerfiles only `COPY` what they need, so this costs upload time, not
