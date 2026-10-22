@@ -49,7 +49,7 @@ extension GPUWorkspace {
             ?? services.first(where: { $0.name == "trainer-\(trainer)" }) else { return }
         if state.active { trainer = String(state.name.dropFirst("trainer-".count)) }
         if let id = state.runID { runID = id }
-        trainingState = state.state
+        if !runID.isEmpty { trainingState = state.state }
     }
 
     func updateCaptionServerState(_ services: [AgentService]) {
@@ -351,7 +351,9 @@ extension GPUWorkspace {
             guard let agent = self.agent, self.hasRunningPod else {
                 throw StudioError.message("Rent a cloud GPU before starting its caption model.")
             }
-            let plan = try await agent.plan()
+            self.captionStartupProgress = "Waiting for your cloud GPU to boot…"
+            defer { self.captionStartupProgress = nil }
+            let plan = try await self.waitForCaptionAgent(agent)
             self.plan = plan
             let services = try await agent.services()
             self.updateCaptionServerState(services)
@@ -388,12 +390,43 @@ extension GPUWorkspace {
         }
     }
 
+    private func waitForCaptionAgent(_ agent: any PodAgent) async throws -> TrainingPlan {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(300))
+        while true {
+            try Task.checkCancellation()
+            guard hasRunningPod
+            else { throw StudioError.message("The cloud GPU stopped while starting its caption model.") }
+            do {
+                return try await agent.plan()
+            } catch {
+                let transient = error is URLError || error.localizedDescription.contains("starting or unreachable")
+                guard transient, ContinuousClock.now < deadline else { throw error }
+                message = "Waiting for your cloud GPU to boot and connect…"
+                try await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
     private func waitForCaptionModel() async throws {
         let clock = ContinuousClock()
+        let began = Date()
         let deadline = clock.now.advanced(by: .seconds(600))
         while clock.now < deadline {
             try Task.checkCancellation()
             if try await servedCaptionModels()?.contains(captionModel) == true { return }
+            if let agent {
+                let services = try? await agent.services()
+                if let service = services?.first(where: { $0.name == "vllm" }),
+                   ["failed", "exited", "stopped"].contains(service.state) {
+                    throw await StudioError.message("The caption server stopped during startup. "
+                        + ((try? agent.serviceLog("vllm")) ?? "Read its logs for the cause."))
+                }
+                let log = await (try? agent.serviceLog("vllm")) ?? ""
+                let lastLine = log.split(whereSeparator: \.isNewline).last.map(String.init)
+                captionStartupProgress = lastLine ?? "Loading \(captionModel)…"
+                message = "Starting caption model · \(Int(Date().timeIntervalSince(began))) seconds · "
+                    + (captionStartupProgress ?? "")
+            }
             try await Task.sleep(for: .seconds(2))
         }
         throw StudioError

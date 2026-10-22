@@ -42,6 +42,7 @@ class Concept(BaseModel):
     attributes_to_describe: list[str] = Field(
         default_factory=lambda: [
             "clothing and removable accessories",
+            "state of dress or undress",
             "hair presentation",
             "expression and gaze",
             "pose",
@@ -61,6 +62,7 @@ class Concept(BaseModel):
             "full_identity": (
                 "the person's enduring face and physique",
                 [
+                    "state of dress or undress",
                     "expression and gaze",
                     "pose and action",
                     "permitted clothing changes",
@@ -191,6 +193,7 @@ class Job(BaseModel):
     concepts: list[Concept]
     samples: dict[str, dict[str, str] | None] = Field(default_factory=dict)
     single_subject_only: bool = False
+    adult_content: bool = False
     endpoints: Endpoints | None = None
     captioner_thinking: ThinkingLevel = "low"
     critic_thinking: ThinkingLevel = "high"
@@ -244,12 +247,22 @@ class Job(BaseModel):
         self._check_mapping(sample_id, mapping)
         self.samples[sample_id] = mapping
 
+    def caption_concept(self, concept: Concept) -> Concept:
+        effective = concept.model_copy(deep=True)
+        if self.adult_content and concept.target_concept in {"facial_identity", "full_identity"}:
+            attribute = "sexual activity and any other people involved"
+            if attribute not in effective.attributes_to_describe:
+                effective.attributes_to_describe.append(attribute)
+        return effective
+
     def sample_view(self, mapping: dict[str, str]) -> dict[str, Any]:
         """What the model sees for one sample: only the mapped concepts and their locators."""
         return {
             "training": {"profile": self.profile, "trigger_handling": "literal"},
             "concepts": [
-                concept.model_dump() for concept in self.concepts if concept.trigger in mapping
+                self.caption_concept(concept).model_dump()
+                for concept in self.concepts
+                if concept.trigger in mapping
             ],
             "inputs": {
                 "actual_trainer_conditioning": [],
@@ -258,6 +271,7 @@ class Job(BaseModel):
                 "evidence": "attached_target_image",
             },
             "single_subject_only": self.single_subject_only,
+            "adult_content": self.adult_content,
             "output": {"caption_language": "English", "delivery": "json_caption_field"},
         }
 

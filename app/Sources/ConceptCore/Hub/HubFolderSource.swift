@@ -37,21 +37,37 @@ public struct HubFolderSource: ImageSource {
         client: HubClient,
         repo: RepoID,
         revision: String = "main",
-        captionColumn: String = "caption"
+        captionColumn: String = "caption",
+        subfolder: String = ""
     ) async throws -> HubFolderSource {
         let tree = try await client.listFiles(repo: repo, revision: revision)
-        let images = tree.filter { HubFolderSource.isMedia($0.path) }
+        let prefix = subfolder.isEmpty ? "" : subfolder + "/"
+        let selectedTree = tree.filter { $0.path.hasPrefix(prefix) }
+        let images = selectedTree.filter { HubFolderSource.isMedia($0.path) }
             .sorted { $0.path.utf8.lexicographicallyPrecedes($1.path.utf8) }
-        if images.isEmpty, tree.contains(where: { Sources.suffix(of: $0.path).lowercased() == ".parquet" }) {
+        if images.isEmpty, selectedTree.contains(where: { Sources.suffix(of: $0.path).lowercased() == ".parquet" }) {
             throw HubError.unsupported(
                 "parquet-backed datasets are not supported by the Swift core; convert to imagefolder"
             )
         }
-        var rows: [MetadataRow] = []
-        if tree.contains(where: { $0.path == ImageFolderMetadata.fileName }) {
-            let data = try await client.download(repo: repo, path: ImageFolderMetadata.fileName, revision: revision)
-            rows = try ImageFolderMetadata.parse(data, captionColumn: captionColumn)
+        // Read root metadata and metadata alongside selected media. Nested metadata paths are
+        // relative to their own folder; the importer matches them against repo-relative sample IDs.
+        var rowsByPath: [String: MetadataRow] = [:]
+        let metadata = tree.filter {
+            guard $0.path == ImageFolderMetadata.fileName
+                || $0.path.hasSuffix("/" + ImageFolderMetadata.fileName) else { return false }
+            let parent = String($0.path.dropLast(ImageFolderMetadata.fileName.count))
+            return parent.hasPrefix(prefix) || prefix.hasPrefix(parent)
+        }.sorted { $0.path.count < $1.path.count }
+        for file in metadata {
+            let data = try await client.download(repo: repo, path: file.path, revision: revision)
+            let parent = String(file.path.dropLast(ImageFolderMetadata.fileName.count))
+            for var row in try ImageFolderMetadata.parse(data, captionColumn: captionColumn) {
+                row.fileName = parent + row.fileName
+                if row.fileName.hasPrefix(prefix) { rowsByPath[row.fileName] = row }
+            }
         }
+        let rows = rowsByPath.values.sorted { $0.fileName < $1.fileName }
         return HubFolderSource(
             client: client,
             repo: repo,

@@ -1,3 +1,4 @@
+import AppKit
 import ConceptCore
 import SwiftUI
 
@@ -5,7 +6,15 @@ struct MappingView: View {
     @Bindable var session: StudioSession
     @State private var locators: [String: String] = [:]
     @State private var enabled: Set<String> = []
-    @State private var onlyUnmapped = false
+    @State private var filter = "all"
+    @State private var selection: Set<String> = []
+    @State private var selectionAnchor: String?
+    @State private var batchTrigger = ""
+    @State private var batchLocation = ""
+    private var onlyUnmapped: Bool {
+        filter == "unconfirmed"
+    }
+
     /// The person changed the editor since it was filled; a late suggestion must not overwrite that.
     @State private var edited = false
     /// Height of the photo detail's scroll area; below `shortDetail` the photo moves beside the subjects.
@@ -13,7 +22,15 @@ struct MappingView: View {
     private let shortDetail: CGFloat = 440
 
     private var images: [ProjectImage] {
-        (session.project?.images ?? []).filter { !onlyUnmapped || session.project?.job.mapping(for: $0.id) == nil }
+        (session.project?.allMedia ?? []).filter { image in
+            let excluded = session.project?.excludedImages.contains { $0.id == image.id } == true
+            switch filter {
+            case "notSure": return !excluded && session.projectState.notSure[image.id] != nil
+            case "excluded": return excluded
+            case "unconfirmed": return !excluded && session.project?.job.mapping(for: image.id) == nil
+            default: return !excluded
+            }
+        }
     }
 
     private var confirmedCount: Int {
@@ -59,18 +76,54 @@ struct MappingView: View {
                     )
                     .frame(maxWidth: 180).accessibilityLabel("Samples confirmed")
                     Spacer()
-                    Toggle("Show unconfirmed only", isOn: $onlyUnmapped).toggleStyle(.checkbox)
+                    Picker("Show", selection: $filter) {
+                        Text("Included").tag("all")
+                        Text("Unconfirmed").tag("unconfirmed")
+                        Text("Not sure (\(session.projectState.notSure.count))").tag("notSure")
+                        Text("Excluded (\(session.project?.excludedImages.count ?? 0))").tag("excluded")
+                    }.frame(maxWidth: 240)
                 }.font(.callout)
                 HStack(spacing: 10) {
-                    if !locatorConcepts.isEmpty, locatorConcepts.allSatisfy(\.targetConcept.isPersonIdentity) {
-                        Button("Compare reference faces on this Mac", systemImage: "person.crop.rectangle") {
-                            session.proposeMappings(useModel: false)
-                        }
-                    }
                     Button("Request assignments from model", systemImage: "sparkles") {
                         session.proposeMappings(useModel: true)
                     }
+                    Picker("Photos per request", selection: $session.mappingBatchSize) {
+                        Text("Single image").tag(1)
+                        Text("2 × 2 sheet").tag(4)
+                        Text("3 × 3 sheet").tag(9)
+                    }.frame(maxWidth: 260)
+                    if !session.mappingProposals.isEmpty {
+                        Button("Clear suggestions") {
+                            session.mappingProposals = [:]
+                            session.mappingDescriptions = [:]
+                            if !edited { load() }
+                        }
+                    }
                 }.disabled(session.busy)
+                HStack {
+                    if let concept = session.project?.job.concepts.first,
+                       session.project?.job.concepts.count == 1, concept.targetConcept.isPersonIdentity {
+                        Button("Confirm all remaining as \(concept.trigger)") {
+                            session.confirmRemainingSinglePerson()
+                            if !edited { load() }
+                        }.disabled(session.analyzing)
+                            .help(
+                                "Confirm samples with exactly one detected face. "
+                                    + "Skip Not sure; list the rest for review."
+                            )
+                    }
+                }.disabled(session.busy)
+                if !session.mappingReviewExceptions.isEmpty {
+                    DisclosureGroup("\(session.mappingReviewExceptions.count) samples need face review") {
+                        ScrollView {
+                            ForEach(session.mappingReviewExceptions, id: \.self) { id in
+                                Button(id) { filter = "all"; selection = [id]; session.selectedImageID = id }
+                                    .buttonStyle(.link)
+                            }
+                        }.frame(maxHeight: 100)
+                    }
+                }
+                if selection.count > 1 { batchControls }
                 if !acceptableSuggestionIDs.isEmpty || session.canUndoMappingChange {
                     HStack(spacing: 10) {
                         if !acceptableSuggestionIDs.isEmpty {
@@ -91,16 +144,9 @@ struct MappingView: View {
                         }
                     }.disabled(session.busy || session.editing)
                 }
-                Text(session.demoMode ? "The demo model uses prepared assignments. "
-                    + "Reference-face comparison runs on this Mac." :
-                    "Mac suggestions stay on this device. "
-                    + "Asking the model uses your selected provider and may use account credits.")
+                Text(session.demoMode ? "The demo model uses prepared assignments." :
+                    "Select several photos with ⇧-click or ⌘-click. Model suggestions use your selected provider.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                if session.project?.images.contains(where: { Sources.isVideo(Sources.suffix(of: $0.id)) }) == true {
-                    Text("Reference-face comparison uses still images. For clips, request assignments "
-                        + "from the model or enter locations yourself.")
-                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                }
             }
             HStack(alignment: .top, spacing: 18) {
                 printStrip
@@ -135,7 +181,8 @@ struct MappingView: View {
             }
         }
         .onAppear { selectVisiblePhoto(); load() }
-        .onChange(of: images.map(\.id)) { _, _ in selectVisiblePhoto() }
+        .onChange(of: filter) { _, _ in selectVisiblePhoto() }
+        .onChange(of: images.map(\.id)) { _, ids in selection.formIntersection(ids) }
         .onChange(of: session.selectedImageID) { _, _ in load() }
         .onChange(of: session.selectedImageID.flatMap { session.mappingProposals[$0] }) { _, _ in
             // A suggestion that arrives while this photo is open fills it, unless the person already edited it.
@@ -147,6 +194,11 @@ struct MappingView: View {
     }
 
     private func rowStatus(_ image: ProjectImage) -> Label<Text, Image> {
+        if session.project?.excludedImages.contains(where: { $0.id == image.id }) == true {
+            return Label("Excluded", systemImage: "minus.circle")
+        }
+        if session.projectState
+            .notSure[image.id] != nil { return Label("Not sure", systemImage: "questionmark.circle") }
         if let result = suggestionConclusion(for: image.id) {
             return Label(result.rowTitle, systemImage: result.symbol)
         }
@@ -168,6 +220,9 @@ struct MappingView: View {
         if let result = suggestionConclusion(for: image.id), let proposal = session.mappingProposals[image.id] {
             VStack(alignment: .leading, spacing: 8) {
                 StudioNotice(result.message, symbol: result.symbol)
+                if let description = session.mappingDescriptions[image.id], !description.isEmpty {
+                    Text("Model saw: " + description).font(.callout).textSelection(.enabled)
+                }
                 ForEach(locatorConcepts.filter { proposal[$0.trigger] != nil }, id: \.trigger) { concept in
                     Text("Suggested location for \(concept.trigger): \(proposal[concept.trigger] ?? "")")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText).textSelection(.enabled)
@@ -204,18 +259,22 @@ struct MappingView: View {
     }
 
     private func statusTitle(_ image: ProjectImage) -> String {
+        if session.project?.excludedImages.contains(where: { $0.id == image.id }) == true { return "Excluded" }
+        if session.projectState.notSure[image.id] != nil { return "Not sure" }
         if let result = suggestionConclusion(for: image.id) { return result.rowTitle }
         return session.project?.job.mapping(for: image.id) != nil ? "Confirmed" : "Unconfirmed"
     }
+}
 
+private extension MappingView {
     /// The samples as a slim strip of small prints; the open one is ringed. Arrow keys move through it.
     private var printStrip: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 10) {
                     ForEach(images) { image in
-                        let selected = image.id == session.selectedImageID
-                        Button { session.selectedImageID = image.id } label: {
+                        let selected = selection.contains(image.id)
+                        Button { choose(image.id) } label: {
                             HStack(spacing: 10) {
                                 TrainingTargetPreview(url: image.url, fill: true)
                                     .frame(width: 46, height: 46).clipped()
@@ -242,6 +301,17 @@ struct MappingView: View {
                         .buttonStyle(.plain)
                         .environment(\.colorScheme, .light)
                         .id(image.id)
+                        .contextMenu {
+                            if !Sources.isVideo(Sources.suffix(of: image.id)) {
+                                ForEach(locatorConcepts, id: \.trigger) { concept in
+                                    Button("Use as reference photo for \(concept.trigger)") {
+                                        session.useAsReference(image: image, trigger: concept.trigger)
+                                    }.disabled(session.busy || session.editing)
+                                }
+                            }
+                            Button("Not sure") { session.markNotSure(id: image.id, note: "") }
+                            Button("Exclude") { session.includeMedia(image.id, included: false) }
+                        }
                         .help(image.id)
                         .accessibilityLabel("\(image.id), \(statusTitle(image))")
                         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -266,7 +336,7 @@ struct MappingView: View {
         let order = images.map(\.id)
         guard !order.isEmpty else { return }
         let current = session.selectedImageID.flatMap { order.firstIndex(of: $0) } ?? -offset
-        session.selectedImageID = order[min(max(current + offset, 0), order.count - 1)]
+        choose(order[min(max(current + offset, 0), order.count - 1)], modifiers: [])
     }
 
     private var presentSubjects: some View {
@@ -317,21 +387,37 @@ struct MappingView: View {
 
     /// Pinned below the photo so Confirm stays visible at the minimum window size.
     private func confirmBar(for image: ProjectImage) -> some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             Divider()
+            if session.projectState.notSure[image.id] != nil {
+                TextField("Not sure — optional note", text: Binding(
+                    get: { session.projectState.notSure[image.id] ?? "" },
+                    set: { session.markNotSure(id: image.id, note: $0) }
+                ))
+            }
             HStack(spacing: 12) {
                 Button(confirmTitle(for: image), systemImage: "checkmark") { confirm(image) }
                     .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
                     .keyboardShortcut(.return, modifiers: .command)
                     .help("Save this sample's mapping and open the next unconfirmed one (⌘↩)")
                     .disabled((enabled.isEmpty && session.project?.job.wholeTargetMapping.isEmpty != false)
-                        || enabled.contains { (locators[$0] ?? "").isBlank } || session.busy)
-                Text("⌘↩").font(.callout).foregroundStyle(StudioStyle.supportingText)
-                    .accessibilityHidden(true)
+                        || enabled.contains { (locators[$0] ?? "").isBlank } || session.busy
+                        || session.projectState.notSure[image.id] != nil || filter == "excluded")
                 Spacer(minLength: 8)
                 if session.project?.job.mapping(for: image.id) != nil {
                     Button("Mark as unconfirmed") { unconfirm(image) }.disabled(session.busy)
                 }
+            }
+            HStack(spacing: 12) {
+                Button(
+                    session.projectState.notSure[image.id] == nil ? "Not sure" : "Clear Not sure",
+                    systemImage: "questionmark.circle"
+                ) {
+                    session.markNotSure(id: image.id, note: session.projectState.notSure[image.id] == nil ? "" : nil)
+                }.keyboardShortcut("?", modifiers: []).disabled(session.busy)
+                Button(filter == "excluded" ? "Include" : "Exclude") {
+                    session.includeMedia(image.id, included: filter == "excluded")
+                }.disabled(session.busy)
             }
             .padding(.leading, 4).padding(.vertical, 10)
         }
@@ -339,18 +425,23 @@ struct MappingView: View {
     }
 
     private func confirm(_ image: ProjectImage) {
+        // Snapshot before confirmation removes this sample from a filtered list.
+        let order = images.map(\.id)
         session.confirmMapping(
             id: image.id,
             mapping: Job.Mapping(enabled.sorted().map { ($0, locators[$0] ?? "") })
         )
-        let order = images.map(\.id)
-        let start = (order.firstIndex(of: image.id) ?? -1) + 1
-        let following = order[start...] + order[..<min(start, order.count)]
-        if let next = following.first(where: { $0 != image.id && session.project?.job.mapping(for: $0) == nil }) {
-            session.selectedImageID = next
-        } else {
-            load()
-        }
+        guard session.project?.job.mapping(for: image.id) != nil else { return }
+        let confirmed = Set(session.project?.images.filter { session.project?.job.mapping(for: $0.id) != nil }
+            .map(\.id) ?? [])
+        if let next = StudioSession.nextUnconfirmed(
+            after: image.id,
+            order: order,
+            confirmed: confirmed,
+            notSure: Set(session.projectState.notSure.keys)
+        ) {
+            choose(next, modifiers: [])
+        } else { load() }
     }
 
     private func confirmTitle(for image: ProjectImage) -> String {
@@ -367,6 +458,45 @@ struct MappingView: View {
     private func selectVisiblePhoto() {
         if !images.contains(where: { $0.id == session.selectedImageID }) {
             session.selectedImageID = images.first?.id
+        }
+        selection.formIntersection(images.map(\.id))
+        if selection.isEmpty, let id = session.selectedImageID { selection = [id] }
+        if !images.contains(where: { $0.id == selectionAnchor }) { selectionAnchor = session.selectedImageID }
+    }
+
+    private func choose(_ id: String, modifiers: NSEvent.ModifierFlags = NSEvent.modifierFlags) {
+        let order = images.map(\.id)
+        if modifiers.contains(.shift), let anchor = selectionAnchor,
+           let start = order.firstIndex(of: anchor), let end = order.firstIndex(of: id) {
+            selection = Set(order[min(start, end) ... max(start, end)])
+        } else if modifiers.contains(.command) {
+            if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
+            selectionAnchor = id
+        } else {
+            selection = [id]
+            selectionAnchor = id
+        }
+        session.selectedImageID = id
+    }
+
+    private var batchControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("\(selection.count) selected")
+                Picker("Confirm selected as", selection: $batchTrigger) {
+                    Text("Choose concept").tag("")
+                    ForEach(locatorConcepts, id: \.trigger) { Text($0.trigger).tag($0.trigger) }
+                }.frame(maxWidth: 240)
+                TextField("Location", text: $batchLocation).frame(maxWidth: 180)
+            }
+            HStack {
+                Button("Confirm selected") {
+                    session.confirmMappings(ids: selection, mapping: [batchTrigger: batchLocation])
+                    load()
+                }.disabled(batchTrigger.isEmpty || batchLocation.isBlank || session.busy)
+                Button("Clear selected") { session.confirmMappings(ids: selection, mapping: nil); load() }
+                    .disabled(session.busy)
+            }
         }
     }
 

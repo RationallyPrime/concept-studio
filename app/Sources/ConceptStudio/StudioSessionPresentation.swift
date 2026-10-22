@@ -23,8 +23,8 @@ extension StudioSession {
     }
 
     var privateDataset: Bool {
-        get { projectState.dataset.isPrivate }
-        set { updateProjectState { $0.dataset.isPrivate = newValue } }
+        get { project?.job.adultContent == true || projectState.dataset.isPrivate }
+        set { updateProjectState { $0.dataset.isPrivate = project?.job.adultContent == true || newValue } }
     }
 
     /// Where training uploads the LoRA; remembered per project like the dataset destination.
@@ -34,8 +34,12 @@ extension StudioSession {
     }
 
     var trainingOutputPrivate: Bool {
-        get { projectState.trainingOutput.isPrivate }
-        set { updateProjectState { $0.trainingOutput.isPrivate = newValue } }
+        get { project?.job.adultContent == true || projectState.trainingOutput.isPrivate }
+        set { updateProjectState { $0.trainingOutput.isPrivate = project?.job.adultContent == true || newValue } }
+    }
+
+    var trainingOutput: HubDestination {
+        HubDestination(repo: trainingOutputRepo, isPrivate: trainingOutputPrivate)
     }
 
     /// Gives a project with no training destination its own default, `<account>/<project>-lora`, when
@@ -68,8 +72,8 @@ extension StudioSession {
             missing.append(.init(missing: "define a concept and its trigger", step: .concepts))
         }
         // Direct upload sends the saved captions and refuses an included item without one.
-        if gpu.usesLocalDataset, project.images.contains(where: \.caption.isBlank) {
-            missing.append(.init(missing: "caption every included image or clip", step: .captioning))
+        if gpu.usesLocalDataset, publishingImages.isEmpty {
+            missing.append(.init(missing: "prepare captioned training images or clips", step: .publish))
         }
         if !gpu.usesLocalDataset, !repeatsPublishedDataset, !projectPublished {
             missing.append(.init(missing: "publish the training dataset", step: .publish))
@@ -123,7 +127,7 @@ extension StudioSession {
         guard let project else { return [] }
         let locatorTriggers = Set(project.job.concepts.filter(\.targetConcept.requiresLocator).map(\.trigger))
         return project.images.compactMap { image in
-            guard project.job.mapping(for: image.id) == nil,
+            guard projectState.notSure[image.id] == nil, project.job.mapping(for: image.id) == nil,
                   let proposal = mappingProposals[image.id], !proposal.isEmpty,
                   Set(proposal.keys).isSubset(of: locatorTriggers),
                   !proposal.values.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })

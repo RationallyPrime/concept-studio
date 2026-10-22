@@ -19,6 +19,16 @@ struct ConceptsView: View {
                     + "Start with one concept. The captions describe everything else in your training data, "
                     + "while a trigger names the concept itself.")
                     .fixedSize(horizontal: false, vertical: true)
+                Toggle("Adult content", isOn: Binding(
+                    get: { session.project?.job.adultContent ?? false },
+                    set: { session.setAdultContent($0) }
+                ))
+                .disabled(session.busy || session.editing)
+                Text(
+                    "Describe dress or undress explicitly. "
+                        + "Adult projects also describe sexual activity and keep publishing private."
+                )
+                .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 if concepts.isEmpty {
                     Text(
                         "This project is ready for its first concept. "
@@ -97,7 +107,11 @@ struct ConceptsView: View {
                     HStack(alignment: .top, spacing: 0) {
                         boundaryColumn("\(concept.trigger) holds", concept.traitsToLearn)
                         Rectangle().fill(InstantPrint.rule).frame(width: 1).padding(.horizontal, 18)
-                        boundaryColumn("Captions describe", concept.attributesToDescribe)
+                        boundaryColumn(
+                            "Captions describe",
+                            session.project?.job.captionConcept(concept).attributesToDescribe ?? concept
+                                .attributesToDescribe
+                        )
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     if !concept.explicitBoundaryDecisions.isEmpty {
@@ -139,7 +153,7 @@ struct ConceptsView: View {
         VStack(alignment: .leading, spacing: 0) {
             Group {
                 if concept.targetConcept.requiresLocator, let reference = session.references[concept.trigger] {
-                    TrainingTargetPreview(url: reference, fill: true)
+                    TrainingTargetPreview(url: reference, fill: true).id(session.referenceRevision)
                         .accessibilityLabel("Reference for \(concept.trigger)")
                 } else {
                     ZStack {

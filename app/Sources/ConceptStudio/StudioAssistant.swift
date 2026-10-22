@@ -191,12 +191,12 @@ struct StudioAssistant {
     }
 
     /// A small JPEG of the photo for dataset advice.
-    static func thumbnail(_ url: URL) throws -> UserContent {
+    static func thumbnail(_ url: URL, maxPixels: Int = critiqueThumbnailPixels) throws -> UserContent {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                   kCGImageSourceCreateThumbnailFromImageAlways: true,
                   kCGImageSourceCreateThumbnailWithTransform: true,
-                  kCGImageSourceThumbnailMaxPixelSize: critiqueThumbnailPixels,
+                  kCGImageSourceThumbnailMaxPixelSize: maxPixels,
               ] as CFDictionary) else {
             throw StudioError.message("\(url.lastPathComponent) could not be read. Remove it or import another copy.")
         }
@@ -251,7 +251,10 @@ struct StudioAssistant {
         var content: [UserContent] =
             [.text("Concept definitions: " + JSONValue.array(concepts.map(\.jsonValue)).pythonDumps())]
         for (trigger, url) in references.sorted(by: { $0.key < $1.key }) {
-            try content += [.text("Reference for \(trigger):"), Self.image(url)]
+            try content += [
+                .text("Reference for \(trigger):"),
+                Self.thumbnail(url, maxPixels: MappingRequests.tilePixels),
+            ]
         }
         try content += [.text("Exact selected training target:"), Self.image(image)]
         let reply = try await stage.run(

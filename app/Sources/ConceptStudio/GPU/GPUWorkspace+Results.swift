@@ -283,7 +283,7 @@ extension GPUWorkspace {
     /// removed in the RunPod console. The current pod's secret is kept even if the listing lags.
     private func pruneAgentSecrets(_ provider: any GPUProvider) async {
         guard let orphans = try? await provider.orphanedSecrets(prefix: PodSecrets.agentPrefix) else { return }
-        for name in orphans where name != saved?.agentSecret {
+        for name in orphans where name != saved?.agentSecret && !keptPods.contains(where: { $0.agentSecret == name }) {
             try? await provider.deleteSecret(name: name)
         }
     }

@@ -3,6 +3,7 @@ import SwiftUI
 struct WelcomeView: View {
     @Bindable var session: StudioSession
     @State private var showRetainedComputer = false
+    @State private var showNewHub = false
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -31,9 +32,10 @@ struct WelcomeView: View {
             .background(InstantPrint.ground)
         }
         .ignoresSafeArea(.container, edges: .top)
+        .sheet(isPresented: $showNewHub) { NewHubProjectSheet(session: session) }
         .sheet(isPresented: $showRetainedComputer) {
             VStack(alignment: .leading, spacing: 20) {
-                Text("Running cloud GPU").font(.title2.bold())
+                Text("Cloud GPU").font(.title2.bold())
                 GPUJourneyView(session: session, step: .pods)
                 Button("Close controls") { showRetainedComputer = false }
                     .keyboardShortcut(.cancelAction)
@@ -68,6 +70,12 @@ struct WelcomeView: View {
             Spacer(minLength: 24)
             Rectangle().fill(InstantPrint.frameRule).frame(height: 1)
             VStack(alignment: .leading, spacing: 2) {
+                Button {
+                    session.prepareGPUStep()
+                    showRetainedComputer = true
+                } label: { panelAction("Cloud GPU", symbol: "server.rack") }
+                    .buttonStyle(.plain)
+                    .help("Manage cloud GPUs and kept storage, with or without a project.")
                 SettingsLink { panelAction("Accounts & settings", symbol: "gearshape") }
                     .buttonStyle(.plain)
                     .help("Connect captioning, publishing and training accounts.")
@@ -170,10 +178,18 @@ struct WelcomeView: View {
 
     @ViewBuilder private var startButtons: some View {
         Button("New project…") {
-            if let url = ProjectAccess.chooseFolder(prompt: "Create project here") { session.createProject(at: url) }
+            if let url = ProjectAccess
+                .chooseNewProject() { session.createProject(at: url) }
         }
         .buttonStyle(PrintButtonStyle(kind: .primary)).frame(height: 40)
         .help("Creates a project in a folder you choose. You then import its photos or video clips.")
+        Button { showNewHub = true } label: {
+            Text("New project from Hugging Face dataset…")
+                .lineLimit(2).multilineTextAlignment(.center).padding(.vertical, 6)
+        }
+        .buttonStyle(PrintButtonStyle(kind: .secondary))
+        .fixedSize(horizontal: false, vertical: true)
+        .help("Choose a dataset or subfolder, then name and save the new project.")
         Button("Open project…") {
             if let url = ProjectAccess.chooseFolder(prompt: "Open project") { session.openProject(url: url) }
         }

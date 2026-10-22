@@ -6,7 +6,8 @@ import Foundation
 import Testing
 import Yams
 
-private let attributesJSON = #"["clothing and removable accessories", "hair presentation", "#
+private let attributesJSON = #"["clothing and removable accessories", "state of dress or undress", "#
+    + #""hair presentation", "#
     + #""expression and gaze", "pose", "setting", "lighting", "framing and visible image treatment"]"#
 
 private let noraJSON = #"{"trigger": "NORA7", "class_noun": "woman", "target_concept": "facial_identity", "#
@@ -21,12 +22,14 @@ private let ivanJSON = #"{"trigger": "IVAN9", "class_noun": "man", "target_conce
 private let soloView = #"{"training": {"profile": "h3-still", "trigger_handling": "literal"}, "#
     + #""concepts": [{"trigger": "NORA7", "class_noun": "woman", "target_concept": "facial_identity", "#
     + #""traits_to_learn": ["distinctive facial identity"], "#
-    + #""attributes_to_describe": ["clothing and removable accessories", "hair presentation", "#
+    + #""attributes_to_describe": ["clothing and removable accessories", "state of dress or undress", "#
+    + #""hair presentation", "#
     + #""expression and gaze", "pose", "setting", "lighting", "framing and visible image treatment"], "#
     + #""explicit_boundary_decisions": {}}], "#
     + #""inputs": {"actual_trainer_conditioning": [], "audio_status": "not_applicable", "#
     + #""subject_mapping": {"NORA7": "The only person in the crop."}, "evidence": "attached_target_image"}, "#
-    + #""single_subject_only": false, "output": {"caption_language": "English", "delivery": "json_caption_field"}}"#
+    + #""single_subject_only": false, "adult_content": false, "#
+    + #""output": {"caption_language": "English", "delivery": "json_caption_field"}}"#
 
 /// The same for the pair mapping: both concepts in job order, the mapping in mapping order.
 private let pairView = #"{"training": {"profile": "h3-still", "trigger_handling": "literal"}, "#
@@ -34,7 +37,8 @@ private let pairView = #"{"training": {"profile": "h3-still", "trigger_handling"
     + #""inputs": {"actual_trainer_conditioning": [], "audio_status": "not_applicable", "#
     + #""subject_mapping": {"NORA7": "The woman on the left.", "IVAN9": "The man on the right."}, "#
     + #""evidence": "attached_target_image"}, "#
-    + #""single_subject_only": false, "output": {"caption_language": "English", "delivery": "json_caption_field"}}"#
+    + #""single_subject_only": false, "adult_content": false, "#
+    + #""output": {"caption_language": "English", "delivery": "json_caption_field"}}"#
 
 private func configurationMessage(_ body: () throws -> some Any) -> String? {
     do {

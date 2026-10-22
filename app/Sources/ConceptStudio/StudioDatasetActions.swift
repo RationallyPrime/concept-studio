@@ -87,7 +87,7 @@ extension StudioSession {
                 try self.ensurePublishIsCurrent(publishID, projectDirectory: project.directory)
                 try project.save()
                 if self.demoMode {
-                    let operations = try await ProjectPublisher.operations(for: project)
+                    let operations = try await ProjectPublisher.operations(for: project, state: self.projectState)
                     for index in operations.indices {
                         try await Task.sleep(for: .milliseconds(50))
                         try self.ensurePublishIsCurrent(publishID, projectDirectory: project.directory)
@@ -112,6 +112,7 @@ extension StudioSession {
                     }
                     let repo = try RepoID(self.repoID)
                     try await client.createRepo(repo, private: self.privateDataset)
+                    if project.job.adultContent { try await client.requirePrivateDataset(repo) }
                     try self.ensurePublishIsCurrent(publishID, projectDirectory: project.directory)
                     let remotePaths = try await Set(client.listFiles(repo: repo).map(\.path))
                     try self.ensurePublishIsCurrent(publishID, projectDirectory: project.directory)
@@ -119,7 +120,7 @@ extension StudioSession {
                         ? ImageFolderMetadata
                         .parse(client.download(repo: repo, path: ImageFolderMetadata.fileName)) : []
                     let operations = try await ProjectPublisher.operations(
-                        for: project, previousRows: previousRows, remotePaths: remotePaths
+                        for: project, state: self.projectState, previousRows: previousRows, remotePaths: remotePaths
                     )
                     try self.ensurePublishIsCurrent(publishID, projectDirectory: project.directory)
                     let commit = try await client.commit(

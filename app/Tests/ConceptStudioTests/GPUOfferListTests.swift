@@ -84,6 +84,16 @@ struct GPUOfferListTests {
         #expect(workspace.gpuChoices.map(\.offer.gpuID) == ["fits", "single"])
     }
 
+    @MainActor @Test func captioningUsesCaptionModelMemoryInsteadOfTrainingModel() {
+        let workspace = GPUWorkspace(demoMode: true)
+        workspace.offers = [offer("caption-gpu", memory: 32), offer("training-gpu", memory: 80)]
+        workspace.rentsCaptionServer = true
+        #expect(workspace.requiredGPUMemoryGB == 32)
+        #expect(workspace.availableOffers.map(\.gpuID) == ["caption-gpu", "training-gpu"])
+        workspace.captionMemoryGB = 48
+        #expect(workspace.availableOffers.map(\.gpuID) == ["training-gpu"])
+    }
+
     @MainActor @Test func savedStorageNeedsSecureCloudStockInItsDataCentre() {
         let workspace = GPUWorkspace(demoMode: true)
         workspace.chooseTrainingModel(ungatedModel) // ungated, so Community Cloud stays open

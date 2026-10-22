@@ -83,3 +83,10 @@ func makeSkill(named name: String, in parent: URL, profile: String = "flux-image
     )
     return skill
 }
+
+/// Explicit opt-in for tests of media/skill packaging that intentionally do not generate captions.
+var includeUncaptionedForPackagingTest: ProjectAppState {
+    var state = ProjectAppState()
+    state.includeUncaptioned = true
+    return state
+}

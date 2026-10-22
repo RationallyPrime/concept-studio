@@ -16,17 +16,20 @@ creating with it.
 ## Your examples. Your model.
 
 - **Build the training set you want.** Import from folders, Apple Photos or Hugging Face.
-  Find duplicates, choose the best examples, crop images and select exact video segments.
+  Keep the best copy of each duplicate, crop images and select exact video segments.
+  Start a project directly from a Hugging Face dataset URL, down to the folder you want.
   Upscale and restore images and clips with SeedVR2, with a before-and-after preview.
 - **Teach the subject, keep the scene.** Define your person, pet, object, style or movement.
-  Map subjects to images and let model-specific captions describe the surroundings, pose and
-  lighting that make each example distinct.
+  Map nine photos per AI request with numbered contact sheets, confirm subjects in batches, and set uncertain
+  samples aside for review. Model-specific captions describe the surroundings, pose and lighting
+  that make each example distinct.
 - **Caption with your choice of AI.** Use your ChatGPT plan, OpenRouter, a provider key or
   your own vLLM server. Launch a captioning model on a cloud GPU directly from the app.
   Add a second model to review captions, edit them beside the media, and protect the ones
   you've finished.
 - **Put cloud power to work.** Compare live GPU prices and availability, choose your storage,
-  and set your budget. ConceptStudio rents and controls the GPU for you.
+  and set your budget. ConceptStudio rents and controls the GPU for you. Keep stopped GPUs and their model caches,
+  then switch computers when you need different hardware.
 - **Train with settings ready to go.** Choose a model and start from its prepared recipe.
   Follow the learning curve and logs live, save checkpoints, and repeat runs with your saved
   settings. Advanced controls put the details within reach.
@@ -47,7 +50,9 @@ Explore [models, recipes and licences](docs/model-table.md) and
 
 Your projects live in ordinary folders. Your credentials live in Keychain. Review exactly
 which media and captions enter training, keep datasets private, and choose where to save the
-result. Publish to Hugging Face or send your dataset straight to the GPU.
+result. Publish to Hugging Face or send your dataset straight to the GPU. Uncaptioned samples
+stay out by default, with a clear choice to include them. Adult-content projects get explicit
+captioning guidance and private publishing.
 
 ConceptStudio is free and open source. GPU rentals and storage are billed to your RunPod
 account; captioning uses your chosen provider or self-hosted model.
@@ -90,7 +95,7 @@ The [CLI guide](docs/CLI.md) covers providers, custom instructions, caption prof
 ## Explore the project
 
 - [App and workflow](app/docs/APP-BRIEF.md) · [Running guide](app/docs/RUNNING.md) · [CLI guide](docs/CLI.md)
-- [Engineering](docs/ENGINEERING.md) · [GPU services](pod/README.md) · [Model table](docs/model-table.md)
+- [Mapping benchmark](app/docs/MAPPING-BENCHMARK.md) · [Engineering](docs/ENGINEERING.md) · [GPU services](pod/README.md) · [Model table](docs/model-table.md)
 - [Captioning contract](app/docs/CORE-SPEC.md) · [Pod contract](pod/docs/POD-SPEC.md) · [Decision log](docs/ADR-LOG.md)
 - [App status](app/docs/APP-STATUS.md) · [Captioning status](app/docs/CORE-STATUS.md) · [GPU status](pod/docs/POD-STATUS.md)
 

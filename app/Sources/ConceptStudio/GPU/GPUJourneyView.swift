@@ -20,9 +20,11 @@ struct GPUJourneyView: View {
     let step: StudioStep
     /// The journey footer already shows spend and Stop everything; the Welcome sheet does not.
     var showsSpendControls = true
-    @State private var confirmTermination = false
-    @State private var confirmDiscardingTermination = false
-    @State private var newBudget: Double?
+    @State var confirmTermination = false
+    @State var confirmDiscardingTermination = false
+    @State var newBudget: Double?
+    @State var keptToStart: String?
+    @State var keptToRemove: String?
 
     init(session: StudioSession, step: StudioStep, showsSpendControls: Bool = true) {
         self.session = session
@@ -53,6 +55,25 @@ struct GPUJourneyView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task { if workspace.offers.isEmpty { await workspace.refreshOffers() } }
+        .confirmationDialog("Stop the running GPU and start this kept GPU?", isPresented: Binding(
+            get: { keptToStart != nil }, set: { if !$0 { keptToStart = nil } }
+        )) {
+            Button("Switch cloud GPU") {
+                if let id = keptToStart { Task { await workspace.startKeptPod(id: id) } }
+            }
+        } message: { Text("The running GPU will stop first. Its files and storage are kept.") }
+        .confirmationDialog("Remove this kept GPU and delete its disk?", isPresented: Binding(
+            get: { keptToRemove != nil }, set: { if !$0 { keptToRemove = nil } }
+        )) {
+            Button("Remove and delete disk", role: .destructive) {
+                if let id = keptToRemove { Task { await workspace.removeKeptPod(id: id) } }
+            }
+        } message: {
+            Text(
+                "All model caches, datasets and unsaved outputs on this disk will be deleted. "
+                    + "Separate saved storage remains."
+            )
+        }
         .confirmationDialog("Permanently remove this cloud GPU?", isPresented: $confirmTermination) {
             Button("Remove cloud GPU", role: .destructive) { Task { await workspace.terminate() } }
         } message: {
@@ -71,177 +92,6 @@ struct GPUJourneyView: View {
         } message: {
             Text("These are only on this cloud GPU's disk and cannot be recovered after removal: "
                 + workspace.undeliveredPodOutputs.joined(separator: ", ") + ".")
-        }
-    }
-
-    // MARK: Cloud GPU
-
-    private var pods: some View {
-        VStack(alignment: .leading, spacing: StudioStyle.contentSpacing) {
-            StudioSection(
-                title: "Choose a cloud GPU",
-                subtitle: workspace.computerSubtitle
-            ) {
-                Form {
-                    trainerPicker
-                    Picker("Number of GPUs", selection: $workspace.gpuCount) {
-                        ForEach([1, 2, 4], id: \.self) { Text("\($0)").tag($0) }
-                    }
-                    .disabled(workspace.hasRunningPod || workspace.isBusy)
-                    .onChange(of: workspace.gpuCount) { _, _ in Task { await workspace.refreshOffers() } }
-                    Text(workspace.gpuCount == 1
-                        ? "Captioning and training share this GPU, one after the other."
-                        : "One GPU captions while the others train.")
-                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                }.formStyle(.columns)
-                CloudGPUList(workspace: workspace)
-                Button("Refresh prices and availability") { Task { await workspace.refreshOffers() } }
-                    .disabled(workspace.isBusy)
-            }
-            Divider()
-            StudioSection(
-                title: "Training storage",
-                subtitle: "Your training files (the base model, your images and the trained result) live on "
-                    + "RunPod while you train. Keep them on the cloud GPU's own disk, or on saved storage you can "
-                    + "reuse with any cloud GPU in the same data centre. RunPod bills storage directly to your "
-                    + "RunPod account, including while the cloud GPU is stopped."
-            ) {
-                Form {
-                    Picker("Storage", selection: Binding(
-                        get: { workspace.selectedVolume },
-                        set: { workspace.chooseStorage($0) }
-                    )) {
-                        Text("The cloud GPU's own disk · 300 GB").tag("")
-                        ForEach(workspace.volumes) { volume in
-                            Text("\(volume.name) · \(volume.size) GB · \(volume.dataCenter)").tag(volume.id)
-                        }
-                    }
-                    .disabled(workspace.hasRunningPod)
-                    .onChange(of: workspace.selectedVolume) { _, _ in workspace.selectAvailableOffer() }
-                }.formStyle(.columns)
-                if workspace.selectedVolume.isEmpty, !workspace.hasRunningPod {
-                    Text("The disk comes with the cloud GPU. Stopping the cloud GPU keeps your files; removing it "
-                        + "deletes them. When training finishes, the trained model is published to your Hugging Face "
-                        + "account if you chose a destination there and a Secure Cloud GPU, or saved to your Mac.")
-                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let volume = workspace.volumes.first(where: { $0.id == workspace.selectedVolume }) {
-                    Text("Only cloud GPUs in \(volume.dataCenter), where this storage lives, can use it.")
-                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                }
-                if workspace.volumes.isEmpty, !workspace.demoMode,
-                   let url = URL(string: "https://console.runpod.io/storage") {
-                    Link("Create saved storage in RunPod", destination: url)
-                }
-                if workspace.hasRunningPod {
-                    if let storage = workspace.storage {
-                        LabeledContent("Workspace used", value: bytes(storage.usedBytes))
-                        LabeledContent("Workspace free", value: bytes(storage.freeBytes))
-                        LabeledContent("Workspace total", value: bytes(storage.totalBytes))
-                        LabeledContent("Dataset copies", value: bytes(storage.datasetsBytes))
-                        LabeledContent("Eligible dataset cleanup", value: bytes(storage.reclaimableDatasetBytes))
-                    }
-                    HStack {
-                        Button("Refresh storage usage") { Task { await workspace.refreshStorage() } }
-                        Button("Clean completed dataset copies") { Task { await workspace.cleanupDatasets() } }
-                    }.disabled(workspace.isBusy || workspace.isStopping)
-                    Text("Cleanup keeps active inputs and the last three resumable datasets. "
-                        + "Checkpoints, models, generated results and unknown or failed runs stay on storage.")
-                        .font(.caption).foregroundStyle(StudioStyle.supportingText)
-                }
-            }
-            Divider()
-            spending
-        }
-    }
-
-    private func bytes(_ value: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: value, countStyle: .file)
-    }
-
-    private var spending: some View {
-        StudioSection(
-            title: "Control your spending",
-            subtitle: "All charges are RunPod's, billed to your RunPod account. ConceptStudio doesn't charge you "
-                + "anything. While a cloud GPU runs, ConceptStudio keeps your Mac awake and stops the GPU at your "
-                + "spending limit or when it sits idle."
-        ) {
-            Form {
-                if workspace.quotedHourlyRate > 0 || workspace.hasRunningPod {
-                    LabeledContent("Price") {
-                        Text(StudioMoney.perHour(workspace.hasRunningPod
-                                ? workspace.pod?.cost ?? workspace.quotedHourlyRate
-                                : workspace.quotedHourlyRate))
-                            .font(.headline).monospacedDigit()
-                    }
-                }
-                if workspace.hasRunningPod {
-                    LabeledContent("Spending limit") {
-                        Text(StudioMoney.format(workspace.activeBudget ?? workspace.budget)).monospacedDigit()
-                    }
-                    TextField("Raise the limit to (USD)", value: $newBudget, format: .number)
-                } else {
-                    TextField("Spending limit (USD)", value: $workspace.budget, format: .number)
-                }
-                Stepper("Stop after \(workspace.idleMinutes) idle minutes", value: $workspace.idleMinutes, in: 1 ... 60)
-            }.formStyle(.columns)
-            if workspace.hasRunningPod {
-                Button("Raise spending limit…") { raiseBudget() }
-                    .disabled((newBudget ?? 0) <= (workspace.activeBudget ?? workspace.budget))
-                    .help("The limit can only go up while the cloud GPU runs. You confirm the new amount first.")
-            } else if workspace.quotedHourlyRate <= 0 {
-                Text("Choose an available cloud GPU to see its price.")
-                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
-            }
-            if !workspace.hasRunningPod { prerequisitesNotice(beforeBilling: true) }
-            Button(workspace.quotedHourlyRate > 0
-                ? "Rent cloud GPU · \(StudioMoney.perHour(workspace.quotedHourlyRate))"
-                : "Choose a cloud GPU first") {
-                    Task { await workspace.rent() }
-                }
-                .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
-                .disabled(workspace.isBusy || workspace.pod != nil || workspace.quotedHourlyRate <= 0)
-                .help("Renting starts GPU billing, so it has no keyboard shortcut.")
-            if workspace.pod != nil {
-                if !workspace.hasRunningPod {
-                    Button("Start this stopped cloud GPU · last rate "
-                        + StudioMoney.perHour(workspace.saved?.hourlyRate ?? 0)) {
-                            Task { await workspace.startStoppedComputer() }
-                        }.disabled(workspace.isBusy)
-                    if workspace.restartBlockedByHost { restartBlockedNotice }
-                    Text(workspace.outputCustodyExplanation)
-                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                }
-                if workspace.hasUndeliveredPodOutputs, !workspace.hasRunningPod {
-                    Text("Unsaved outputs keep this cloud GPU from being removed. "
-                        + workspace.stoppedPodDiskCostExplanation)
-                        .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                    Button("Remove anyway and delete these outputs…", role: .destructive) {
-                        confirmDiscardingTermination = true
-                    }
-                    .disabled(workspace.isBusy)
-                    .help("Deletes the cloud GPU's disk with the outputs that were never published or saved.")
-                } else {
-                    Button(
-                        workspace.restartBlockedByHost ? "Remove it to rent a new one…" : "Remove cloud GPU…",
-                        role: .destructive
-                    ) { confirmTermination = true }
-                        .disabled(workspace.hasUndeliveredPodOutputs)
-                        .help("Publish or save outputs from the cloud GPU's disk before removing it.")
-                }
-            }
-        }
-    }
-
-    private func raiseBudget() {
-        let current = workspace.activeBudget ?? workspace.budget
-        guard let target = newBudget, target > current else { return }
-        Task {
-            let rate = workspace.pod.map(\.cost).flatMap { $0 > 0 ? $0 : nil }
-            guard await session.ask(.raiseBudget(from: current, to: target, hourlyRate: rate)) == .confirm
-            else { return }
-            if workspace.raiseBudget(to: target) { newBudget = nil }
         }
     }
 
@@ -334,7 +184,7 @@ struct GPUJourneyView: View {
                     Task {
                         await session.fillDefaultTrainingOutput()
                         await workspace.train(
-                            datasetRepo: datasetRepo, output: session.projectState.trainingOutput,
+                            datasetRepo: datasetRepo, output: session.trainingOutput,
                             captureLocal: session.captureTrainingInputs,
                             regularizationCaptioning: session.regularizationCaptioning
                         )
@@ -546,7 +396,8 @@ extension GPUJourneyView {
             if step == .training || step == .monitor {
                 statusChip("Training", workspace.trainingStatus)
             }
-            Text(workspace.message).font(.callout).foregroundStyle(StudioStyle.supportingText)
+            Text(workspace.failure == workspace.message ? "" : workspace.message).font(.callout)
+                .foregroundStyle(StudioStyle.supportingText)
                 .lineLimit(2).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
             Spacer(minLength: 0)
             if workspace.isBusy || workspace.isStopping { ProgressView().controlSize(.small) }

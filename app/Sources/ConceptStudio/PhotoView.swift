@@ -14,6 +14,7 @@ enum PhotoThumbnails {
 
     /// Sizes snap to a few buckets so tiles, rows and detail panes share cached decodes.
     static let buckets = [128, 256, 512, 1024, 2048]
+    private static var generation = 0
     private static let cache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 400
@@ -39,6 +40,7 @@ enum PhotoThumbnails {
         if let image = cached(key) { return image }
         let url = key.url
         let pixels = key.pixels
+        let startedGeneration = generation
         let decoded = await Task.detached(priority: .userInitiated) {
             if Sources.isVideo(Sources.suffix(of: url.lastPathComponent)) {
                 return try? await MediaEditor.frame(url: url, seconds: 0, pixels: pixels).image
@@ -47,12 +49,15 @@ enum PhotoThumbnails {
         }.value
         guard let decoded else { return nil }
         let image = NSImage(cgImage: decoded, size: NSSize(width: decoded.width, height: decoded.height))
-        cache.setObject(image, forKey: cacheKey(key), cost: decoded.bytesPerRow * decoded.height)
+        if generation == startedGeneration {
+            cache.setObject(image, forKey: cacheKey(key), cost: decoded.bytesPerRow * decoded.height)
+        }
         return image
     }
 
     /// Clears every thumbnail, for example after a photo file is replaced in place.
     static func removeAll() {
+        generation += 1
         cache.removeAllObjects()
     }
 

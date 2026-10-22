@@ -48,7 +48,7 @@ extension GPUWorkspace {
 
     var monitoredResultState: TrainingResult.State? {
         let target = runID.isEmpty ? monitoredRun?.runID : runID
-        if let result, target == nil || result.runID == target { return result.state }
+        if let result, let target, result.runID == target { return result.state }
         return monitoredRun?.result?.state
     }
 
