@@ -22,7 +22,7 @@ struct ConceptStudioApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New project…") {
                     if let url = ProjectAccess
-                        .chooseNewProject(preferences: session.preferences) { session.createProject(at: url) }
+                        .chooseNewProject() { session.createProject(at: url) }
                 }
                 .keyboardShortcut("n")
                 Button("New project from Hugging Face dataset…") { showNewHub = true }

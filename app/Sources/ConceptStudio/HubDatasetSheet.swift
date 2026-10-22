@@ -50,9 +50,7 @@ struct NewHubProjectSheet: View {
             title: "New project from Hugging Face dataset",
             actionTitle: "Choose project location…"
         ) { location in
-            if let url = ProjectAccess.chooseNewProject(
-                preferences: session.preferences, name: location.suggestedProjectName
-            ) {
+            if let url = ProjectAccess.chooseNewProject(name: location.suggestedProjectName) {
                 session.createProject(at: url, importing: location)
             }
         }

@@ -98,7 +98,6 @@ extension StudioSession {
                 self.gpu.projectFolder = opened.directory
                 self.projectState = existing ? ProjectAppState.load(from: url) : ProjectAppState()
                 self.rememberRecent(url)
-                self.preferences.set(url.deletingLastPathComponent().path, forKey: ProjectAccess.lastParentKey)
                 if existing { self.applyJobChoices(opened.job) }
                 self.selectedImageID = opened.images.first?.id
                 self.step = .images

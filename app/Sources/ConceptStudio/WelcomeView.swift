@@ -179,7 +179,7 @@ struct WelcomeView: View {
     @ViewBuilder private var startButtons: some View {
         Button("New project…") {
             if let url = ProjectAccess
-                .chooseNewProject(preferences: session.preferences) { session.createProject(at: url) }
+                .chooseNewProject() { session.createProject(at: url) }
         }
         .buttonStyle(PrintButtonStyle(kind: .primary)).frame(height: 40)
         .help("Creates a project in a folder you choose. You then import its photos or video clips.")

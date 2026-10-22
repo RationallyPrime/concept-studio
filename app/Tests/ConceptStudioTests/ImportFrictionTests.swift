@@ -41,7 +41,7 @@ struct ImportFrictionTests {
         #expect(!FileManager.default.fileExists(atPath: target.appendingPathComponent("images").path))
     }
 
-    @Test func newProjectOpensExistingProjectAndRemembersParent() async throws {
+    @Test func newProjectOpensExistingProject() async throws {
         let directory = temporaryTestDirectory("new-existing-project")
         defer { try? FileManager.default.removeItem(at: directory) }
         let preferences = isolatedDefaults()
@@ -52,7 +52,6 @@ struct ImportFrictionTests {
         await session.task?.value
         session.stopImageAnalysis()
         #expect(session.project?.images.map(\.id) == ["kept.png"])
-        #expect(preferences.string(forKey: ProjectAccess.lastParentKey) == directory.path)
     }
 
     @Test func exactDuplicatesAreGroupedAndHighestResolutionIsKeptByDefault() async throws {
