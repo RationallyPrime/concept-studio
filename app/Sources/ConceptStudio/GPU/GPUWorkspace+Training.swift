@@ -378,22 +378,28 @@ extension GPUWorkspace {
 
     /// Starts the caption server on the rented computer unless it already serves `captionModel`, and waits until it
     /// does. A server still running an earlier choice is stopped and started with the current one.
-    func ensureCaptionServer(_ agent: any PodAgent, plan: TrainingPlan, services: [AgentService]) async throws {
+    func ensureCaptionServer(
+        _ agent: any PodAgent, plan: TrainingPlan, services: [AgentService], model: String? = nil
+    ) async throws {
+        let requestedModel = model ?? captionModel
         var running = services.contains(where: { $0.name == "vllm" && $0.active })
-        if running, !demoMode, let served = try await servedCaptionModels(), !served.contains(captionModel) {
-            message = "Switching the caption server to \(captionModel)."
+        if running, !demoMode, let served = try await servedCaptionModels(), !served.contains(requestedModel) {
+            message = "Switching the caption server to \(requestedModel)."
             try await agent.stop("vllm")
             try await waitForService("vllm", allowStopped: true)
             running = false
         }
         if !running {
-            try await agent.start("vllm", gpus: plan.caption?.gpus ?? [], params: captionStartParams)
+            try await agent.start(
+                "vllm", gpus: plan.caption?.gpus ?? [],
+                params: Self.captionServerSettings(for: requestedModel).params(model: requestedModel)
+            )
             captionServerActive = nil
         }
         lastActivity = Date()
         message = "The caption model is starting. Large models can take several minutes to download."
         if !demoMode {
-            try await waitForCaptionModel()
+            try await waitForCaptionModel(requestedModel)
         }
     }
 
@@ -414,13 +420,13 @@ extension GPUWorkspace {
         }
     }
 
-    private func waitForCaptionModel() async throws {
+    private func waitForCaptionModel(_ model: String) async throws {
         let clock = ContinuousClock()
         let began = Date()
         let deadline = clock.now.advanced(by: .seconds(600))
         while clock.now < deadline {
             try Task.checkCancellation()
-            if try await servedCaptionModels()?.contains(captionModel) == true { return }
+            if try await servedCaptionModels()?.contains(model) == true { return }
             if let agent {
                 let services = try? await agent.services()
                 if let service = services?.first(where: { $0.name == "vllm" }),
@@ -430,7 +436,7 @@ extension GPUWorkspace {
                 }
                 let log = await (try? agent.serviceLog("vllm")) ?? ""
                 let lastLine = log.split(whereSeparator: \.isNewline).last.map(String.init)
-                captionStartupProgress = lastLine ?? "Loading \(captionModel)…"
+                captionStartupProgress = lastLine ?? "Loading \(model)…"
                 message = "Starting caption model · \(Int(Date().timeIntervalSince(began))) seconds · "
                     + (captionStartupProgress ?? "")
             }

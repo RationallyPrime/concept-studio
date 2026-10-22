@@ -143,10 +143,9 @@ extension GPUWorkspace {
     }
 
     private func reportJudge(_ group: TrainingReportGroup, agent: any PodAgent) async throws -> ReportJudge {
-        let selected = captionModel
-        captionModel = group.settings.judgeModel
-        defer { captionModel = selected }
-        try await ensureCaptionServer(agent, plan: agent.plan(), services: agent.services())
+        try await ensureCaptionServer(
+            agent, plan: agent.plan(), services: agent.services(), model: group.settings.judgeModel
+        )
         guard let endpoint = captionEndpoint else { throw StudioError.message("Connect the GPU caption server.") }
         return ReportJudge(endpoint: ResolvedEndpoint(
             client: OpenAICompatibleClient(

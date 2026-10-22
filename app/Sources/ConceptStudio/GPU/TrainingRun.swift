@@ -462,6 +462,7 @@ extension GPUWorkspace {
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
+            try self.resetReportForResumedTraining(run.runID)
             trainerStartAttempted = true
             try await agent.start("trainer-\(run.trainer)", gpus: plan.train?.gpus ?? [], params: params)
             self.trainingState = "running"

@@ -34,9 +34,16 @@ extension GPUWorkspace {
                 self.finishReportBudget()
                 self.endAppWork()
             }
+            var reportFailure: (any Error)?
             do {
                 try self.requireReportBudget(run)
                 try await self.completeTrainingReport(run, group: group, agent: agent, projectFolder: projectFolder)
+            } catch { reportFailure = error }
+            do {
+                try await self.reconcileReportCaptionServer(group: group, run: run, agent: agent)
+            } catch { if reportFailure == nil { reportFailure = error } }
+            do {
+                if let reportFailure { throw reportFailure }
                 self.updateReport(runID) { $0.state = .complete; $0.completedAt = Date() }
                 try self.saveReportArtifact(runID, group: group)
                 self.message = "Post-training report saved in this project."
@@ -51,6 +58,22 @@ extension GPUWorkspace {
                 throw error
             }
         }
+    }
+
+    /// The report may use an older frozen judge. Return its live server to the user's current
+    /// choice before releasing the report's budget and work guards; cancellation never starts a reload.
+    func reconcileReportCaptionServer(
+        group: TrainingReportGroup, run: TrainingRun, agent: any PodAgent
+    ) async throws {
+        guard group.settings.judgeModel != captionModel else { return }
+        captionServerActive = false
+        try Task.checkCancellation()
+        try requireReportBudget(run)
+        let services = try await agent.services()
+        guard services.contains(where: { $0.name == "vllm" && $0.active }) else { return }
+        try await ensureCaptionServer(agent, plan: agent.plan(), services: services)
+        try Task.checkCancellation()
+        captionServerActive = true
     }
 
     private func completeTrainingReport(
@@ -140,5 +163,36 @@ extension GPUWorkspace {
             names[trigger] = .array(urls.map { .string($0.lastPathComponent) })
         }
         return ["upload": .string(upload), "groups": .object(names)]
+    }
+}
+
+extension GPUWorkspace {
+    /// Resume changes this run's weights. Keep old renders in Generation history, but only
+    /// outputs made after the continuation may contribute to its next report.
+    func resetReportForResumedTraining(_ runID: String) throws {
+        guard let index = trainingReports.firstIndex(where: { $0.runID == runID }),
+              let group = reportGroups.first(where: { $0.id == trainingReports[index].groupID }) else { return }
+        let previous = trainingReports[index]
+        let comparisons = generations, current = generation
+        trainingReports[index] = TrainingReport(runID: runID, groupID: group.id)
+        for index in generations.indices where generations[index].sourceRunID == runID {
+            generations[index].reportGroupID = nil
+            generations[index].reportPromptIDs = nil
+        }
+        if generation?.sourceRunID == runID {
+            generation?.reportGroupID = nil
+            generation?.reportPromptIDs = nil
+        }
+        do {
+            guard saveProjectRecord() else { throw StudioError.message("Save this project's report before resuming.") }
+            try saveReportArtifact(runID, group: group)
+        } catch {
+            trainingReports[index] = previous
+            generations = comparisons
+            generation = current
+            saveProjectRecord()
+            try? saveReportArtifact(runID, group: group)
+            throw error
+        }
     }
 }

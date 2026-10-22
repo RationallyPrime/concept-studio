@@ -32,8 +32,10 @@ of SeedVR2 and vLLM. Every captioning build validated all 23 allowed vLLM flags.
 
 The test inputs are the bundled synthetic portrait resized to 512×512 and a 21-frame, 24 fps
 pan/zoom clip with a tone. Both are upscaled to 1024×1024 with SeedVR2 3B FP16, seed 42. The first
-image pass includes the empty-cache model download and SHA-256 checks. Times below are the
-SeedVR2 CLI’s measured elapsed times; peak memory covers the complete image-and-clip run.
+image pass includes the empty-cache model download and SHA-256 checks. The 32 GB pass uses
+VAE encode/decode tiling; the 96 GB pass runs untiled. Both use CPU component offload and no
+BlockSwap. Times below are the SeedVR2 CLI’s measured elapsed times; peak memory covers the
+complete image-and-clip run.
 
 | GPU | first image, including weights | clip, cached weights | peak GPU memory |
 | --- | --- | --- | --- |

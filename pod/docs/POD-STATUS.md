@@ -44,7 +44,8 @@ verified and removed after outputs were secured.
 The matching **96 GB RTX PRO 6000 Blackwell** pass completed first-use weights plus image in
 42.21 seconds and the cached clip in 15.19 seconds, peaking at 23,299 MiB. The same output,
 frame-count, timing, audio and downloaded-hash checks passed. Both runs used the published
-v0.3.10 images.
+v0.3.10 images. The 32 GB recipe used VAE tiling; the 96 GB recipe did not. Both used CPU
+component offload without BlockSwap. The image ledger records the complete settings.
 
 The real H3 regularisation/report run is the remaining live acceptance step for this release;
 its receipt will be recorded here when complete.
