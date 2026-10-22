@@ -1,346 +1,322 @@
 # Running ConceptStudio
 
-The development preview is `app/dist/ConceptStudio.app`. Double-click it in Finder. A debug
-build from source is unsigned: if macOS blocks it, use the explicit Open Anyway action in System
-Settings → Privacy & Security after attempting to open the app. A release build signed with a
-Developer ID and notarised (see [Building and distribution](#building-and-distribution)) opens
-normally; on first use, macOS asks once per saved key whether the app may read it from Keychain. The app needs macOS 15 or newer. It needs no Python, terminal, GPU or development
-environment to run.
+**Open ConceptStudio and turn your photos and clips into a trained image or video model adapter.**
+Prepare your examples, generate captions, train on a cloud GPU and bring the LoRA home—all in
+one Mac app. ConceptStudio runs on **macOS 15 or newer**, with no terminal or local GPU required.
+
+The release is signed and notarised for macOS. Open ConceptStudio from Finder and approve
+Keychain access when asked to connect your saved accounts. Choose **Try the demo** to explore
+the workflow, or **New project…** to start with your own media.
 
 ## First run: the offline demo
 
-Choose **Try the demo** in Welcome. The visible Demo badge stays on throughout the journey.
-The demo uses three synthetic portraits and fake captioning, GPU and training services. It
-does not read Keychain credentials or send network requests. Photos import is disabled in the
-demo so an iCloud Photos download cannot be triggered there.
+Choose **Try the demo** in Welcome to explore the complete workflow with 24 synthetic
+portraits, prepared captions and simulated cloud services. The demo stays offline, uses no
+credentials and incurs no charges. Its Demo badge stays visible; Apple Photos import is
+disabled. Close the project to return to Welcome and connect your accounts.
 
-1. **Images:** read the training explanation; inspect the three synthetic photographs. Exclude a
-   sample and use Undo curation to restore it. Open Inspect and crop, then Cancel to keep the
-   prepared demo captions applicable. Dataset advice is clearly marked as prepared advice.
-2. **Concepts:** inspect the fictional person's concept and its trigger, NORA7. Edit concept
-   opens that existing definition. The ordinary flow uses one concept; multiple concepts and
-   detailed caption overrides are under Advanced settings.
-3. **Mapping:** inspect or edit the prepared assignments and confirm a sample. Model requests
-   are simulated. This screen is omitted for projects containing only style or motion concepts,
-   which apply to the whole target automatically.
-4. **Captioning:** choose Start captioning to load captions prepared for these exact photographs.
-   Try Unusable, Failed, or Rejected to see recovery; Rejected needs the reviewer enabled.
-   Return to Success and enable overwriting existing model captions to repeat a batch.
-5. **Review:** edit a caption, mark it Final and save. Subsequent model runs skip it. Compare
+1. **Images:** inspect the photographs. Exclude a sample and restore it with **Undo curation**.
+   Open **Inspect and crop**, then Cancel to keep the prepared captions matched to the images.
+   Read the training introduction and prepared dataset advice.
+2. **Concepts:** open **Edit concept** to explore the fictional person and trigger, NORA7.
+   Advanced settings add multiple concepts and detailed caption instructions.
+3. **Mapping:** inspect the prepared assignments and confirm a sample. Try a simulated model
+   request. Style-only and motion-only projects skip this screen: those concepts apply to
+   every training target.
+4. **Captioning:** choose **Start captioning**. Try **Unusable**, **Failed** or **Rejected** to
+   practise recovery; Rejected uses the optional reviewer. Return to **Success** and enable
+   overwriting existing model captions to repeat a batch.
+5. **Review:** edit a caption, mark it **Final** and save. Future model runs skip it. Compare
    captions or re-caption one or several unprotected samples.
-6. **Publish:** Simulate dataset upload prepares the shared project files locally. Nothing is
-   uploaded. The filled demo dataset name supplies the later training simulation.
-7. **Cloud GPU:** refresh offers, inspect the hourly price and budget, and rent a simulated
-   computer. No paid resource is created.
-8. **Training:** inspect the model, training settings and GPU plan, then Start training.
-9. **Monitor:** inspect simulated loss, logs and saved settings. Load settings for repeat
-   returns to Training. Generated results explains that the demo has no real trained weights
-   or generated comparisons. Stop everything stops the simulation.
+6. **Publish:** choose **Simulate dataset upload** to prepare the project files locally.
+   The demo dataset name carries through to training.
+7. **Cloud GPU:** refresh offers, compare hourly prices, set a budget and rent a simulated GPU.
+8. **Training:** inspect the model, settings and GPU plan, then choose **Start training**.
+9. **Monitor:** follow the simulated learning curve, logs and saved settings. **Load settings
+   for repeat** returns to Training. **Stop everything** ends the simulation. Base-versus-LoRA
+   generation is available with a real trained result.
 
-Close the project to return to Welcome and leave demo mode; account controls become available again.
-
-The full training explanation is on Images in both demo and real projects; its disclosure
-remembers whether you left it open. Welcome gives a short orientation rather than repeating
-that text. **Definitions** on each screen explains terms used there: hover over a term,
-select it, or focus its button with the keyboard. Space or Return opens the definition;
-Escape closes it. Settings, Advanced training, media/concept editors, saved runs and
-generation use the same definitions. **Help → ConceptStudio Help** (⌘?) opens the searchable
-catalog and full introduction at any time, including before opening a project. The supplied
-177-entry glossary retains both **Plain language** and **Show me the good stuff** readings,
-searchable aliases, sections, related terms and primary sources. Separate entries describe
-ConceptStudio operations. Educational entries do not imply an implemented setting or a
-supported model. Disclosure rows open from their labels or trailing space as well as the arrow.
+Use **Definitions** on any screen to explore its terms. Hover, click, or focus a term and press
+Space or Return; Escape closes the definition. **Help → ConceptStudio Help** (⌘?) opens the
+searchable glossary and full training introduction, even before you open a project. Switch
+between **Plain language** and **Show me the good stuff** for the depth you want. Choose your
+training model in the model picker and explore the techniques behind it in Help.
 
 ## A real project
 
 Choose **New project…**, name it in the macOS Save panel and choose its parent folder.
-ConceptStudio remembers the last parent. An existing project opens; an existing non-project
-folder is refused. **New project from Hugging Face dataset…** on Welcome and File asks for
-`owner/name` or a dataset URL first, accepts `/tree/<revision>/<subfolder>`, then names the
-new project from that dataset or folder and starts importing after Save.
+ConceptStudio remembers the last parent. An existing project opens; an unrelated existing
+folder is refused. **New project from Hugging Face dataset…** on Welcome and File accepts
+`owner/name` or a dataset URL, including `/tree/<revision>/<subfolder>`. Save the suggested
+project name and location to start importing. Define the first concept on Concepts. The project folder holds your media, references, settings and
+captions. Mark a caption **Final** to protect it from future model runs. Projects move between
+the app and CLI using the [shared file formats](CORE-SPEC.md#project-folder). Credentials stay
+in Keychain, separate from project files.
 
-A new project begins without a concept: define the first one
-on Concepts before captioning, publishing or training. Images and clips are copied to `images/`; `job.yaml` and caption
-`.txt` / response `.json` sidecars use ConceptCore's shared CLI formats. Final captions have
-`source: human` in the response record. Reference images live in `references/`. No keys go into
-these files. Recent project folders and custom skill folders use security-scoped bookmarks.
+Open **Accounts & settings** to choose **Continue with ChatGPT**, **Connect OpenRouter** or a
+manual account key. A single OpenRouter, Vercel AI Gateway or Pydantic AI Gateway key gives
+access to its model catalog. Direct providers are available too. Add Hugging Face and RunPod
+credentials in the publishing and training section.
 
-Settings offers **Continue with ChatGPT**, **Connect OpenRouter** and manual account keys. For
-key-based access, one gateway key is enough: OpenRouter, Vercel AI Gateway or Pydantic AI
-Gateway. Direct model providers, a Hugging Face write token and a RunPod key are also available.
-Secrets are saved in the Mac Keychain. Saving a key checks it through a read-only account/model
-request, with no generated caption. Hugging Face and RunPod have their own publishing/training
-section. Captioning reads
-provider model lists, filters declared media capabilities, and retains **Other model…** for
-custom names. Changing provider selects its default; Gemini accepts either bare model IDs or
-Google’s `models/` prefix. The captioning connection test uses the model selected on Captioning and consumes
-that account's allowance. The app remembers choices in the shared job and local preferences.
-The advanced vLLM URL is the host allowed to receive your saved server key. A downloaded
-project can name a different captioner or reviewer URL; that request receives no saved key.
+Saving a key checks account access without generating a caption. The **Captioning connection
+test** uses your selected model and consumes that account's allowance. Captioning lists models
+and their declared media capabilities; **Other model…** accepts custom model names. Changing
+provider selects its default model. Gemini accepts both bare IDs and Google's `models/` prefix.
+Your choices are remembered in the job and local preferences.
+
+For a custom vLLM server, set its URL in Advanced settings. The app sends your saved server key
+only to that origin: the same scheme, host and port. An imported project pointing to a different
+origin needs its own authorization. Paths on the configured origin share the saved key.
 
 ### Caption with your ChatGPT plan
 
-Choose **Continue with ChatGPT** in Settings and approve the sign-in in your browser.
-Eligible accounts can authorize use of their ChatGPT plan without an API key. ConceptStudio
-shows a one-time explanation before you continue. On Captioning, choose **OpenAI**, select
-**ChatGPT plan** and pick a model from your account's current catalog. **Manage usage** opens
-[ChatGPT usage settings](https://chatgpt.com/settings/usage) to review allowance and app limits.
-Image support depends on the chosen model.
+Choose **Continue with ChatGPT** in Settings, read the access explanation and approve sign-in
+in your browser. On Captioning, choose **OpenAI → ChatGPT plan**, then select a model from your
+account's catalog. **Manage usage** opens [ChatGPT usage settings](https://chatgpt.com/settings/usage)
+for your allowance and app limits. Choose a model with image support for photo captioning.
 
-This choice applies to all OpenAI requests in the app: captioning, the optional caption
-reviewer, model comparisons and photo/concept assistance. **OpenAI API credits** uses the
-separate API key instead. There is no automatic fallback between them. Other providers keep
-their own accounts. ChatGPT plan usage can draw on the plan or its credits balance, according
-to the permissions you approve in ChatGPT.
+The selected account handles every OpenAI request: captions, the optional reviewer, model
+comparisons and photo/concept assistance. **OpenAI API credits** selects your separate API key.
+You choose the billing route; the app keeps that choice. Your ChatGPT account supplies the
+available models and allowance, with usage charged to the plan or credit balance you authorize.
+Other providers use their own accounts.
 
-The ChatGPT preview supports native structured captions and JSON output, with image inputs.
-Its current API does not accept an output-token cap or sampling controls such as temperature;
-unsupported job settings produce an error rather than being silently ignored. Usage-limit
-errors stop new captioning requests and direct you to Manage usage. Saved captions remain.
+The ChatGPT route accepts images and returns native structured captions or JSON. Leave output
+token limits and sampling controls such as temperature unset: this API does not accept them.
+Unsupported settings produce an error. Reaching a usage limit stops new requests and directs
+you to **Manage usage**; completed captions stay saved.
 
-Accounts and tokens stay separate from projects. Select an existing account to reuse it, use
-**Sign in again** to renew authorization, or **Continue with ChatGPT** to add another account
-or workspace. **Sign out** clears that registration's local tokens and attempts remote session
-revocation; the app reports when it cannot confirm revocation. You can also disconnect the
-app in ChatGPT settings. Demo mode disables sign-in and stays offline.
+Select an existing account to reuse it, **Sign in again** to renew authorization, or
+**Continue with ChatGPT** to add another account or workspace. **Sign out** clears local tokens
+and requests remote revocation. If remote revocation cannot be confirmed, disconnect the app
+in ChatGPT settings. Your sign-in stays on this Mac; shared project files contain no account
+tokens. The Python CLI uses its configured OpenAI API credentials.
 
-The shared job still records the OpenAI model as `kind: openai`; it contains no OAuth tokens
-or account registration. The authentication choice is local to this Mac. The Python CLI
-continues using its separately configured OpenAI API credentials.
-
-Implementation follows OpenAI's [open-source sign-in flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
-and [preview limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+See OpenAI's [sign-in flow](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
+and [API limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)
+for the service contract.
 
 ### Connect OpenRouter
 
-In a real project, open Accounts & settings and choose **Connect OpenRouter**. The app opens
-OpenRouter's consent page in your browser. After approval, it exchanges the returned code
-using PKCE and saves the new API key in Keychain. Caption requests then go directly to
-OpenRouter; the browser is only for authorization. Cancel leaves any previously saved key in
-place. Account status reports the service's available usage and allowance information; a
-missing balance is not treated as unlimited credit. Live owner consent remains a separate
-verification step. See [OpenRouter's authorization documentation](https://openrouter.ai/docs/guides/overview/auth/oauth).
+Open **Accounts & settings → Connect OpenRouter** in a real project and approve access in
+your browser. ConceptStudio saves the returned key in Keychain and sends caption requests
+directly to OpenRouter. Cancelling leaves your previous key in place. Account status shows
+the usage and allowance supplied by OpenRouter. See
+[OpenRouter authorization](https://openrouter.ai/docs/guides/overview/auth/oauth).
 
 ### Prepare and train
 
-Use folder, selected-file, Apple Photos or Hub imagefolder import. Folder imports recurse into
-subfolders. Hub imports accept dataset URLs, revisions and subfolders in both the new-project
-flow and Images. **Exclude duplicates…** selects all but the highest-resolution copy in each
-group; inspect the selection before applying it. HEIC and TIFF images are
-normalized to oriented PNG training targets. Matching `.txt` captions and optional `.json`
-response records beside selected files are imported with the image, including when its name
-changes to avoid a collision or its format is normalized. Text-only captions show **Imported**;
-human-final records remain protected. Captioning can protect imported captions in bulk before
-a rerun. Dataset advice identifies its evenly selected sample of up to 48 examples; it does
-not exclude the other examples from training. Inspect duplicate candidates; Include in training
-controls which samples are captioned and published. Undo curation restores the previous
-selection or approved edit during the current session. Excluded media remains in the project,
-outside the training set.
+Import from a folder, selected files, Apple Photos or a Hugging Face imagefolder dataset.
+Folder imports include subfolders. Hub imports accept URLs, revisions and subfolders on
+Images and in the new-project flow. **Exclude duplicates…** selects all but the highest-resolution
+copy in each group; inspect the selection before applying it.
+HEIC and TIFF images become oriented PNG training targets. Matching `.txt` captions and
+`.json` response records travel with their images, including through format conversion and
+filename changes. Captions imported from text show **Imported**; human-final records stay
+protected. Use Captioning's bulk protection action before a rerun to keep imported captions.
+Parquet-only Hub datasets require conversion to imagefolder before import.
 
-Define one concept and press **Confirm concept and continue** (⌘↩). Person and object/character
-concepts can use reference images and need confirmed locators. Style and motion are assigned
-to the whole image or clip automatically, so their journey skips Mapping.
-For a person concept with exactly one detected face, checking the concept supplies its class
-noun as the locator; multi-person scenes retain explicit descriptions. Model proposals remain suggestions until confirmed.
-Select several samples with ⌘-click or ⇧-click to confirm a shared concept and location or
-clear their assignments. **Confirm all remaining** in a single-person project confirms only
-samples with exactly one detected face and lists the rest for review. **Not sure** keeps a
-sample unconfirmed, with an optional note and its own filter. Confirm-and-next moves forward
-and skips marked samples. Exclude remains a separate action. Right-click an image in Images
-or Mapping to use it as a concept reference.
+Review dataset advice, duplicate candidates and **Include in training** before captioning.
+Advice samples up to 48 evenly selected examples; the full included set remains available for
+training. Excluded media stays in the project. **Undo curation** restores a selection or
+approved edit during the current session.
 
-Mapping supports numbered single images, 2×2 and 3×3 contact sheets with short scene descriptions
-for checking tile correspondence. It resizes images, runs concurrent requests on vLLM, retries
-transient failures per image, preserves proposals across interruptions and skips confirmed
-samples. Progress shows a count and estimated time remaining. Accept a model proposal per sample or
-accept all eligible suggestions together, with Undo. Existing confirmations are preserved. Parquet-only
-Hub datasets are not supported by the Swift app.
+Define a concept and choose **Confirm concept and continue** (⌘↩). Person and object/character
+concepts require confirmed locators. Reference photos guide suggestions; person concepts need
+references for model-assisted identity proposals. Manual mapping works without references.
+With one detected face, checking a person concept fills the locator from its class noun;
+describe the subject explicitly in multi-person scenes. Review model proposals before
+confirming them. Accept one proposal or all eligible suggestions, with Undo. Style and motion
+concepts apply to the whole target and skip Mapping.
 
-Inspect and crop shows the actual crop before approval. Approval replaces the training target
-and clears its old caption and subject assignment so they can be reviewed again. Style and
-motion are reassigned automatically. For video, choose Start time and Duration, then preview
-the segment. Choose its training model before approval. Advanced: Exact frames and size
-exposes frame indices, supported frame counts and maximum width or height. LTX accepts
-9–257 frames in steps of eight; H3 accepts 5–243 frames in steps of seventeen at exactly
-24 fps. Approval preserves the selected frame
-timing and full visible scene, fits dimensions to the trainer's alignment, and writes the exact
-MP4 that captioning and training consume. Inspect the frames or play the approved clip.
+Select multiple samples with ⌘-click or ⇧-click to confirm a shared concept and location or
+clear their assignments. **Confirm all remaining** in a single-person project confirms samples
+with exactly one detected face and lists the rest for review. **Not sure** keeps a sample
+unconfirmed, with an optional note and its own filter. Confirm-and-next moves forward and
+skips marked samples. Exclude is a separate action. Right-click a sample in Images or Mapping
+to use it as a reference photo.
 
-Selected portions with variable frame timing are refused for LTX training because the current
-trainer would discard that timing. Choose a constant-frame-rate portion; the app does not retime
-it silently. H3 also refuses other frame rates, including 23.976 fps. Gemini routes support inline video; OpenRouter and vLLM accept a video content
-part when the selected model supports it. OpenAI and Anthropic refuse clips before sending.
-Python uses pydantic-ai for Gemini/OpenRouter and explicitly refuses vLLM video until that
-library supports the route. Both clients refuse encoded video request bodies of 20 MiB or more,
-including prompts, schema and retry history. See the route table in [CORE-SPEC](CORE-SPEC.md).
-Gemini receives the complete clip with sampling set to 24 frames per second; this does not mean
-that every source frame above 24 fps is observed. Approving a segment selects the matching
-LTX or H3 video caption format. Other saved captions retain their text; review or re-caption
-them when changing formats. LTX derives preprocessing buckets from the approved targets.
-H3 groups clips by their exact frame counts and uses a resolution cap large enough to retain
-their approved dimensions. Neither route silently shortens an approved segment or changes
-its aspect ratio.
+Mapping defaults to numbered 3×3 contact sheets, with single images and 2×2 sheets available.
+Each proposal includes a scene description for checking tile correspondence. Downscaled
+images, concurrent vLLM requests and per-image transient retries speed up the run. Saved
+proposals survive interruptions; confirmed samples are skipped. Progress shows a count and
+estimated time remaining. See [the measured layout comparison](MAPPING-BENCHMARK.md).
 
-Hosted captioning requires no GPU rental. To caption with a local model, choose **Rent or
-choose a cloud GPU for captioning** on Captioning, rent one on Cloud GPU, then return and choose
-**Start caption server and use this cloud GPU**. That action starts through the control agent
-and verifies the authenticated vLLM model endpoint. The app binds the in-memory pod token to
-that user-selected endpoint; it is never copied into `job.yaml`. Caption and publish before
-starting training on a one-GPU computer. ConceptStudio automatically selects the included
-training image for the chosen trainer. A custom training image is optional in Advanced
-Settings (shown with **Advanced user** on); clearing and saving leaves the field blank (**Automatic**) and uses the current default
-for the selected trainer when renting.
+Use **Inspect and crop** to preview the exact image crop before approval. Approval replaces
+the training target and clears its caption and subject assignment for a fresh review; style
+and motion assignments carry forward automatically. For video, set **Start time** and
+**Duration**, preview the segment and choose its training model. **Advanced: Exact frames and
+size** exposes frame indices, supported frame counts and dimension limits.
 
-The GPU list filters stock to the selected network volume’s data center. **No saved storage**
-uses a 300 GB persistent disk on that computer instead: Stop preserves it, but Remove deletes
-it. Storage charges continue while stopped. Start the same stopped computer to retrieve
-uncollected results; the app refuses removal while those results remain unsettled or unsaved.
-A network volume can instead follow replacement computers in its own data center. RunPod’s
-reported refusal text is shown when a rental fails.
+Video preparation follows the chosen model's requirements:
 
-Cloud GPU stays at the bottom of the sidebar and is also available from Welcome. Choose
-captioning or training there to filter offers by the relevant model. Captioning shows server
-startup progress and waits for the computer to boot. Mapping, captioning and advice requests
-keep the computer active. The idle interval accepts typed minutes.
+- **LTX:** 9–257 frames in steps of eight. Select a constant-frame-rate portion; variable
+  timing cannot be retained by the current trainer.
+- **H3:** 5–243 frames in steps of seventeen, at exactly 24 fps. Other rates, including
+  23.976 fps, require conversion before approval.
+- Approval preserves the selected timing and full scene, aligns dimensions for the trainer,
+  and writes the MP4 used by both captioning and training. Inspect its frames or play it back.
+  LTX derives its buckets from these targets; H3 groups clips by exact frame count and uses
+  a resolution cap that retains the approved dimensions.
+- Gemini accepts inline video and samples it at 24 fps. OpenRouter and vLLM accept video when
+  the selected model supports it. OpenAI and Anthropic routes accept images only. The Python
+  CLI supports Gemini/OpenRouter video; its pydantic-ai route does not support vLLM video.
+- Encoded video requests must stay below 20 MiB, including prompts, schema and retry history.
+  See the [CORE-SPEC route table](CORE-SPEC.md#video-route-contract-owner-decision-2026-10-11) for details.
 
-Before renting for training, Cloud GPU lists anything still needed before training can start (media, a concept
-with its trigger, captions for a direct upload, or a published dataset) with a button to the
-step for the first item, because a rented computer bills while it waits. Rent stays available,
-since renting to caption on the computer is a real workflow. The same list appears above Start
-training. Work the app does for the computer, such as publishing the dataset it will train on,
-holds off the idle stop, and the idle countdown restarts when that work ends. A stopped computer can be kept while you rent another. **Stopped, kept** lists retained
-computers, their contents and storage costs. Start asks before stopping the current computer;
-Remove confirms deletion of the selected computer’s disk. Only one computer runs at a time.
+Approving a segment selects the matching LTX or H3 caption format. Review or re-caption saved
+text when changing formats; existing captions retain their text.
 
-**Settings → Advanced user** (off by default) reveals the detailed controls: custom servers and
-training images in Settings, model and batch controls on Captioning, multiple concepts and
-caption overrides on Concepts, the starting-model field and Advanced training controls on
-Training. Turning it off resets nothing; each screen lists the non-default settings still in
-force. With it on, the model picker also offers 20 further AI Toolkit architectures marked
-**Unverified recipe**: AI Toolkit's own UI defaults at the pinned commit, each with its licence
-and the result of an upstream issue check, and no GPU-measured recipe behind them. They need a
-pod image built from a table that includes them.
+**Upscale and restore…** on Images enlarges and repairs images or clips with SeedVR2 on your
+cloud GPU. Choose the media and model, then compare each returned result with its original
+before keeping it. Pay particular attention to faces: restoration can invent detail.
+**Put back original** restores the source even after reopening the project. The automatic
+`v0.3.9-20261022` pod images include SeedVR2. See [pod images](../../pod/images/README.md)
+for the installed models and services.
 
-Training steps have a number field. For H3, Advanced exposes checkpoint cadence and retention,
-saved precision, image resolution buckets and the training adapter: automatic (Circlestone's for
-stills, Ostris's v3 once clips are among the inputs), either one, or none from an imported recipe.
-Circlestone's adapter requires guidance preservation loss to remain off; the app explains that
-constraint and rejects incompatible imports. Guidance controls apply on Ostris's adapter or without one. A new H3
-selection starts with 300-step checkpoints, 40 retained, float32 saves, 768/1024 buckets and
-guidance loss off (target 3.5). Imported recipes and saved-run repeats retain their actual
-settings. The earlier v1 recipe enabled guidance loss; v2 and the successful v3 run disabled
-it. Generation guidance is a different control.
+Cloud GPU stays at the bottom of the sidebar and is available from Welcome. Choose captioning
+or training to filter offers by the relevant model. Rental and caption-server startup show
+progress and wait for boot. Mapping, captioning and advice requests hold off the idle stop;
+its interval accepts typed minutes.
 
-FLUX and LTX offers use GPUs with at least 32 GB of memory. Qwen-Image-2.1 trains in bf16 with no
-quantisation and is offered only on GPUs with at least 80 GB; the picker shows its Qwen Research
-License notice (non-commercial use) and the size of its first download (about 32.5 GB). H3's BF16
-recipe uses a 96 GB GPU as its known reference; the app checks the connected computer's actual GPU
-inventory before transferring training inputs. This is an admission requirement, not a guarantee
-that every H3 batch or resolution will fit. The app also requests at least
-60 GB of host RAM per GPU for model loading. Its LTX defaults use 8-bit text-encoder loading,
-quantized training, an 8-bit optimizer and tiled image preparation. A two-step 512-pixel,
-rank-16 LTX run succeeded on one 32 GB GPU with a 125 GB host; a smaller 256-pixel, rank-2 run
-succeeded with a 62 GB host. Those checks establish execution, not training quality or a
-universal memory guarantee for other models and datasets.
+Hosted captioning needs no GPU rental. For self-hosted captioning, choose **Rent or choose a
+cloud GPU for captioning**, rent on Cloud GPU, then return and choose **Start caption server
+and use this cloud GPU**. ConceptStudio starts the server and checks its authenticated vLLM
+endpoint. Complete captioning and dataset preparation before training on a single GPU.
 
-For an existing H3 LoRA, import its native AI Toolkit recipe on Training, then choose its
-`.safetensors` starting weights. The app copies both into the project. Supported model
-components are downloaded at pinned revisions; old pod paths and run counters are not
-reused. The imported optimizer, precision and trained-layer selection remain part of the
-recipe. Set the new run's length and review its displayed settings before starting. This
-starts a new run at step zero with the selected project's dataset and fresh optimizer state.
-If you close the project before starting that run, select the recipe and starting weights
-again when you reopen it; the copied files remain, but the unsubmitted selection is not restored.
-**Resume latest checkpoint** instead continues a saved run on its original storage using
-that run's checkpoint and state.
+The app automatically chooses the training image for your trainer. Set a custom image under
+**Settings → Advanced user**, or clear and save the field to use **Automatic**. The GPU list
+shows stock beside your selected network volume. With **No saved storage**, the GPU receives
+a 300 GB persistent disk: **Stop** keeps its files, **Remove** deletes them. A network volume
+can be reused by another GPU in the same data center. Both storage choices continue billing
+while the GPU is stopped.
 
-The default images have included these H3 additions since `v0.2.3-clean-20261011`. H3
-still-image training has completed on a rented GPU; H3 clip training, external warm-start,
-same-run Resume and matched H3 generation have not yet run there.
+Cloud GPU and Training list the prerequisites for training with links to the relevant steps.
+Complete them before starting training; you can rent earlier when you need the GPU for
+captioning. Keep a stopped GPU while renting another: **Stopped, kept** lists retained GPUs,
+their contents and daily storage cost. Starting one asks before stopping the current GPU.
+Only one GPU runs at a time. Remove confirms deletion of the selected GPU's disk, and the app
+blocks removal while its results remain unsettled or unsaved.
+
+Turn on **Settings → Advanced user** for custom servers and images, caption model and batch
+controls, multiple concepts, caption overrides and detailed training controls. Turning it off
+keeps your settings; each screen lists active non-default choices. The training picker adds
+18 AI Toolkit architectures with their licences and upstream issue notes. **Unverified recipe**
+identifies settings drawn from the trainer's defaults rather than a measured GPU run. Use a
+pod image containing the same model table; see [models and recipes](../../docs/model-table.md).
+
+Set training length in the number field. For H3, Advanced controls checkpoint cadence,
+retention, saved precision, resolution buckets and adapter selection. Automatic selects
+Circlestone's adapter for still images and Ostris's v3 when clips are included. Circlestone's
+adapter requires guidance preservation loss off. Ostris's adapter and adapter-free training
+support that control. New H3 selections start with checkpoints every 300 steps, 40 retained,
+float32 saves, 768/1024 resolution buckets and guidance loss off with target 3.5. Imported
+recipes and repeated runs retain their saved settings. Generation guidance is a separate
+control.
+
+Choose hardware for the training model:
+
+- **FLUX and LTX:** at least 32 GB GPU memory. LTX defaults use an 8-bit text encoder,
+  quantized training, an 8-bit optimizer and tiled image preparation.
+- **Qwen-Image-2.1:** at least 80 GB GPU memory for bf16 training without quantisation.
+  Accept its Qwen Research License terms, including non-commercial use. The first model
+  download is about 32.5 GB.
+- **Krea 2 (Raw):** at least 96 GB GPU memory for bf16 training. Accept the Krea 2
+  Community License access conditions on Hugging Face and configure your token. Training
+  uses Raw weights; generated previews use Krea 2 Turbo at eight steps.
+- **H3:** the BF16 recipe uses a 96 GB GPU reference. The app checks the connected GPU's memory
+  before uploading inputs. Batch size and resolution still determine the run's memory use.
+- Rentals request at least 60 GB host RAM per GPU for model loading.
+
+See the [model table](../../docs/model-table.md) for recipes and hardware requirements,
+and [APP-STATUS](APP-STATUS.md) for completed training runs.
+
+To start from an existing H3 LoRA, import its native AI Toolkit recipe on Training and select
+its `.safetensors` weights. Both files are copied into the project. Review the imported
+optimizer, precision, trained-layer settings and new training length, then start. This creates
+a new run at step zero on the selected project's dataset, with fresh optimizer state and model
+components downloaded at pinned revisions. Reopening the project before starting requires
+selecting the recipe and weights again; the copied files remain. **Resume latest checkpoint**
+continues an existing run and its state on the original storage instead.
 
 Publish lists uncaptioned samples and leaves them out by default. **Include them anyway**
-explicitly includes these samples without captions. Excluded and Not sure samples stay out.
-The same selection applies to Hub publishing and direct GPU uploads.
+includes those samples without captions. Excluded and Not sure samples stay out. Hub
+publication and direct GPU uploads use the same selection of saved captions.
 
-**Adult content**, on Concepts, is saved in the shared job as `adult_content`. Person defaults
-include state of dress or undress in every project. Adult projects additionally describe
-sexual activity and other people involved, with neutral guidance in the bundled skill.
-Captioning recommends a self-hosted model; Publish locks Private dataset on and checks the
-actual destination is private before uploading. Python and Swift use the same job policy.
+Turn on **Adult content** on Concepts for an adult dataset. Person defaults describe dress or
+undress in every project. Adult projects also describe sexual activity and other people
+involved, with neutral guidance in the bundled skill. Captioning recommends a self-hosted
+model; Publish keeps Private dataset on and checks that the destination is private. The
+shared `adult_content` job setting applies identically in Swift and Python.
 
-With a configured Hub token, publishing sends selected training targets and saved sidecars at the dataset root, imagefolder metadata, and
-`concept-captioner/job.yaml` in one Hub commit. The image names remain the shared sample IDs.
-Reference images stay local so the Hub and pod readers cannot mistake them for training targets.
-Private dataset is the default.
+With a Hub token, Publish sends the selected targets, saved sidecars, imagefolder metadata and
+`concept-captioner/job.yaml` in one commit. Media names remain the shared sample IDs; reference
+images stay local. **Private dataset** is on by default.
 
-Without a Hub token, Publish shows **Check training data**. It checks the included targets and
-saved captions locally. **Start training** then captures a temporary immutable copy, uploads
-files directly through the authenticated pod agent and waits for dataset installation before
-launching the trainer. Each file is limited to 2 GiB and the dataset to 20 GiB. Editing is held
-only while the copies are captured. The default images have included this route since
-`v0.2.3-clean-20261011`; older r2 images do not. No Hub dataset account is needed, but access requirements for a
-gated base model such as FLUX.1-dev still apply.
+Without a Hub token, choose **Check training data** on Publish. **Start training** captures
+saved inputs, uploads them through the pod agent and waits for installation before launching
+the trainer. Limits are 2 GiB per file and 20 GiB per dataset. Editing is held only while the
+snapshot is captured. Train directly from your Mac without a Hub dataset account. Gated base
+models such as FLUX.1-dev require their own access credentials.
 
-GPU rental displays
-prices and a whole-computer budget before creation. Training also has a separate per-run
-budget, recorded before input transfer and preparation. A new run starts a new spend total;
-Resume retains the run's cap and adds the cost of its continuation. Raise a saved run's
-budget explicitly before continuing one that has reached its limit. Either the rental cap
-or the active run cap stops the computer; both use GPU cost estimates and exclude storage.
-These guards run while ConceptStudio is open on an awake Mac.
-Stop everything cancels local work, waits for it to
-settle and stops the rented computer. Close and quit warn while work or a computer is active;
-the project remains open if a stop cannot be confirmed. Stopping clears the temporary container
-disk; datasets and checkpoints on separate network storage remain, and that storage remains
-billed. Explicitly Remove the stopped computer before renting another. See
+Set the rental's spending limit before creating the GPU and the separate run budget before
+training. A new run starts a new spend total. Resume keeps the run's cap and adds continuation
+cost; raise the cap explicitly before resuming a run that reached it. Either limit stops the
+GPU. Estimates cover GPU time; RunPod bills storage separately.
+
+**Keep ConceptStudio open on an awake Mac while the GPU runs.** The spending and idle guards
+run in the app. App-managed work such as dataset publishing holds off the idle stop and
+restarts the countdown when finished. **Stop everything** cancels local work, waits for it to
+settle and stops the GPU. Close and Quit warn while work or a GPU is active, and keep the
+project open until a requested stop is confirmed. A saved running GPU's cost and Stop controls
+appear on Welcome after relaunch, even before a project is opened.
+
+Stopping clears temporary container storage, keeps the persistent pod disk or network volume,
+and leaves storage billing active. A stopped GPU can stay in the kept list while you rent
+another. Network volumes survive removal; the GPU's own disk does not. See
 [RunPod's storage rules](https://docs.runpod.io/pods/storage/types).
-If the app reopens with a saved running computer, Welcome exposes its cost and stop controls
-before you open a project. Missing credentials do not hide that retained computer.
 
-Caption edits remain in the open project while moving between samples or screens. Save caption
-(or Command-S while Review is active) writes the selected draft; Discard edits restores the
-saved caption. Closing, quitting or switching projects warns before discarding unsaved drafts.
-Dataset preparation uses saved captions and warns when drafts still need saving.
+Caption drafts follow you between samples and screens. **Save caption** or Command-S on
+Review writes the selected draft; **Discard edits** restores the saved text. Closing,
+quitting or switching projects asks before discarding drafts. Dataset preparation uses saved
+captions, so save edits before publishing or training.
 
-Cloud GPU shows the volume's used/free space, dataset usage and reclaimable dataset bytes.
-**Clean completed dataset copies** invokes the agent's validated cleanup step. The same policy
-runs at training/generation start: preserve current, active, failed, unknown and shared inputs
-plus the latest three resumable completed runs; remove only eligible completed-run datasets.
-Checkpoints, generated results and model caches remain. There is no cleanup timer.
+Use **Clean completed dataset copies** on Cloud GPU to reclaim eligible dataset storage.
+The same cleanup runs at training and generation start. It preserves current, active, failed,
+unknown and shared inputs, plus the latest three resumable completed runs. Checkpoints,
+generated results and model caches stay on storage.
 
 ### Try a trained result and reuse a run
 
-Monitor → Generated results can generate a matched base-versus-LoRA comparison for the
-supported FLUX.1-dev, LTX-2.3/2.5 and H3 routes. H3 offers still images or video, including for a
-LoRA trained on still images. Select an available checkpoint, enter prompts and seeds,
-and generate. Both sides use the same inputs; the LoRA is the changed variable. Results are
-saved in the project gallery. A failed/incomplete comparison keeps downloaded partial files and
-shows a failure message; it is not presented as a saved complete pair. Unsupported model/trainer combinations show an explanation.
-Save trained model to this Mac retrieves the actual model files.
+Open **Monitor → Generated results** to compare the base model with your trained LoRA on the
+FLUX.1-dev, Z-Image, Qwen-Image-2.1, LTX-2.3/2.5, H3 and Krea 2 routes. Select a checkpoint,
+enter prompts and seeds, then generate.
+Both sides receive identical inputs with the LoRA as the changed variable. H3 generates still
+images or video, including from a LoRA trained on still images. Complete comparisons are saved
+in the project gallery. Failed comparisons retain any downloaded files for inspection and
+show the failure; unsupported model/trainer combinations explain the requirement.
+**Save trained model to this Mac** downloads the model files.
 
-**Save trained model to** on Training belongs to the open project. Signed in to Hugging Face, a
-project with no destination gets `<account>/<project>-lora`, which you can change; without a
-Hub token the result is saved in the project's results folder. Each run keeps the destination
-and privacy it started with, so a later push of a finished run never follows a different
-project's field.
+Set **Save trained model to** on Training for the current project. With a Hub account, an empty
+destination starts as `<account>/<project>-lora`; edit it to choose another repository.
+Without a Hub token, the result goes to the project's results folder. Each run retains its
+original destination and privacy, including when you retrieve or publish it later.
 
-Saved training runs retain the dataset revision reported by the agent, settings, available
-checkpoints, outputs and recorded cost information. Load settings for repeat copies the selected
-run's settings into Training; edit them before starting a new run. It initially reuses that
-run's recorded dataset revision. **Use this project's current dataset instead** refreshes the
-dataset revision, caption format, concept triggers and video status while preserving the
-training settings you edited. Resume latest checkpoint
-continues on the same saved storage when the selected trainer and checkpoint support it,
-with a total step count above the actual checkpoint step. A pruned Hub dataset is restored
-from its pinned revision. Direct-upload runs record a local input digest instead of a Hub
-revision; Resume reuploads the original inputs and refuses changed media, saved captions or
-job settings. Repeat can use changed inputs as a new run.
-Missing revisions or wallet information are shown as unavailable. GPU estimates exclude
-separately billed storage.
+Open **Saved runs** for dataset revisions, training settings, checkpoints, outputs and cost
+records. **Load settings for repeat** copies a run into Training and starts with its recorded
+dataset revision. Edit the settings, or choose **Use this project's current dataset instead**
+to refresh its data revision, caption format, triggers and video status while keeping your
+training edits.
+
+Use **Resume latest checkpoint** with a trainer and checkpoint that support resuming. Keep
+the original storage and set a total step count above the checkpoint step. Pruned Hub inputs
+are restored from the pinned revision. Direct-upload runs require their original media,
+saved captions and job settings; use Repeat to train changed inputs as a new run.
+GPU cost records cover compute; storage is billed separately.
 
 ## Building and distribution
 
-Developers can build the preview from the repository root:
+Build your own copy from the repository root with Xcode installed:
 
 ```sh
 scripts/build-app.sh debug
@@ -354,47 +330,46 @@ CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
   CONCEPTSTUDIO_NOTARY_PROFILE=<profile> scripts/build-dmg.sh
 ```
 
-`build-dmg.sh` refuses an app that is not a notarized Developer ID build. The image holds the app
-and a link to Applications, uses the app icon as its volume icon, and is itself signed, notarized
-and stapled. The app icon is compiled from `app/Packaging/ConceptStudio.icon` with `xcrun actool`,
-so the build needs Xcode, not only the command-line tools.
+The build copies the executable and resources into `app/dist/ConceptStudio.app`. It compiles
+`app/Packaging/ConceptStudio.icon` with `xcrun actool`, so Xcode is required in addition to the
+command-line tools.
 
-The script copies the executable and SwiftPM resource bundles and writes the app Info.plist.
-Debug builds remain unsigned unless a signing identity is supplied. Release builds require the
-named Developer ID Application identity in Keychain, sign with the declared sandbox entitlements,
-hardened runtime and timestamp, then verify the signature and check that the sandbox entitlement is present. With
-`CONCEPTSTUDIO_NOTARY_PROFILE` set (a profile stored once with
-`xcrun notarytool store-credentials <profile>`), the script zips the app, submits it to Apple's
-notary service, waits, staples the ticket and assesses the result with `spctl`; nothing secret
-passes through the script. Reusing the same identity gives
-releases a stable code identity; this does not restore permissions already lost by a differently
-signed development build. The script does not launch the app. Tests use Swift Testing;
-`swift test` and `swiftlint lint --strict`
-run from `app/`. `swiftformat Sources Tests --lint` checks formatting.
+Debug builds use an available **Apple Development** identity automatically, or the identity
+you supply. Without a signing identity they are unsigned and run without the sandbox.
+Release builds require the named **Developer ID Application** identity in Keychain and apply
+the sandbox entitlements, hardened runtime and timestamp before verifying the signature.
 
-The native UI conventions are in [DESIGN.md](../DESIGN.md). To inspect actual SwiftUI content
-without changing the desktop or using a live service, run this from the repository root after
-the normal app build has populated its Yams checkout:
+Store notarisation credentials once with `xcrun notarytool store-credentials <profile>` and
+set `CONCEPTSTUDIO_NOTARY_PROFILE` for release distribution. The script submits the app to
+Apple, waits, staples the ticket and checks it with `spctl`. Use the same signing identity
+across builds to preserve a stable app identity; changing it can require new Keychain and
+folder-access approvals. Building does not launch the app.
+
+`build-dmg.sh` requires a notarised Developer ID app. It creates
+`app/dist/ConceptStudio-<version>-<date>.dmg` with the app, an Applications link and the app's
+volume icon, then signs, notarises and staples the image. The
+[signed release and completed workflow](APP-STATUS.md#end-to-end-run-through-the-app-2026-10-14)
+are recorded in APP-STATUS.
+
+Run `swift test` and `swiftlint lint --strict` from `app/`.
+`swiftformat Sources Tests --lint` checks formatting. The native UI conventions are in
+[DESIGN.md](../DESIGN.md).
+
+After the normal build has populated its Yams checkout, render the app's screens from the
+repository root:
 
 ```sh
 scripts/render-app-preview.sh
 # Offscreen PNGs and source/render manifests in app/dist/visual-check
 ```
 
-This opt-in Swift Testing render pass uses the bundled demo, fake GPU services and isolated
-preferences in a temporary source snapshot. It checks the minimum and default window sizes
-in light and dark appearances. The host window is never shown or activated. Offscreen bitmap
-rendering does not establish live keyboard, VoiceOver, titlebar or native vibrancy behavior;
-use the actual app for the human walkthrough. Ordinary `swift test` skips the render pass.
+The render pass captures minimum and default window sizes in light and dark appearances,
+using the offline demo and isolated preferences. It leaves the desktop untouched. Use the
+running app to check keyboard navigation, VoiceOver, titlebars and native vibrancy. Ordinary
+`swift test` skips this render pass.
 
 `app/ConceptStudio.entitlements` declares the sandbox, user-selected read/write access,
-security-scoped bookmarks and network-client access. The bundle declares its Photos usage
-description; signed Photos-picker access still needs native verification. Network-server permission
-allows the temporary ChatGPT and OpenRouter sign-in callbacks, bound only to `127.0.0.1`; it is closed when
-sign-in finishes, is cancelled or times out. On 2026-10-14 a release build was signed with a
-Developer ID, notarised (accepted) and stapled, and that sandboxed build completed a full training
-run: Keychain access, Hub publishing, renting, the pod agent, training, the push to the Hub and the
-idle stop (see [APP-STATUS](APP-STATUS.md#end-to-end-run-through-the-app-2026-10-14)). There is no
-public download yet. Photos-picker access and permission and bookmark persistence across builds
-still need verification in the signed build. See
-[Apple's distribution signing procedure](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/).
+security-scoped bookmarks and network-client access. The bundle includes its Photos usage
+description. Sign-in callbacks listen on `127.0.0.1` and close on completion, cancellation or
+timeout. Follow [Apple's distribution signing procedure](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/)
+when preparing a release.

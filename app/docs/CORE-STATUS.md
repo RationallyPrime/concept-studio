@@ -1,103 +1,112 @@
 # CORE-STATUS
 
-State of ConceptCore, the Swift captioning library, including the 2026-10-12 walkthrough integration;
-earlier live checks date from lab commit `e620882` (2026-10-10); the approved-video
-Gemini proof below is from 2026-10-11. The
-contract is [CORE-SPEC.md](CORE-SPEC.md). The day-by-day record is in
-[status-history-2026-10-10.md](../../docs/process/status-history-2026-10-10.md).
+**ConceptCore powers captioning, review and dataset exchange in the Mac app**, with the same
+job, skill, profile and sidecar formats as the Python CLI. It captions images through vLLM and
+ChatGPT, images and video through Gemini, and exchanges private datasets with Hugging Face.
+The owner also confirmed native ChatGPT and OpenRouter sign-in and captioning, and completed a
+267-image project through GPU captioning and private publication in ConceptStudio 0.3.1 on
+2026-10-21, reported in the following day's briefing.
 
-## What exists
+Updated 2026-10-22. [CORE-SPEC.md](CORE-SPEC.md) defines the shared contract;
+[development history](../../docs/process/status-history-2026-10-10.md) records the original
+2026-10-10 integration at `e620882`.
 
-All nine modules of CORE-SPEC, with focused tests:
+## Capabilities
 
-- **Models and skills:** Job and friends with YAML round trip; the Agent Skills loader with the
-  bundled skill as a resource; prompt assembly; the exact-token trigger check.
-- **Model clients:** OpenAI-compatible (vLLM and any compatible server), OpenAI Responses,
-  Anthropic, Gemini, and a ChatGPT-plan client that streams from the Responses endpoint with
-  `store: false`. Structured output with one in-conversation retry. Gateways: OpenRouter, Vercel
-  AI Gateway and Pydantic AI Gateway, each with a fixed host and its own key.
-- **Key safety:** `resolve` never lets a job choose where a key goes. The vLLM key is sent only
-  to the user-configured origin (scheme, host and port; CORE-SPEC Deviation 9); jobs cannot set
-  authentication headers.
-- **Runner:** per-sample outcomes through an awaited callback, optional critic,
-  response records, skip of human-final captions; cancellation drains before returning.
-- **Sources and sinks:** local folder, sidecar sink; Hub client with LFS upload and verify,
-  imagefolder source and sink.
+All nine CORE-SPEC modules are implemented:
+
+- **Projects, skills and prompts.** YAML round trips, bundled and custom Agent Skills,
+  model-specific profiles, prompt assembly and exact trigger validation.
+- **Model clients.** OpenAI-compatible servers, OpenAI Responses, Anthropic, Gemini and ChatGPT
+  plan access. Structured output includes an in-conversation correction retry. ChatGPT streams
+  Responses with `store: false`. OpenRouter, Vercel AI Gateway and Pydantic AI Gateway have
+  dedicated host and credential routing.
+- **Credential routing.** Jobs select models; configured account origins determine where keys
+  are sent. vLLM credentials are bound to the configured scheme, host and port. Authentication
+  headers are controlled by the client.
+- **Runner.** Per-sample results, optional critic review, response records and human-final caption
+  protection. Cancellation drains active work before returning.
+- **Sources and sinks.** Local folders, caption/record sidecars, Hub imagefolder datasets and
+  LFS upload with verification before commit.
 
 ## Walkthrough contract changes, 2026-10-12
 
-- Empty `concepts: []` loads and saves as an unconfigured project in both languages.
-  The runner refuses execution until a concept is defined; populated concept validation is unchanged.
-- The native Gemini client normalizes Google’s `models/` prefix. The provider catalog UI
-  uses read-only model lists separately from paid caption execution.
-- Native media import now preserves matching caption and response sidecars through file
-  renaming/normalization; text-only captions retain imported status, and human-final records
-  retain their protection. The serialized job and sidecar formats remain shared with the CLI.
+Empty `concepts: []` projects load and save in both languages; adding a concept enables execution.
+The Gemini client normalizes Google's `models/` prefix. Provider catalogs list available models;
+Captioning runs the selected model.
+
+Native imports retain matching captions and response records through file renaming and
+normalization. Text-only captions retain imported status; human-final records retain their
+protection. The app and CLI share the serialized job and sidecar formats.
 
 ## Overnight extensions
 
-- Category-derived concept defaults and category-aware caption/reviewer instructions preserve
-  one shared job contract. Style and motion use whole-target mappings; locator categories
-  retain explicit confirmation. The shared Caption schema's usable rule is category-neutral.
-- Local and Hub imagefolder inputs retain clips as clips. `UserContent.video` carries the full
-  approved target to Gemini routes, OpenRouter and vLLM. Unsupported native
-  transports reject video before network use; no poster-frame fallback implies motion evidence.
-- The LTX and H3 video profiles describe action over the exact chosen segment. The bundled
-  `h3-video` profile is identical in Swift and Python and retains the three H3 text fields;
-  mixed datasets use the unchanged `h3-still` instructions for still images. Image and video
-  prompts distinguish the attached evidence; video audio is not assumed inspected.
-- HEIC/TIFF normalization and editing happen in the app before the core captions a target.
-  Only included targets reach publication and training.
-- Actual ChatGPT text deltas flow through an optional app-only progress callback. The runner
-  projects the partial caption string for display and clears it on settlement; retries clear
-  the previous preview. Only completed, decoded and validated captions reach the sink.
-- Python now matches job-relative skill/profile loading and file-name dispatch for mixed Hub
-  imagefolders. Both clients cap encoded video requests below 20 MiB, including prompts,
-  schema and retry history. Python Gemini/OpenRouter stay on pydantic-ai; its vLLM video route
-  is explicitly refused until the library carries that content type.
+- **Concept categories.** Category-derived defaults and caption/reviewer instructions cover all
+  seven categories. Style and motion use whole-target mappings; locator concepts use confirmed
+  assignments. The shared Caption schema applies its usable rule across categories.
+- **Video targets.** Local and Hub imagefolders preserve clips. Gemini, OpenRouter and native vLLM
+  routes receive the full approved video target. LTX and H3 profiles describe the selected segment;
+  `h3-video` retains its three text fields and is identical in Swift and Python. Mixed H3 datasets
+  apply the `h3-still` conventions to still images.
+- **Prepared media.** The app normalizes HEIC/TIFF and approves crops or video segments before
+  captioning. Publication and training use the included targets. Prompts identify the attached
+  media and its audio-inspection status.
+- **Live caption preview.** ChatGPT deltas flow to the runner's per-sample preview. Retry,
+  completion, failure and cancellation settle that preview; completed validated captions reach
+  the sink.
+- **Python parity.** Job-relative skill/profile loading and mixed-Hub file dispatch match Swift.
+  Both implementations cap encoded video requests below **20 MiB**, including prompts, schema
+  and retry history. Python Gemini/OpenRouter use pydantic-ai. The Python vLLM video route awaits
+  library support; unsupported video routes report the restriction before sending media.
 
 ## Verified live
 
-- **Hub:** upload, LFS verify (each verify before the commit) and download of a private
-  synthetic dataset; bytes, hashes and records round-tripped.
-- **vLLM on an owned pod:** image caption requests with native structured output from
-  Qwen 2.5 VL 3B and Qwen3 VL 8B, key bound to the configured host.
-- **Gemini:** the earlier direct image request and a 2026-10-11 native video request with
-  the shared Caption schema (`gemini-3.8-flash`). The exact approved synthetic MP4 contained
-  nine frames at 512 × 288; production returned HTTP 200 and a usable Caption, with 4,389
-  input / 76 output tokens. A controlled repair added explicit 24 FPS video sampling after
-  the default-sampling request returned 400. The private notes receipt at
-  `evidence/2026-10-11-video-native-proof/README.md` records all three requests. This
-  establishes functional decoding, not caption quality or every-frame observation.
-- **Pod agent and RunPod**, through app code compiled with this library: historical training-event
-  reads and pod stop; current native model/comparison downloads for both FLUX and LTX with
-  matching hashes and offline project reopen. The operator also verified current GPU training,
-  resume, generation and stop separately (details in APP-STATUS and POD-STATUS).
+| Connection | Completed check |
+| --- | --- |
+| Hugging Face Hub | Private synthetic dataset uploaded, LFS objects verified before commit, and media downloaded with matching bytes, hashes and records. |
+| vLLM on an owned pod | Native structured image captions from Qwen 2.5 VL 3B and Qwen3 VL 8B, with credentials bound to the configured host. |
+| Gemini | Direct image captioning and the 2026-10-11 native video check described below. |
+| ChatGPT | Production image request returned HTTP 200 and a usable Caption from `gpt-6.1-sol`; 2,067 input / 49 output tokens. Owner confirmed native sign-in and captioning. |
+| OpenRouter | Owner confirmed native sign-in and live image captioning on 2026-10-11. |
+| Complete captioning project, reported 2026-10-22 | Owner completed Hub import, concept/mapping, rented-GPU captioning and private publication for 267 images in app 0.3.1. |
+| Pod agent and RunPod through app code | Training-event reads, stop, and native FLUX/LTX model and comparison downloads with matching hashes and offline reopen. |
 
-## Verified offline only
+The **2026-10-11 Gemini video check** sent the exact approved synthetic MP4: **nine frames at
+512 × 288**. `gemini-3.8-flash` returned HTTP 200 and a usable shared Caption with **4,389 input /
+76 output tokens**. Explicit **24 FPS sampling** resolved the initial default-sampling 400;
+a single-variable control and the production client confirmed the change. All three requests and
+their decoded outputs are in `evidence/2026-10-11-video-native-proof/README.md`.
 
-- **261 Core tests in 38 suites pass** in the 2026-10-12 walkthrough/glossary integration gate. The Python
-  reference suite passes **118 tests**, including the H3 clip-profile addition after the
-  mixed-metadata and unrelated-Parquet closures. These are offline
-  checks. Native-media and category cases include exact video bytes, 24 fps metadata,
-  OpenRouter/vLLM video wire bodies, encoded-size refusal and all seven categories in both
-  media modes. Strict lint and format are clean.
-- OpenAI, Anthropic and all three gateway routes, including thinking settings and request
-  wire formats, against stubbed transports.
-- The ChatGPT client: streamed, interrupted, failed, incomplete and malformed responses,
-  image and schema bodies, cancellation, usage-limit handling. Actual URLSession SSE deltas
-  reach the runner before sidecar creation; retry/failure/cancellation clear the preview.
-  Independent source review accepted the media/progress repair.
-- Key routing: outgoing auth headers for matching and different hosts, and sampled ambiguous
-  URL inputs (sampled, not an exhaustive parser equivalence).
+See the [ChatGPT results](APP-STATUS.md#chatgpt-connection-follow-up-2026-10-11) and
+[GPU training, Resume and generation results](../../pod/docs/POD-STATUS.md).
 
-## Open
+## Automated test coverage
 
-- Direct OpenAI API-key, Anthropic and other unexercised gateway routes still need live
-  acceptance. The owner confirmed native sign-in and live image captioning with ChatGPT and
-  OpenRouter on 2026-10-11; [APP-STATUS](APP-STATUS.md#chatgpt-connection-follow-up-2026-10-11)
-  also records the production ChatGPT stream fix and live HTTP 200. That acceptance predates
-  the new partial-preview hook, whose current proof is offline URLSession-to-runner streaming.
-- The newly admitted OpenRouter/vLLM video paths have offline wire/refusal checks, not a new
-  live video-provider acceptance claim.
-- Parquet-backed Hub datasets are out of scope for v1; imagefolder only.
+The **2026-10-12 walkthrough/glossary gate passed 261 Core tests in 38 suites and 118 Python
+reference tests**, with clean lint and formatting. The Python gate includes the H3 clip profile,
+mixed-metadata handling and unrelated-Parquet fixes.
+
+Coverage includes:
+
+- All seven concept categories in image and video modes; exact video bytes and 24 fps metadata.
+- OpenRouter/vLLM video request bodies and encoded-size limits.
+- OpenAI, Anthropic and all three gateway routes, including thinking settings and wire formats,
+  through stubbed transports.
+- ChatGPT streaming, interruption, failure, incomplete/malformed output, image/schema requests,
+  cancellation and usage-limit handling.
+- URLSession SSE reaching the runner before sidecar creation, with preview clearing on
+  retry, failure and cancellation.
+- Credential headers for matching/different origins and selected ambiguous URL inputs.
+
+Independent source review accepted the media and progress integration.
+
+<a id="open"></a>
+
+## Next checks
+
+- Update provider results for direct OpenAI API-key access, Anthropic and the remaining gateways.
+- Record partial-caption preview and native saving in a live run.
+- Add OpenRouter/vLLM video results alongside their request-body tests.
+
+**Dataset format:** Hub inputs use imagefolder datasets. Convert Parquet-backed datasets to
+imagefolder before importing.
