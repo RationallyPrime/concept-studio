@@ -7,9 +7,10 @@ machine-learning background needed.**
 ConceptStudio is a native macOS app that turns a folder of examples into a trained
 [LoRA](https://huggingface.co/docs/diffusers/training/lora), a small adapter that teaches a
 diffusion model one new concept. It walks you through choosing examples, writing and reviewing
-training captions, renting a GPU computer, training, and collecting the result. The Mac runs
-the project; training runs on a GPU computer the app rents from [RunPod](https://www.runpod.io)
-and controls for you, within the spending limits you set.
+training captions, renting a cloud GPU, training, and collecting the result. The Mac runs the
+project; training runs on a cloud GPU the app rents by the hour from
+[RunPod](https://www.runpod.io) and controls for you, within the spending limits you set. All
+charges are RunPod's, billed to your RunPod account; ConceptStudio charges nothing.
 
 | Review captions beside the training images | Follow training as it runs |
 | --- | --- |
@@ -18,7 +19,7 @@ and controls for you, within the spending limits you set.
 <sub>Screens from the built-in offline demo, which uses synthetic photos and rents nothing.</sub>
 
 > **Status: development preview.** The full workflow has run end to end in a signed, notarised
-> build, from renting the computer to the trained adapter arriving on Hugging Face. There is no
+> build, from renting the cloud GPU to the trained adapter arriving on Hugging Face. There is no
 > public download yet: build from source as shown below. [Current status](app/docs/APP-STATUS.md)
 > lists what has been verified and what has not.
 
@@ -31,10 +32,10 @@ Nine steps, each one a screen in the app's sidebar:
 | **Images** | Import photos or clips. Spot duplicates, include or exclude examples, and approve crops or exact video segments. |
 | **Concepts** | Say what the adapter should learn, and choose the *trigger*: the word that names it in captions. |
 | **Mapping** | Confirm which subject in each image the concept belongs to. Style and motion concepts apply to the whole image and skip this. |
-| **Captioning** | A language model of your choice describes each example. A second model can review the captions. |
+| **Captioning** | A language model of your choice describes each example, following caption instructions you can read in the app. A second model can review the captions. |
 | **Review** | Edit captions beside the actual training media, and mark finished ones so later model runs leave them alone. |
 | **Publish** | Package the approved media and captions as a Hugging Face dataset, or prepare them for direct upload. |
-| **GPU pods** | Pick hardware and storage, see the hourly price, and set a budget and an idle limit before renting. |
+| **Cloud GPU** | Pick a GPU from a sortable list of RunPod's offers, with prices and stock, and why any GPU can't be chosen. Choose storage, and set a budget and an idle limit before renting. |
 | **Training** | Start a run from the model's tested recipe, adjust it, or repeat a saved run's settings. |
 | **Monitor** | Watch the learning curve and training log, retrieve the adapter, and compare the base and trained models on the same prompts and seeds. |
 
@@ -76,12 +77,13 @@ issues.
   trigger appears exactly; beyond that, a rerun is the fix.
 - **Any captioning model, chosen at run time.** Sign in with a ChatGPT plan, connect
   OpenRouter, use a provider or gateway key, or point at a [vLLM](https://docs.vllm.ai) server
-  you run yourself. Nothing is tied to one vendor.
-- **Rented GPUs, handled carefully.** Each rented computer runs our own container image with a
+  you run yourself. The app can also start any vLLM-supported model from Hugging Face on the
+  cloud GPU and caption with it there. Nothing is tied to one vendor.
+- **Cloud GPUs, handled carefully.** Each cloud GPU runs our own container image with a
   small control agent. The app talks to it over a single authenticated HTTP API, and services
   start from a fixed catalogue, never from shell strings. Spending is capped per run and per
-  computer. An idle computer is stopped, though not while the app is still uploading to it. A
-  computer holding a result that hasn't been saved can't be removed.
+  cloud GPU. An idle cloud GPU is stopped, though not while the app is still uploading to it. A
+  cloud GPU holding a result that hasn't been saved can't be removed.
 - **Stronger defaults where they're measured.** Optional *regularisation* draws reference
   images from the base model itself, captions them with your own captioning model, and mixes
   them in so the base model's sense of the class is preserved.
@@ -89,7 +91,7 @@ issues.
   DINOv2 encoder for steadier training. Both are on by default for Qwen-Image-2.1.
 - **A private, native Mac app.** SwiftUI, sandboxed, with credentials in Keychain and projects
   in ordinary folders you choose. The app starts no subprocesses. Built-in Help explains every
-  term in a 177-entry glossary, each in two readings: *Plain language* and *Show me the good
+  term in a 178-entry glossary, each in two readings: *Plain language* and *Show me the good
   stuff*.
 
 ```mermaid
@@ -100,7 +102,7 @@ flowchart LR
     end
     LLM["Captioning model<br/>ChatGPT · OpenRouter · API key · vLLM"]
     HF[("Hugging Face<br/>datasets and adapters")]
-    subgraph Pod["Rented GPU computer"]
+    subgraph Pod["Cloud GPU on RunPod"]
         Agent["Control agent<br/>authenticated HTTP"]
         Trainer["Trainer<br/>AI Toolkit · LTX · musubi-tuner"]
         Agent --> Trainer
@@ -126,7 +128,7 @@ open app/dist/ConceptStudio.app
 ```
 
 Choose **Try the demo** in the Welcome window. It uses bundled synthetic photos, prepared
-captions and simulated computers. It needs no accounts, rents nothing and spends nothing.
+captions and simulated cloud GPUs. It needs no accounts, rents nothing and spends nothing.
 
 `scripts/build-app.sh release` produces a Developer ID-signed build, and notarises it when a
 notary profile is configured. [Running ConceptStudio](app/docs/RUNNING.md) covers accounts,
@@ -136,16 +138,20 @@ signing and notarisation.
 
 - **Captioning:** one of the routes above. Image and video support depend on the model you pick.
 - **Training:** your RunPod account. Hugging Face is optional. Without it, datasets upload
-  directly to the training computer and the adapter is saved to your project folder. Some base
-  models are gated and need a Hugging Face token and an accepted licence.
-- **Storage:** a reusable network volume, or a disk attached to the rented computer. Stopping a
-  computer ends GPU billing but keeps its storage, and the storage charges. Removing a computer
-  deletes its attached disk.
+  directly to the cloud GPU and the adapter is saved to your project folder. Some base models
+  are gated and need a Hugging Face token and an accepted licence.
+- **Secure or Community Cloud:** GPUs come from RunPod's Secure Cloud by default. Community
+  Cloud is cheaper and runs on independent hosts, so it is opt-in: those GPUs never receive your
+  Hugging Face token, gated models can't train there, and the adapter comes back to your Mac
+  instead of being published.
+- **Storage:** saved storage (a RunPod network volume you can reuse), or the cloud GPU's own
+  disk. Stopping a cloud GPU ends GPU billing but keeps its storage, and the storage charges.
+  Removing a cloud GPU deletes its own disk.
 - **Your data:** credentials stay in Keychain. The captioning service sees the media it
-  captions, the training computer receives the approved training set, and a dataset goes to
+  captions, the cloud GPU receives the approved training set, and a dataset goes to
   Hugging Face only when you publish it there, privately unless you choose otherwise.
 
-**Keep the app open and the Mac awake while a computer is rented.** Budgets and the idle stop
+**Keep the app open and the Mac awake while a cloud GPU is rented.** Budgets and the idle stop
 are enforced by the app, not by RunPod, so they can't act while the app is closed or the Mac is
 asleep.
 
@@ -194,7 +200,7 @@ Hugging Face sources and destinations, and reruns. It isn't published on PyPI ye
 | Path | What it is |
 | --- | --- |
 | [`app/`](app/) | The SwiftUI app and ConceptCore, its native captioning library. |
-| [`pod/`](pod/) | Everything on the rented computer: the control agent, container images, trainer launchers and `podctl`. |
+| [`pod/`](pod/) | Everything on the cloud GPU: the control agent, container images, trainer launchers and `podctl`. |
 | [`src/concept_captioner/`](src/concept_captioner/) | The Python reference implementation and CLI. |
 
 - [Run the app](app/docs/RUNNING.md) · [Use the CLI](docs/CLI.md) · [Operate the GPU side](pod/README.md)
