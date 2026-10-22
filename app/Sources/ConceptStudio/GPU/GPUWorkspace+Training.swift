@@ -358,7 +358,7 @@ extension GPUWorkspace {
             guard self.captionServerInstalled else { throw StudioError.message(Self.noCaptionServer) }
             if plan.mode == "sequential",
                services.contains(where: { $0.name.hasPrefix("trainer-") && $0.active }) {
-                throw StudioError.message("Finish training before captioning; this cloud GPU has one GPU.")
+                throw StudioError.message("Finish training before captioning; you rented only one GPU.")
             }
             try await self.ensureCaptionServer(agent, plan: plan, services: services)
             ready = true

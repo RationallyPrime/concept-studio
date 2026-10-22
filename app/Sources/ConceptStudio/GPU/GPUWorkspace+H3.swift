@@ -231,7 +231,7 @@ extension GPUWorkspace {
             inventory.contains { $0.index == index && $0.memoryTotalMiB >= minimumMiB }
         }) else {
             throw StudioError.message(row.gpu.verifyMessage
-                ?? "Choose a cloud GPU with at least \(row.gpu.minVRAMGB) GB of memory per GPU.")
+                ?? "Choose a GPU with at least \(row.gpu.minVRAMGB) GB of graphics memory.")
         }
     }
 
@@ -251,8 +251,8 @@ extension GPUWorkspace {
         // The rental filter used the current model's GPU floor; a running computer may not meet a higher one.
         // Rows that verify memory on the pod check the actual GPU before training instead.
         guard !hasRunningPod || neededRow.gpu.verifyOnPod || neededRow.gpu.minVRAMGB <= requiredGPUMemoryGB else {
-            message = "\(neededRow.shortName) needs at least \(neededRow.gpu.minVRAMGB) GB of memory per GPU, "
-                + "more than this cloud GPU was chosen for. Stop and remove it before choosing this model."
+            message = "\(neededRow.shortName) needs at least \(neededRow.gpu.minVRAMGB) GB of graphics memory "
+                + "on each GPU, more than the rented GPU has. Stop and remove it before choosing this model."
             return
         }
         let previousRow = effectiveModelRow

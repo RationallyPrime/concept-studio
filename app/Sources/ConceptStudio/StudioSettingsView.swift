@@ -265,7 +265,8 @@ struct StudioSettingsView: View {
                 )
                 .help("Leave blank to use the published default image when renting a cloud GPU.")
                 TextField("Saved storage ID", text: $session.volumeID, prompt: Text("Optional"))
-                    .help("An existing persistent storage volume in the RunPod data center used for a rental.")
+                    .help("An existing persistent storage volume (a RunPod network volume) in the data center "
+                        + "used for a rental.")
             }.formStyle(.columns)
             HStack(spacing: 12) {
                 Button("Save preferences") {

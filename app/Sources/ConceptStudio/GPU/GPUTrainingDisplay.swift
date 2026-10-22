@@ -118,7 +118,7 @@ extension TrainingPlan {
                     + "only if one is running."
             }
             return source + " " + action + (captioningOnPod
-                ? " Finish captioning or review work on this cloud GPU before starting training on its one GPU." : "")
+                ? " Finish captioning or review work first; training needs the only GPU you rented." : "")
         }
         let allocation = "Training uses \(gpuDescription(train))."
         let captionGPUs = gpuDescription(caption)
