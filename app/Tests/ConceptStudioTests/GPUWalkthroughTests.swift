@@ -78,6 +78,7 @@ struct GPUWalkthroughTests {
         let transport = UnreachableAgentTransport()
         let workspace = makeWorkspace(transport, preferences)
         try workspace.configure(runpodKey: "fixture", hubToken: "", imageName: "")
+        workspace.chooseTrainingModel(ungatedModel)
         await workspace.refreshOffers()
         await workspace.rent()
         workspace.monitorTask?.cancel()

@@ -30,6 +30,7 @@ struct TrainingBudgetTests {
         let agent = H3TestAgent()
         let workspace = H3TrainingTests.connected(preferences, folder: project.directory, agent: agent)
         workspace.hubToken = ""
+        workspace.chooseTrainingModel(ungatedModel)
         if cancel { await agent.holdUpload() } else { await agent.failUpload() }
         let task = Task { await workspace.train(datasetRepo: "") }
         if cancel {
@@ -61,6 +62,7 @@ struct TrainingBudgetTests {
         let workspace = H3TrainingTests.connected(preferences, folder: project.directory, agent: agent)
         workspace.provider = RunPodProvider(key: "synthetic", transport: transport)
         workspace.hubToken = ""
+        workspace.chooseTrainingModel(ungatedModel)
         workspace.runBudget = 0.25
         workspace.saved?.budget = 20
         await agent.holdUpload()

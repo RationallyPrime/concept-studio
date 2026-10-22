@@ -196,6 +196,11 @@ actor UnreachableAgentTransport: HTTPTransport {
                 "train": .object(["gpus": .array([.int(gpuCount == 1 ? 0 : 1)])]),
             ]
         }
+        if url.lastPathComponent == "gpus", !path.contains("catalog") {
+            return ["gpus": .array((0 ..< gpuCount).map { .object([
+                "index": .int($0), "name": .string("Test GPU"), "memory_total_mib": .int(81920),
+            ]) })]
+        }
         if path.hasSuffix("/files") {
             if filesFail { throw StudioError.message("listing failed") }
             // The agent's shape (pod/agent artifacts.py): paths relative to the run's output/.
@@ -332,6 +337,10 @@ final class SleepCounter {
         SleepAssertion(begin: { self.begun += 1; return NSObject() }, end: { _ in self.ended += 1 })
     }
 }
+
+/// An aitoolkit model at FLUX.1-dev's 32 GB that downloads without a Hub token: a gated model cannot be
+/// rented for or trained without one.
+let ungatedModel = "Alpha-VLLM/Lumina-Image-2.0"
 
 @MainActor
 func makeWorkspace(
