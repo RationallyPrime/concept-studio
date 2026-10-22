@@ -92,9 +92,18 @@ extension StudioSession {
         useCritic = false
     }
 
-    /// The default model for `kind` as this session sees it: a running caption server's model for vllm.
+    /// The default model for `kind` as this session sees it: for vllm, the remembered self-hosted model.
     func defaultModel(for kind: String) -> String {
-        kind == "vllm" && usingPodCaptioner ? gpu.captionModel : ProviderChoices.defaultModel(for: kind)
+        kind == "vllm" ? gpu.captionModel : ProviderChoices.defaultModel(for: kind)
+    }
+
+    /// "My pod / custom server" has one model choice, the one made on Captioning. It is also the model the
+    /// cloud GPU's caption server starts, including the one kept running during training, so the GPU
+    /// workspace follows it.
+    func followSelfHostedModel() {
+        let model = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard endpointKind == "vllm", !model.isEmpty, gpu.captionModel != model else { return }
+        gpu.captionModel = model
     }
 
     /// Call when the captioning provider changes from `old` to `new` (views: `.onChange(of:)`).
