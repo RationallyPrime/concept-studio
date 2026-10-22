@@ -201,7 +201,7 @@ text when changing formats; existing captions retain their text.
 cloud GPU. Choose the media and model, then compare each returned result with its original
 before keeping it. Pay particular attention to faces: restoration can invent detail.
 **Put back original** restores the source even after reopening the project. The automatic
-`v0.3.9-20261022` pod images include SeedVR2. See [pod images](../../pod/images/README.md)
+`v0.3.10-20261022` pod images include SeedVR2. See [pod images](../../pod/images/README.md)
 for the installed models and services.
 
 Cloud GPU stays at the bottom of the sidebar and is available from Welcome. Choose captioning

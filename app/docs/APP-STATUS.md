@@ -6,7 +6,7 @@ The [Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for
 in 1 h 19 min at US$3.99 of GPU cost**. The signed, notarised app handled the full workflow,
 including regularisation, REPA, private publication and automatic idle stop.
 
-Updated 2026-10-22. The app defaults to **`v0.3.9-20261022`**, including SeedVR2 restoration,
+Updated 2026-10-22. The app defaults to **`v0.3.10-20261022`**, including SeedVR2 restoration,
 with **seven verified recipes** and **18 additional recipes** under Advanced user.
 [Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
 [GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
@@ -176,9 +176,12 @@ The app uploads media under neutral names, starts `upscale-media`, displays comp
 progress and verifies downloaded SHA-256 hashes. Keep preserves the locator mapping and retains
 the original caption with the original media. The GPU stays active throughout processing.
 
-The **published v0.3.9 images include SeedVR2** and passed import/CLI and authenticated CPU agent
-checks. Automated tests cover keep, discard, persistent revert, name collisions and the app's GPU
-flow through a fake agent; light/dark renders cover selection and review.
+The **published v0.3.10 images run SeedVR2 on the trainer's PyTorch 2.13**. Its compressed
+environment and source layer shrank from 2.96 GB to 202 MB. All seven images passed authenticated
+CPU controls; all three trainer stacks passed SeedVR2 import and command-line checks. A real
+32 GB Blackwell and a 96 GB Blackwell each completed first-use weight download, a 1024 × 1024
+image and a 21-frame clip with verified audio and output hashes. Automated tests cover keep, discard, persistent revert,
+name collisions and the app's GPU flow; light/dark renders cover selection and review.
 [GPU status](../../pod/docs/POD-STATUS.md), [published images](../../pod/images/README.md) and
 [the service contract](../../pod/docs/POD-SPEC.md) carry the runtime results and implementation details.
 

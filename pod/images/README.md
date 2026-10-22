@@ -1,6 +1,58 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.9-20261022`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.10-20261022`
+and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit `6589efb`,
+including the workspace storage-accounting fix, expanded regularisation, training masks and
+augmentation, style report scoring, and the shared-PyTorch SeedVR2 environment. All seven tags
+are published and resolve anonymously. The [machine-readable release receipt](releases/v0.3.10-20261022.json)
+records the full source commit, digests, sizes and control checks.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.10-20261022` | `sha256:988da89c82a16fa80bbcf160a260b85ff2d3c5468f074275d16fd378e2bfa390` | 3.56 GB |
+| `aitoolkit:v0.3.10-20261022` | `sha256:aafc08df6cad122b0c1dcd3f7d4edd665e85543d5a85da8e07ba4d50fe357dbb` | 7.42 GB |
+| `ltx:v0.3.10-20261022` | `sha256:9fd661ef91ff2e2139b40a4cea2189948dfd901c0663b325176c25bde5d4a08d` | 7.16 GB |
+| `musubi:v0.3.10-20261022` | `sha256:a61a77db140a448513b770b7f3ed2b14c489df21ea660304bba124f5376b425f` | 6.61 GB |
+| `aitoolkit:v0.3.10-20261022-captioning` | `sha256:92b63d54272a9f5179d79c9cebfcb6437d80aef44eeadb94845186f1747169e0` | 14.36 GB |
+| `ltx:v0.3.10-20261022-captioning` | `sha256:1b962a4ebac7142f8eb8f67becb1cdea57488d641a6cb66f316b796bcac00bb1` | 14.10 GB |
+| `musubi:v0.3.10-20261022-captioning` | `sha256:9e51ba9964fdf9e28de564e249fa19d7269fc87cb50e25816433a4eac1eeb9f4` | 13.55 GB |
+
+SeedVR2’s layer shrank from **2.96 GB to 202 MB**: a **93% reduction**, saving about **2.76 GB
+on every image**. Its small dependencies remain isolated, while PyTorch, torchvision, Triton
+and CUDA libraries come from the selected trainer through package symlinks. AI Toolkit and musubi
+supply PyTorch 2.13.0+cu130; LTX supplies 2.13.0+cu132. Model weights download and pass SHA-256
+validation on first Upscale. Environment installation is completed in the image build.
+
+The captioning variants share one 6.94 GB vLLM layer (`sha256:7ece648aeae9…`). Each trainer build
+passed SeedVR2 imports and CLI help with its shared GPU stack. All seven image control checks
+passed bearer authentication, workspace-scoped storage accounting, and the expected availability
+of SeedVR2 and vLLM. Every captioning build validated all 23 allowed vLLM flags.
+
+### Live SeedVR2 acceptance
+
+The test inputs are the bundled synthetic portrait resized to 512×512 and a 21-frame, 24 fps
+pan/zoom clip with a tone. Both are upscaled to 1024×1024 with SeedVR2 3B FP16, seed 42. The first
+image pass includes the empty-cache model download and SHA-256 checks. Times below are the
+SeedVR2 CLI’s measured elapsed times; peak memory covers the complete image-and-clip run.
+
+| GPU | first image, including weights | clip, cached weights | peak GPU memory |
+| --- | --- | --- | --- |
+| RTX PRO 4500 Blackwell, 32 GB | 51.88 s | 25.86 s | 22,934 MiB |
+| RTX PRO 6000 Blackwell, 96 GB | 42.21 s | 15.19 s | 23,299 MiB |
+
+Both GPUs’ outputs passed dimensions, all 21 frames, 24 fps and video-duration checks. Each clip
+retains the original tone through the wrapper’s AAC encoding (waveform cosine above 0.99999; audio
+padding within one AAC frame). Both images and a frame from each clip were visually inspected.
+Outputs were downloaded and hash-checked. The 32 GB test pod was stopped and removed; the 96 GB
+pod continues with H3 regularisation and report acceptance on the same image. Full runtime
+receipts, captioning and H3 acceptance are in [POD-STATUS](../docs/POD-STATUS.md).
+
+## Earlier releases
+
+These entries preserve the build and acceptance records at each release date. Current measurements
+are recorded above and in [POD-STATUS](../docs/POD-STATUS.md).
+
+Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.9-20261022`
 and the trainers' `-captioning` tags, a **clean build from commit `21247aa`** (PR #31 and PR #29): the base
 gains SeedVR2 upscaling and restoration, the numz/ComfyUI-SeedVR2_VideoUpscaler v2.5.23 command line at
 `/opt/seedvr2` with its own venv `/opt/venvs/seedvr2` (torch 2.9.1+cu130, diffusers 0.36.0), behind the
@@ -267,8 +319,8 @@ package versions; ai-toolkit: `import flash_attn, natten, torchcodec, diffusers,
 the same check upstream's Dockerfile runs; LTX-2: the exact torch build and that the `natten` extra
 landed) and writes `/opt/venvs/<name>/freeze.txt`, so a broken pin fails the build rather than the
 first service start. Release tables above record measured compressed sizes. The thin SeedVR2
-environment removes the previous release's duplicate GPU stack; measure the new release's layers
-after the build. The builds download several gigabytes of wheels.
+environment removes the previous release's duplicate GPU stack and saves 2.76 GB per compressed
+image. Release builds use an exact `git archive` context. The builds download several gigabytes of wheels.
 
 There is no `.dockerignore` in the repository root yet, so the build context carries `.git`, the
 local `.venv`s and `app/`. The Dockerfiles only `COPY` what they need, so this costs upload time, not
@@ -311,38 +363,20 @@ refuses to start without the token, so a pod created without it exits immediatel
 
 ## Verification record and remaining coverage
 
-Actual builds, anonymous pulls, runtime receipts and their exact scope are recorded in
-[POD-STATUS](../docs/POD-STATUS.md). The three repository Dockerfiles built successfully on
-cx53 with the pinned vLLM cu129 stack, FlashInfer cache, AI Toolkit stack and LTX workspace, and
-`v0.2.3-clean-20261011` is that build from `main` with nothing overlaid.
+[POD-STATUS](../docs/POD-STATUS.md) records the current image, training, generation, captioning
+and native-app acceptance. The release receipt above identifies the exact published images;
+the build checks cover all three trainer stacks and all three captioning variants. Runtime
+measurements identify the GPU, workload, output checks and resource cleanup for each pass.
 
-On the real CUDA 13.0 Blackwell hosts used for this project, vLLM returned structured captions,
-both trainers produced checkpoints and loss curves, FLUX generation/Resume completed, and the
-r2 LTX image trained the approved clip, resumed it and generated a matched 49-frame
-base/LoRA video pair on a 32 GB GPU/62 GB host. Actual native checksum-verified collection
-and stopped-pod receipts are recorded separately in that status.
-These are functional infrastructure checks with synthetic inputs and tiny checkpoints, not
-training-quality measurements.
+### H3 runtime assets
 
-Coverage that remains open:
-
-- Base-image inference on an R570-class driver; observed trainer hosts used CUDA 13.0 drivers.
-- New H3 training/clip/warm-start/generation code is source-verified with CPU/fake-runtime
-  controls; it is not included in the current clean tag and has no hosted H3 acceptance.
-- Parquet datasets and GPU configurations beyond those recorded.
-- Recovery after a real agent or vLLM-worker crash. `tini -s` is installed and supervisor
-  process-group ownership is tested, but actual crash/reaping recovery has not been forced.
-- Fresh empty-cache LTX Hub download through the revision-pinned wrapper. This round reused
-  the existing network-volume model cache; the source validation and download-failure paths
-  have focused tests.
-
-### H3 source addition (not yet built/published)
-
-The next image must include the H3 helpers and the shared recipe/asset JSON COPY from the
-native resource. AI Toolkit remains pinned to `f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47`;
-no dependency/toolchain pin changed in this round. H3 model binaries download at runtime
-from `Comfy-Org/MiniMax-H3` revision `e5eb578a89295337b8ff433a035929ce0279e0b6`, and its
-frozen training adapter from `circlestone-labs/MiniMax-H3-Image-Training-Adapter` revision
+The published AI Toolkit image includes the H3 helpers and the shared recipe/asset JSON from
+the native resource. AI Toolkit remains pinned to `f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47`.
+H3 model binaries download at runtime from `Comfy-Org/MiniMax-H3` revision
+`e5eb578a89295337b8ff433a035929ce0279e0b6`; the image training adapter comes from
+`circlestone-labs/MiniMax-H3-Image-Training-Adapter` revision
 `7c6c04f75ba597232d4ce2bb4a14709948ec723a`. Filename choices are defined once in the shared
-resource. These are BF16 quality assets, not a small-memory H3 recipe. No H3 GPU/RAM fit or
-new image deployment has been measured in this source-only phase.
+resource. The BF16 H3 assets occupy 97.55 GB and the image adapter 0.62 GB. With SeedVR2 3B,
+its VAE and the CapQwen caption checkpoint, the selected weights total 126.35 GB before training
+outputs and caches. The real GPU acceptance uses a 150 GB workspace; the app’s default pod disk
+is 300 GB.

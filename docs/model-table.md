@@ -4,7 +4,7 @@ The supported training models are the rows of one JSON file. The app and the pod
 file, so a model is added in one place.
 
 The file is `app/Sources/ConceptStudio/Resources/Training/model-table.json`. The app bundles it
-(`Bundle.module`, subdirectory `Training`). Both pod images `COPY` it to
+(`Bundle.module`, subdirectory `Training`). The trainer images `COPY` it to
 `/opt/pod/scripts/model-table.json`; `pod/scripts/model_table.py` reads that path when it exists,
 and otherwise the file in the repository checkout. Wrapper scripts and the agent load
 `model_table.py` by path.

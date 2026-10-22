@@ -42,10 +42,10 @@ creating with it.
 
 ## Image and video models
 
-Train image adapters for **FLUX.1-dev**, **Z-Image** and **Qwen-Image-2.1**, and image or video
-adapters for **LTX-2.3**, **LTX-2.5** and **MiniMax H3**. Each comes with a model-specific recipe.
+Train image adapters for **FLUX.1-dev**, **Z-Image**, **Qwen-Image-2.1** and **Krea 2**, and image
+or video adapters for **LTX-2.3**, **LTX-2.5** and **MiniMax H3**. Each comes with a model-specific recipe.
 
-Want more control? **Advanced user** unlocks detailed training settings and 20 additional
+Want more control? **Advanced user** unlocks detailed training settings and 18 additional
 AI Toolkit architectures, including FLUX.2, Chroma, SDXL, Lumina 2 and HiDream-O1.
 Explore [models, recipes and licences](docs/model-table.md) and
 [training settings and hardware requirements](app/docs/RUNNING.md#prepare-and-train).

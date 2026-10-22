@@ -1,0 +1,79 @@
+{
+  "release": "v0.3.10-20261022",
+  "source_commit": "6589efbabcc2d84ea0a1d0efb1aa21d83ee52768",
+  "source_delivery": "git archive of the exact commit; no source overlay",
+  "platform": "linux/amd64",
+  "builder": "Docker BuildKit on cx53",
+  "images": [
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-base:v0.3.10-20261022",
+      "digest": "sha256:988da89c82a16fa80bbcf160a260b85ff2d3c5468f074275d16fd378e2bfa390",
+      "compressed_bytes": 3558835344
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.10-20261022",
+      "digest": "sha256:aafc08df6cad122b0c1dcd3f7d4edd665e85543d5a85da8e07ba4d50fe357dbb",
+      "compressed_bytes": 7416448037
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.10-20261022",
+      "digest": "sha256:9fd661ef91ff2e2139b40a4cea2189948dfd901c0663b325176c25bde5d4a08d",
+      "compressed_bytes": 7164759799
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.10-20261022",
+      "digest": "sha256:a61a77db140a448513b770b7f3ed2b14c489df21ea660304bba124f5376b425f",
+      "compressed_bytes": 6605151484
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.10-20261022-captioning",
+      "digest": "sha256:92b63d54272a9f5179d79c9cebfcb6437d80aef44eeadb94845186f1747169e0",
+      "compressed_bytes": 14356560201
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.10-20261022-captioning",
+      "digest": "sha256:1b962a4ebac7142f8eb8f67becb1cdea57488d641a6cb66f316b796bcac00bb1",
+      "compressed_bytes": 14104871963
+    },
+    {
+      "reference": "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.10-20261022-captioning",
+      "digest": "sha256:9e51ba9964fdf9e28de564e249fa19d7269fc87cb50e25816433a4eac1eeb9f4",
+      "compressed_bytes": 13545263645
+    }
+  ],
+  "seedvr2": {
+    "source_commit": "5a4bf428f3735cc72ac760d40f372f94dec28422",
+    "version": "2.5.23",
+    "environment_layer_bytes": 202239791,
+    "previous_environment_layer_bytes": 2963701894,
+    "runtime": "isolated small dependencies; symlinks to each trainer PyTorch/CUDA packages"
+  },
+  "shared_vllm_layer": {
+    "digest": "sha256:7ece648aeae9cb074bda637f2718abbcec59d4c4269ae9c7dbb06a9662f7f6b2",
+    "compressed_bytes": 6940110489
+  },
+  "control_checks": {
+    "image_count": 7,
+    "anonymous_manifest_readbacks": 7,
+    "unauthenticated_health_status": 401,
+    "authenticated_health_status": 200,
+    "workspace_scoped_storage": {
+      "allocation_bytes": 80000000000,
+      "fixture_bytes": 3,
+      "reported_used_bytes": 3
+    },
+    "upscale_available": "trainer images only",
+    "vllm_available": "captioning variants only",
+    "trainer_seedvr2_import_and_cli_checks": 3,
+    "caption_vllm_allowlist_flags": 23
+  },
+  "runtime_versions": {
+    "aitoolkit_torch": "2.13.0+cu130",
+    "musubi_torch": "2.13.0+cu130",
+    "ltx_torch": "2.13.0+cu132",
+    "seedvr2_diffusers": "0.36.0",
+    "vllm": "0.31.0+cu129",
+    "vllm_torch": "2.13.0+cu129",
+    "flashinfer": "0.7.0.post1"
+  }
+}
