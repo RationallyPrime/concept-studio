@@ -120,6 +120,8 @@ are distinguished in [POD-STATUS](../docs/POD-STATUS.md).
 ```
 /opt/python/cpython-3.12.14-…/      one managed interpreter, shared by every venv
 /opt/venvs/agent/                   podagent + concept-captioner; no torch       (freeze.txt = what landed)
+/opt/venvs/seedvr2/                 SeedVR2 command line deps, torch 2.9.1+cu130  (base, so every image; freeze.txt)
+/opt/seedvr2/                       numz/ComfyUI-SeedVR2_VideoUpscaler v2.5.23 checkout (its inference_cli.py)
 /opt/venvs/vllm/                    vllm 0.31.0+cu129, torch 2.13.0+cu129       (-captioning tags only; freeze.txt)
 /opt/venvs/aitoolkit/               ai-toolkit stack, torch 2.13.0+cu130        (aitoolkit image; freeze.txt)
 /opt/venvs/ltx/                     LTX-2 workspace, torch 2.13.0+cu132         (ltx image; freeze.txt)
@@ -155,6 +157,8 @@ Every pin was read from its source on 2026-10-10. `date` is when upstream publis
 | ai-toolkit patches | the series in `pod/images/patches/ai-toolkit/` (REPA, three patches), applied with `git am --3way` | — | The pin above is the **base**: `AI_TOOLKIT_COMMIT` and `generate_results.AI_PIN` keep naming it. |
 | ai-toolkit torch | `torch==2.13.0+cu130`, `torchvision==0.28.0+cu130`, `torchaudio==2.11.0+cu130`, `torchcodec==0.15.0+cu130` | 2026-07-08 (torch) | copied from that commit's `docker/Dockerfile` and `manager/spec.py` (upstream's "linux cu130" spec). cu126 is upstream's only other prebuilt stack and has no Blackwell kernels |
 | ai-toolkit extras | `requirements.txt` at the commit (diffusers at `c9438378…`, transformers 5.5.3, peft 0.18.1, …), then `setuptools==69.5.1`, `natten==0.21.7+torch2130cu130` (whl.natten.org), `flash_attn 2.8.3+cu130torch2.13` cp312 (mjun0812/flash-attention-prebuild-wheels v0.9.47) | — | the same files and the same order as upstream's Dockerfile |
+| SeedVR2 command line | `numz/ComfyUI-SeedVR2_VideoUpscaler@5a4bf428f3735cc72ac760d40f372f94dec28422` (v2.5.23) | 2025-12-24 | the newest release at pin time (2026-10-22); Apache-2.0, as are the ByteDance-Seed SeedVR2-3B/7B weights it downloads (FP16 repacks from `numz/SeedVR2_comfyUI`, SHA-256-checked by the program) |
+| SeedVR2 venv | `torch==2.9.1+cu130`, `torchvision==0.24.1+cu130`; diffusers 0.36.0, peft 0.18.0, rotary-embedding-torch 0.8.9, gguf 0.17.1, opencv-python-headless 4.11.0.86, … (the full list is `SEEDVR2_REQUIREMENTS` in `Dockerfile.base`) | — | its `requirements.txt` is unpinned; `uv pip compile` with `--exclude-newer 2025-12-24` resolved the set the release was tested against. cu130 so the base needs nothing the trainer images do not already require (R580+) |
 | LTX-2 | `Lightricks/LTX-2@be6d6d0a69d11a0a399c462ed92606692e5f8697` ("Merge pull request #326"; packages 1.4.2) | 2026-10-13 | the top of `main` at pin time; differs from the previous pin `9ec55f9f` only in `LICENSE-2_x`; `packages/ltx-trainer/scripts/{process_dataset,train}.py` both exist there, and the trainer reads LTX-2.3 unified checkpoints and LTX-2.5 split packs |
 | LTX weights | `LTX_HUB_SOURCES` in `pod/agent/src/podagent/ltx_rules.py`: `Lightricks/LTX-2.3@3c6a4e66` (plus the Gemma 3 root from `Lightricks/LTX-2@dfcc2108`), `Lightricks/LTX-2.5@49b093a3` (gated), `Lightricks/LTX-2@dfcc2108` for older runs | 2026-10-15 | downloaded by `launch_ltx.py` at run time, not baked into the image |
 | LTX-2 torch | `torch==2.13.0+cu132` + `natten==0.21.7+torch2130cu132` via ltx-core's `natten` extra; everything else resolved by `uv lock` at build time inside the bounds the packages declare | — | upstream's README installs `uv sync --extra natten`; the extra is the only exact torch pin in the workspace, so the build asserts it landed. The resolved lock is kept at `/opt/ltx-2/uv.lock` |
@@ -188,7 +192,7 @@ index and NATTEN cu132. So:
 
 | image | wheels | host driver | RunPod |
 | --- | --- | --- | --- |
-| `…-pod-base` | none (agent only) | any | any GPU host |
+| `…-pod-base` | SeedVR2 venv: CUDA 13.0 | **R580 or newer** for `upscale-media`; the agent itself runs anywhere | as its trainer |
 | vLLM in the `-captioning` tags | cu129 | CUDA 12.x driver (R570+; R525+ via minor-version compatibility, unverified); the trainer below needs more | as its trainer |
 | `…-pod-aitoolkit`, `…-pod-ltx` | base + CUDA 13.0 / 13.2 | **R580 or newer** | filter the pod's CUDA version to 13.0+ when creating it (`gpu.minCudaVersion` in the REST v2 pod create; the console's "CUDA version" filter) |
 
@@ -226,7 +230,8 @@ package versions; ai-toolkit: `import flash_attn, natten, torchcodec, diffusers,
 the same check upstream's Dockerfile runs; LTX-2: the exact torch build and that the `natten` extra
 landed) and writes `/opt/venvs/<name>/freeze.txt`, so a broken pin fails the build rather than the
 first service start. Expect the base to download as about 3.4 GB, each trainer image as 6.4–7.2 GB, and
-each `-captioning` tag as 6.9 GB more; the builds download several gigabytes of wheels.
+each `-captioning` tag as 6.9 GB more (sizes measured before the SeedVR2 venv joined the base; it
+adds a torch stack of its own, estimated at 3–4 GB compressed and not yet measured); the builds download several gigabytes of wheels.
 
 There is no `.dockerignore` in the repository root yet, so the build context carries `.git`, the
 local `.venv`s and `app/`. The Dockerfiles only `COPY` what they need, so this costs upload time, not

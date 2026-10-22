@@ -10,6 +10,8 @@ struct ImagesView: View {
     @State private var warningsOnly = false
     @State private var editingMedia: ProjectImage?
     @State private var confirmUndo = false
+    /// The samples the Upscale sheet opens with; nil while it is closed.
+    @State private var upscaling: UpscaleChoice?
 
     private var images: [ProjectImage] {
         session.project?.allMedia ?? []
@@ -38,6 +40,7 @@ struct ImagesView: View {
                     )
                 } else {
                     if !duplicateGroups.isEmpty { duplicateSection }
+                    if !session.pendingUpscales.isEmpty { UpscaleReviewSection(session: session) }
                     gallery
                 }
                 StudioIntroduction(preferences: session.preferences)
@@ -64,6 +67,7 @@ struct ImagesView: View {
         }
         .onChange(of: photos) { _, items in session.importPhotos(items); photos = [] }
         .sheet(item: $editingMedia) { media in MediaEditorView(session: session, media: media) }
+        .sheet(item: $upscaling) { choice in UpscaleSheet(session: session, selection: choice.ids) }
         .confirmationDialog("Undo this target edit and discard its unsaved caption edits?", isPresented: $confirmUndo) {
             Button("Undo target edit and discard edits", role: .destructive) { session.undoMediaCuration() }
             Button("Keep editing", role: .cancel) {}
@@ -171,6 +175,11 @@ struct ImagesView: View {
                     } else { session.undoMediaCuration() }
                 }
                 .disabled(session.busy || session.editing || session.project?.curationUndo.isEmpty != false)
+                Button("Upscale and restore…", systemImage: "arrow.up.backward.and.arrow.down.forward") {
+                    upscaling = UpscaleChoice(ids: Set(session.upscaleSuggestions))
+                }
+                .disabled(session.busy || session.editing || session.project?.images.isEmpty != false)
+                .help("Enlarge and repair low-quality images and clips with SeedVR2 on a cloud GPU")
                 Spacer()
                 Toggle("Show warnings only", isOn: $warningsOnly)
                     .toggleStyle(.checkbox).disabled(warningCount == 0 && !warningsOnly)
@@ -194,6 +203,7 @@ struct ImagesView: View {
         let warnings = session.analyses[image.id]?.warnings ?? []
         let isVideo = Sources.isVideo(Sources.suffix(of: image.id))
         let locked = session.busy || session.editing
+        let upscaled = session.upscaleRecord(for: image.id)
         return VStack(alignment: .leading, spacing: 0) {
             TrainingTargetPreview(url: image.url, fill: true)
                 .frame(maxWidth: .infinity).frame(height: 150).clipped()
@@ -227,6 +237,15 @@ struct ImagesView: View {
                 ))
                 .toggleStyle(.checkbox).font(.system(size: 12.5)).foregroundStyle(InstantPrint.ink)
                 .disabled(locked)
+                if let upscaled {
+                    PrintStateChip(state: .other("Upscaled · \(upscaled.model.title)"))
+                        .help("Upscaled from \(upscaled.originalID). Put back original restores it.")
+                } else if session.upscaleTarget.isBelow(session.analyses[image.id]) {
+                    PrintStateChip(state: .other("Below \(session.upscaleTarget.shortSide) px"))
+                        .help(
+                            "Smaller than the largest size the training model uses. Upscale and restore can enlarge it."
+                        )
+                }
                 ForEach(warnings, id: \.self) { warning in
                     VStack(alignment: .leading, spacing: 4) {
                         PrintStateChip(state: .attention(nil))
@@ -253,8 +272,20 @@ struct ImagesView: View {
             Button(included ? "Exclude from training" : "Include in training") {
                 session.includeMedia(image.id, included: !included)
             }.disabled(locked)
+            Divider()
+            Button("Upscale and restore…") { upscaling = UpscaleChoice(ids: [image.id]) }
+                .disabled(locked || !included)
+            if upscaled != nil {
+                Button("Put back original") { session.revertUpscale(image.id) }.disabled(locked)
+            }
         }
     }
+}
+
+/// The samples an Upscale sheet starts with chosen.
+private struct UpscaleChoice: Identifiable {
+    let id = UUID()
+    let ids: Set<String>
 }
 
 /// The import button is the screen's primary action only while there is nothing to curate yet.

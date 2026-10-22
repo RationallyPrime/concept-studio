@@ -1,6 +1,6 @@
 """The service catalog: fixed argv builders over validated params (POD-SPEC §3, §4.1).
 
-Twelve services, one ``ServiceSpec`` each. Everything a client sends arrives as ``params`` and
+Thirteen services, one ``ServiceSpec`` each. Everything a client sends arrives as ``params`` and
 passes two checks before anything is built:
 
 1. ``spec.params_model.model_validate(raw)``: shape, patterns and ranges, including the rules
@@ -53,7 +53,15 @@ from .ltx_rules import check_preprocess
 from .musubi_rules import check_extra as check_musubi_extra
 from .settings import Paths, Settings
 from .storage import RUN_STATE_FILE, cleanup_datasets
-from .uploads import claim_initialization, claim_stage, release_stage, upload_folder
+from .uploads import (
+    INSTALLING,
+    STAGING_LOCK,
+    claim_initialization,
+    claim_stage,
+    release_stage,
+    stage_bytes,
+    upload_folder,
+)
 
 RUN_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
 NAME_PATTERN = RUN_ID_PATTERN  # dataset folder names follow the run-id rule
@@ -636,6 +644,27 @@ class PullDatasetParams(ServiceParams):
         return self
 
 
+class UpscaleMediaParams(ServiceParams):
+    """Upscale and restore the images and clips staged under ``uploads/<upload>`` (upscale_media.py).
+
+    ``resolution`` is the short side of every result and ``max_resolution`` caps its longer side.
+    ``model`` names the SeedVR2 size; the script maps it to the FP16 weights.
+    """
+
+    run_id: str = Field(pattern=RUN_ID_PATTERN)
+    upload: str = Field(pattern=NAME_PATTERN)
+    model: Literal["3b", "7b"] = "3b"
+    resolution: int = Field(default=1024, ge=256, le=4096)
+    max_resolution: int = Field(default=2048, ge=256, le=MAX_RESOLUTION)
+    seed: int = Field(default=42, ge=0, le=2**31 - 1)
+
+    @model_validator(mode="after")
+    def _longer_side_holds_short_side(self) -> UpscaleMediaParams:
+        if self.max_resolution < self.resolution:
+            raise ValueError("max_resolution must be at least resolution")
+        return self
+
+
 class PushLoraParams(ServiceParams):
     run_id: str = Field(pattern=RUN_ID_PATTERN)
     repo_id: str = Field(pattern=REPO_ID_PATTERN)
@@ -857,11 +886,13 @@ def parse_params(
         _validate_generation(name, params, paths)
     elif isinstance(params, DrawRegularizationParams):
         _validate_draw(params, paths)
+    elif isinstance(params, UpscaleMediaParams):
+        _validate_upscale(params, paths)
     return params
 
 
 def _invalid(
-    model: RunConfig | GenerationParams | DrawRegularizationParams,
+    model: RunConfig | GenerationParams | DrawRegularizationParams | UpscaleMediaParams,
     reason: str,
     loc: tuple[str, ...] = ("run_id",),
 ) -> NoReturn:
@@ -935,6 +966,22 @@ def _validate_draw(params: DrawRegularizationParams, paths: Paths) -> None:
         _invalid(params, NO_REGULARIZATION_HERE, ("regularization",))
     if row is None or not row.get("regularization"):
         _invalid(params, UNSUPPORTED_REGULARIZATION, ("regularization",))
+
+
+def _validate_upscale(params: UpscaleMediaParams, paths: Paths) -> None:
+    """A new run directory, and a finished upload holding at least one image or clip."""
+    if paths.run_dir(params.run_id).exists():
+        _invalid(params, "Choose a new run_id; existing outputs are kept")
+    try:
+        folder = upload_folder(paths, params.upload)
+        stage_bytes(folder)
+    except AgentError as error:
+        _invalid(params, error.message, ("upload",))
+    files = [p.name for p in folder.iterdir()] if folder.is_dir() else []
+    if not files:
+        _invalid(params, "Upload the images and clips to upscale first", ("upload",))
+    if any(name.endswith(".part") or name == INSTALLING for name in files):
+        _invalid(params, "Wait for every upload to finish", ("upload",))
 
 
 def _validate_training_start(name: str, params: RunConfig, paths: Paths) -> None:
@@ -1143,9 +1190,14 @@ class ServiceSpec:
     env: Callable[[ServiceParams, Settings], dict[str, str]]
     prepare: Callable[[ServiceParams, Paths], None]
     run_id: Callable[[ServiceParams], str | None]
-    # Whether this image carries the service's program. Only vLLM can be absent: the trainer
-    # images ship without it, and their "-captioning" variants add it (images/README.md).
+    # Whether this image carries the service's program. vLLM can be absent: the trainer images
+    # ship without it, and their "-captioning" variants add it (images/README.md). SeedVR2 is
+    # absent from images built before upscale-media existed.
     available: Callable[[Paths], bool] = lambda _paths: True
+    # The 409 message when ``available`` is false: what the person can do about it.
+    missing: str = (
+        "This cloud GPU's image predates {name}. Rent one with a current image to use it."
+    )
 
     def gpu_count_ok(self, count: int) -> bool:
         low, high = self.gpus
@@ -1442,6 +1494,30 @@ def _draw_argv(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[st
     ]
 
 
+def _upscale_prepare(params: ServiceParams, paths: Paths) -> None:
+    """Move the staged media into the run as its inputs and save the params for the script."""
+    cfg = _as(params, UpscaleMediaParams)
+    run_dir = paths.run_dir(cfg.run_id)
+    with STAGING_LOCK:
+        folder = upload_folder(paths, cfg.upload)
+        stage_bytes(folder)
+        run_dir.mkdir(parents=True, exist_ok=False)
+        folder.rename(run_dir / "inputs")
+    (run_dir / "upscale.json").write_text(
+        json.dumps(cfg.model_dump(mode="json"), indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def _upscale_argv(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[str]:
+    p = _as(params, UpscaleMediaParams)
+    return [
+        paths.venv_bin("seedvr2", "python"),
+        str(paths.scripts / "upscale_media.py"),
+        "--run",
+        str(paths.run_dir(p.run_id)),
+    ]
+
+
 def _generation_argv(trainer: str) -> Callable[[ServiceParams, list[int], Paths], list[str]]:
     def build(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[str]:
         p = _as(params, GenerationParams)
@@ -1529,6 +1605,8 @@ CATALOG: dict[str, ServiceSpec] = {
         prepare=_noop_prepare,
         run_id=_no_run_id,
         available=lambda paths: Path(paths.venv_bin("vllm", "vllm")).is_file(),
+        missing="This computer's image has no {name}. Rent the computer with captioning "
+        "(the image tag ending in -captioning) to caption on its GPU.",
     ),
     "tensorboard": ServiceSpec(
         name="tensorboard",
@@ -1614,6 +1692,19 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_draw_prepare,
         run_id=_params_run_id,
+    ),
+    "upscale-media": ServiceSpec(
+        name="upscale-media",
+        params_model=UpscaleMediaParams,
+        gpus=(1, 1),
+        port=None,
+        argv=_upscale_argv,
+        cwd=_run_dir,
+        log_path=_trainer_log,
+        env=_trainer_env,
+        prepare=_upscale_prepare,
+        run_id=_params_run_id,
+        available=lambda paths: Path(paths.venv_bin("seedvr2", "python")).is_file(),
     ),
     "push-lora": ServiceSpec(
         name="push-lora",

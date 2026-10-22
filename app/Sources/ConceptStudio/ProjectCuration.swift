@@ -6,6 +6,9 @@ struct ProjectMediaState: Codable {
     /// Samples whose caption the user changed and saved without marking it final. App-only: the response
     /// record keeps the shared contract's two sources (model, human final).
     var editedCaptions: Set<String> = []
+    /// Upscaled results waiting for the person to keep or discard them, and kept ones with their originals.
+    var pendingUpscales: [PendingUpscale] = []
+    var upscaled: [String: UpscaleRecord] = [:]
 
     init() {}
 
@@ -13,6 +16,8 @@ struct ProjectMediaState: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         selections = try container.decodeIfPresent([String: MediaSelection].self, forKey: .selections) ?? [:]
         editedCaptions = try container.decodeIfPresent(Set<String>.self, forKey: .editedCaptions) ?? []
+        pendingUpscales = try container.decodeIfPresent([PendingUpscale].self, forKey: .pendingUpscales) ?? []
+        upscaled = try container.decodeIfPresent([String: UpscaleRecord].self, forKey: .upscaled) ?? [:]
     }
 
     static func url(in directory: URL) -> URL {
@@ -90,7 +95,7 @@ extension StudioProject {
     }
 
     /// Media and its two caption sidecars travel together. Roll back a partial move.
-    private func moveTarget(_ source: URL, to directory: URL) throws -> URL {
+    func moveTarget(_ source: URL, to directory: URL) throws -> URL {
         let stem = source.deletingPathExtension()
         let files = [source, stem.appendingPathExtension("txt"), stem.appendingPathExtension("json")]
             .filter { FileManager.default.fileExists(atPath: $0.path) }

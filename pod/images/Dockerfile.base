@@ -4,9 +4,9 @@
 #       -t concept-captioner-pod-base:dev .
 #
 # Layers, least- to most-frequently changing, so a code change never rebuilds the heavy ones:
-#   1. nvidia/cuda runtime (pinned by digest)      5. /opt/venvs/agent : podagent[pod] + concept-captioner[hf]
-#   2. apt: git, curl, gcc, ffmpeg, libGL          6. /opt/pod/scripts/*.py, /opt/pod/entrypoint.sh
-#   3. uv (pinned)
+#   1. nvidia/cuda runtime (pinned by digest)      5. /opt/seedvr2 + /opt/venvs/seedvr2 : SeedVR2 upscaling
+#   2. apt: git, curl, gcc, ffmpeg, libGL          6. /opt/venvs/agent : podagent[pod] + concept-captioner[hf]
+#   3. uv (pinned)                                 7. /opt/pod/scripts/*.py, /opt/pod/entrypoint.sh
 #   4. CPython 3.12 under /opt/python (one interpreter for every venv, trainer images included)
 #
 # No vLLM here: a trainer image built on this base has no caption server. Dockerfile.captioning
@@ -87,6 +87,38 @@ COPY --from=uv /uv /uvx /usr/local/bin/
 ARG PYTHON_VERSION=3.12.14
 ENV POD_PYTHON=${PYTHON_VERSION}
 RUN uv python install "${PYTHON_VERSION}"
+
+# --- /opt/seedvr2 and /opt/venvs/seedvr2 ---------------------------------------------------------
+# SeedVR2 upscaling and restoration (the upscale-media service, scripts/upscale_media.py), in the
+# base so every trainer image can fix the person's images and clips before training. The program is
+# the standalone command line of numz/ComfyUI-SeedVR2_VideoUpscaler (Apache-2.0), which runs the
+# ByteDance-Seed SeedVR2 models (Apache-2.0) with BlockSwap, VAE tiling and FP8/GGUF support:
+#   v2.5.23 = 5a4bf428f3735cc72ac760d40f372f94dec28422 (2025-12-24), the newest release at pin time.
+# Its requirements.txt is unpinned; the versions below are what `uv pip compile` resolved from it on
+# 2026-10-22 with --exclude-newer 2025-12-24 (the release date, so the stack is the one the release
+# was tested against), except torch 2.9.1+cu130 / torchvision 0.24.1+cu130, the torch line of that
+# month on the CUDA 13.0 index the trainers already need (R580+ hosts). opencv-python-headless
+# replaces opencv-python: the same cv2 without the desktop GUI libraries. Weights are not baked in:
+# the command line downloads them, SHA-256-checked, to /workspace/models/seedvr2 on first use.
+# VERIFY: first build and a hosted image/clip run (images/README.md).
+ARG SEEDVR2_REPO=https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git
+ARG SEEDVR2_COMMIT=5a4bf428f3735cc72ac760d40f372f94dec28422
+ARG SEEDVR2_CUDA=cu130
+ARG SEEDVR2_TORCH="torch==2.9.1+cu130 torchvision==0.24.1+cu130"
+ARG SEEDVR2_REQUIREMENTS="safetensors==0.7.0 numpy==2.3.5 tqdm==4.67.1 psutil==7.2.0 einops==0.8.1 omegaconf==2.3.0 diffusers==0.36.0 peft==0.18.0 rotary-embedding-torch==0.8.9 opencv-python-headless==4.11.0.86 gguf==0.17.1 matplotlib==3.10.8"
+RUN git init -q /opt/seedvr2 \
+ && git -C /opt/seedvr2 remote add origin "${SEEDVR2_REPO}" \
+ && git -C /opt/seedvr2 fetch -q --depth 1 origin "${SEEDVR2_COMMIT}" \
+ && git -C /opt/seedvr2 checkout -q --detach FETCH_HEAD \
+ && git -C /opt/seedvr2 log -1 --format='seedvr2 %H %cs %s' \
+ && test -f /opt/seedvr2/inference_cli.py \
+ && uv venv --python "${PYTHON_VERSION}" /opt/venvs/seedvr2 \
+ && uv pip install --python /opt/venvs/seedvr2/bin/python \
+      --extra-index-url "https://download.pytorch.org/whl/${SEEDVR2_CUDA}" --index-strategy unsafe-best-match \
+      ${SEEDVR2_TORCH} ${SEEDVR2_REQUIREMENTS} \
+ && /opt/venvs/seedvr2/bin/python -c "import torch, diffusers, cv2, gguf, rotary_embedding_torch; v = torch.__version__; assert v == '2.9.1+${SEEDVR2_CUDA}', v; print('seedvr2 torch', v, 'diffusers', diffusers.__version__, 'cv2', cv2.__version__)" \
+ && cd /opt/seedvr2 && /opt/venvs/seedvr2/bin/python inference_cli.py --help > /dev/null \
+ && uv pip freeze --python /opt/venvs/seedvr2/bin/python > /opt/venvs/seedvr2/freeze.txt
 
 # --- /opt/venvs/agent ------------------------------------------------------------------------------
 # podagent with its [pod] extra (tensorboard, huggingface_hub, datasets, Pillow) and

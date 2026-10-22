@@ -45,6 +45,17 @@ hash and billing bucket, is in
   `87fxs5v8fn` points at the base image; it carries no token, and the agent refuses to start
   without one.
 
+### SeedVR2 upscaling (source only, 2026-10-22)
+
+The `upscale-media` service (POD-SPEC 3.9), `scripts/upscale_media.py` and the SeedVR2 venv in
+`Dockerfile.base` are in source with fake-mode agent tests and script tests against a stand-in
+command line. Nothing has been built or run on a GPU: the base and every trainer image (and their
+`-captioning` tags) need rebuilding under a new tag before the app's Upscale action can work, and
+images on `v0.3.8-20261021` or older report the service unavailable. Open checks for that build:
+the venv's import and `--help` checks, the image size it adds, first-use weight download to
+`/workspace/models/seedvr2`, an image pass and a clip pass (frame count and audio kept) on a
+32 GB and a 96 GB GPU, and the memory thresholds in `upscale_media.memory_flags`.
+
 ## Verified live
 
 On RTX PRO 4500 Blackwell pods (one GPU and two GPUs, 32 GB each), 2026-10-10:

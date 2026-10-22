@@ -116,6 +116,32 @@ The glossary has an entry for `representation-alignment` (alias REPA, section Tr
 controls); the three terms the sections link to are `StudioTerm.regularizationImages`,
 `.priorPreservation` and `.representationAlignment`.
 
+## Upscale and restore with SeedVR2 (source only, 2026-10-22)
+
+The Images screen has **Upscale and restore…** beside Undo curation and in each print's context menu.
+Its sheet chooses included samples (preselecting those whose short side is below the largest
+resolution the selected model trains at, also marked "Below 1024 px" on their prints), SeedVR2 3B or
+7B with the size of the first weight download, the running cloud GPU's hourly price, the model's
+over-generation caution and its Apache-2.0 notice with a link to the model card. Without a running
+cloud GPU (or while one trains or is busy) the sheet says why and offers Open Cloud GPU; the demo
+says it has none.
+
+`GPUWorkspace.upscale` uploads the files under neutral names to an upload stage, frees a one-GPU
+computer's caption server, starts the pod's `upscale-media` service (POD-SPEC 3.9) with the short
+side and a cap of twice that on the longer side, shows "Upscaling on the cloud GPU: k of N ready",
+and downloads each result checked against the agent's SHA-256. The cloud GPU counts as busy, so the
+idle stop waits. Results wait in `.conceptstudio/upscaled/` as pending entries in
+`.conceptstudio/media.json`, shown in "Upscaled versions to review" with the original beside each
+and a larger comparison sheet. Keep replaces the sample through the crop-approval path (the locator
+mapping carries over; the caption stays with the original), and the print shows "Upscaled · SeedVR2
+3B". **Put back original** works at any time, also after reopening the project, from the record in
+`media.json`; the replaced result moves to the edits folder. Discard deletes only the result.
+
+Unit tests cover keep, discard, revert after reopening, naming against excluded samples, and the
+cloud GPU flow against a fake agent. Offscreen renders of the sheet and the review section were
+inspected in both appearances. Nothing has run against a real cloud GPU: the pod images must be
+rebuilt with the SeedVR2 venv first (POD-STATUS), and older images refuse the service.
+
 ## Implemented
 
 - **Onboarding:** Images contains the owner's full explanation of diffusion
