@@ -112,17 +112,16 @@ struct GPUWorkflowTests {
         await workspace.refreshOffers()
         workspace.offers = [24, 32].map { memory in
             GPUOffer(
-                id: "gpu-\(memory)", name: "GPU", memory: memory, secure: true,
-                price: .init(secure: 1), maxCount: .init(secure: 4), availability: "HIGH",
+                gpuID: "gpu-\(memory)", name: "GPU", memory: memory, price: 1, maxCount: 4,
                 dataCenters: [.init(id: "demo", availability: "HIGH")]
             )
         }
-        #expect(workspace.availableOffers.map(\.id) == ["gpu-32"])
-        workspace.selectedGPU = "gpu-24"
+        #expect(workspace.availableOffers.map(\.gpuID) == ["gpu-32"])
+        workspace.selectedGPU = "SECURE/gpu-24"
         await workspace.rent()
         #expect(workspace.pod == nil)
         workspace.selectAvailableOffer()
-        #expect(workspace.selectedGPU == "gpu-32")
+        #expect(workspace.selectedGPU == "SECURE/gpu-32")
         await workspace.rent()
         #expect(workspace.hasRunningPod)
         await workspace.stopEverything()
@@ -314,15 +313,7 @@ struct GPUWorkflowTests {
     func creationUsesV2GPUFieldsAndOnlyAuthenticatedPublishedPorts(_ trainer: String) async throws {
         let transport = GPUTransport(#"{"id":"pod1","status":"STARTING","cost":1,"gpu":{"count":2}}"#)
         let provider = RunPodProvider(key: "runpod-key", transport: transport)
-        let offer = GPUOffer(
-            id: "gpu-id",
-            name: "GPU",
-            memory: 80,
-            secure: true,
-            price: .init(secure: 1),
-            maxCount: .init(secure: 4),
-            availability: "HIGH"
-        )
+        let offer = GPUOffer(gpuID: "gpu-id", name: "GPU", memory: 80, price: 1, maxCount: 4)
         let pod = try await provider.create(PodCreation(
             name: PodNaming.name(project: "nora"), offer: offer, count: 2, image: "own/image:verified",
             minCudaVersion: GPUWorkspace.minimumCUDA(trainer),

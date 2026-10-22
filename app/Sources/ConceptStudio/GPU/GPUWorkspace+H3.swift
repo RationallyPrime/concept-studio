@@ -134,8 +134,8 @@ extension GPUWorkspace {
 
     /// The sentence under "Choose a cloud GPU".
     var computerSubtitle: String {
-        "Training runs on a cloud GPU you rent by the hour. The list only shows GPUs with enough graphics memory "
-            + "for the model you picked."
+        "Training runs on a cloud GPU you rent by the hour. GPUs without enough graphics memory for the model "
+            + "you picked are shown but can't be chosen."
     }
 
     /// The Run settings field and the words around it: steps, or epochs for a model that counts those.

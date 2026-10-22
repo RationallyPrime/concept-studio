@@ -7,7 +7,19 @@ final class GPUWorkspace {
     let demoMode: Bool
     var offers: [GPUOffer] = []
     var volumes: [GPUVolume] = []
+    /// The chosen offer's `GPUOffer.id`, which names its cloud as well as its GPU type.
     var selectedGPU = ""
+    /// Filters above the cloud GPU list. Each change keeps the selection on a GPU the list still offers.
+    var includeCommunityCloud = false {
+        didSet { selectAvailableOffer() }
+    }
+
+    var inStockOnly = false
+    /// Graphics memory in decimal GB; 0 shows every size.
+    var minimumMemoryFilter = 0 {
+        didSet { selectAvailableOffer() }
+    }
+
     var selectedVolume = ""
     @ObservationIgnored var hasLoadedVolumes = false
     var gpuCount = 1
@@ -494,20 +506,6 @@ extension GPUWorkspace {
         lastActivity = Date()
     }
 
-    var quotedHourlyRate: Double {
-        (availableOffers.first(where: { $0.id == selectedGPU })?.price.secure ?? 0) * Double(gpuCount)
-    }
-
-    var availableOffers: [GPUOffer] {
-        let volume = volumes.first { $0.id == selectedVolume }
-        guard selectedVolume.isEmpty || volume != nil else { return [] }
-        return offers.filter { offer in
-            offer.memory >= requiredGPUMemoryGB && offer.secure && offer.maxCount.secure >= gpuCount
-                && offer.price.secure > 0 && (volume.map { offer.isAvailable(in: $0.dataCenter) }
-                    ?? offer.hasAvailableLocation)
-        }
-    }
-
     var prefersNoSavedStorage: Bool {
         !demoMode && preferences.bool(forKey: Self.noSavedStorageKey)
     }
@@ -517,12 +515,6 @@ extension GPUWorkspace {
         selectedVolume = volumeID
         if !demoMode { preferences.set(volumeID.isEmpty, forKey: Self.noSavedStorageKey) }
         selectAvailableOffer()
-    }
-
-    func selectAvailableOffer() {
-        if !availableOffers.contains(where: { $0.id == selectedGPU }) {
-            selectedGPU = availableOffers.first?.id ?? ""
-        }
     }
 
     /// The pod's control agent, as the provider exposes its port.
