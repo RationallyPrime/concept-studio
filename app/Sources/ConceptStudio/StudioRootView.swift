@@ -63,6 +63,7 @@ struct StudioRootView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             Rectangle().fill(InstantPrint.frameRule).frame(height: 1).padding(.trailing, 1)
             VStack(alignment: .leading, spacing: 2) {
+                stepRow(.pods, height: 44)
                 SettingsLink { sidebarAction("Settings", symbol: "gearshape") }
                     .buttonStyle(.plain)
                     .help("Accounts and settings (⌘,)")
@@ -110,7 +111,7 @@ struct StudioRootView: View {
                 )
                 stepGroup(
                     "Train your model",
-                    Array(StudioStep.allCases.suffix(3)),
+                    [.training, .monitor],
                     top: compact ? 18 : 36,
                     compact: compact
                 )
@@ -197,7 +198,7 @@ struct StudioRootView: View {
         case .review:
             return "\(project.images.filter(\.isFinal).count) of \(count) final"
         case .publish:
-            return "\(count) samples to publish"
+            return "\(session.publishingImages.count) samples to publish"
         case .pods:
             return session.gpu.computerStatus
         case .training, .monitor:
@@ -281,7 +282,7 @@ extension StudioSession {
     /// Reads the RunPod and Hub keys from the Keychain once per GPU workspace (Settings re-reads after a key
     /// changes); later visits only refresh the project-derived training defaults.
     func prepareGPUStep() {
-        guard project?.job.concepts.isEmpty != true else {
+        guard step == .pods || project?.job.concepts.isEmpty != true else {
             step = .concepts
             errorMessage = "Add a concept before opening GPU training controls."
             return

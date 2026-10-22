@@ -35,7 +35,8 @@ struct ProjectPublisherTests {
         let remotePaths = Set(previousRows.map(\.fileName))
             .union(["garden.txt", "garden.json", "unrelated.jpg", "README.md"])
         let operations = try await ProjectPublisher.operations(
-            for: project, previousRows: previousRows, remotePaths: remotePaths
+            for: project, state: includeUncaptionedForPackagingTest, previousRows: previousRows,
+            remotePaths: remotePaths
         )
         let deleted = operations.compactMap { operation -> String? in
             if case let .delete(path) = operation { return path }

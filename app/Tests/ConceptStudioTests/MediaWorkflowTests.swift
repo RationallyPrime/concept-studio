@@ -142,7 +142,7 @@ struct MediaWorkflowTests {
         #expect(!project.images.contains { $0.id == id })
         #expect(project.excludedImages.first { $0.id == id }?.isFinal == true)
         #expect(try LocalFolderSource(directory: project.imagesDirectory).files.count == project.images.count)
-        let operations = try await ProjectPublisher.operations(for: project)
+        let operations = try await ProjectPublisher.operations(for: project, state: includeUncaptionedForPackagingTest)
         #expect(!operations.contains { [id, "garden.txt", "garden.json"].contains($0.path) })
         let reopened = try await StudioProject.open(at: project.directory)
         #expect(reopened.excludedImages.first { $0.id == id }?.caption == "NORA7 protected caption.")
@@ -223,7 +223,7 @@ struct MediaWorkflowTests {
         #expect(frames.count == 3)
         #expect(frames[0].seconds == 0)
         #expect(frames.allSatisfy { $0.seconds < info.duration })
-        let operations = try await ProjectPublisher.operations(for: project)
+        let operations = try await ProjectPublisher.operations(for: project, state: includeUncaptionedForPackagingTest)
         let media = try #require(operations.first { $0.path == id })
         guard case let .addFile(_, url) = media else { Issue.record("Expected exact selected media file"); return }
         #expect(try Data(contentsOf: url) == bytes)

@@ -66,6 +66,13 @@ Apply this table conditionally. The same attribute can be part of one concept an
 
 Decide explicitly how to treat age, hair color, hairline, facial hair, body proportions, tattoos, habitual accessories, and voice. For an age-specific identity, the intended life stage may belong to the concept; for age-controllable identity, describe supported apparent age differences. For a whole-person identity with an approved physique, preserve that physique in the concept instead of automatically assigning it to a caption modifier. Never infer exact age, ancestry, biography, or invisible facts from appearance.
 
+### Adult-content projects
+
+When `adult_content` is true, describe visible nudity and sexual activity plainly and neutrally.
+State the person's dress or undress, the observed activity and any other people involved.
+These are scene attributes, never information left implicit in an identity trigger. Describe
+only what is visible; do not invent activity, relationships, ages or intent.
+
 ## 2. Inspect the actual training target
 
 Caption the processed sample, not a different original, desired future generation, or remembered photograph.

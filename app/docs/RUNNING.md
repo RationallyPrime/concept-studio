@@ -53,7 +53,13 @@ supported model. Disclosure rows open from their labels or trailing space as wel
 
 ## A real project
 
-Create a project in a folder you choose. It begins without a concept: define the first one
+Choose **New project…**, name it in the macOS Save panel and choose its parent folder.
+ConceptStudio remembers the last parent. An existing project opens; an existing non-project
+folder is refused. **New project from Hugging Face dataset…** on Welcome and File asks for
+`owner/name` or a dataset URL first, accepts `/tree/<revision>/<subfolder>`, then names the
+new project from that dataset or folder and starts importing after Save.
+
+A new project begins without a concept: define the first one
 on Concepts before captioning, publishing or training. Images and clips are copied to `images/`; `job.yaml` and caption
 `.txt` / response `.json` sidecars use ConceptCore's shared CLI formats. Final captions have
 `source: human` in the response record. Reference images live in `references/`. No keys go into
@@ -117,7 +123,10 @@ verification step. See [OpenRouter's authorization documentation](https://openro
 
 ### Prepare and train
 
-Use folder, selected-file, Apple Photos or Hub imagefolder import. HEIC and TIFF images are
+Use folder, selected-file, Apple Photos or Hub imagefolder import. Folder imports recurse into
+subfolders. Hub imports accept dataset URLs, revisions and subfolders in both the new-project
+flow and Images. **Exclude duplicates…** selects all but the highest-resolution copy in each
+group; inspect the selection before applying it. HEIC and TIFF images are
 normalized to oriented PNG training targets. Matching `.txt` captions and optional `.json`
 response records beside selected files are imported with the image, including when its name
 changes to avoid a collision or its format is normalized. Text-only captions show **Imported**;
@@ -132,8 +141,18 @@ Define one concept and press **Confirm concept and continue** (⌘↩). Person a
 concepts can use reference images and need confirmed locators. Style and motion are assigned
 to the whole image or clip automatically, so their journey skips Mapping.
 For a person concept with exactly one detected face, checking the concept supplies its class
-noun as the locator; multi-person scenes retain explicit descriptions. On-device face matches
-and model proposals remain suggestions until confirmed. Accept a model proposal per sample or
+noun as the locator; multi-person scenes retain explicit descriptions. Model proposals remain suggestions until confirmed.
+Select several samples with ⌘-click or ⇧-click to confirm a shared concept and location or
+clear their assignments. **Confirm all remaining** in a single-person project confirms only
+samples with exactly one detected face and lists the rest for review. **Not sure** keeps a
+sample unconfirmed, with an optional note and its own filter. Confirm-and-next moves forward
+and skips marked samples. Exclude remains a separate action. Right-click an image in Images
+or Mapping to use it as a concept reference.
+
+Mapping supports numbered single images, 2×2 and 3×3 contact sheets with short scene descriptions
+for checking tile correspondence. It resizes images, runs concurrent requests on vLLM, retries
+transient failures per image, preserves proposals across interruptions and skips confirmed
+samples. Progress shows a count and estimated time remaining. Accept a model proposal per sample or
 accept all eligible suggestions together, with Undo. Existing confirmations are preserved. Parquet-only
 Hub datasets are not supported by the Swift app.
 
@@ -179,14 +198,19 @@ uncollected results; the app refuses removal while those results remain unsettle
 A network volume can instead follow replacement computers in its own data center. RunPod’s
 reported refusal text is shown when a rental fails.
 
-Before renting, Cloud GPU lists anything still needed before training can start (media, a concept
+Cloud GPU stays at the bottom of the sidebar and is also available from Welcome. Choose
+captioning or training there to filter offers by the relevant model. Captioning shows server
+startup progress and waits for the computer to boot. Mapping, captioning and advice requests
+keep the computer active. The idle interval accepts typed minutes.
+
+Before renting for training, Cloud GPU lists anything still needed before training can start (media, a concept
 with its trigger, captions for a direct upload, or a published dataset) with a button to the
 step for the first item, because a rented computer bills while it waits. Rent stays available,
 since renting to caption on the computer is a real workflow. The same list appears above Start
 training. Work the app does for the computer, such as publishing the dataset it will train on,
-holds off the idle stop, and the idle countdown restarts when that work ends. When RunPod
-refuses to start a stopped computer because its host has no free GPU, the app says so and offers
-**Remove it to rent a new one…**, stating what removing it deletes from its pod disk.
+holds off the idle stop, and the idle countdown restarts when that work ends. A stopped computer can be kept while you rent another. **Stopped, kept** lists retained
+computers, their contents and storage costs. Start asks before stopping the current computer;
+Remove confirms deletion of the selected computer’s disk. Only one computer runs at a time.
 
 **Settings → Advanced user** (off by default) reveals the detailed controls: custom servers and
 training images in Settings, model and batch controls on Captioning, multiple concepts and
@@ -234,7 +258,17 @@ The default images have included these H3 additions since `v0.2.3-clean-20261011
 still-image training has completed on a rented GPU; H3 clip training, external warm-start,
 same-run Resume and matched H3 generation have not yet run there.
 
-With a configured Hub token, publishing sends included training targets and saved sidecars at the dataset root, imagefolder metadata, and
+Publish lists uncaptioned samples and leaves them out by default. **Include them anyway**
+explicitly includes these samples without captions. Excluded and Not sure samples stay out.
+The same selection applies to Hub publishing and direct GPU uploads.
+
+**Adult content**, on Concepts, is saved in the shared job as `adult_content`. Person defaults
+include state of dress or undress in every project. Adult projects additionally describe
+sexual activity and other people involved, with neutral guidance in the bundled skill.
+Captioning recommends a self-hosted model; Publish locks Private dataset on and checks the
+actual destination is private before uploading. Python and Swift use the same job policy.
+
+With a configured Hub token, publishing sends selected training targets and saved sidecars at the dataset root, imagefolder metadata, and
 `concept-captioner/job.yaml` in one Hub commit. The image names remain the shared sample IDs.
 Reference images stay local so the Hub and pod readers cannot mistake them for training targets.
 Private dataset is the default.

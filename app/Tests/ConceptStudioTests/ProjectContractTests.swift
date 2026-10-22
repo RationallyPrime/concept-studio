@@ -38,10 +38,8 @@ private struct AdviceClient: ModelClient {
 @Suite("project contract and app-only state")
 @MainActor
 struct ProjectContractTests {
-    private func newProject() throws -> URL {
-        let directory = temporaryTestDirectory("ConceptStudio-project")
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory
+    private func newProject() -> URL {
+        temporaryTestDirectory("ConceptStudio-project")
     }
 
     @Test func chosenSkillIsCopiedIntoTheProjectAndReferencedRelatively() async throws {
@@ -69,7 +67,8 @@ struct ProjectContractTests {
 
         // Published beside the job file so its relative path resolves there; images and app-only files stay home.
         let project = try #require(session.project)
-        let paths = try await ProjectPublisher.operations(for: project).map(\.path)
+        let paths = try await ProjectPublisher.operations(for: project, state: includeUncaptionedForPackagingTest)
+            .map(\.path)
         #expect(paths.contains("concept-captioner/skill/my-captions/SKILL.md"))
         #expect(paths.contains("concept-captioner/skill/my-captions/references/profiles/flux-image.md"))
         #expect(!paths.contains { $0.contains(".conceptstudio") || $0.hasPrefix("references/") })
@@ -92,7 +91,7 @@ struct ProjectContractTests {
         let parent = temporaryTestDirectory("ConceptStudio-skills")
         defer { try? FileManager.default.removeItem(at: parent) }
         let outside = try makeSkill(named: "old-skill", in: parent)
-        let directory = try newProject()
+        let directory = newProject()
         defer { try? FileManager.default.removeItem(at: directory) }
         var created = try StudioProject.create(at: directory)
         created.job.skill = outside.path
@@ -120,8 +119,8 @@ struct ProjectContractTests {
     @Test func publishDestinationsBelongToEachProject() async throws {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
-        let first = try newProject()
-        let second = try newProject()
+        let first = newProject()
+        let second = newProject()
         defer { for url in [first, second] {
             try? FileManager.default.removeItem(at: url)
         } }
@@ -151,8 +150,10 @@ struct ProjectContractTests {
         let yaml = try String(contentsOf: first.appendingPathComponent("job.yaml"), encoding: .utf8)
         #expect(!yaml.contains("first-dataset"))
         #expect(preferences.defaults.string(forKey: "hubRepo") == nil)
-        let project = try #require(session.project)
-        #expect(try await !ProjectPublisher.operations(for: project).contains { $0.path.contains(".conceptstudio") })
+        var project = try #require(session.project)
+        _ = try project.importData(MediaEditor.png(MediaFixtures.image()), name: "sample.png")
+        #expect(try await !ProjectPublisher.operations(for: project, state: includeUncaptionedForPackagingTest)
+            .contains { $0.path.contains(".conceptstudio") })
         await session.closeProject()
     }
 
@@ -171,7 +172,7 @@ struct ProjectContractTests {
             try? FileManager.default.removeItem(at: url)
         } }
         for _ in 0 ..< RecentProjects.limit + 2 {
-            let folder = try newProject()
+            let folder = newProject()
             _ = try StudioProject.create(at: folder)
             folders.append(folder)
             try recents.remember(folder)
@@ -194,7 +195,7 @@ struct ProjectContractTests {
     func invalidRecentBookmarkOnlyPrunesAConfirmedMissingFolder(folderExists: Bool) throws {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
-        let folder = try newProject()
+        let folder = newProject()
         defer { try? FileManager.default.removeItem(at: folder) }
         _ = try StudioProject.create(at: folder)
         if !folderExists { try FileManager.default.removeItem(at: folder) }
@@ -221,7 +222,7 @@ struct ProjectContractTests {
     @Test func existingRecentFolderWithMissingJobKeepsItsBookmark() throws {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
-        let folder = try newProject()
+        let folder = newProject()
         defer { try? FileManager.default.removeItem(at: folder) }
         let project = try StudioProject.create(at: folder)
         let recents = RecentProjects(preferences: preferences.defaults)
@@ -239,7 +240,7 @@ struct ProjectContractTests {
     }
 
     @Test func anEmptyConceptDraftCanBeOpenedButCannotStartCaptioningOrPublishing() async throws {
-        let directory = try newProject()
+        let directory = newProject()
         defer { try? FileManager.default.removeItem(at: directory) }
         let project = try StudioProject.create(at: directory)
         #expect(project.job.concepts.isEmpty)
@@ -250,7 +251,7 @@ struct ProjectContractTests {
             try project.job.requireConcepts()
         }
         await #expect(throws: ConfigurationError("Add a concept before captioning or training.")) {
-            try await ProjectPublisher.operations(for: project)
+            try await ProjectPublisher.operations(for: project, state: includeUncaptionedForPackagingTest)
         }
     }
 
