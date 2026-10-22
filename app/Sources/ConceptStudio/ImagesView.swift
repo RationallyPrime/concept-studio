@@ -5,8 +5,8 @@ import SwiftUI
 struct ImagesView: View {
     @Bindable var session: StudioSession
     @State private var photos: [PhotosPickerItem] = []
-    @State private var hubRepo = ""
     @State private var showHub = false
+    @State private var showDuplicateExclusions = false
     @State private var warningsOnly = false
     @State private var editingMedia: ProjectImage?
     @State private var confirmUndo = false
@@ -73,22 +73,10 @@ struct ImagesView: View {
             Button("Keep editing", role: .cancel) {}
         }
         .sheet(isPresented: $showHub) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Import a Hugging Face dataset").font(.title2.bold())
-                Text(
-                    "Enter owner/dataset. This app reads imagefolder datasets with images or clips; "
-                        + "parquet-only datasets need conversion first."
-                )
-                .foregroundStyle(StudioStyle.supportingText)
-                TextField("owner/dataset", text: $hubRepo)
-                HStack {
-                    Button("Cancel") { showHub = false }.keyboardShortcut(.cancelAction)
-                    Spacer()
-                    Button("Download images or clips") { session.importHub(hubRepo); showHub = false }
-                        .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint).disabled(hubRepo.isEmpty)
-                        .keyboardShortcut(.defaultAction)
-                }
-            }.padding(28).frame(width: 490)
+            HubDatasetSheet { session.importHub($0) }
+        }
+        .sheet(isPresented: $showDuplicateExclusions) {
+            DuplicateExclusionSheet(session: session, groups: includedDuplicateGroups)
         }
     }
 
@@ -110,16 +98,12 @@ struct ImagesView: View {
     }
 
     private var duplicateGroups: [[ProjectImage]] {
-        var groups: [String: [ProjectImage]] = [:]
-        for image in images {
-            var root = image.id
-            var seen: Set<String> = []
-            while let previous = session.analyses[root]?.duplicateOf, seen.insert(root).inserted {
-                root = previous
-            }
-            groups[root, default: []].append(image)
-        }
-        return groups.values.filter { $0.count > 1 }.sorted { $0[0].id < $1[0].id }
+        DuplicateCuration.groups(images: images, analyses: session.analyses)
+    }
+
+    private var includedDuplicateGroups: [[ProjectImage]] {
+        duplicateGroups.map { $0.filter { session.project?.isIncluded($0.id) == true } }
+            .filter { $0.count > 1 }
     }
 
     private var duplicateSection: some View {
@@ -127,6 +111,9 @@ struct ImagesView: View {
             title: "Duplicate and similar groups",
             subtitle: "Compare these samples and choose which to include."
         ) {
+            Button("Exclude duplicates…") { showDuplicateExclusions = true }
+                .disabled(session.busy || session.editing || includedDuplicateGroups.isEmpty)
+                .help("Choose copies to exclude, keeping the highest-resolution sample in each group by default.")
             ForEach(duplicateGroups, id: \.first?.id) { group in
                 ScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 16) {
@@ -237,6 +224,10 @@ struct ImagesView: View {
                 ))
                 .toggleStyle(.checkbox).font(.system(size: 12.5)).foregroundStyle(InstantPrint.ink)
                 .disabled(locked)
+                if session.projectState.notSure[image.id] != nil {
+                    PrintStateChip(state: .other("Not sure"))
+                        .help(session.projectState.notSure[image.id] ?? "Review this sample in Mapping.")
+                }
                 if let upscaled {
                     PrintStateChip(state: .other("Upscaled · \(upscaled.model.title)"))
                         .help("Upscaled from \(upscaled.originalID). Put back original restores it.")
@@ -272,6 +263,13 @@ struct ImagesView: View {
             Button(included ? "Exclude from training" : "Include in training") {
                 session.includeMedia(image.id, included: !included)
             }.disabled(locked)
+            if !isVideo {
+                ForEach(session.project?.job.concepts ?? [], id: \.trigger) { concept in
+                    Button("Use as reference photo for \(concept.trigger)") {
+                        session.useAsReference(image: image, trigger: concept.trigger)
+                    }.disabled(locked)
+                }
+            }
             Divider()
             Button("Upscale and restore…") { upscaling = UpscaleChoice(ids: [image.id]) }
                 .disabled(locked || !included)

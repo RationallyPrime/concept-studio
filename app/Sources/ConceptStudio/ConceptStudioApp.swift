@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct ConceptStudioApp: App {
     @State private var session = StudioSession()
+    @State private var showNewHub = false
     @FocusedValue(\.captionSaveAction) private var captionSaveAction
     @NSApplicationDelegateAdaptor(StudioAppDelegate.self) private var delegate
     @Environment(\.openWindow) private var openWindow
@@ -13,6 +14,7 @@ struct ConceptStudioApp: App {
                 delegate.session = session
                 session.restoreStartupComputer()
             }
+            .sheet(isPresented: $showNewHub) { NewHubProjectSheet(session: session) }
         }
         .defaultSize(width: 1240, height: 820)
         .windowStyle(.hiddenTitleBar)
@@ -20,9 +22,11 @@ struct ConceptStudioApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New project…") {
                     if let url = ProjectAccess
-                        .chooseFolder(prompt: "Create project here") { session.createProject(at: url) }
+                        .chooseNewProject(preferences: session.preferences) { session.createProject(at: url) }
                 }
                 .keyboardShortcut("n")
+                Button("New project from Hugging Face dataset…") { showNewHub = true }
+                    .disabled(session.busy)
                 Button("Open project…") {
                     if let url = ProjectAccess.chooseFolder(prompt: "Open project") { session.openProject(url: url) }
                 }
@@ -70,7 +74,7 @@ extension StudioSession {
     }
 
     var journeySteps: [StudioStep] {
-        if project?.job.concepts.isEmpty == true { return [.images, .concepts] }
+        if project?.job.concepts.isEmpty == true { return [.images, .concepts, .pods] }
         return StudioStep.allCases.filter { $0 != .mapping || project?.job.requiresLocatorMapping != false }
     }
 
@@ -108,7 +112,8 @@ struct JourneyCommands: Commands {
                 .disabled(session.project == nil || session.nextStep == nil)
             Divider()
             ForEach(session.journeySteps) { step in
-                let button = Button(step.title) { session.step = step }.disabled(session.project == nil)
+                let button = Button(step.title) { session.step = step }
+                    .disabled(session.project == nil && step != .pods)
                 button.keyboardShortcut(KeyEquivalent(Character("\(step.rawValue + 1)")), modifiers: .command)
             }
         }

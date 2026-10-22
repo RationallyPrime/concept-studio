@@ -97,47 +97,62 @@ extension StudioSession {
         }
     }
 
-    func importHub(_ id: String) {
+    func importHub(_ input: String, subfolder: String = "") {
+        do { importHub(try HubDatasetLocation(input, subfolder: subfolder)) }
+        catch { errorMessage = Self.describe(error) }
+    }
+
+    func importHub(_ location: HubDatasetLocation) {
         perform("Downloading dataset images and clips…") {
-            guard !self.demoMode else {
-                self.message = "Demo dataset imported locally. No Hub connection was used."
-                return
-            }
-            let client = try HubClient(token: self.keyStore.read("huggingface"))
-            let source = try await HubFolderSource.open(client: client, repo: RepoID(id))
-            for try await sample in source.samples() {
-                try Task.checkCancellation()
-                guard let name = try self.project?.importData(sample.data, name: sample.sampleID),
-                      let project = self.project else { return }
-                if let row = source.rows.first(where: { $0.fileName == sample.sampleID }),
-                   row.record != nil || row.caption != nil {
-                    // A caption without its own record is kept as a model caption marked as imported;
-                    // Captioning offers to protect imported captions as final.
-                    var record = row.record ?? ResponseRecord(
-                        sampleID: name,
-                        status: .written,
-                        skill: project.skillName,
-                        profile: project.job.profile,
-                        captioner: ModelNames(requested: ProjectImage.importedCaptioner),
-                        critic: nil
-                    )
-                    record.sampleID = name
-                    try await SidecarSink(directory: project.imagesDirectory)
-                        .write(name, caption: row.caption, record: record)
-                    if let index = self.project?.images.firstIndex(where: { $0.id == name }) {
-                        self.project?.images[index].caption = row.caption ?? ""
-                        self.project?.images[index].isFinal = record.isHumanFinal
-                        self.project?.images[index].isImported = ProjectImage.isImported(record)
-                    }
-                }
-                self.completed += 1
-            }
-            self.selectedImageID = self.project?.images.first?.id
-            self.startImageAnalysis()
-            self.message = "Dataset downloaded. Confirm its subject mapping before captioning."
-                + (self.unprotectedImportedCount > 0
-                    ? " Imported captions are not protected yet; protect them before re-captioning." : "")
+            try await self.downloadHub(location)
         }
+    }
+
+    /// Called inside the existing work slot, including immediately after creating a project.
+    func downloadHub(_ location: HubDatasetLocation) async throws {
+        guard !self.demoMode else {
+            self.message = "Demo dataset imported locally. No Hub connection was used."
+            return
+        }
+        let client = try HubClient(token: self.keyStore.read("huggingface"))
+        let source = try await HubFolderSource.open(
+            client: client, repo: location.repo, revision: location.revision, subfolder: location.subfolder
+        )
+        guard !source.files.isEmpty else {
+            throw StudioError.message("No images or clips were found in this dataset folder. Choose another folder.")
+        }
+        for try await sample in source.samples() {
+            try Task.checkCancellation()
+            guard let name = try self.project?.importData(sample.data, name: sample.sampleID),
+                  let project = self.project else { return }
+            if let row = source.rows.first(where: { $0.fileName == sample.sampleID }),
+               row.record != nil || row.caption != nil {
+                // A caption without its own record is kept as a model caption marked as imported;
+                // Captioning offers to protect imported captions as final.
+                var record = row.record ?? ResponseRecord(
+                    sampleID: name,
+                    status: .written,
+                    skill: project.skillName,
+                    profile: project.job.profile,
+                    captioner: ModelNames(requested: ProjectImage.importedCaptioner),
+                    critic: nil
+                )
+                record.sampleID = name
+                try await SidecarSink(directory: project.imagesDirectory)
+                    .write(name, caption: row.caption, record: record)
+                if let index = self.project?.images.firstIndex(where: { $0.id == name }) {
+                    self.project?.images[index].caption = row.caption ?? ""
+                    self.project?.images[index].isFinal = record.isHumanFinal
+                    self.project?.images[index].isImported = ProjectImage.isImported(record)
+                }
+            }
+            self.completed += 1
+        }
+        self.selectedImageID = self.project?.images.first?.id
+        self.startImageAnalysis()
+        self.message = "Dataset downloaded. Confirm its subject mapping before captioning."
+            + (self.unprotectedImportedCount > 0
+                ? " Imported captions are not protected yet; protect them before re-captioning." : "")
     }
 
     /// Imported captions that a re-caption with overwrite could still replace.

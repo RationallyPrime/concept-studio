@@ -73,24 +73,36 @@ extension StudioSession {
         }
     }
 
-    func createProject(at url: URL) {
+    func createProject(at url: URL, importing location: HubDatasetLocation? = nil) {
         guard !refuseWhileComputerBusy(
             "Finish the current cloud GPU action or Stop everything before changing projects."
         ) else { return }
         whenConfirmed(discardDraftsConfirmation) {
             self.perform("Creating your project…") {
+                // Validate before closing the current project or writing into the chosen folder.
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                let existing = try ProjectAccess.existingProject(at: url)
+                let opened: StudioProject = if existing { try await StudioProject.open(at: url) }
+                else { try StudioProject.create(at: url) }
                 await self.releaseProject()
                 self.demoMode = false
                 self.loadSavedChoices()
                 self.gpu = self.makeGPUWorkspace(demoMode: false)
                 self.projectAccess = url
                 _ = url.startAccessingSecurityScopedResource()
-                self.project = try StudioProject.create(at: url)
-                self.gpu.projectFolder = self.project?.directory
-                self.projectState = ProjectAppState()
+                self.project = opened
+                self.gpu.projectFolder = opened.directory
+                self.projectState = existing ? ProjectAppState.load(from: url) : ProjectAppState()
                 self.rememberRecent(url)
+                self.preferences.set(url.deletingLastPathComponent().path, forKey: ProjectAccess.lastParentKey)
+                if existing { self.applyJobChoices(opened.job) }
+                self.selectedImageID = opened.images.first?.id
                 self.step = .images
-                self.message = "Project created. Import the images or clips for your concept."
+                self.message = existing ? "Project opened." : "Project created. Import the images or clips for your concept."
+                if existing { self.startImageAnalysis() }
+                // An existing project is opened as-is, never silently appended to by New project.
+                if let location, !existing { try await self.downloadHub(location) }
             }
         }
     }
@@ -231,7 +243,8 @@ extension StudioSession {
             }
             let accessed = folder.startAccessingSecurityScopedResource()
             defer { if accessed { folder.stopAccessingSecurityScopedResource() } }
-            try await project.importFiles(MediaEditor.importableFiles(in: folder))
+            let files = try MediaEditor.importableFiles(in: folder)
+            try await project.importFiles(files)
             try Task.checkCancellation()
             guard self.busy, self.project?.directory.standardizedFileURL == projectDirectory else {
                 throw CancellationError()
@@ -239,7 +252,7 @@ extension StudioSession {
             self.project = project
             self.selectedImageID = self.project?.images.first?.id
             self.startImageAnalysis()
-            self.message = "Training data imported."
+            self.message = "Imported \(files.count) images and clips, including subfolders."
         }
     }
 }

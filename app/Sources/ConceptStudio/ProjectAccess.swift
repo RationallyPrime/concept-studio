@@ -7,6 +7,34 @@ import UniformTypeIdentifiers
 /// hands the chosen URL to the session (`createProject(at:)`, `openProject(url:)`, ...).
 @MainActor
 enum ProjectAccess {
+    static let lastParentKey = "ConceptStudio.lastProjectParent"
+
+    static func chooseNewProject(preferences: UserDefaults, name: String = "Untitled Project") -> URL? {
+        let panel = NSSavePanel()
+        panel.title = "New project"
+        panel.prompt = "Create project"
+        panel.nameFieldLabel = "Project name:"
+        panel.nameFieldStringValue = name
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = true
+        if let parent = preferences.string(forKey: lastParentKey) {
+            panel.directoryURL = URL(fileURLWithPath: parent, isDirectory: true)
+        }
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    /// New project may open a saved project, but must never adopt an unrelated existing folder.
+    static func existingProject(at url: URL) throws -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("job.yaml").path) else {
+            throw StudioError.message(
+                "A folder named “\(url.lastPathComponent)” already exists and is not a ConceptStudio project. "
+                    + "Choose another project name or location."
+            )
+        }
+        return true
+    }
+
     static func chooseFolder(prompt: String) -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
