@@ -62,13 +62,13 @@ extension GPUWorkspace {
         _ provider: any GPUProvider, offer: GPUOffer, volume: GPUVolume?, credentials: PodCredentials
     ) async throws -> RentedPod {
         do {
-            let pod = try await provider.create(PodCreation(
+            var env = credentials.env
+            env["PODAGENT_WORKSPACE_BYTES"] = String(Int64(volume?.size ?? RunPodProvider.podDiskGB) * 1_000_000_000)
+            return try await provider.create(PodCreation(
                 name: PodNaming.name(project: projectFolder?.lastPathComponent ?? ""),
                 offer: offer, count: gpuCount, image: podImage,
-                minCudaVersion: modelTable.minimumCUDA(trainer), volume: volume, env: credentials.env
+                minCudaVersion: modelTable.minimumCUDA(trainer), volume: volume, env: env
             ))
-            rentsCaptionServer = false
-            return pod
         } catch {
             try? await provider.deleteSecret(name: credentials.agentSecret)
             throw error

@@ -91,6 +91,7 @@ def test_usage_and_explicit_cpu_cleanup_have_same_policy(client, anon_client, se
     assert anon_client.get("/storage").status_code == 401
     usage = client.get("/storage").json()
     assert set(usage) == {
+        "workspace_scoped",
         "total_bytes",
         "used_bytes",
         "free_bytes",
@@ -98,7 +99,8 @@ def test_usage_and_explicit_cpu_cleanup_have_same_policy(client, anon_client, se
         "reclaimable_dataset_bytes",
         "regularization_cache_bytes",
     }
-    assert all(type(value) is int for value in usage.values())
+    assert all(type(value) is int for key, value in usage.items() if key != "workspace_scoped")
+    assert usage["workspace_scoped"] is True
     assert usage["datasets_bytes"] == 56 and usage["reclaimable_dataset_bytes"] == 14
     response = client.post("/services/cleanup-datasets/start", json={"gpus": [], "params": {}})
     assert response.status_code == 201
@@ -202,3 +204,20 @@ def test_failed_new_prepare_cannot_restore_old_success_evidence(client, settings
         supervisor.start(spec.name, [1], {**params, "steps": 2})
     supervisor.states()
     assert not target.exists()  # old finalized incarnation must not recreate success
+
+
+def test_workspace_usage_never_reports_host_filesystem(settings, monkeypatch):
+    from podagent.storage import storage_usage
+
+    paths = settings.paths
+    paths.ensure()
+    (paths.models / "weights.bin").write_bytes(b"x" * 100)
+    monkeypatch.setenv("PODAGENT_WORKSPACE_BYTES", "1000")
+    usage = storage_usage(paths)
+    assert usage["total_bytes"] == 1000
+    assert usage["used_bytes"] == 100
+    assert usage["free_bytes"] == 900
+    monkeypatch.delenv("PODAGENT_WORKSPACE_BYTES")
+    usage = storage_usage(paths)
+    assert usage["total_bytes"] == 0
+    assert usage["used_bytes"] == 100

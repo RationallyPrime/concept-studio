@@ -395,7 +395,7 @@ def create_app(settings: Settings | None = None, backend: GpuBackend | None = No
         }
 
     @app.get("/storage")
-    def storage() -> dict[str, int]:
+    def storage() -> dict[str, int | bool]:
         supervisor().states()  # persist newly observed terminal state before planning retention
         return storage_usage(settings.paths)
 

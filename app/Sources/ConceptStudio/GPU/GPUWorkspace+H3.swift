@@ -129,12 +129,13 @@ extension GPUWorkspace {
 
     /// The smallest GPU memory, in decimal GB, the selected model's computer must offer.
     var requiredGPUMemoryGB: Int {
-        effectiveModelRow.gpu.minVRAMGB
+        rentsCaptionServer ? captionMemoryGB : effectiveModelRow.gpu.minVRAMGB
     }
 
     /// The sentence under "Choose a cloud GPU".
     var computerSubtitle: String {
-        "Training runs on a cloud GPU you rent by the hour. GPUs without enough graphics memory for the model "
+        "\(rentsCaptionServer ? "Captioning" : "Training") runs on a cloud GPU you rent by the hour. "
+            + "GPUs without enough graphics memory for the model "
             + "you picked are shown but can't be chosen."
     }
 

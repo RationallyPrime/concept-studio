@@ -75,16 +75,18 @@ struct RunFile: Codable, Equatable {
     }
 }
 
-struct AgentStorageUsage: Decodable, Equatable {
+struct AgentStorageUsage: Codable, Equatable {
     let totalBytes: Int64
     let usedBytes: Int64
     let freeBytes: Int64
     let datasetsBytes: Int64
     let reclaimableDatasetBytes: Int64
+    var workspaceScoped: Bool?
 
     enum CodingKeys: String, CodingKey {
         case totalBytes = "total_bytes", usedBytes = "used_bytes", freeBytes = "free_bytes"
         case datasetsBytes = "datasets_bytes", reclaimableDatasetBytes = "reclaimable_dataset_bytes"
+        case workspaceScoped = "workspace_scoped"
     }
 }
 
@@ -124,6 +126,7 @@ protocol PodAgent: Sendable {
     func downloadLogFile(runID: String, path: String, to destination: URL) async throws
     func runConfiguration(runID: String) async throws -> AgentRunConfiguration
     func storageUsage() async throws -> AgentStorageUsage
+    func serviceLog(_ name: String) async throws -> String
 }
 
 /// Thrown by an agent that cannot report GPU memory, such as one running an older training image.
@@ -135,6 +138,10 @@ struct AgentCannotReportGPUMemory: Error, LocalizedError {
 }
 
 extension PodAgent {
+    func serviceLog(_: String) async throws -> String {
+        ""
+    }
+
     func gpus() async throws -> [AgentGPU] {
         throw AgentCannotReportGPUMemory()
     }
@@ -226,6 +233,13 @@ struct PodAgentClient: PodAgent {
 
     func stop(_ service: String) async throws {
         _ = try await call("services/\(service)/stop", method: "POST", body: ["timeout_s": .int(30)])
+    }
+
+    func serviceLog(_ name: String) async throws -> String {
+        let json = try await JSONValue(parsing: call("services/\(name)/logs", query: [
+            URLQueryItem(name: "tail", value: "12"),
+        ]))
+        return (json.objectValue?["lines"]?.arrayValue ?? []).compactMap(\.stringValue).joined(separator: "\n")
     }
 
     func runLog(runID: String) async throws -> String {

@@ -204,12 +204,17 @@ def cleanup_datasets(paths: Paths, **protection: Any) -> dict[str, Any]:
     return {"removed": removed, "reclaimed_bytes": reclaimed}
 
 
-def storage_usage(paths: Paths) -> dict[str, int]:
-    disk = shutil.disk_usage(paths.workspace)
+def storage_usage(paths: Paths) -> dict[str, int | bool]:
+    # /workspace can be a subdirectory of a multi-tenant filesystem. Its statvfs
+    # usage belongs to the host; count this workspace's files and use its allocation.
+    used = tree_bytes(paths.workspace)
+    allocation = os.environ.get("PODAGENT_WORKSPACE_BYTES", "")
+    total = int(allocation) if allocation else 0
     return {
-        "total_bytes": disk.total,
-        "used_bytes": disk.used,
-        "free_bytes": disk.free,
+        "workspace_scoped": True,
+        "total_bytes": total,
+        "used_bytes": used,
+        "free_bytes": max(0, total - used),
         "datasets_bytes": tree_bytes(paths.datasets),
         "reclaimable_dataset_bytes": sum(tree_bytes(p) for p in cleanup_candidates(paths)),
         # The reuse cache of generated regularisation images; cleanup never removes it.

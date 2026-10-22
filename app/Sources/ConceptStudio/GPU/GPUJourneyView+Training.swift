@@ -31,15 +31,6 @@ extension GPUJourneyView {
             Button("Go to \(first.step.title)") { session.step = first.step }
         }
     }
-
-    /// A stopped cloud GPU whose host has no free GPU: say so, and what removing it to rent another loses.
-    var restartBlockedNotice: some View {
-        StudioNotice(
-            "Its host has no free GPU right now, so this cloud GPU cannot start. Try again later, or remove it "
-                + "and rent a new one. " + workspace.removalLossExplanation,
-            symbol: "exclamationmark.triangle"
-        )
-    }
 }
 
 extension GPUJourneyView {
