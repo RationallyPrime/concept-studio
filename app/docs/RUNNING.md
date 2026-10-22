@@ -212,7 +212,9 @@ its interval accepts typed minutes.
 Hosted captioning needs no GPU rental. For self-hosted captioning, choose **Rent or choose a
 cloud GPU for captioning**, rent on Cloud GPU, then return and choose **Start caption server
 and use this cloud GPU**. ConceptStudio starts the server and checks its authenticated vLLM
-endpoint. Complete captioning and dataset preparation before training on a single GPU.
+endpoint. The default caption model,
+`RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4`, fits a 32 GB GPU.
+Complete captioning and dataset preparation before training on a single GPU.
 
 The app automatically chooses the training image for your trainer. Set a custom image under
 **Settings → Advanced user**, or clear and save the field to use **Automatic**. The GPU list

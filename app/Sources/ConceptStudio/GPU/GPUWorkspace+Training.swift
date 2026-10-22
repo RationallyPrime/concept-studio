@@ -25,11 +25,14 @@ extension GPUWorkspace {
             maxModelLen: 16384, maxNumSeqs: 4, gpuMemoryUtilization: 0.90,
             extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
         ),
-        "Qwen/Qwen3-VL-8B-Instruct": CaptionServerSettings(
-            maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
-            extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
-        ),
+        "Qwen/Qwen3-VL-8B-Instruct": fallbackCaptionServer,
     ]
+
+    /// The Qwen3-VL-8B row, which a model without a measured row starts with.
+    nonisolated static let fallbackCaptionServer = CaptionServerSettings(
+        maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
+        extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
+    )
 
     /// Where `captionModel` is remembered between launches.
     static let captionModelKey = "ConceptStudio.selfHostedCaptionModel"
@@ -39,7 +42,7 @@ extension GPUWorkspace {
     }
 
     nonisolated static func captionServerSettings(for model: String) -> CaptionServerSettings {
-        measuredCaptionServers[model] ?? measuredCaptionServers["Qwen/Qwen3-VL-8B-Instruct"]!
+        measuredCaptionServers[model] ?? fallbackCaptionServer
     }
 
     var captionStartParams: JSONObject {

@@ -105,10 +105,8 @@ extension GPUWorkspace {
     }
 
     private func unavailability(of offer: GPUOffer, volume: GPUVolume?, stock: GPUStock) -> GPUUnavailability? {
-        if offer
-            .memory <
-            requiredGPUMemoryGB {
-            return .notEnoughMemory(model: rentsCaptionServer ? captionModel : effectiveModelRow.shortName)
+        if offer.memory < requiredGPUMemoryGB {
+            return .notEnoughMemory(model: rentsCaptionServer ? captionModelShortName : effectiveModelRow.shortName)
         }
         // A gated model downloads only with the Hub token: none is configured, or Community Cloud GPUs never
         // get it. A rental made from Captioning trains nothing, so neither applies to it.

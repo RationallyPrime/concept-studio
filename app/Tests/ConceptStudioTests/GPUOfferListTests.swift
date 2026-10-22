@@ -84,6 +84,21 @@ struct GPUOfferListTests {
         #expect(workspace.gpuChoices.map(\.offer.gpuID) == ["fits", "single"])
     }
 
+    @MainActor @Test func captionRentalNeedsTheCaptionModelsMemoryAbove24GBTrainingRow() {
+        let preferences = IsolatedDefaults()
+        defer { preferences.remove() }
+        let workspace = GPUWorkspace(demoMode: true, preferences: preferences.defaults)
+        workspace.chooseTrainingModel("stabilityai/stable-diffusion-xl-base-1.0")
+        workspace.captionModel = "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4"
+        workspace.offers = [offer("small", memory: 24), offer("fits", memory: 32)]
+        #expect(workspace.availableOffers.map(\.gpuID) == ["small", "fits"])
+
+        workspace.rentsCaptionServer = true
+        let reasons = Dictionary(uniqueKeysWithValues: workspace.gpuChoices.map { ($0.offer.gpuID, $0.unavailability) })
+        #expect(reasons["small"] == .notEnoughMemory(model: "CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4"))
+        #expect(workspace.availableOffers.map(\.gpuID) == ["fits"])
+    }
+
     @MainActor @Test func captioningUsesCaptionModelMemoryInsteadOfTrainingModel() {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
@@ -96,7 +111,7 @@ struct GPUOfferListTests {
         #expect(workspace.requiredGPUMemoryGB == 32)
         #expect(workspace.availableOffers.map(\.gpuID) == ["caption-gpu", "training-gpu"])
         #expect(workspace.gpuChoices.first { $0.offer.gpuID == "too-small" }?.unavailability ==
-            .notEnoughMemory(model: ProviderChoices.defaultSelfHostedModel))
+            .notEnoughMemory(model: workspace.captionModelShortName))
         workspace.captionMemoryGB = 48
         #expect(workspace.availableOffers.map(\.gpuID) == ["training-gpu"])
     }

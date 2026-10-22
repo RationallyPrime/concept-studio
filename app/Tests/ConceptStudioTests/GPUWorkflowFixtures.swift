@@ -35,7 +35,7 @@ actor UnreachableAgentTransport: HTTPTransport {
     private let gpuCount: Int
     private var services: [String: String] = [:]
     private var runIDs: [String: String] = [:]
-    private var servedModel = "Qwen/Qwen3-VL-8B-Instruct"
+    private var servedModel = ProviderChoices.defaultModel(for: "vllm")
     private var listedPods: [String] = []
     private var podRemovedOutside = false
     private var runFiles: [RunFile] = []
