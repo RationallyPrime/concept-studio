@@ -106,8 +106,7 @@ extension GPUWorkspace {
         if offer.memory < requiredGPUMemoryGB { return .notEnoughMemory(model: effectiveModelRow.shortName) }
         // A gated model downloads only with the Hub token, which Community Cloud GPUs never get. A rental
         // made from Captioning trains nothing, so it may still use Community Cloud.
-        if offer.cloud == .community, !hubToken.isEmpty, !rentsCaptionServer, let row = exactModelRow,
-           row.source.gated {
+        if offer.cloud == .community, !rentsCaptionServer, let row = exactModelRow, row.source.gated {
             return .gatedModelNeedsHubToken(model: row.shortName)
         }
         if offer.maxCount < gpuCount { return .notOffered(count: gpuCount) }

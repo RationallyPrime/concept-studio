@@ -333,7 +333,7 @@ final class GPUWorkspace {
             self.elapsedCost = 0
             self.saved = SavedPod(
                 pod: created, started: started, hourlyRate: max(created.cost, self.quotedHourlyRate),
-                budget: self.budget, trainer: self.trainer, runID: "",
+                budget: self.budget, trainer: self.trainer, runID: "", runpodKey: self.runpodKeyFingerprint,
                 idleMinutes: self.idleMinutes, volumeID: volume?.id ?? "pod:" + created.id,
                 agentSecret: credentials.agentSecret, hubTokenOnPod: credentials.holdsHubToken
             )

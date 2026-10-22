@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// The local record of the rented pod. Fields added after the first release decode with
@@ -10,6 +11,9 @@ struct SavedPod: Codable {
     var budget: Double
     var trainer: String
     var runID: String
+    /// Which RunPod key the pod was rented under (`SavedPod.fingerprint`); empty for a record from before
+    /// this was kept. A pod missing under a different key may still exist in another account.
+    var runpodKey = ""
     var idleMinutes = 15
     var volumeID = ""
     /// The RunPod secret holding this pod's agent bearer; deleted when the pod is removed.
@@ -24,6 +28,11 @@ struct SavedPod: Codable {
 }
 
 extension SavedPod {
+    /// A short digest naming a RunPod key without storing it.
+    static func fingerprint(_ key: String) -> String {
+        key.isEmpty ? "" : SHA256.hash(data: Data(key.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         pod = try values.decode(RentedPod.self, forKey: .pod)
@@ -37,6 +46,7 @@ extension SavedPod {
         volumeID = try values.decodeIfPresent(String.self, forKey: .volumeID) ?? ""
         agentSecret = try values.decodeIfPresent(String.self, forKey: .agentSecret) ?? ""
         hubTokenOnPod = try values.decodeIfPresent(Bool.self, forKey: .hubTokenOnPod) ?? true
+        runpodKey = try values.decodeIfPresent(String.self, forKey: .runpodKey) ?? ""
         points = try values.decodeIfPresent([TrainingPoint].self, forKey: .points) ?? []
         result = try values.decodeIfPresent(TrainingResult.self, forKey: .result)
         run = try values.decodeIfPresent(TrainingRun.self, forKey: .run)

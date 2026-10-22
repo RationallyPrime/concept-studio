@@ -213,6 +213,11 @@ final class SleepAssertion {
 }
 
 extension GPUWorkspace {
+    /// Names the RunPod key in use without keeping it (see `SavedPod.runpodKey`).
+    var runpodKeyFingerprint: String {
+        SavedPod.fingerprint((provider as? RunPodProvider)?.key ?? "")
+    }
+
     /// Finds running pods this app created that the local record does not know about (a record
     /// lost to a crash between create and save, reset defaults, another Mac) and puts the newest
     /// under the budget and idle guards; the rest are listed in `strayPods`.
@@ -231,17 +236,28 @@ extension GPUWorkspace {
         }
         // A saved cloud GPU removed outside the app (RunPod console, another tool) would otherwise sit here as
         // "stopped", keeping Rent disabled until someone presses Remove for a pod that no longer exists.
-        if !demoMode, let saved = pod, !found.contains(where: { $0.id == saved.id }),
-           await (try? provider.exists(id: saved.id)) == false {
-            await forgetPod(saved)
-            message = "RunPod has no cloud GPU \(saved.id) under the current key, so this app no longer tracks it. "
-                + "If you changed RunPod accounts, it may still exist and bill storage in the other account."
+        // Only a pod rented under this same key is known to be gone; under another key it may still run and bill
+        // in another account, so the record (and with it Stop, the budget and the idle stop) is kept.
+        // The record is read before the await: another reconcile may forget it meanwhile.
+        if !demoMode, let current = pod, let record = saved, !found.contains(where: { $0.id == current.id }),
+           await (try? provider.exists(id: current.id)) == false, pod?.id == current.id {
+            if !record.runpodKey.isEmpty, record.runpodKey == runpodKeyFingerprint {
+                await forgetPod(current)
+                message = "RunPod has no cloud GPU \(current.id) any more, so this app no longer tracks it."
+            } else {
+                message = "RunPod has no cloud GPU \(current.id) under the current key. If it was rented with "
+                    + "another RunPod account, switch back to that key to control it; otherwise remove it here."
+            }
+        } else if !demoMode, var record = saved, record.runpodKey.isEmpty,
+                  found.contains(where: { $0.id == record.pod.id }) {
+            record.runpodKey = runpodKeyFingerprint // this key can see it, so it was rented under it
+            saved = record
         }
         let running = found.filter(\.isRunning)
         if pod == nil, let adopted = running.first {
             saved = SavedPod(
                 pod: adopted, started: Date(), hourlyRate: adopted.cost, budget: budget, trainer: trainer,
-                runID: "", idleMinutes: idleMinutes,
+                runID: "", runpodKey: runpodKeyFingerprint, idleMinutes: idleMinutes,
                 volumeID: adopted.volumeID ?? "pod:" + adopted.id, hubTokenOnPod: false
             )
             pod = adopted

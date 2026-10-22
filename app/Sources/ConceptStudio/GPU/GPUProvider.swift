@@ -283,10 +283,12 @@ struct RunPodProvider: GPUProvider {
     private let origin = URL(string: "https://api.runpod.io/v2")!
 
     /// Both clouds' offers, cheapest first. Stock differs per cloud, so each cloud is asked separately.
+    /// Community Cloud is opt-in, so its catalog failing leaves the Secure Cloud offers standing.
     func offers(count: Int, minCudaVersion: String) async throws -> [GPUOffer] {
         async let secure = catalog(.secure, count: count, minCudaVersion: minCudaVersion)
         async let community = catalog(.community, count: count, minCudaVersion: minCudaVersion)
-        return try await (secure + community).sorted {
+        let optional = await (try? community) ?? []
+        return try await (secure + optional).sorted {
             ($0.price, $0.cloud == .secure ? 0 : 1) < ($1.price, $1.cloud == .secure ? 0 : 1)
         }
     }

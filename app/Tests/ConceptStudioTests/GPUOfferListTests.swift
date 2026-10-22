@@ -7,13 +7,19 @@ import Testing
 /// cloud asked about. Everything else goes to the workflow fixture.
 private actor CloudCatalogTransport: HTTPTransport {
     let inner = UnreachableAgentTransport()
+    let communityFails: Bool
     private(set) var catalogClouds: [String] = []
+
+    init(communityFails: Bool = false) {
+        self.communityFails = communityFails
+    }
 
     func send(_ request: URLRequest) async throws -> HTTPResponse {
         guard let url = request.url, url.path().contains("catalog/gpus") else { return try await inner.send(request) }
         let cloud = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
             .first { $0.name == "cloud" }?.value ?? ""
         catalogClouds.append(cloud)
+        if communityFails, cloud == "COMMUNITY" { return HTTPResponse(status: 500, body: Data("{}".utf8)) }
         let stock = cloud == "COMMUNITY" ? #"[{"id":"US-TX-9","availability":"HIGH"}]"#
             : #"[{"id":"EU-IS-1","availability":"LOW"}]"#
         let body = #"{"gpus":[{"id":"NVIDIA RTX 5090","name":"RTX 5090","memory":96,"secure":true,"#
@@ -33,6 +39,7 @@ struct GPUOfferListTests {
         let transport = CloudCatalogTransport()
         let workspace = makeWorkspace(transport, preferences)
         try workspace.configure(runpodKey: "fixture", hubToken: "", imageName: "")
+        workspace.chooseTrainingModel("Alpha-VLLM/Lumina-Image-2.0") // ungated, so Community Cloud stays open
         await workspace.refreshOffers()
         #expect(await Set(transport.catalogClouds) == ["SECURE", "COMMUNITY"])
         workspace.chooseStorage("")
@@ -79,6 +86,7 @@ struct GPUOfferListTests {
 
     @MainActor @Test func savedStorageNeedsSecureCloudStockInItsDataCentre() {
         let workspace = GPUWorkspace(demoMode: true)
+        workspace.chooseTrainingModel("Alpha-VLLM/Lumina-Image-2.0") // ungated, so Community Cloud stays open
         let needed = workspace.requiredGPUMemoryGB
         workspace.volumes = [.init(id: "ro", name: "Dataset", size: 300, dataCenter: "EU-RO-1")]
         workspace.selectedVolume = "ro"
@@ -100,9 +108,19 @@ struct GPUOfferListTests {
         #expect(workspace.selectedGPU == "SECURE/beside")
     }
 
+    @MainActor @Test func aFailedCommunityCatalogLeavesTheSecureCloudOffers() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let workspace = makeWorkspace(CloudCatalogTransport(communityFails: true), preferences)
+        try workspace.configure(runpodKey: "fixture", hubToken: "", imageName: "")
+        workspace.includeCommunityCloud = true
+        await workspace.refreshOffers()
+        workspace.chooseStorage("")
+        #expect(workspace.availableOffers.map(\.id) == ["SECURE/NVIDIA RTX 5090"])
+    }
+
     @MainActor @Test func aGatedModelGreysOutCommunityCloudUnlessTheRentalIsForCaptioning() throws {
         let workspace = GPUWorkspace(demoMode: true)
-        workspace.hubToken = "hf_test"
         workspace.includeCommunityCloud = true
         workspace.chooseTrainingModel("black-forest-labs/FLUX.1-dev")
         let needed = workspace.requiredGPUMemoryGB
