@@ -328,13 +328,17 @@ struct PodAgentClient: PodAgent {
         }
         let response = try await transport.send(request)
         guard (200 ..< 300).contains(response.status) || accepted.contains(response.status) else {
-            throw Self.failure(response.status)
+            throw Self.failure(response.status, body: response.body)
         }
         return (response.status, response.body)
     }
 
-    private static func failure(_ status: Int) -> StudioError {
-        if [502, 503, 504].contains(status) || (520 ... 526).contains(status) {
+    /// The agent answers every error with its JSON `{"error": {...}}` envelope. A 404 without one comes from
+    /// RunPod's proxy before it routes to a pod that is still starting, so it reads as starting, not failed.
+    /// A download has no body to read (`nil`), so its 404 keeps meaning the file is not there.
+    static func failure(_ status: Int, body: Data? = nil) -> StudioError {
+        let fromProxy = body.map { (try? JSONValue(parsing: $0))?.objectValue?["error"] == nil } ?? false
+        if [502, 503, 504].contains(status) || (520 ... 526).contains(status) || (status == 404 && fromProxy) {
             return StudioError.message(
                 "The computer is starting or unreachable. Refresh in a moment; you can still stop it."
             )

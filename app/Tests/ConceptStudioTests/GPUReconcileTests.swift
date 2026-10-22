@@ -23,4 +23,13 @@ struct GPUReconcileTests {
         #expect(preferences.data(forKey: GPUWorkspace.activePodKey) == nil)
         #expect(workspace.message.contains("no longer tracks it"))
     }
+
+    @Test
+    func aProxy404BeforeTheAgentAnswersReadsAsStartingNotFailed() {
+        let starting = PodAgentClient.failure(404, body: Data("404 page not found".utf8))
+        #expect(starting.localizedDescription.contains("starting"))
+        let agent404 = PodAgentClient.failure(404, body: Data(#"{"error":{"code":"not_found"}}"#.utf8))
+        #expect(agent404.localizedDescription.contains("could not complete"))
+        #expect(PodAgentClient.failure(404).localizedDescription.contains("could not complete"))
+    }
 }
