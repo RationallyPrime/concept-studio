@@ -598,11 +598,14 @@ def test_vllm_is_reported_unavailable_and_refused_on_an_image_without_it(
     real = replace(settings, fake_gpus=None)
     sup = Supervisor(real, FakeBackend(2))
     assert sup.state("vllm").available is False
-    assert {s.name for s in sup.states() if not s.available} == {"vllm"}
+    assert {s.name for s in sup.states() if not s.available} == {"vllm", "upscale-media"}
     with pytest.raises(AgentError) as excinfo:
         sup.start("vllm", [0], {"model": "Qwen/Qwen3-VL-8B-Instruct"})
     assert excinfo.value.code == "unavailable" and excinfo.value.status == 409
     assert "-captioning" in excinfo.value.message
+    with pytest.raises(AgentError) as excinfo:
+        sup.start("upscale-media", [0], {"run_id": "upscale-001", "upload": "upscale-001"})
+    assert "current image" in excinfo.value.message
     executable = Path(real.paths.venv_bin("vllm", "vllm"))
     executable.parent.mkdir(parents=True)
     executable.write_text("")

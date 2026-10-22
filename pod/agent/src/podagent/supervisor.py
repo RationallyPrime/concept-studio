@@ -361,11 +361,7 @@ class Supervisor:
         """
         spec = self._spec(name)
         if not self._available(name):
-            raise Unavailable(
-                f"This computer's image has no {name}. Rent the computer with captioning "
-                "(the image tag ending in -captioning) to caption on its GPU.",
-                detail={"service": name},
-            )
+            raise Unavailable(spec.missing.format(name=name), detail={"service": name})
         try:
             parsed = parse_params(name, params, self.settings.paths, fake=self.settings.fake)
         except ValidationError as error:

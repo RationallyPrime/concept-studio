@@ -220,9 +220,9 @@ enforces no-double-booking, so a user who wants all N GPUs for a train-only run 
 
 ### 2.6 Services
 
-The current catalog (section 3) has twelve names: `vllm`, `tensorboard`, `trainer-aitoolkit`,
-`trainer-ltx`, `trainer-musubi`, `pull-dataset`, `draw-regularization`, `push-lora`, `generate-aitoolkit`,
-`generate-ltx`, `generate-musubi`, `cleanup-datasets`.
+The current catalog (section 3) has thirteen names: `vllm`, `tensorboard`, `trainer-aitoolkit`,
+`trainer-ltx`, `trainer-musubi`, `pull-dataset`, `draw-regularization`, `upscale-media`, `push-lora`,
+`generate-aitoolkit`, `generate-ltx`, `generate-musubi`, `cleanup-datasets`.
 The upload route is not a GPU service. One instance per name at a time; the name is the
 instance key.
 
@@ -517,6 +517,9 @@ The catalog claims the stage before launching its installer; another upload to t
 refused until installation settles. Failed installation releases the claim and retains the
 staged files for correction/retry.
 
+A stage can instead hold images and clips to upscale: `upscale-media` (3.9) moves the whole stage
+into its run directory as `inputs/` when it starts, so the stage name is free again at once.
+
 ## 3. Service catalog
 
 `podagent.catalog.CATALOG: dict[str, ServiceSpec]`. A `ServiceSpec` has:
@@ -539,8 +542,8 @@ class ServiceSpec:
 `paths` is `podagent.settings.Paths` (`workspace`, `datasets`, `runs`, `models`, `logs`,
 `prefix` for `/opt`). In fake mode (section 5) every spec's argv is replaced by
 `[sys.executable, "-m", "podagent.fakeservice", name, "<json params>"]`, a stand-in that logs its
-argv/env, binds the service's port when it has one, and sleeps until SIGTERM (`pull-dataset`
-and `push-lora` fakes exit 0 after two seconds; `cleanup-datasets` also finishes). This is how the supervisor, the API and
+argv/env, binds the service's port when it has one, and sleeps until SIGTERM (`pull-dataset`,
+`push-lora` and `upscale-media` fakes exit 0 after two seconds; `cleanup-datasets` also finishes). This is how the supervisor, the API and
 `podctl` are tested end-to-end without a GPU or Docker.
 
 Secrets: `hf_token` (pull/push/trainers) and `api_key` (vLLM) are optional params; when absent
@@ -778,6 +781,34 @@ training run). The script plans the prompts, draws what `/workspace/regsets` lac
 the planned pictures (a copy where linking fails) to `output/<image key>.png`, where the file routes of 2.10 serve them. Its log
 prints `[regularization] ready k/N` after each picture, which the app shows as progress. Exit 0 =
 the pictures are in `output/`; 2 = bad input (nothing drawn), 1 = the drawing failed.
+
+### 3.9 `upscale-media` — GPUs 1
+
+Upscales and restores images and clips with SeedVR2 before they are captioned and trained on. The
+app uploads the chosen files to a stage (2.14) under neutral names (`u0001.jpg`, `u0002.mp4`, …),
+starts this service, then downloads the results and lets the person compare each with its original
+and keep or discard it; the originals stay on the Mac. A fixed service: no port, one GPU, the
+`seedvr2` interpreter, `trainer.log` in its own run directory. Typed `UpscaleMediaParams` (extra
+fields forbidden):
+
+| field | default | meaning |
+| --- | --- | --- |
+| `run_id` | — | a new run ID; an existing directory is refused |
+| `upload` | — | the stage name; it must hold at least one file and no unfinished upload |
+| `model` | `3b` | `3b` or `7b`: SeedVR2-3B or SeedVR2-7B, FP16 weights |
+| `resolution` | 1024 | 256–4096: the short side of every result, aspect ratio kept |
+| `max_resolution` | 2048 | 256–8192, at least `resolution`: a cap on the longer side |
+| `seed` | 42 | the restoration seed |
+
+argv is `[/opt/venvs/seedvr2/bin/python, /opt/pod/scripts/upscale_media.py, --run,
+/workspace/runs/<id>]`. `prepare()` creates the run directory, renames the stage to its `inputs/`
+under the staging lock, and saves the params as `upscale.json`. Images and clips (by suffix, 7.1)
+become `output/<stem>.png` and `output/<stem>.mp4`, where the file routes of 2.10 serve them. A clip
+keeps its frame rate, frame count (checked with ffprobe; a mismatch fails that clip) and its
+original audio track. The log prints `[upscale] ready k/N` as results land and `[upscale] failed
+<name>: <reason>` for an input with no usable result. Exit 0 = at least one result is in `output/`;
+2 = bad input (nothing run); 1 = every input failed. An image built before this service existed has
+no `/opt/venvs/seedvr2`; the agent then reports the service unavailable and refuses a start (409).
 
 ## 4. Run config and the launch wrappers
 
@@ -1340,6 +1371,7 @@ class GpuBackend(Protocol):
 ```
 images/Dockerfile.base       nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
                              + python3.12, uv
+                             + /opt/seedvr2, /opt/venvs/seedvr2 : SeedVR2 command line (pinned), its torch
                              + /opt/venvs/agent   : podagent, concept-captioner (from this repo), tensorboard,
                                                     huggingface_hub, datasets, Pillow
                              + /opt/pod/scripts/*, /opt/pod/entrypoint.sh
@@ -1409,8 +1441,11 @@ PODAGENT_TOKEN}`, `PODAGENT_WORKSPACE=/workspace`, bind mount `./workspace:/work
   runs/<training-id>/regularization/       the run's copy of its regularisation set (+ regularization.json)
   runs/<drawing-id>/      regularization-draw.json, regularization-plan.json, trainer.log
     output/              <image-key>.png, the pictures the app captions
+  runs/<upscale-id>/      upscale.json, inputs/ (the moved upload stage), trainer.log
+    output/              <stem>.png and <stem>.mp4, the upscaled media the app downloads
   regsets/<model-key>/    generated regularisation images, <image-key>.png + .txt; the reuse cache, never auto-cleaned
   models/hf-cache/        HF_HOME for every child (vLLM weights, base models, REPA's image encoder)
+  models/seedvr2/         SeedVR2 weights, downloaded on first use by upscale-media
   models/<dir>/           user-placed local models
   logs/                   vllm.log, tensorboard.log, pull-dataset.log, push-lora.log, podagent.log
 ```
@@ -1515,6 +1550,16 @@ calls its functions (`plan_generated`, `materialize`, `check_folder`). Standard 
 time (`--help` works under `python -I`); Pillow is read for image sizes when importable; `draw`
 loads `generate_results.py` and, through its `render_base`, ai-toolkit. Exit 0 done, 2 bad input,
 1 failed.
+
+### 7.6 `upscale_media.py`
+
+`--run DIR`: the `upscale-media` service (3.9). Standard library only; the pinned SeedVR2 command
+line (`/opt/seedvr2/inference_cli.py`) runs as a child process. Images go through it as one
+directory pass with the models kept loaded, each clip on its own (4n+1-frame batches with temporal
+overlap, ffmpeg video backend), then ffmpeg copies the restored video stream and the original audio
+into the result. Memory savings follow the GPU's memory from nvidia-smi: below 48 GiB the VAE is
+tiled, below 24 GiB (or unreadable) transformer blocks are swapped to system memory. Exit 0 at least
+one result, 2 bad input, 1 every input failed.
 
 ## 8. `podctl`
 
