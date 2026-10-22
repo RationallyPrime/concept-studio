@@ -96,10 +96,15 @@ extension GPUWorkspace {
             "resolution": .int(target.shortSide), "max_resolution": .int(target.longSideLimit),
         ])
         progress("Upscaling on the cloud GPU. The first use downloads the model to its storage.")
-        try await waitForService("upscale-media") {
-            guard let log = try? await agent.runLog(runID: runID),
-                  let state = UpscaleProgress.parse(log: log) else { return }
-            progress(state.text)
+        do {
+            try await waitForService("upscale-media") {
+                guard let log = try? await agent.runLog(runID: runID),
+                      let state = UpscaleProgress.parse(log: log) else { return }
+                progress(state.text)
+            }
+        } catch is CancellationError {
+            try? await agent.stop("upscale-media") // a cancelled upscale does not keep the GPU working
+            throw CancellationError()
         }
         let log = await (try? agent.runLog(runID: runID)) ?? ""
         let files = try await agent.runFiles(runID: runID)
