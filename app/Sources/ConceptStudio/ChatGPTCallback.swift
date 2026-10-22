@@ -84,8 +84,7 @@ actor ChatGPTLoopbackCallback: ChatGPTCallback {
     }
 
     private func received(_ connection: NWConnection, data: Data, complete: Bool, error: NWError?) {
-        guard result == nil else { connection.cancel(); return }
-        guard error == nil, data.count <= 16384 else { connection.cancel(); return }
+        guard result == nil, error == nil, data.count <= 16384 else { connection.cancel(); return }
         guard let headerEnd = data.range(of: Data("\r\n\r\n".utf8)) else {
             if complete { connection.cancel() } else { receive(connection, data: data) }
             return

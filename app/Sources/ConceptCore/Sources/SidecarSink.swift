@@ -86,8 +86,8 @@ public struct SidecarSink: CaptionSink {
     /// from the id asked for, so a human-final record is never mistaken for no record.
     public func record(_ sampleID: String) async throws -> ResponseRecord? {
         let url = recordURL(for: sampleID)
-        guard isFile(url), let data = try? Data(contentsOf: url) else { return nil }
-        guard let json = try? JSONValue(parsing: data) else { return nil }
+        guard isFile(url), let data = try? Data(contentsOf: url),
+              let json = try? JSONValue(parsing: data) else { return nil }
         return try? ResponseRecord(json: json, sampleID: sampleID)
     }
 

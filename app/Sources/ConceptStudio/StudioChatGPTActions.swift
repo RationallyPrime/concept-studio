@@ -52,8 +52,8 @@ extension StudioSession {
         let generation = chatGPTWorkGeneration
         let account = chatGPT.accounts.first { $0.id == accountID }
         let enablePlan = account?.isSignedIn == true && account?.hasPlanPermission == false
-        guard await chatGPT.signIn(accountID: accountID, enablePlanUsage: enablePlan) else { return }
-        guard generation == chatGPTWorkGeneration, !demoMode, !busy, !Task.isCancelled,
+        guard await chatGPT.signIn(accountID: accountID, enablePlanUsage: enablePlan),
+              generation == chatGPTWorkGeneration, !demoMode, !busy, !Task.isCancelled,
               chatGPT.errorMessage == nil, chatGPT.selectedAccount?.hasPlanPermission == true,
               chatGPT.selectedAccount?.isSignedIn == true else { return }
         openAIUsesChatGPT = true

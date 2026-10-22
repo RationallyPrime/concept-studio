@@ -222,8 +222,9 @@ struct DirectDatasetUploadTests {
     }
 }
 
+@MainActor
 extension DirectDatasetUploadTests {
-    @MainActor @Test(arguments: [false, true])
+    @Test(arguments: [false, true])
     func publishEntryLoadsOnlyExistingHubCredentialWithoutSettingsOrProviderActions(configured: Bool) throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -279,8 +280,9 @@ func captionedUploadProject(at destination: URL? = nil) async throws -> StudioPr
     return project
 }
 
+@MainActor
 extension DirectDatasetUploadTests {
-    @MainActor @Test func trainingUsesCapturedProfileAndTriggersWhenProjectDefaultsChangeDuringUpload() async throws {
+    @Test func trainingUsesCapturedProfileAndTriggersWhenProjectDefaultsChangeDuringUpload() async throws {
         let project = try await captionedUploadProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let (preferences, suite) = try temporaryPreferences()
@@ -318,7 +320,7 @@ extension DirectDatasetUploadTests {
         #expect(start.params["base_model"] == .string(selectedModel))
     }
 
-    @MainActor @Test func oversizedInputIsRefusedBeforeSnapshotCopyOrHTTPUpload() async throws {
+    @Test func oversizedInputIsRefusedBeforeSnapshotCopyOrHTTPUpload() async throws {
         let project = try await captionedUploadProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let file = project.images[0].url
@@ -342,7 +344,7 @@ extension DirectDatasetUploadTests {
         #expect(await uploader.requests.isEmpty)
     }
 
-    @MainActor @Test func capturedInputsReleaseProjectGatesAndMetadataUsesCopiedCaptionBytes() async throws {
+    @Test func capturedInputsReleaseProjectGatesAndMetadataUsesCopiedCaptionBytes() async throws {
         let project = try await captionedUploadProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let (preferences, suite) = try temporaryPreferences()
