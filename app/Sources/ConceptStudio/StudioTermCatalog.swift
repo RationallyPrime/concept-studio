@@ -50,7 +50,7 @@ struct StudioGlossaryCatalog: Decodable, Sendable {
         description: "What each kind of concept teaches the model, and how its captions and mapping work."
     ), GlossarySection(
         id: "using-conceptstudio", title: "Using ConceptStudio",
-        description: "Accounts, project settings and rented computers in this application."
+        description: "Accounts, project settings and cloud GPUs in this application."
     )]
 
     private static func decode<T: Decodable>(_ name: String) -> T {
@@ -104,7 +104,7 @@ struct StudioTerm: RawRepresentable, Hashable, Identifiable, CaseIterable, Senda
     static let datasetRevision = Self("dataset-revision")
     static let gpu = Self("gpu")
     static let vram = Self("gpu-memory")
-    static let pod = Self("pod")
+    static let cloudGPU = Self("cloud-gpu")
     static let networkStorage = Self("network-storage")
     static let containerImage = Self("container-image")
     static let budget = Self("budget")

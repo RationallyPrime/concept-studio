@@ -64,7 +64,10 @@ struct StudioSessionTests {
         await session.gpu.stopEverything()
     }
 
-    @Test func onlyTheCaptioningRentalCarriesTheCaptionServer() async throws {
+    /// The Captioning screen's rental, and any rental while a caption model is kept on GPU 0 during training,
+    /// carries the caption server; other rentals get the trainer's image without it.
+    @Test(arguments: [(true, false), (false, true), (false, false)])
+    func captionServerRentalsTakeTheCaptioningImage(fromCaptioning: Bool, keepCaptionModel: Bool) async throws {
         let suite = "StudioSessionTests." + UUID().uuidString
         let preferences = try #require(UserDefaults(suiteName: suite))
         defer { preferences.removePersistentDomain(forName: suite) }
@@ -75,13 +78,16 @@ struct StudioSessionTests {
         )
         try session.gpu.configure(runpodKey: "fake", hubToken: "fake", imageName: "")
         session.gpu.trainer = "musubi"
-        session.gpu.rentsCaptionServer = true
+        session.gpu.rentsCaptionServer = fromCaptioning
+        session.gpu.keepCaptionServer = keepCaptionModel
         await session.gpu.refreshOffers()
         await session.gpu.rent()
-        #expect(await transport.createdImages
-            == ["ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.8-20261021-captioning"])
+        let slim = "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.8-20261021"
+        let captioning = slim + GPUWorkspace.captioningTagSuffix
+        #expect(await transport.createdImages == [fromCaptioning || keepCaptionModel ? captioning : slim])
+        // The Captioning screen's request is for one rental; keeping a caption model is a standing setting.
         #expect(!session.gpu.rentsCaptionServer)
-        #expect(session.gpu.podImage == "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.8-20261021")
+        #expect(session.gpu.podImage == (keepCaptionModel ? captioning : slim))
         await session.gpu.stopEverything()
 
         session.gpu.updateCaptionServerState([AgentService(

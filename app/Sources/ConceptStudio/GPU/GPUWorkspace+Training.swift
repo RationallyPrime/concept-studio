@@ -29,6 +29,13 @@ extension GPUWorkspace {
         ),
     ]
 
+    /// Where `captionModel` is remembered between launches.
+    static let captionModelKey = "ConceptStudio.selfHostedCaptionModel"
+
+    static func rememberedCaptionModel(_ preferences: UserDefaults) -> String? {
+        preferences.string(forKey: captionModelKey).flatMap { $0.isBlank ? nil : $0 }
+    }
+
     nonisolated static func captionServerSettings(for model: String) -> CaptionServerSettings {
         measuredCaptionServers[model] ?? measuredCaptionServers["Qwen/Qwen3-VL-8B-Instruct"]!
     }
@@ -60,12 +67,13 @@ extension GPUWorkspace {
     ) async {
         await perform {
             guard let agent = self.agent, self.hasRunningPod else {
-                throw StudioError.message("Rent a training computer first, then return here.")
+                throw StudioError.message("Rent a cloud GPU first, then return here.")
             }
             let cap = self.runBudget
             guard cap.isFinite, cap > 0 else {
                 throw StudioError.message("Choose a positive budget for this training run before preparing its inputs.")
             }
+            try self.checkModelDownloadsWithoutHubToken()
             let baseline = self.estimatedPodCost
             let selectedTrainer = self.trainer
             let selectedModel = self.baseModel
@@ -132,9 +140,7 @@ extension GPUWorkspace {
             }
             self.trainingState = "running"
             self.lastActivity = Date()
-            self.message = destination == .hub
-                ? "Training started. When it finishes, the LoRA is pushed to \(output.repo)."
-                : "Training started. When it finishes, the LoRA is saved into this project’s results folder."
+            self.message = self.trainingStartedMessage(destination, output: output)
         }
     }
 
@@ -343,7 +349,7 @@ extension GPUWorkspace {
         var ready = false
         await perform {
             guard let agent = self.agent, self.hasRunningPod else {
-                throw StudioError.message("Rent a computer before starting its caption model.")
+                throw StudioError.message("Rent a cloud GPU before starting its caption model.")
             }
             let plan = try await agent.plan()
             self.plan = plan
@@ -352,18 +358,26 @@ extension GPUWorkspace {
             guard self.captionServerInstalled else { throw StudioError.message(Self.noCaptionServer) }
             if plan.mode == "sequential",
                services.contains(where: { $0.name.hasPrefix("trainer-") && $0.active }) {
-                throw StudioError.message("Finish training before captioning on this single-GPU computer.")
+                throw StudioError.message("Finish training before captioning; you rented only one GPU.")
             }
             try await self.ensureCaptionServer(agent, plan: plan, services: services)
             ready = true
-            self.message = "The caption model is ready. You can now caption with this computer."
+            self.message = "The caption model is ready. You can now caption with this cloud GPU."
         }
         return ready
     }
 
-    /// Starts the caption server on the rented computer unless it runs, and waits until it serves the model.
+    /// Starts the caption server on the rented computer unless it already serves `captionModel`, and waits until it
+    /// does. A server still running an earlier choice is stopped and started with the current one.
     func ensureCaptionServer(_ agent: any PodAgent, plan: TrainingPlan, services: [AgentService]) async throws {
-        if !services.contains(where: { $0.name == "vllm" && $0.active }) {
+        var running = services.contains(where: { $0.name == "vllm" && $0.active })
+        if running, !demoMode, let served = try await servedCaptionModels(), !served.contains(captionModel) {
+            message = "Switching the caption server to \(captionModel)."
+            try await agent.stop("vllm")
+            try await waitForService("vllm", allowStopped: true)
+            running = false
+        }
+        if !running {
             try await agent.start("vllm", gpus: plan.caption?.gpus ?? [], params: captionStartParams)
             captionServerActive = nil
         }
@@ -375,35 +389,40 @@ extension GPUWorkspace {
     }
 
     private func waitForCaptionModel() async throws {
-        guard let endpoint = captionEndpoint else {
-            throw StudioError.message("Your captioning computer is stopped. Rent or start one first.")
-        }
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(600))
         while clock.now < deadline {
             try Task.checkCancellation()
-            var request = URLRequest(url: endpoint.appendingPathComponent("models"), timeoutInterval: 15)
-            request.setValue("Bearer \(agentToken)", forHTTPHeaderField: "Authorization")
-            do {
-                let response = try await transport.send(request)
-                if response.status == 200,
-                   let models = try JSONValue(parsing: response.body).objectValue?["data"]?.arrayValue,
-                   models.contains(where: { $0.objectValue?["id"]?.stringValue == captionModel }) {
-                    return
-                }
-                if [401, 403].contains(response.status) {
-                    throw StudioError.message("This computer rejected its captioning key. Stop it and rent a new one.")
-                }
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch let error as StudioError {
-                throw error
-            } catch {
-                // The inference server may not yet be listening while model weights download.
-            }
+            if try await servedCaptionModels()?.contains(captionModel) == true { return }
             try await Task.sleep(for: .seconds(2))
         }
         throw StudioError
-            .message("The caption model is still not ready. Check the computer’s logs or stop it before retrying.")
+            .message("The caption model is still not ready. Check the cloud GPU’s logs or stop it before retrying.")
+    }
+
+    /// The models the caption server lists, or nil while it does not answer.
+    private func servedCaptionModels() async throws -> [String]? {
+        guard let endpoint = captionEndpoint else {
+            throw StudioError.message("The cloud GPU you caption with is stopped. Rent or start one first.")
+        }
+        var request = URLRequest(url: endpoint.appendingPathComponent("models"), timeoutInterval: 15)
+        request.setValue("Bearer \(agentToken)", forHTTPHeaderField: "Authorization")
+        do {
+            let response = try await transport.send(request)
+            if [401, 403].contains(response.status) {
+                throw StudioError.message("This cloud GPU rejected its captioning key. Stop it and rent a new one.")
+            }
+            guard response.status == 200,
+                  let models = try JSONValue(parsing: response.body).objectValue?["data"]?.arrayValue
+            else { return nil }
+            return models.compactMap { $0.objectValue?["id"]?.stringValue }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as StudioError {
+            throw error
+        } catch {
+            // The inference server may not yet be listening while model weights download.
+            return nil
+        }
     }
 }

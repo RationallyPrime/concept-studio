@@ -95,7 +95,7 @@ struct TrainingBudgetView: View {
                     .disabled((higherCap ?? 0) <= cap)
             }
             Text("The run budget includes input transfer, preparation, regularisation images and continued training. "
-                + "Reaching either this cap or the whole-computer cap stops the computer. Estimates exclude "
+                + "Reaching either this cap or the cloud GPU's cap stops the cloud GPU. Estimates exclude "
                 + "separately billed storage. Keep this Mac awake with the app open; closing its lid can suspend "
                 + "the checks.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)

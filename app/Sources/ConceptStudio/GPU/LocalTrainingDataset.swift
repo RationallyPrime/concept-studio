@@ -120,7 +120,7 @@ struct LocalTrainingDataset {
 
 extension GPUWorkspace {
     var usesLocalDataset: Bool {
-        !demoMode && hubToken.isEmpty
+        !demoMode && !cloudGPUHoldsHubToken
     }
 
     func currentLocalDataset(

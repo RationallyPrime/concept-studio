@@ -51,7 +51,12 @@ struct AdvancedTrainingControls: View {
                 .font(.callout).foregroundStyle(StudioStyle.supportingText)
             }
             Toggle("Keep a caption model on GPU 0 while training", isOn: $workspace.keepCaptionServer)
-            if workspace.keepCaptionServer { TextField("Caption model", text: $workspace.captionModel) }
+            if workspace.keepCaptionServer {
+                LabeledContent("Caption model", value: workspace.captionModel)
+                    .textSelection(.enabled)
+                Text("Choose this model on Captioning, with the provider My cloud GPU / custom server.")
+                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+            }
             StudioTermsHelp(terms: [
                 .trainingSteps,
                 .checkpoint,

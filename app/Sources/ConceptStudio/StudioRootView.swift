@@ -238,7 +238,7 @@ struct StudioRootView: View {
                 Button(session.gpu.isStopping ? "Stopping…" : "Stop everything") { session.requestStopEverything() }
                     .buttonStyle(PrintButtonStyle(kind: .secondary)).frame(width: 150)
                     .disabled(session.gpu.isStopping)
-                    .help("Cancel work and stop the rented computer.")
+                    .help("Cancel work and stop the cloud GPU.")
                     .padding(.trailing, 12)
             }
             if session.step != .concepts, let following = session.nextStep {

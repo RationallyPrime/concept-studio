@@ -37,10 +37,12 @@ actor UnreachableAgentTransport: HTTPTransport {
     private var runIDs: [String: String] = [:]
     private var servedModel = "Qwen/Qwen3-VL-8B-Instruct"
     private var listedPods: [String] = []
+    private var podRemovedOutside = false
     private var runFiles: [RunFile] = []
     private var filesFail = false
     private var listFails = false
     private var hubAccount: String?
+    private var communityOffered = false
     private var history: [(Int, Double)] = []
     private(set) var stopCalls = 0
     private(set) var stoppedPods: [String] = []
@@ -61,6 +63,11 @@ actor UnreachableAgentTransport: HTTPTransport {
         self.agentAvailable = agentAvailable
         self.inferenceReady = inferenceReady
         self.gpuCount = gpuCount
+    }
+
+    /// RunPod no longer has the pod: someone removed it in the console or with another tool.
+    func removePodOutside() {
+        podRemovedOutside = true
     }
 
     func list(_ pods: [String]) {
@@ -91,6 +98,11 @@ actor UnreachableAgentTransport: HTTPTransport {
     /// The account `GET huggingface.co/api/whoami-v2` reports; nil answers 401.
     func signIn(_ account: String?) {
         hubAccount = account
+    }
+
+    /// The catalog lists its GPU in Community Cloud as well as Secure Cloud.
+    func offerCommunityCloud() {
+        communityOffered = true
     }
 
     func curve(_ points: [(Int, Double)]) {
@@ -155,6 +167,9 @@ actor UnreachableAgentTransport: HTTPTransport {
             }
             if url.deletingLastPathComponent().lastPathComponent == "test" { stopped = true }
         }
+        if podRemovedOutside, url.path().contains("/v2/pods/"), request.httpMethod == "GET" {
+            return HTTPResponse(status: 404)
+        }
         if listFails, url.path().hasSuffix("/v2/pods"), request.httpMethod != "POST" {
             return HTTPResponse(status: 500)
         }
@@ -170,6 +185,9 @@ actor UnreachableAgentTransport: HTTPTransport {
             services[service] = ["pull-dataset", "push-lora"].contains(service) ? "exited" : "running"
             runIDs[service] = params?["run_id"]?.stringValue
             if service == "vllm" { servedModel = params?["model"]?.stringValue ?? servedModel }
+        }
+        if url.lastPathComponent == "stop" {
+            services[url.deletingLastPathComponent().lastPathComponent] = "stopped"
         }
         if url.lastPathComponent == "plan" {
             return [
@@ -247,8 +265,10 @@ actor UnreachableAgentTransport: HTTPTransport {
 
     private func provider(_ request: URLRequest, url: URL) -> String {
         if url.path().contains("catalog/gpus") {
-            return #"{"gpus":[{"id":"test","name":"Test GPU","memory":80,"secure":true,"#
-                + #""price":{"secure":1},"maxCount":{"secure":4},"#
+            let community = communityOffered
+                ? #""community":true,"price":{"secure":1,"community":0.5},"maxCount":{"secure":4,"community":4},"#
+                : #""price":{"secure":1},"maxCount":{"secure":4},"#
+            return #"{"gpus":[{"id":"test","name":"Test GPU","memory":80,"secure":true,"# + community
                 + #""dataCenters":[{"id":"EU-IS-1","availability":"HIGH"}]}]}"#
         }
         if url.path().hasSuffix("network-volumes") {

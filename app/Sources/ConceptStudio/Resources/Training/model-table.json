@@ -464,7 +464,7 @@
         "min_vram_gb": 96,
         "verify_on_pod": true,
         "note": "H3's known training reference used a 96 GB GPU; recipe and resolution still affect fit.",
-        "verify_message": "This H3 recipe's known reference used a 96 GB GPU. Choose a computer with at least that memory before uploading inputs. Fit still depends on the recipe."
+        "verify_message": "This H3 recipe's known reference used a 96 GB GPU. Choose a cloud GPU with at least that memory before uploading inputs. Fit still depends on the recipe."
       },
       "video": {
         "title": "MiniMax H3",
@@ -630,7 +630,7 @@
         ],
         "gated": false,
         "first_download_gb": 32.5,
-        "download_note": "The bf16 transformer (14.2 GB), the bf16 Qwen3-VL-8B text encoder (17.5 GB) and the VAE (0.7 GB) from the Comfy-Org/Qwen-Image-2.1 repack, plus the processor and configs from Qwen/Qwen-Image-2.1 (under 0.1 GB). AI Toolkit downloads them on first use into its own models folder (MODELS_PATH, by default /opt/ai-toolkit/models), which is on the pod's container disk rather than the /workspace volume, so the download repeats on a new pod. The revisions are not pinned."
+        "download_note": "The bf16 transformer (14.2 GB), the bf16 Qwen3-VL-8B text encoder (17.5 GB) and the VAE (0.7 GB) from the Comfy-Org/Qwen-Image-2.1 repack, plus the processor and configs from Qwen/Qwen-Image-2.1 (under 0.1 GB). AI Toolkit downloads them on first use into its own models folder (MODELS_PATH, by default /opt/ai-toolkit/models), which is on the cloud GPU's container disk rather than the /workspace volume, so the download repeats on a new cloud GPU. The revisions are not pinned."
       },
       "architecture": {
         "arch": "qwen_image_2",
@@ -801,7 +801,7 @@
         "min_vram_gb": 24,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 24 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 24 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -921,7 +921,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1043,7 +1043,7 @@
         "min_vram_gb": 32,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 32 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 32 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1173,7 +1173,7 @@
         "min_vram_gb": 80,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 80 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1290,7 +1290,7 @@
         "min_vram_gb": 24,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 24 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 24 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1412,7 +1412,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1540,7 +1540,7 @@
         "min_vram_gb": 96,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 96 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 96 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1663,7 +1663,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1787,7 +1787,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -1913,7 +1913,7 @@
         "min_vram_gb": 32,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 32 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 32 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2035,7 +2035,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2161,7 +2161,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2280,7 +2280,7 @@
         "min_vram_gb": 80,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 80 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2410,7 +2410,7 @@
         "min_vram_gb": 80,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 80 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2537,7 +2537,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2660,7 +2660,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2776,7 +2776,7 @@
         "min_vram_gb": 96,
         "verify_on_pod": true,
         "note": "The recipe trains the full bf16 transformer without block swap; it was measured on a 96 GB RTX PRO 6000.",
-        "verify_message": "Krea 2 training needs at least 96 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "Krea 2 training needs at least 96 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -2920,7 +2920,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {
@@ -3049,7 +3049,7 @@
         "min_vram_gb": 48,
         "verify_on_pod": true,
         "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 48 GB of memory per GPU. Choose a larger computer."
+        "verify_message": "This unverified recipe requires at least 48 GB of graphics memory on each GPU. Choose a larger GPU."
       },
       "video": null,
       "preview": {

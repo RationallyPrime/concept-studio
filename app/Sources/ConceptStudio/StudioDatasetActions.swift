@@ -104,7 +104,7 @@ extension StudioSession {
                     try self.ensurePublishIsCurrent(publishID, projectDirectory: project.directory)
                     self.completed = snapshot.files.count
                     self.message = "Training data checked. No Hugging Face account is needed. "
-                        + "Start training to upload these included targets directly to your rented computer."
+                        + "Start training to upload these included targets directly to your cloud GPU."
                 } else {
                     let client = try HubClient(token: self.keyStore.read("huggingface"))
                     guard client.token?.isEmpty == false else {

@@ -17,7 +17,7 @@ extension GPUWorkspace {
             }
             guard let agent = self.agent, self.hasRunningPod, !run.volumeID.isEmpty,
                   run.volumeID == self.currentVolumeID else {
-                throw StudioError.message("Connect a computer to this run's saved storage, then save its model.")
+                throw StudioError.message("Connect a cloud GPU to this run's saved storage, then save its model.")
             }
             let files = try await RunArtifacts.selection(agent.runFiles(runID: run.runID))
             guard !files.isEmpty else {

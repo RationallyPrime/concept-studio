@@ -29,7 +29,7 @@ enum StudioConfirmation: Equatable {
         switch self {
         case .discardCaptionDrafts: "Discard unsaved caption edits?"
         case let .stopAndClose(podRunning):
-            podRunning ? "Stop the rented computer before closing?" : "Cancel the current work?"
+            podRunning ? "Stop the cloud GPU before closing?" : "Cancel the current work?"
         }
     }
 
@@ -40,7 +40,7 @@ enum StudioConfirmation: Equatable {
                 + "Save those captions on Review to keep them. Saved captions are unchanged."
         case let .stopAndClose(podRunning):
             podRunning
-                ? "The computer is still running and costing money. Closing will cancel local work and stop it. "
+                ? "The cloud GPU is still running and costing money. Closing will cancel local work and stop it. "
                 + "If the stop cannot be confirmed, this project will stay open."
                 : "Completed captions are saved. Work still in progress will be cancelled before the project closes."
         }
@@ -123,7 +123,10 @@ final class StudioSession {
     var startupRestored = false
     var recentPaths: [String] = []
     var endpointKind = ""
-    var modelName = ""
+    var modelName = "" {
+        didSet { followSelfHostedModel() }
+    }
+
     var criticKind = ""
     var criticModel = ""
     var openAIUsesChatGPT = false
@@ -147,7 +150,10 @@ final class StudioSession {
     var podImageName = ""
     var volumeID = ""
     var projectAccess: URL?
-    var gpu: GPUWorkspace
+    var gpu: GPUWorkspace {
+        didSet { followSelfHostedModel() }
+    }
+
     let inspector = VisionInspector()
     let preferences: UserDefaults
     let secrets: any SecretStore
