@@ -83,8 +83,11 @@ extension StudioSession {
                 let accessed = url.startAccessingSecurityScopedResource()
                 defer { if accessed { url.stopAccessingSecurityScopedResource() } }
                 let existing = try ProjectAccess.existingProject(at: url)
-                let opened: StudioProject = if existing { try await StudioProject.open(at: url) }
-                else { try StudioProject.create(at: url) }
+                let opened: StudioProject = if existing {
+                    try await StudioProject.open(at: url)
+                } else {
+                    try StudioProject.create(at: url)
+                }
                 await self.releaseProject()
                 self.demoMode = false
                 self.loadSavedChoices()
@@ -99,7 +102,8 @@ extension StudioSession {
                 if existing { self.applyJobChoices(opened.job) }
                 self.selectedImageID = opened.images.first?.id
                 self.step = .images
-                self.message = existing ? "Project opened." : "Project created. Import the images or clips for your concept."
+                self.message = existing ? "Project opened."
+                    : "Project created. Import the images or clips for your concept."
                 if existing { self.startImageAnalysis() }
                 // An existing project is opened as-is, never silently appended to by New project.
                 if let location, !existing { try await self.downloadHub(location) }

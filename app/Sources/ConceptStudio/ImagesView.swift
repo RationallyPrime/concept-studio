@@ -257,25 +257,31 @@ struct ImagesView: View {
         .environment(\.colorScheme, .light)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { if included, !locked { editingMedia = image } }
-        .contextMenu {
-            Button(isVideo ? "Preview and trim clip…" : "Inspect and crop…") { editingMedia = image }
-                .disabled(locked || !included)
-            Button(included ? "Exclude from training" : "Include in training") {
-                session.includeMedia(image.id, included: !included)
-            }.disabled(locked)
-            if !isVideo {
-                ForEach(session.project?.job.concepts ?? [], id: \.trigger) { concept in
-                    Button("Use as reference photo for \(concept.trigger)") {
-                        session.useAsReference(image: image, trigger: concept.trigger)
-                    }.disabled(locked)
-                }
+        .contextMenu { curationMenu(image) }
+    }
+
+    @ViewBuilder private func curationMenu(_ image: ProjectImage) -> some View {
+        let included = session.project?.isIncluded(image.id) == true
+        let isVideo = Sources.isVideo(Sources.suffix(of: image.id))
+        let locked = session.busy || session.editing
+        let upscaled = session.upscaleRecord(for: image.id)
+        Button(isVideo ? "Preview and trim clip…" : "Inspect and crop…") { editingMedia = image }
+            .disabled(locked || !included)
+        Button(included ? "Exclude from training" : "Include in training") {
+            session.includeMedia(image.id, included: !included)
+        }.disabled(locked)
+        if !isVideo {
+            ForEach(session.project?.job.concepts ?? [], id: \.trigger) { concept in
+                Button("Use as reference photo for \(concept.trigger)") {
+                    session.useAsReference(image: image, trigger: concept.trigger)
+                }.disabled(locked)
             }
-            Divider()
-            Button("Upscale and restore…") { upscaling = UpscaleChoice(ids: [image.id]) }
-                .disabled(locked || !included)
-            if upscaled != nil {
-                Button("Put back original") { session.revertUpscale(image.id) }.disabled(locked)
-            }
+        }
+        Divider()
+        Button("Upscale and restore…") { upscaling = UpscaleChoice(ids: [image.id]) }
+            .disabled(locked || !included)
+        if upscaled != nil {
+            Button("Put back original") { session.revertUpscale(image.id) }.disabled(locked)
         }
     }
 }

@@ -14,7 +14,8 @@ struct HubDatasetSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title).font(.title2.bold())
             Text(
-                "Paste a dataset URL, including a folder URL, or enter owner/dataset. Imports images, clips and captions."
+                "Paste a dataset URL, including a folder URL, or enter owner/dataset. "
+                    + "Imports images, clips and captions."
             )
             .foregroundStyle(StudioStyle.supportingText)
             TextField("Dataset URL or owner/dataset", text: $input)
