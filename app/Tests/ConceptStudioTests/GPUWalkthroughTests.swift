@@ -171,6 +171,20 @@ struct GPUWalkthroughTests {
         #expect(workspace.message.contains("deleted with training run concept-pending"))
     }
 
+    @MainActor @Test func krea2TrainsOnMusubiWithTheRowsRecipe() {
+        let workspace = GPUWorkspace(demoMode: true)
+        workspace.chooseTrainingModel("krea/Krea-2-Raw")
+        #expect(workspace.trainer == "musubi")
+        let params = workspace.trainingParams(dataset: "concept-source", inputFacts: ("plain", "NORA7", false))
+        #expect(params["base_model"] == .string("krea/Krea-2-Raw"))
+        #expect(params["steps"] == .int(1600) && params["rank"] == .int(32) && params["alpha"] == .int(32))
+        #expect(params["resolution"] == .int(1024))
+        #expect(params["save_every"] == .int(100))
+        // The launcher owns the recipe; extra carries only a repeated run's own args.
+        #expect(params["extra"] == .object([:]))
+        #expect(params["caption_dropout"] == nil)
+    }
+
     @MainActor @Test func h3DefaultsAndRepeatPreserveTheEffectiveRecipe() throws {
         let workspace = GPUWorkspace(demoMode: true)
         workspace.chooseTrainingModel(GPUWorkspace.h3BaseModel)

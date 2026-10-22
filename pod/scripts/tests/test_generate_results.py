@@ -295,3 +295,71 @@ def test_ltx_generation_uses_retained_config_without_pruned_training_inputs(tmp_
     assert len(calls) == 2
     assert "--lora" not in calls[0] and str(checkpoint) in calls[1]
     assert not Path(cfg["dataset"]["path"]).exists()  # no restore/pull for inference
+
+
+def test_musubi_krea2_renders_both_sides_on_the_rows_generation_weights(tmp_path, monkeypatch):
+    """Turbo built twice (plain, then with the LoRA merged), the request's settings, Turbo's mu."""
+    import argparse
+    import types
+
+    monkeypatch.setenv("PODAGENT_WORKSPACE", str(tmp_path))
+    wrapper = generation.runpy.run_path(
+        str(Path(generation.__file__).with_name("launch_musubi.py"))
+    )
+    downloads, builds, renders = [], [], []
+    wrapper["download_weights"] = lambda cfg, row, roles: downloads.append(roles)
+    monkeypatch.setattr(generation.runpy, "run_path", lambda _: wrapper)
+
+    def parse_args():
+        parser = argparse.ArgumentParser()
+        for flag in ("--dit", "--vae", "--text_encoder", "--save_path"):
+            parser.add_argument(flag)
+        parser.add_argument("prompt")
+        return argparse.Namespace(
+            **vars(parser.parse_args(sys.argv[1:])),
+            device="cuda", attn_mode="torch", steps=28, guidance_scale=5.5, mu=None,
+        )  # fmt: skip
+
+    class Image:
+        def save(self, path):
+            Path(path).write_bytes(b"synthetic output")
+
+    def build_pipeline(dit, vae, **options):
+        builds.append((dit, options["lora_weights"]))
+        return object(), object()
+
+    def generate(args, dit, ae, encoder, device, dtype, te_device):
+        renders.append(vars(args).copy())
+        return [Image()]
+
+    krea2 = types.SimpleNamespace(
+        parse_args=parse_args,
+        load_text_encoder=lambda path, dtype: object(),
+        build_pipeline=build_pipeline,
+        apply_overrides=lambda args, overrides: argparse.Namespace(**{**vars(args), **overrides}),
+        generate=generate,
+    )
+    package = types.ModuleType("musubi_tuner")
+    package.krea2_generate_image = krea2
+    fake_torch = types.SimpleNamespace(
+        bfloat16="bf16", cuda=types.SimpleNamespace(empty_cache=lambda: None)
+    )
+    monkeypatch.setitem(sys.modules, "musubi_tuner", package)
+    monkeypatch.setitem(sys.modules, "musubi_tuner.krea2_generate_image", krea2)
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+
+    cfg = {"base_model": "krea/Krea-2-Raw", "sample_every": 0, "sample_prompts": []}
+    request = {"width": 1024, "height": 1024, "inference_steps": 8, "guidance_scale": 1.0}
+    rows = generation.pairs({"prompts": ["NORA7 at a desk"], "seeds": [42, 7]}, "musubi")
+    checkpoint = tmp_path / "runs/comparison/selected-checkpoint.safetensors"
+    generation.musubi_krea2_generate(cfg, checkpoint, request, rows, tmp_path)
+
+    assert downloads == [("sample_dit", "vae", "text_encoder")]
+    turbo = str(tmp_path / "models/huggingface/krea/Krea-2-Turbo/turbo.safetensors")
+    assert builds == [(turbo, None), (turbo, [str(checkpoint)])]
+    assert [
+        (r["prompt"], r["seed"], r["steps"], r["guidance_scale"], r["mu"]) for r in renders
+    ] == [("NORA7 at a desk", seed, 8, 1.0, 1.15) for seed in (42, 7)] * 2
+    assert all((tmp_path / row[key]).read_bytes() == b"synthetic output"
+               for row in rows for key in ("base_path", "lora_path"))  # fmt: skip
+    assert rows[0]["base_path"].endswith(".png")

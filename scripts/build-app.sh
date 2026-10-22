@@ -33,7 +33,15 @@ for resource in "$bin_dir"/*.bundle; do
     [ -d "$resource" ] || continue
     cp -R "$resource" "$bundle/Contents/Resources/"
 done
-# Drawn by scripts/draw-app-icon.swift; regenerate the .icns from it when the icon changes.
+# The icon is an Icon Composer file (artwork from scripts/make-app-icon.py). actool compiles it into
+# Assets.car, which current macOS shows full size; an old-style .icns alone is shrunk onto a grey
+# plate there. The committed ConceptStudio.icns is actool's fallback for older systems.
+icon_build="$(mktemp -d)"
+xcrun actool "$repo_dir/app/Packaging/ConceptStudio.icon" --compile "$icon_build" --platform macosx \
+    --minimum-deployment-target 15.0 --app-icon ConceptStudio \
+    --output-partial-info-plist "$icon_build/icon.plist" --output-format human-readable-text > /dev/null
+cp "$icon_build/Assets.car" "$bundle/Contents/Resources/Assets.car"
+rm -rf "$icon_build"
 cp "$repo_dir/app/Packaging/ConceptStudio.icns" "$bundle/Contents/Resources/ConceptStudio.icns"
 cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -44,8 +52,9 @@ cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>ConceptStudio</string>
 <key>CFBundleExecutable</key><string>ConceptStudio</string>
 <key>CFBundleIconFile</key><string>ConceptStudio</string>
+<key>CFBundleIconName</key><string>ConceptStudio</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleShortVersionString</key><string>0.3.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
 <key>NSHighResolutionCapable</key><true/>

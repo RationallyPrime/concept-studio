@@ -3,7 +3,7 @@ import Foundation
 
 extension GPUWorkspace {
     func generateComparison(
-        run: TrainingRun, checkpoint: RunFile, prompts: [String], seeds: [Int], inferenceSteps: Int = 20,
+        run: TrainingRun, checkpoint: RunFile, prompts: [String], seeds: [Int], inferenceSteps: Int? = nil,
         videoFrames: Int? = nil
     ) async {
         await perform {
@@ -40,13 +40,15 @@ extension GPUWorkspace {
             }
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
             let id = "generation-" + UUID().uuidString.prefix(12).lowercased()
+            let defaults = run.generationDefaults(in: self.modelTable)
             let resolution = run.params["resolution"]?.intValue
                 ?? run.params["resolution"]?.arrayValue?.compactMap(\.intValue).max() ?? 512
             let params: JSONObject = [
                 "run_id": .string(id), "source_run_id": .string(run.runID),
                 "checkpoint": .string(checkpoint.path), "prompts": .array(prompts.map(JSONValue.string)),
                 "seeds": .array(seeds.map(JSONValue.int)), "width": .int(resolution), "height": .int(resolution),
-                "inference_steps": .int(inferenceSteps), "guidance_scale": .double(4),
+                "inference_steps": .int(inferenceSteps ?? defaults.steps),
+                "guidance_scale": .double(defaults.guidanceScale),
                 "num_frames": .int(run.generatesVideo(in: self.modelTable) ? frames : 1),
                 "frame_rate": .double(Double(run.generationFrameRate(in: self.modelTable))),
             ]

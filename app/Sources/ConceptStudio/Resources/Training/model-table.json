@@ -5,11 +5,18 @@
   "trainers": {
     "aitoolkit": {
       "min_cuda": "13.0",
-      "default_model": "flux1-dev"
+      "default_model": "flux1-dev",
+      "resume": true
     },
     "ltx": {
       "min_cuda": "13.0",
-      "default_model": "ltx-2.3"
+      "default_model": "ltx-2.3",
+      "resume": true
+    },
+    "musubi": {
+      "min_cuda": "13.0",
+      "default_model": "krea2",
+      "resume": false
     }
   },
   "models": [
@@ -106,7 +113,7 @@
       "hooks": {
         "generator": "aitoolkit_image"
       },
-      "notes": "Default model. Image-only. AI Toolkit FLUX settings: 8-bit quantised transformer, bf16 training, gradient checkpointing, AdamW8bit, flowmatch.",
+      "notes": "Default model. Image-only. AI Toolkit FLUX settings: 8-bit quantised transformer, bf16 training, gradient checkpointing, AdamW8bit, flowmatch. The 200-step length is a placeholder, not a measured recipe length; set the length for the dataset.",
       "recipe_status": "verified"
     },
     {
@@ -248,7 +255,7 @@
         "generator": "ltx_one_stage",
         "run_extra": "ltx_video_buckets"
       },
-      "notes": "LTX trainer image (launch_ltx.py), unified checkpoint. Images and 8n+1-frame clips. The pinned Hub sources and preprocess allowlist live in pod/agent/src/podagent/ltx_rules.py; this row mirrors them.",
+      "notes": "LTX trainer image (launch_ltx.py), unified checkpoint. Images and 8n+1-frame clips. The pinned Hub sources and preprocess allowlist live in pod/agent/src/podagent/ltx_rules.py; this row mirrors them. The 200-step length is a placeholder, not a measured recipe length; set the length for the dataset.",
       "recipe_status": "verified"
     },
     {
@@ -387,7 +394,7 @@
         "generator": "ltx_one_stage",
         "run_extra": "ltx_video_buckets"
       },
-      "notes": "LTX trainer image (launch_ltx.py), split pack: transformer, text encoder and both VAEs are separate paths. Images and 8n+1-frame clips. Pinned in pod/agent/src/podagent/ltx_rules.py; this row mirrors it.",
+      "notes": "LTX trainer image (launch_ltx.py), split pack: transformer, text encoder and both VAEs are separate paths. Images and 8n+1-frame clips. Pinned in pod/agent/src/podagent/ltx_rules.py; this row mirrors it. The 200-step length is a placeholder, not a measured recipe length; set the length for the dataset.",
       "recipe_status": "verified",
       "usage_note": "Gated on Hugging Face: before renting, sign in at huggingface.co/Lightricks/LTX-2.5 with the account whose token is in Settings and accept the licence. Without it the first download fails before training starts."
     },
@@ -401,14 +408,14 @@
         "revision": "e5eb578a89295337b8ff433a035929ce0279e0b6",
         "gated": false,
         "first_download_gb": 98.2,
-        "download_note": "The four BF16 components named in h3-recipe-fields.json at the pinned revision (DiT 40.2 GB, Qwen3-VL text encoder 51.5 GB, video and audio VAEs), plus the 0.6 GB Circlestone training adapter."
+        "download_note": "The four BF16 components named in h3-recipe-fields.json at the pinned revision (DiT 40.2 GB, Qwen3-VL text encoder 51.5 GB, video and audio VAEs), plus the training adapter the run uses: Circlestone's 0.6 GB or Ostris's 0.3 GB."
       },
       "architecture": {
         "arch": "minimax_h3",
         "dtype": "bf16",
         "quantize": false,
         "quantize_text_encoder": false,
-        "gradient_checkpointing": true,
+        "gradient_checkpointing": false,
         "model_extra": {}
       },
       "family_match": {
@@ -435,7 +442,7 @@
       "recipe": {
         "length": {
           "unit": "steps",
-          "value": 200
+          "value": 3000
         },
         "learning_rate": 0.0001,
         "optimizer": "adamw",
@@ -474,6 +481,10 @@
       "preview": {
         "training_samples": true,
         "still": true,
+        "generation": {
+          "steps": 28,
+          "guidance_scale": 1.0
+        },
         "video": {
           "min_frames": 5,
           "max_frames": 257,
@@ -505,7 +516,7 @@
         "id": "minimax-h3-community-license-agreement",
         "name": "MiniMax H3 Community License Agreement",
         "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
-        "notice": "MiniMax H3 and the Circlestone training adapter are released under the MiniMax H3 Community License Agreement. Read its terms before using this model, a LoRA trained on it, or their outputs commercially.",
+        "notice": "MiniMax H3 and the Circlestone training adapter are released under the MiniMax H3 Community License Agreement; the Ostris adapter's repository names no licence of its own. Read its terms before using this model, a LoRA trained on it, or their outputs commercially.",
         "show_notice": false
       },
       "hooks": {
@@ -513,7 +524,7 @@
         "native_recipe": "minimax_h3",
         "generator": "minimax_h3"
       },
-      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, frozen Circlestone image-training adapter (guidance preservation loss must stay off while it is used). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it.",
+      "notes": "AI Toolkit minimax_h3 registration, BF16 DiT and Qwen encoder, a frozen training adapter left out at inference: Circlestone's for stills, Ostris's v3 once clips are among the inputs, or either chosen in Advanced (guidance preservation loss must stay off on Circlestone's). Images and 17n+5-frame clips at exactly 24 fps. Native recipe import and warm start. The quality recipe lives in pod/scripts/h3_recipe.py; this row mirrors it. Length: 3000 steps, where the measured likeness runs (20–30 images, an earlier adapter recipe) peaked or were still at their best; checkpoints every 300 keep all ten saves. Stills train without gradient checkpointing: a measured 768/1024 px stills run peaked at 55 GB in training without it (43 GB with it), well inside the 96 GB the row requires. Runs with clips keep it on until measured.",
       "recipe_status": "verified"
     },
     {
@@ -2711,70 +2722,71 @@
       "id": "krea2",
       "display_name": "Krea 2 (raw)",
       "short_name": "Krea 2 (raw)",
-      "trainer": "aitoolkit",
+      "trainer": "musubi",
       "model_ref": "krea/Krea-2-Raw",
       "source": {
-        "revision": null,
+        "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+        "weight_repos": [
+          "krea/Krea-2-Turbo"
+        ],
         "gated": true,
-        "first_download_gb": 62.0,
-        "download_note": "Hub repository file-size total, including alternative weight formats. This is an upper estimate for repository files, not a measured download; dependencies may add files."
+        "first_download_gb": 61.9,
+        "download_note": "The four files musubi-tuner reads: the Raw and Turbo transformers (26.3 GB each), the text encoder (8.9 GB) and the VAE (0.5 GB), at the pinned revisions."
       },
       "architecture": {
         "arch": "krea2",
         "dtype": "bf16",
-        "quantize": true,
-        "quantize_text_encoder": true,
-        "gradient_checkpointing": true,
-        "model_extra": {
-          "low_vram": true
-        }
+        "quantize": false,
+        "quantize_text_encoder": false,
+        "gradient_checkpointing": false,
+        "model_extra": {}
       },
       "family_match": null,
       "resolution": {
         "choices": [
-          512,
-          768,
           1024
         ],
         "default": [
-          512,
-          768,
           1024
         ],
-        "multiple": true
+        "multiple": false
       },
       "recipe": {
         "length": {
           "unit": "steps",
-          "value": 3000
+          "value": 1600
         },
         "learning_rate": 0.0001,
-        "optimizer": "adamw8bit",
+        "optimizer": "AdamW",
         "lr_scheduler": "constant",
         "lr_warmup_steps": 0,
         "rank": 32,
         "alpha": 32,
         "batch_size": 1,
         "gradient_accumulation": 1,
-        "caption_dropout": 0.05,
+        "caption_dropout": null,
         "checkpoints": {
-          "every": 250,
-          "keep": 4,
-          "dtype": "bf16",
-          "editable": true
+          "every": 100,
+          "keep": 0,
+          "dtype": null,
+          "editable": false
         }
       },
       "gpu": {
-        "min_vram_gb": 80,
+        "min_vram_gb": 96,
         "verify_on_pod": true,
-        "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
+        "note": "The recipe trains the full bf16 transformer without block swap; it was measured on a 96 GB RTX PRO 6000.",
+        "verify_message": "Krea 2 training needs at least 96 GB of memory per GPU. Choose a larger computer."
       },
       "video": null,
       "preview": {
-        "training_samples": false,
+        "training_samples": true,
         "still": false,
-        "video": null
+        "video": null,
+        "generation": {
+          "steps": 8,
+          "guidance_scale": 1.0
+        }
       },
       "captions": {
         "image_profile": "plain",
@@ -2794,161 +2806,58 @@
         "notice": "Krea 2 Community License. Read the model card and licence before training or sharing adapters. This is a custom community licence with conditions on use and redistribution. Accept access conditions on Hugging Face before downloading with your token.",
         "show_notice": true
       },
-      "hooks": {},
-      "notes": "Unverified. AI Toolkit f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47: extensions_built_in/diffusion_models/ui.tsx per-arch defaults over ui/src/app/jobs/new/jobConfig.ts. Uses natural-language prose with its modern text encoder. Open AI Toolkit issues #1041, #990, #968 and #954 report backward dtype failures, memory regressions and quantization/offload crashes. The pin is not GPU-tested.",
-      "recipe_status": "unverified",
-      "training_notice": "Known breakage at the AI Toolkit pin: issue #1041 reports backward dtype failures with gradient checkpointing, which these UI defaults enable; missing key/value casts remain in the pinned source. Issues #990, #968 and #954 also report memory and offload failures. No GPU test has been run.",
-      "usage_note": "Uses natural-language prose with its modern text encoder. Comparison generation is unavailable for this unverified recipe.",
+      "usage_note": "Trained on Krea 2 Raw; use the LoRA with Krea 2 Turbo at 8 steps without CFG, which is how the training samples and comparisons are drawn.",
+      "hooks": {
+        "generator": "musubi_krea2_image"
+      },
       "trainer_options": {
-        "process": {
-          "network": {
-            "network_kwargs": {
-              "ignore_if_contains": []
-            }
+        "weights": {
+          "dit": {
+            "repo": "krea/Krea-2-Raw",
+            "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+            "file": "raw.safetensors"
           },
-          "train": {
-            "bypass_guidance_embedding": true,
-            "noise_scheduler": "flowmatch",
-            "timestep_type": "linear",
-            "optimizer_params": {
-              "weight_decay": 0.0001
-            },
-            "unload_text_encoder": false,
-            "cache_text_embeddings": false,
-            "loss_type": "mse"
+          "sample_dit": {
+            "repo": "krea/Krea-2-Turbo",
+            "revision": "98e0fe118d17c9e3547fbb2e25acdbae2cadf7c7",
+            "file": "turbo.safetensors"
           },
-          "model": {
-            "qtype": "qfloat8",
-            "qtype_te": "qfloat8",
-            "model_kwargs": {}
+          "vae": {
+            "repo": "krea/Krea-2-Raw",
+            "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+            "file": "vae/diffusion_pytorch_model.safetensors"
+          },
+          "text_encoder": {
+            "repo": "krea/Krea-2-Raw",
+            "revision": "6b0ece7fffb640c5e3bcbe0a7f10f66b8e60a603",
+            "file": "text_encoder/model.safetensors"
           }
         },
-        "dataset": {
-          "cache_latents_to_disk": false
-        }
-      }
-    },
-    {
-      "id": "krea2-turbo",
-      "display_name": "Krea 2 Turbo (w/ Training Adapter)",
-      "short_name": "Krea 2 Turbo (w/ Training Adapter)",
-      "trainer": "aitoolkit",
-      "model_ref": "krea/Krea-2-Turbo",
-      "source": {
-        "revision": null,
-        "gated": true,
-        "first_download_gb": 62.0,
-        "download_note": "Hub repository file-size total, including alternative weight formats. This is an upper estimate for repository files, not a measured download; dependencies may add files."
-      },
-      "architecture": {
-        "arch": "krea2:turbo",
-        "dtype": "bf16",
-        "quantize": true,
-        "quantize_text_encoder": true,
-        "gradient_checkpointing": true,
-        "model_extra": {
-          "low_vram": true,
-          "assistant_lora_path": "ostris/krea2_turbo_training_adapter/krea2_turbo_training_adapter_v1.safetensors"
-        }
-      },
-      "family_match": null,
-      "resolution": {
-        "choices": [
-          512,
-          768,
-          1024
-        ],
-        "default": [
-          512,
-          768,
-          1024
-        ],
-        "multiple": true
-      },
-      "recipe": {
-        "length": {
-          "unit": "steps",
-          "value": 3000
+        "args": {
+          "sdpa": true,
+          "mixed_precision": "bf16",
+          "timestep_sampling": "krea2_shift",
+          "weighting_scheme": "none",
+          "network_module": "networks.lora_krea2",
+          "max_data_loader_n_workers": 2,
+          "persistent_data_loader_workers": true
         },
-        "learning_rate": 0.0001,
-        "optimizer": "adamw8bit",
-        "lr_scheduler": "constant",
-        "lr_warmup_steps": 0,
-        "rank": 32,
-        "alpha": 32,
-        "batch_size": 1,
-        "gradient_accumulation": 1,
-        "caption_dropout": 0.05,
-        "checkpoints": {
-          "every": 250,
-          "keep": 4,
-          "dtype": "bf16",
-          "editable": true
-        }
-      },
-      "gpu": {
-        "min_vram_gb": 80,
-        "verify_on_pod": true,
-        "note": "Conservative allocation for an unverified UI recipe; a memory floor does not establish that training fits or succeeds.",
-        "verify_message": "This unverified recipe requires at least 80 GB of memory per GPU. Choose a larger computer."
-      },
-      "video": null,
-      "preview": {
-        "training_samples": false,
-        "still": false,
-        "video": null
-      },
-      "captions": {
-        "image_profile": "plain",
-        "video_profile": null,
-        "profile_prefix": null,
-        "titles": {
-          "plain": "Plain prose"
-        }
-      },
-      "selection": {
-        "follows_project_profile": false
-      },
-      "license": {
-        "id": "krea-2-community-license",
-        "name": "Krea 2 Community License",
-        "url": "https://huggingface.co/krea/Krea-2-Turbo",
-        "notice": "Krea 2 Community License. Read the model card and licence before training or sharing adapters. This is a custom community licence with conditions on use and redistribution. Accept access conditions on Hugging Face before downloading with your token.",
-        "show_notice": true
-      },
-      "hooks": {},
-      "notes": "Unverified. AI Toolkit f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47: extensions_built_in/diffusion_models/ui.tsx per-arch defaults over ui/src/app/jobs/new/jobConfig.ts. Uses natural-language prose with its modern text encoder. Open AI Toolkit issues #1041, #990, #968 and #954 report Krea-family backward, memory and quantization/offload failures. Turbo is not GPU-tested at the pin.",
-      "recipe_status": "unverified",
-      "training_notice": "Known breakage at the AI Toolkit pin: issue #1041 reports backward dtype failures with gradient checkpointing, which these UI defaults enable; missing key/value casts remain in the pinned source. Issues #990, #968 and #954 also report memory and offload failures. No GPU test has been run.",
-      "usage_note": "Uses natural-language prose with its modern text encoder. Comparison generation is unavailable for this unverified recipe.",
-      "trainer_options": {
-        "process": {
-          "network": {
-            "network_kwargs": {
-              "ignore_if_contains": []
-            }
-          },
-          "train": {
-            "bypass_guidance_embedding": true,
-            "noise_scheduler": "flowmatch",
-            "timestep_type": "linear",
-            "optimizer_params": {
-              "weight_decay": 0.0001
-            },
-            "unload_text_encoder": false,
-            "cache_text_embeddings": false,
-            "loss_type": "mse"
-          },
-          "model": {
-            "qtype": "qfloat8",
-            "qtype_te": "qfloat8",
-            "model_kwargs": {}
+        "sample": {
+          "steps": 8,
+          "cfg": 1.0,
+          "args": {
+            "turbo_dit_cache": true
           }
         },
-        "dataset": {
-          "cache_latents_to_disk": false
+        "generate": {
+          "dit": "sample_dit",
+          "args": {
+            "mu": 1.15
+          }
         }
-      }
+      },
+      "notes": "Measured recipe: musubi-tuner v0.3.4 krea2_train_network.py, trained on Raw with Turbo samples at 8 steps, rank 32 on a 96 GB RTX PRO 6000. Likeness has peaked around steps 1500–1600 (one measured run plateaued from 1300), so the recipe stops at 1600; every 100th step is kept to choose from. musubi-tuner has no caption dropout and cannot continue a run (its step counter restarts on --resume), so the trainer is marked resume false.",
+      "recipe_status": "verified"
     },
     {
       "id": "boogu-image",

@@ -46,9 +46,17 @@ POLL_S = 0.02
 
 
 def free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+    """A free loopback port other than this test's TensorBoard port.
+
+    ``tensorboard_port`` released its port before the test started, so the kernel may hand the
+    same one out again; a vLLM fake bound there makes the TensorBoard fake fail to bind.
+    """
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = int(sock.getsockname()[1])
+        if port != CATALOG["tensorboard"].port:
+            return port
 
 
 def wait_until(predicate: Callable[[], bool], what: str, timeout: float = WAIT_S) -> None:
@@ -64,11 +72,15 @@ def wait_for_log(path: str | Path, needle: str, timeout: float = WAIT_S) -> str:
     """Block until the service log contains ``needle``; return the log text."""
     file = Path(path)
 
-    def present() -> bool:
-        return file.exists() and needle in file.read_text(encoding="utf-8", errors="replace")
+    def text() -> str:
+        return file.read_text(encoding="utf-8", errors="replace") if file.exists() else ""
 
-    wait_until(present, f"{needle!r} in {file.name}", timeout)
-    return file.read_text(encoding="utf-8", errors="replace")
+    try:
+        wait_until(lambda: needle in text(), f"{needle!r} in {file.name}", timeout)
+    except AssertionError as error:
+        # Say what the child did print, so a timeout in CI is diagnosable from the log alone.
+        raise AssertionError(f"{error}; the log holds:\n{text() or '(nothing)'}") from None
+    return text()
 
 
 def wait_for_exit(sup: Supervisor, name: str, timeout: float = WAIT_S) -> ServiceState:
@@ -576,6 +588,25 @@ def test_spawn_failure_is_reported_not_swallowed(settings: Settings) -> None:
     # The failed attempt does not block a later one.
     with pytest.raises(AgentError):
         sup.start("tensorboard", [], {})
+    sup.shutdown()
+
+
+def test_vllm_is_reported_unavailable_and_refused_on_an_image_without_it(
+    settings: Settings,
+) -> None:
+    """A trainer image rented without captioning has no /opt/venvs/vllm; the variant adds it."""
+    real = replace(settings, fake_gpus=None)
+    sup = Supervisor(real, FakeBackend(2))
+    assert sup.state("vllm").available is False
+    assert {s.name for s in sup.states() if not s.available} == {"vllm"}
+    with pytest.raises(AgentError) as excinfo:
+        sup.start("vllm", [0], {"model": "Qwen/Qwen3-VL-8B-Instruct"})
+    assert excinfo.value.code == "unavailable" and excinfo.value.status == 409
+    assert "-captioning" in excinfo.value.message
+    executable = Path(real.paths.venv_bin("vllm", "vllm"))
+    executable.parent.mkdir(parents=True)
+    executable.write_text("")
+    assert sup.state("vllm").available is True
     sup.shutdown()
 
 

@@ -1,6 +1,6 @@
 """``images/check_vllm_flags.py``: the build-time probe of the vLLM flag allowlist (POD-SPEC §6.1).
 
-The real run happens in ``Dockerfile.base`` against the installed wheel; here it runs against a
+The real run happens in ``Dockerfile.captioning`` against the installed wheel; here it runs against a
 synthetic package tree, so what it counts as present and as missing is pinned down.
 """
 
@@ -74,7 +74,7 @@ def test_usage(tmp_path: Path) -> None:
     assert check.main([str(tmp_path / "absent")]) == 2
 
 
-def test_base_image_runs_the_check() -> None:
-    dockerfile = (POD / "images" / "Dockerfile.base").read_text()
+def test_captioning_image_runs_the_check() -> None:
+    dockerfile = (POD / "images" / "Dockerfile.captioning").read_text()
     assert "COPY pod/images/check_vllm_flags.py /opt/pod/checks/check_vllm_flags.py" in dockerfile
     assert "/opt/venvs/agent/bin/python -I /opt/pod/checks/check_vllm_flags.py" in dockerfile

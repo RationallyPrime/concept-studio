@@ -9,7 +9,8 @@ names a generator hook. ``aitoolkit_image`` uses ai-toolkit's StableDiffusion/Ge
 with the row's model settings (FLUX is one such row); ``aitoolkit_arch_image`` uses the model class
 ai-toolkit registers for the row's ``arch`` with the trained LoRA bound as a network (Z-Image is one
 such row); ``minimax_h3`` uses H3's registered model and the trained LoRASpecialNetwork recipe;
-``ltx_one_stage`` uses LTX's official one-stage CLI.
+``ltx_one_stage`` uses LTX's official one-stage CLI; ``musubi_krea2_image`` uses musubi-tuner's
+own Krea 2 inference (krea2_generate_image.py) with the row's generation weights.
 ``render_base`` is the base-model-only entry point (no LoRA, no source run): regularization.py
 calls it to draw a row's regularisation images with the same model class.
 Heavy imports happen only at execution.
@@ -33,6 +34,8 @@ from typing import Any
 
 AI_PIN = "f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47"
 LTX_PIN = "be6d6d0a69d11a0a399c462ed92606692e5f8697"
+MUSUBI_PIN = "30c658c4f4b0bf05038b3346eff9670259b10fc7"
+UPSTREAM_PINS = {"aitoolkit": AI_PIN, "ltx": LTX_PIN, "musubi": MUSUBI_PIN}
 RENDER_CHUNK = 8  # images per ``generate_images`` call in ``render_base``
 
 # Generator hook name -> (function that renders the pairs, function that adds the hook's fields to
@@ -43,6 +46,7 @@ GENERATOR_HOOKS: dict[str, tuple[str, str | None]] = {
     "aitoolkit_arch_image": ("arch_generate", None),
     "ltx_one_stage": ("ltx_generate", None),
     "minimax_h3": ("h3_generate", "h3_manifest"),
+    "musubi_krea2_image": ("musubi_krea2_generate", None),
 }
 
 
@@ -76,7 +80,8 @@ def source_config(request: dict[str, Any], workspace: Path) -> tuple[dict[str, A
 
 
 def pairs(request: dict[str, Any], trainer: str) -> list[dict[str, Any]]:
-    ext = "png" if trainer == "aitoolkit" and request.get("num_frames", 1) == 1 else "mp4"
+    still = trainer in {"aitoolkit", "musubi"} and request.get("num_frames", 1) == 1
+    ext = "png" if still else "mp4"
     return [
         {
             "prompt": prompt,
@@ -344,7 +349,7 @@ def h3_generate(
         model_values.pop(key, None)
     rules = runpy.run_path(str(Path(__file__).with_name("h3_recipe.py")))
     rules["download_assets"](
-        Path(os.environ.get("PODAGENT_WORKSPACE", "/workspace")), training_adapter=False
+        Path(os.environ.get("PODAGENT_WORKSPACE", "/workspace")), training_adapter=None
     )
     model = ModelConfig(**model_values)
     cls = get_model_class(model)
@@ -479,6 +484,80 @@ def ltx_generate(
             subprocess.run(ltx_command(model, checkpoint, request, row, variant, out), check=True)
 
 
+def musubi_krea2_generate(
+    cfg: dict[str, Any],
+    checkpoint: Path,
+    request: dict[str, Any],
+    rows: list[dict[str, Any]],
+    out: Path,
+) -> None:
+    """The ``musubi_krea2_image`` generator: stills through musubi-tuner's Krea 2 inference.
+
+    The functions krea2_generate_image.py itself calls, at the pinned musubi-tuner: the text
+    encoder loads once; the DiT the row's ``trainer_options.generate.dit`` names (Turbo for a LoRA
+    trained on Raw) is built twice, plain for the base side and with the trained LoRA merged at
+    load for the other (musubi's only LoRA route). The script's own argument defaults apply, then
+    the request's size, steps and guidance and the row's ``generate.args`` (Turbo's fixed shift).
+    """
+    import torch
+    from musubi_tuner import krea2_generate_image as krea2
+
+    wrapper = runpy.run_path(str(Path(__file__).with_name("launch_musubi.py")))
+    row = wrapper["run_row"](cfg)
+    generation = row["trainer_options"]["generate"]
+    roles = (generation["dit"], "vae", "text_encoder")
+    wrapper["download_weights"](cfg, row, roles)
+    weights = wrapper["weight_paths"](cfg, row, roles)
+    argv = sys.argv
+    sys.argv = [
+        "krea2_generate_image.py",
+        "--dit", str(weights[generation["dit"]]),
+        "--vae", str(weights["vae"]),
+        "--text_encoder", str(weights["text_encoder"]),
+        "--save_path", str(out),
+        "unused",
+    ]  # fmt: skip
+    try:
+        defaults = krea2.parse_args()
+    finally:
+        sys.argv = argv
+    dtype = torch.bfloat16
+    encoder = krea2.load_text_encoder(defaults.text_encoder, dtype)
+    for variant, lora in (("base", None), ("lora", [str(checkpoint)])):
+        dit, ae = krea2.build_pipeline(
+            defaults.dit,
+            defaults.vae,
+            device=defaults.device,
+            dtype=dtype,
+            lora_weights=lora,
+            lora_multipliers=[1.0] if lora else None,
+            attn_mode=defaults.attn_mode,
+        )
+        try:
+            for pair in rows:
+                args = krea2.apply_overrides(
+                    defaults,
+                    {
+                        **generation.get("args", {}),
+                        "prompt": pair["prompt"],
+                        "seed": pair["seed"],
+                        "num_images": 1,
+                        "width": request["width"],
+                        "height": request["height"],
+                        "steps": request["inference_steps"],
+                        "guidance_scale": request["guidance_scale"],
+                    },
+                )
+                images = krea2.generate(
+                    args, dit, ae, encoder, defaults.device, dtype, defaults.device
+                )
+                images[0].save(out / pair[f"{variant}_path"])
+        finally:
+            del dit, ae
+            gc.collect()
+            torch.cuda.empty_cache()
+
+
 def _stopped(_signum: int, _frame: Any) -> None:
     raise InterruptedError("generation stopped by SIGTERM")
 
@@ -529,7 +608,7 @@ def generate(config_path: Path, trainer: str) -> int:
             **request,
             "trainer": trainer,
             "base_model": cfg["base_model"],
-            "upstream_revision": AI_PIN if trainer == "aitoolkit" else LTX_PIN,
+            "upstream_revision": UPSTREAM_PINS[trainer],
             "source_config": cfg,
             "state": "generating",
             "pairs": rows,
@@ -570,7 +649,7 @@ def generate(config_path: Path, trainer: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--config", required=True, type=Path)
-    parser.add_argument("--trainer", required=True, choices=("aitoolkit", "ltx"))
+    parser.add_argument("--trainer", required=True, choices=tuple(UPSTREAM_PINS))
     args = parser.parse_args()
     try:
         return generate(args.config, args.trainer)

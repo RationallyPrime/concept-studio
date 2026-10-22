@@ -20,6 +20,8 @@ COPY app/Sources/ConceptStudio/Resources/Training/h3-recipe-fields.json /opt/pod
 COPY app/Sources/ConceptStudio/Resources/Training/model-table.json /opt/pod/scripts/model-table.json
 # One LTX rule file (preprocess allowlist, pinned Hub source) for the API and the isolated wrapper.
 COPY pod/agent/src/podagent/ltx_rules.py /opt/pod/agent/src/podagent/ltx_rules.py
+# One musubi-tuner rule file (what extra.args may set) for the API and the isolated wrapper.
+COPY pod/agent/src/podagent/musubi_rules.py /opt/pod/agent/src/podagent/musubi_rules.py
 RUN chmod +x /opt/pod/entrypoint.sh
 # Same public ports as Dockerfile.base; TensorBoard stays internal.
 EXPOSE 8800 8000

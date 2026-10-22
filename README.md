@@ -102,7 +102,7 @@ flowchart LR
     HF[("Hugging Face<br/>datasets and adapters")]
     subgraph Pod["Rented GPU computer"]
         Agent["Control agent<br/>authenticated HTTP"]
-        Trainer["Trainer<br/>AI Toolkit · LTX"]
+        Trainer["Trainer<br/>AI Toolkit · LTX · musubi-tuner"]
         Agent --> Trainer
     end
     App --- Folder
@@ -119,8 +119,8 @@ You need **macOS 15 or later** and a current Xcode with its Swift toolchain. Dev
 used Apple Silicon Macs. Open Xcode once to finish its setup, then:
 
 ```sh
-git clone https://github.com/RationallyPrime/concept-captioner.git
-cd concept-captioner
+git clone https://github.com/RationallyPrime/concept-studio.git
+cd concept-studio
 scripts/build-app.sh debug
 open app/dist/ConceptStudio.app
 ```

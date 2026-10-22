@@ -198,9 +198,10 @@ and the result of an upstream issue check, and no GPU-measured recipe behind the
 pod image built from a table that includes them.
 
 Training steps have a number field. For H3, Advanced exposes checkpoint cadence and retention,
-saved precision and image resolution buckets. The current Circlestone adapter requires
-guidance preservation loss to remain off; the app explains that constraint and rejects
-incompatible imports. Guidance controls apply only to an explicit recipe without that adapter. A new H3
+saved precision, image resolution buckets and the training adapter: automatic (Circlestone's for
+stills, Ostris's v3 once clips are among the inputs), either one, or none from an imported recipe.
+Circlestone's adapter requires guidance preservation loss to remain off; the app explains that
+constraint and rejects incompatible imports. Guidance controls apply on Ostris's adapter or without one. A new H3
 selection starts with 300-step checkpoints, 40 retained, float32 saves, 768/1024 buckets and
 guidance loss off (target 3.5). Imported recipes and saved-run repeats retain their actual
 settings. The earlier v1 recipe enabled guidance loss; v2 and the successful v3 run disabled
@@ -314,7 +315,15 @@ CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' sc
 # signed and notarised, with a notarytool keychain profile stored once:
 CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
   CONCEPTSTUDIO_NOTARY_PROFILE=<profile> scripts/build-app.sh release
+# then the shareable disk image (same two variables): app/dist/ConceptStudio-<version>-<date>.dmg
+CONCEPTSTUDIO_SIGNING_IDENTITY='Developer ID Application: Your Name (TEAMID)' \
+  CONCEPTSTUDIO_NOTARY_PROFILE=<profile> scripts/build-dmg.sh
 ```
+
+`build-dmg.sh` refuses an app that is not a notarized Developer ID build. The image holds the app
+and a link to Applications, uses the app icon as its volume icon, and is itself signed, notarized
+and stapled. The app icon is compiled from `app/Packaging/ConceptStudio.icon` with `xcrun actool`,
+so the build needs Xcode, not only the command-line tools.
 
 The script copies the executable and SwiftPM resource bundles and writes the app Info.plist.
 Debug builds remain unsigned unless a signing identity is supplied. Release builds require the

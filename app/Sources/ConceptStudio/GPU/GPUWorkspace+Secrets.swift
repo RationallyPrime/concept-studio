@@ -37,19 +37,32 @@ extension GPUWorkspace {
         return PodCredentials(env: env, agentSecret: agentSecret)
     }
 
+    /// The image the next computer runs: the trainer's image, with the caption server (its "-captioning"
+    /// tag) only when the captioning screen asked for one. A custom image from Settings is used as entered.
+    var podImage: String {
+        let override = imageName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let image = override.isEmpty
+            ? StudioSession.defaultPodImageName + (rentsCaptionServer ? Self.captioningTagSuffix : "")
+            : override
+        return image.replacingOccurrences(of: "{trainer}", with: trainer)
+    }
+
+    nonisolated static let captioningTagSuffix = "-captioning"
+    nonisolated static let noCaptionServer = "This computer was rented without the caption server. "
+        + "Use hosted captioning, or rent a captioning computer from the Captioning screen."
+
     /// Creates the pod. A creation that fails leaves no agent secret behind.
     func createPod(
         _ provider: any GPUProvider, offer: GPUOffer, volume: GPUVolume?, credentials: PodCredentials
     ) async throws -> RentedPod {
-        let override = imageName.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
-            return try await provider.create(PodCreation(
+            let pod = try await provider.create(PodCreation(
                 name: PodNaming.name(project: projectFolder?.lastPathComponent ?? ""),
-                offer: offer, count: gpuCount,
-                image: (override.isEmpty ? StudioSession.defaultPodImageName : override)
-                    .replacingOccurrences(of: "{trainer}", with: trainer),
+                offer: offer, count: gpuCount, image: podImage,
                 minCudaVersion: modelTable.minimumCUDA(trainer), volume: volume, env: credentials.env
             ))
+            rentsCaptionServer = false
+            return pod
         } catch {
             try? await provider.deleteSecret(name: credentials.agentSecret)
             throw error

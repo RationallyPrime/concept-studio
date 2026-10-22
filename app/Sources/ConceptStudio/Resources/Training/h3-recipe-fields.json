@@ -9,7 +9,8 @@
     "layer_offloading_percent",
     "dtype",
     "model_kwargs",
-    "use_training_adapter"
+    "use_training_adapter",
+    "training_adapter"
   ],
   "model.model_kwargs": [
     "partition",
@@ -96,11 +97,20 @@
   "asset_fields.audio_vae_path": [
     "model.model_kwargs.audio_vae_path"
   ],
-  "asset.assistant_lora_path": [
+  "training_adapter.circlestone": [
     "minimax_h3_image_training_adapter.safetensors"
   ],
-  "asset_fields.assistant_lora_path": [
-    "model.assistant_lora_path"
+  "training_adapter.ostris": [
+    "minimax_h3_training_adapter_v3.safetensors"
+  ],
+  "training_adapter_default.image": [
+    "circlestone"
+  ],
+  "training_adapter_default.video": [
+    "ostris"
+  ],
+  "training_adapter_refuses_guidance_loss": [
+    "circlestone"
   ],
   "save": [
     "save_every",

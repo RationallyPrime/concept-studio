@@ -72,7 +72,7 @@ from typing import Any, NamedTuple, TextIO
 
 SCRIPT_NAME = "launch_aitoolkit"
 
-# --- shared: byte-identical in launch_aitoolkit.py and launch_ltx.py --------------------------
+# --- shared: byte-identical in every launch_<trainer>.py --------------------------------------
 
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 REPO_ID_RE = re.compile(r"^[\w.-]+/[\w.-]+$")
@@ -1093,8 +1093,10 @@ def minimax_h3_trainer_config(
     document["job"] = "extension"
     document["config"]["name"] = cfg["run_id"]
     document["config"]["process"] = [process]
+    adapter = rules["effective_adapter"](quality)
     model = quality["model"].copy()
-    adapter = model.pop("use_training_adapter", True)
+    model.pop("use_training_adapter", None)
+    model.pop("training_adapter", None)
     process["model"] = deep_merge(
         rules["model_config"](workspace_root(), training_adapter=adapter), model
     )
@@ -1133,7 +1135,7 @@ def minimax_h3_prelaunch(native: dict[str, Any]) -> None:
     rules = runpy.run_path(str(Path(__file__).with_name("h3_recipe.py")))
     model = native["config"]["process"][0]["model"]
     rules["download_assets"](
-        workspace_root(), training_adapter=bool(model.get("assistant_lora_path"))
+        workspace_root(), training_adapter=rules["adapter_named"](model.get("assistant_lora_path"))
     )
 
 

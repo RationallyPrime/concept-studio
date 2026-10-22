@@ -22,7 +22,7 @@ final class GPUWorkspace {
     var pod: RentedPod? {
         didSet {
             sleepGuard.hold(!demoMode && pod?.isRunning == true)
-            if oldValue?.id != pod?.id { captionServerActive = nil }
+            if oldValue?.id != pod?.id { (captionServerActive, captionServerInstalled) = (nil, true) }
             if pod?.isRunning == false { captionServerActive = false }
         }
     }
@@ -30,6 +30,8 @@ final class GPUWorkspace {
     var plan: TrainingPlan?
     /// nil until this computer's service list has been read; never inferred from the GPU count.
     var captionServerActive: Bool?
+    var captionServerInstalled = true // false once the agent reports no caption server in this image
+    var rentsCaptionServer = false // the next rental takes the "-captioning" tag (Captioning screen)
     var storage: AgentStorageUsage?
     var message = "Refresh available computers to see current prices."
     var isBusy = false
@@ -63,10 +65,9 @@ final class GPUWorkspace {
     /// Advanced's trainer settings, defaulting to the selected row's values.
     var trainerSettings: TrainerSettings
     var guidanceLoss = false
+    /// Advanced's H3 training adapter; nil follows the imported recipe, the repeated run or automatic.
+    var trainingAdapterChoice: H3TrainingAdapter?
     var guidanceTargetText = GPUWorkspace.defaultGuidanceTarget
-    var guidanceTarget: JSONValue {
-        (try? JSONValue(parsing: Data(guidanceTargetText.utf8))) ?? .null
-    }
 
     /// Training resolution in pixels; one of `resolutionChoices`. Shown under Advanced.
     var trainingResolutions: [Int]
@@ -332,15 +333,7 @@ final class GPUWorkspace {
         }
     }
 
-    func refresh() async {
-        if let refreshTask { await refreshTask.value; return }
-        let work = Task { await self.refreshState() }
-        refreshTask = work
-        await work.value
-        refreshTask = nil
-    }
-
-    private func refreshState() async {
+    func refreshState() async {
         guard let provider, let current = pod, hasRunningPod else { return }
         let resultBefore = result
         let settlementRevision = isBusy ? nil : operationRevision

@@ -46,6 +46,12 @@ class PayloadTooLarge(AgentError):
     status, code = 413, "payload_too_large"
 
 
+class Unavailable(AgentError):
+    """The service's program is not in this image (vLLM on a trainer image without captioning)."""
+
+    status, code = 409, "unavailable"
+
+
 class GpuBusy(AgentError):
     status, code = 409, "gpu_busy"
 

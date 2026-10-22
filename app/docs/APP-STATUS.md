@@ -36,8 +36,8 @@ related-term navigation and the complete original introduction.
 GPU offers respect network-volume location; optional persistent pod disks survive Stop but not
 Remove. Unsettled results prevent removal, including lost start acknowledgements. A stale refresh
 cannot declare a newly started training/generation action failed. H3 exposes checkpoint cadence,
-retention, saved precision and multiple buckets; Circlestone guidance loss stays off and invalid
-imports/runs are refused. New valid requests use the published image’s existing parameter contract.
+retention, saved precision, multiple buckets and the training adapter; Circlestone guidance loss
+stays off and invalid imports/runs are refused. New valid requests use the published image’s existing parameter contract.
 
 Current offline gates: **550 Swift tests** (289 app and 261 Core), **118 Python reference tests**
 and **315 pod-script tests** passed. Strict SwiftLint reports zero violations; SwiftFormat and
@@ -56,7 +56,7 @@ and the picker, defaults, GPU floor, checkpoint and resolution controls, run.jso
 capabilities, generation frame rules, video formats and caption titles all read the row for the
 selected trainer and model. Where a model genuinely differs the row names a hook (`ModelHooks`): the
 H3 native recipe, its guidance rules and the LTX video-bucket change to the trainer settings. No code
-outside a hook tests a model's name; the trainer (`aitoolkit`, `ltx`) is still branched on.
+outside a hook tests a model's name; the trainer (`aitoolkit`, `ltx`, `musubi`) is still branched on.
 
 The verified rows are FLUX.1-dev, LTX-2.3, LTX-2.5, MiniMax H3, Z-Image and Qwen-Image-2.1.
 LTX-2.3 and LTX-2.5 replaced LTX-2 on 2026-10-15, verified the same day on one 32 GB RTX 5090

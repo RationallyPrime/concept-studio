@@ -635,7 +635,7 @@ def test_events_without_scalars(agent: FakeAgent, run: Callable[..., Any]) -> No
 # --- sugar: train and caption-up --------------------------------------------------------
 
 
-@pytest.mark.parametrize("trainer", ["aitoolkit", "ltx"])
+@pytest.mark.parametrize("trainer", ["aitoolkit", "ltx", "musubi"])
 def test_train_posts_run_config_as_params(
     agent: FakeAgent, run: Callable[..., Any], tmp_path: Any, trainer: str
 ) -> None:

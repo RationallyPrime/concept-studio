@@ -1,4 +1,5 @@
 import AppKit
+import ConceptCore
 @testable import ConceptStudio
 import Testing
 
@@ -44,6 +45,15 @@ struct StudioTermCatalogTests {
         #expect(variant.entry.definitionScope == "concept_studio")
         #expect(variant.technicalDefinition.contains("checkpoint"))
         #expect(GlossaryReadingLevel.technical.title == "Show me the good stuff")
+    }
+
+    @Test func everyConceptCategoryHasItsOwnGlossaryEntry() {
+        let terms = TargetConcept.allCases.map(\.term)
+        #expect(Set(terms).count == TargetConcept.allCases.count)
+        #expect(terms.allSatisfy { $0.entry.sectionId == "concept-types" })
+        #expect(TargetConcept.allCases.allSatisfy { $0.term.title == $0.title })
+        #expect(StudioTerm.search("character design").first == .characterConcept)
+        #expect(StudioTerm.search("facial identity").first == .personConcept)
     }
 
     @Test func operationalTermsRenderNativeLinksAndDispatchTheirCatalogIdentity() throws {

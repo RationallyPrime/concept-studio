@@ -33,7 +33,7 @@ from .client import AgentAPIError, AgentClient, AgentUnreachable, TransferMismat
 EXIT_OK, EXIT_AGENT_ERROR, EXIT_USAGE, EXIT_CONNECTION = 0, 1, 2, 3
 EXIT_INTERRUPTED = 130
 POLL_INTERVAL_S = 2.0
-TRAINERS: tuple[str, ...] = ("aitoolkit", "ltx")
+TRAINERS: tuple[str, ...] = ("aitoolkit", "ltx", "musubi")
 TAIL_RANGE = (1, 5000)
 STOP_TIMEOUT_RANGE = (1.0, 90.0)
 
