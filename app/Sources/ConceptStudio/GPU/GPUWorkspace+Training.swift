@@ -7,6 +7,8 @@ struct CaptionServerSettings: Equatable {
     let maxNumSeqs: Int
     let gpuMemoryUtilization: Double
     let extraArgs: [String]
+    /// The smallest GPU memory, in decimal GB, the settings were measured on; a caption rental needs at least this.
+    let minGPUMemoryGB: Int
 
     func params(model: String) -> JSONObject {
         [
@@ -27,14 +29,14 @@ extension GPUWorkspace {
         "Qwen/Qwen3-VL-8B-Instruct": fallbackCaptionServer,
         "RationallyPrime/CapQwen3.6-27B-BLIP3o-Long-Caption-Distilled-FP8-NVFP4": CaptionServerSettings(
             maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
-            extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
+            extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"], minGPUMemoryGB: 32
         ),
     ]
 
     /// The Qwen3-VL-8B row, which a model without a measured row starts with.
     nonisolated static let fallbackCaptionServer = CaptionServerSettings(
         maxModelLen: 16384, maxNumSeqs: 2, gpuMemoryUtilization: 0.85,
-        extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"]
+        extraArgs: ["--enforce-eager", "--max-num-batched-tokens=4096"], minGPUMemoryGB: 32
     )
 
     /// Where `captionModel` is remembered between launches.

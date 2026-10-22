@@ -127,9 +127,22 @@ extension GPUWorkspace {
         )
     }
 
-    /// The smallest GPU memory, in decimal GB, the selected model's computer must offer.
+    /// The smallest GPU memory, in decimal GB, the selected model's computer must offer. A rental made from
+    /// Captioning must also fit the caption model, which trains nothing but still needs its measured floor.
     var requiredGPUMemoryGB: Int {
-        effectiveModelRow.gpu.minVRAMGB
+        max(effectiveModelRow.gpu.minVRAMGB, rentsCaptionServer ? captionModelMinGPUMemoryGB : 0)
+    }
+
+    var captionModelMinGPUMemoryGB: Int {
+        Self.captionServerSettings(for: captionModel).minGPUMemoryGB
+    }
+
+    /// The model a "not enough graphics memory" reason names: the caption model when its floor is the binding one.
+    var memoryLimitingModelName: String {
+        if rentsCaptionServer, captionModelMinGPUMemoryGB > effectiveModelRow.gpu.minVRAMGB {
+            return captionModel.split(separator: "/").last.map(String.init) ?? captionModel
+        }
+        return effectiveModelRow.shortName
     }
 
     /// The sentence under "Choose a cloud GPU".
