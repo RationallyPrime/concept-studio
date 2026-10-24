@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
+import pytest
 from conftest import AUTH, TOKEN
+from fastapi import Request
 from fastapi.testclient import TestClient
 from logfire.testing import CaptureLogfire
 
@@ -74,20 +76,44 @@ def test_requests_are_traced_without_their_values_and_polling_is_not(
     assert "org/private-model" not in json.dumps(spans, default=str)
 
 
-def test_a_rejected_request_keeps_where_it_failed_but_not_what_was_sent(
-    settings: Settings, capfire: CaptureLogfire
+@pytest.mark.parametrize("private_field", ["caption", "NORA7-private-caption-as-key"])
+def test_a_rejected_request_exports_only_an_error_count(
+    settings: Settings, capfire: CaptureLogfire, private_field: str
 ) -> None:
     app = create_app(settings, FakeBackend(2))
     telemetry.instrument(app)
     with TestClient(app, headers=AUTH) as client:
         rejected = client.post(
             "/services/vllm/start",
-            json={"gpus": [0], "params": {"model": "org/m"}, "caption": "a private caption"},
+            json={"gpus": [0], "params": {"model": "org/m"}, private_field: "a private caption"},
         )
         assert rejected.status_code == 422
     exported = json.dumps(capfire.exporter.exported_spans_as_dict(), default=str)
     assert "a private caption" not in exported
-    assert "extra_forbidden" in exported
+    assert "NORA7-private-caption-as-key" not in exported
+    assert "validation_error_count" in exported
+    assert "extra_forbidden" not in exported
+
+
+def test_validation_mapper_drops_custom_error_types_and_all_request_content() -> None:
+    request = Request({"type": "http"})
+    assert telemetry._arguments_without_values(
+        request,
+        {
+            "values": {"caption": "NORA7-private-value"},
+            "errors": [
+                {
+                    "type": "NORA7-private-custom-error-type",
+                    "loc": ["body", "NORA7-private-field-name"],
+                    "input": "NORA7-private-input",
+                    "msg": "NORA7-private-message",
+                    "ctx": {"detail": "NORA7-private-context"},
+                }
+            ],
+        },
+    ) == {"validation_error_count": 1}
+    assert telemetry._arguments_without_values(request, {"errors": []}) is None
+    assert telemetry._arguments_without_values(request, {"values": {"caption": "private"}}) is None
 
 
 def test_service_lifecycle_lines_reach_logfire(settings: Settings, capfire: CaptureLogfire) -> None:

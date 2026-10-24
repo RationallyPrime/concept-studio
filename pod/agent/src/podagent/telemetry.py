@@ -70,13 +70,10 @@ def load_telemetry(env: os._Environ[str] | dict[str, str]) -> Telemetry | None:
 
 
 def _arguments_without_values(_request: Request | WebSocket, attributes: dict[str, Any]):
-    """Keep where and why validation failed, drop every value: request values (and the ``input`` a
-    validation error carries) can name repos, runs and files."""
-    errors = [
-        {"type": error.get("type"), "loc": list(error.get("loc", ()))}
-        for error in attributes.get("errors") or []
-    ]
-    return {"errors": errors} if errors else None
+    """Export only the count: locations include client-supplied field names, and custom error
+    types, messages, context and inputs can all contain private request content."""
+    errors = attributes.get("errors") or []
+    return {"validation_error_count": len(errors)} if errors else None
 
 
 def configure(app: FastAPI, telemetry: Telemetry, version: str) -> None:
