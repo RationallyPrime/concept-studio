@@ -188,9 +188,14 @@ extension GPUWorkspace {
         if demoMode {
             agent = DemoPodAgent(count: pod.gpu.count)
         } else if let provider {
+            let startRevision = agentStartRevision
             agent = PodAgentClient(
                 baseURL: provider.url(for: pod, port: PodPort.agent), token: agentToken,
-                transport: transport, downloader: downloader, uploader: uploader
+                transport: transport, downloader: downloader, uploader: uploader,
+                onResponse: { @MainActor [weak self] in
+                    guard let self else { throw CancellationError() }
+                    try noteAgentReady(for: startRevision)
+                }
             )
         }
     }

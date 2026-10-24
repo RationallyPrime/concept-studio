@@ -6,10 +6,11 @@ import Testing
 @MainActor @Suite("GPU boot and idle timing")
 struct GPUReadinessTests {
     private func rent(
-        _ transport: UnreachableAgentTransport, preferences: UserDefaults
+        _ transport: UnreachableAgentTransport, preferences: UserDefaults, hubToken: String = "",
+        downloader: any FileDownloading = FakeDownloader([:])
     ) async throws -> GPUWorkspace {
-        let workspace = makeWorkspace(transport, preferences)
-        try workspace.configure(runpodKey: "fixture", hubToken: "", imageName: "fixture")
+        let workspace = makeWorkspace(transport, preferences, downloader: downloader)
+        try workspace.configure(runpodKey: "fixture", hubToken: hubToken, imageName: "fixture")
         workspace.chooseTrainingModel(ungatedModel)
         await workspace.refreshOffers()
         await workspace.rent()
@@ -47,6 +48,93 @@ struct GPUReadinessTests {
         await workspace.refresh()
         #expect(!workspace.hasRunningPod)
         #expect(await transport.stopCalls == 1)
+    }
+
+    @Test func directTrainingBeforePollingStartsIdleProtection() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        let workspace = try await rent(transport, preferences: preferences, hubToken: "fixture")
+        #expect(workspace.agentReadyAt == nil)
+        #expect(await transport.agentRequests.isEmpty)
+        await transport.agentReachable(true)
+        await workspace.train(datasetRepo: "test/images")
+        #expect(workspace.failure == nil)
+        #expect(workspace.trainingState == "running")
+        #expect(await transport.starts.contains { $0.url?.path() == "/services/trainer-aitoolkit/start" })
+        #expect(workspace.agentReadyAt != nil)
+        #expect(workspace.saved?.agentReadyAt == workspace.agentReadyAt)
+
+        await transport.agentReachable(false)
+        workspace.idleMinutes = 1
+        workspace.lastActivity = Date().addingTimeInterval(-120)
+        await workspace.refresh()
+        #expect(!workspace.hasRunningPod)
+        #expect(await transport.stopCalls == 1)
+    }
+
+    @Test(arguments: [200, 401, 403, 522])
+    func onlySuccessfulAuthenticatedResponsesMarkTheInstalledAgentReady(_ status: Int) async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        let workspace = try await rent(transport, preferences: preferences)
+        if status == 200 { await transport.agentReachable(true) } else { await transport.agentRefuses(status) }
+        let agent = try #require(workspace.agent)
+        do {
+            _ = try await agent.plan()
+            #expect(status == 200)
+        } catch {
+            #expect(status != 200)
+        }
+        #expect((workspace.agentReadyAt != nil) == (status == 200))
+        #expect(workspace.saved?.agentReadyAt == workspace.agentReadyAt)
+        await workspace.stopEverything()
+    }
+
+    @Test func anInstalledClientFromBeforeRestartCannotMarkTheNewStartReady() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        let workspace = try await rent(transport, preferences: preferences)
+        let oldAgent = try #require(workspace.agent)
+        await workspace.stopEverything()
+        await workspace.startStoppedComputer()
+        workspace.monitorTask?.cancel()
+        await workspace.monitorTask?.value
+        await transport.agentReachable(true)
+        await #expect(throws: CancellationError.self) { _ = try await oldAgent.plan() }
+        #expect(workspace.agentReadyAt == nil)
+        #expect(workspace.saved?.agentReadyAt == nil)
+        _ = try await workspace.agent?.plan()
+        #expect(workspace.agentReadyAt != nil)
+        await workspace.stopEverything()
+    }
+
+    @Test(arguments: [false, true])
+    func aSuccessfulDirectFileTransferAlsoMarksReadiness(_ uploading: Bool) async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        let bytes = Data("synthetic transfer".utf8)
+        let workspace = try await rent(
+            transport, preferences: preferences, downloader: FakeDownloader(["output.txt": bytes])
+        )
+        let directory = temporaryTestDirectory("agent-ready-transfer")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appendingPathComponent("output.txt")
+        let agent = try #require(workspace.agent)
+        if uploading {
+            try bytes.write(to: file)
+            try await agent.upload(name: "fixture", fileName: "output.txt", from: file, size: Int64(bytes.count))
+        } else {
+            try await agent.download(runID: "fixture", path: "output.txt", to: file)
+        }
+        #expect(workspace.agentReadyAt != nil)
+        #expect(workspace.saved?.agentReadyAt == workspace.agentReadyAt)
+        #expect(try Data(contentsOf: file) == bytes)
+        await workspace.stopEverything()
     }
 
     @Test func spendingLimitStillStopsBootingGPUWithKeepRunningEnabled() async throws {

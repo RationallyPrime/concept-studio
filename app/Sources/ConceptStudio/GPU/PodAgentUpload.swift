@@ -43,6 +43,7 @@ extension PodAgentClient {
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue(String(size), forHTTPHeaderField: "Content-Length")
         let response = try await uploader.upload(request, from: file)
+        if (200 ..< 300).contains(response.status) { try await onResponse() }
         guard (200 ..< 300).contains(response.status),
               let receipt = try JSONValue(parsing: response.body).objectValue,
               receipt["name"]?.stringValue == name, receipt["file_name"]?.stringValue == fileName,
