@@ -110,11 +110,25 @@ public struct HubClient: Sendable {
     static let lfsMediaType = "application/vnd.git-lfs+json"
 
     public let endpoint: URL
+    /// The constant token supplied by the manual-token initializer. OAuth credentials are resolved per request.
     public let token: String?
     public let transport: any HTTPTransport
+    private let tokenProvider: @Sendable () async throws -> String?
 
     public init(token: String?, endpoint: URL = defaultEndpoint, transport: any HTTPTransport = URLSessionTransport()) {
         self.token = token
+        self.endpoint = endpoint
+        self.transport = transport
+        tokenProvider = { token }
+    }
+
+    public init(
+        tokenProvider: @escaping @Sendable () async throws -> String?,
+        endpoint: URL = defaultEndpoint,
+        transport: any HTTPTransport = URLSessionTransport()
+    ) {
+        token = nil
+        self.tokenProvider = tokenProvider
         self.endpoint = endpoint
         self.transport = transport
     }
@@ -233,7 +247,7 @@ public struct HubClient: Sendable {
         try await uploadLFS(repo: repo, objects: lfsObjects, onProgress: onProgress)
 
         onProgress(HubProgress(phase: .committing, total: operations.count))
-        var request = try request(
+        var request = try await request(
             "POST",
             url("/api/datasets/\(HubClient.encodePath(repo.id))/commit/\(HubClient.encodeSegment(revision))")
         )
@@ -346,7 +360,7 @@ public struct HubClient: Sendable {
     /// the action names, and the Hub token when the href is on the Hub (it normally is; the
     /// upload href is not). A non-2xx reply is `HubError.http`: the object is not registered.
     private func verifyLFS(_ verify: LFSAction, oid: String, size: Int) async throws {
-        var request = request("POST", verify.href, authorized: isOwnHost(verify.href))
+        var request = try await request("POST", verify.href, authorized: isOwnHost(verify.href))
         request.setValue(HubClient.lfsMediaType, forHTTPHeaderField: "Accept")
         request.setValue(HubClient.lfsMediaType, forHTTPHeaderField: "Content-Type")
         for (name, value) in verify.headers {
@@ -384,7 +398,10 @@ public struct HubClient: Sendable {
 
     /// One LFS batch call; returns the upload actions for objects the server still needs.
     private func lfsBatch(repo: RepoID, objects: [(oid: String, size: Int)]) async throws -> [LFSUpload] {
-        var request = try request("POST", url("/datasets/\(HubClient.encodePath(repo.id)).git/info/lfs/objects/batch"))
+        var request = try await request(
+            "POST",
+            url("/datasets/\(HubClient.encodePath(repo.id)).git/info/lfs/objects/batch")
+        )
         request.setValue(HubClient.lfsMediaType, forHTTPHeaderField: "Accept")
         request.setValue(HubClient.lfsMediaType, forHTTPHeaderField: "Content-Type")
         request.httpBody = JSONValue.object([
@@ -446,17 +463,17 @@ public struct HubClient: Sendable {
         url.host()?.lowercased() == endpoint.host()?.lowercased()
     }
 
-    private func request(_ method: String, _ url: URL, authorized: Bool = true) -> URLRequest {
+    private func request(_ method: String, _ url: URL, authorized: Bool = true) async throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
-        if authorized, let token {
+        if authorized, let token = try await tokenProvider(), !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         return request
     }
 
-    private func jsonRequest(_ method: String, _ url: URL, body: JSONObject) -> URLRequest {
-        var request = request(method, url)
+    private func jsonRequest(_ method: String, _ url: URL, body: JSONObject) async throws -> URLRequest {
+        var request = try await request(method, url)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = JSONValue.object(body).pythonDumpsData()
         return request

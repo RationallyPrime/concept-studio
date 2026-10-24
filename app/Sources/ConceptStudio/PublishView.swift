@@ -20,7 +20,7 @@ struct PublishView: View {
                 Divider()
                 if session.gpu.usesLocalDataset {
                     StudioSection(title: "Upload directly to your cloud GPU") {
-                        Text("No Hugging Face token is configured. Check your saved training data here, then rent a "
+                        Text("Check your saved training data here, then rent a "
                             + "cloud GPU and start training. The app uploads your included targets directly over its "
                             + "authenticated connection. No dataset account is required.")
                         Text("Up to 2 GiB per file and 20 GiB per dataset. "
@@ -38,12 +38,9 @@ struct PublishView: View {
                         Text("Private datasets are visible only to accounts with access. "
                             + "Keep this on for private images and clips.")
                             .font(.callout).foregroundStyle(StudioStyle.supportingText)
-                        StudioNotice(
-                            "Your Hugging Face write token goes in Settings. It is never saved in the project.",
-                            symbol: "key"
-                        )
                     }.disabled(session.busy)
                 }
+                HuggingFaceAccountView(session: session)
                 Divider()
                 StudioSection(
                     title: session.gpu.usesLocalDataset ? "Check training data" : "Publish",

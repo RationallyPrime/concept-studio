@@ -75,8 +75,7 @@ extension GPUWorkspace {
             }
             try self.checkModelDownloadsWithoutHubToken()
             let baseline = self.estimatedPodCost
-            let selectedTrainer = self.trainer
-            let selectedModel = self.baseModel
+            let selectedTrainer = self.trainer, selectedModel = self.baseModel
             try self.validateNextRunGuidance(containsVideo: self.trainingDatasetContainsVideo)
             let plan = try await agent.plan()
             try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: self.effectiveModelRow)
@@ -126,12 +125,12 @@ extension GPUWorkspace {
             params = try await self.captionedRegularization(params, plan: plan, captioning: captioning, agent: agent)
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
             self.historyRunID = self.runID
+            let startParams = try await self.paramsWithFreshHubToken(params)
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
             trainerStartAttempted = true
-            try await agent.start("trainer-\(selectedTrainer)", gpus: plan.train?.gpus ?? [], params: params)
-            self.persist()
-            self.persistResult()
+            try await agent.start("trainer-\(selectedTrainer)", gpus: plan.train?.gpus ?? [], params: startParams)
+            self.persist(); self.persistResult()
             await self.recordNewTrainingRun(
                 agent, datasetRepo: local == nil ? repo : "", params: params, localInputDigest: local?.digest
             )
@@ -199,7 +198,8 @@ extension GPUWorkspace {
             && serviceUnavailableReason("push-lora") == nil ? .hub : .download
         if destination == .hub {
             params["hub"] = .object([
-                "repo_id": .string(output.repo), "private": .bool(output.isPrivate), "push_on_finish": .bool(true),
+                "repo_id": .string(output.repo), "private": .bool(output.isPrivate),
+                "push_on_finish": .bool(!usesHubOAuth),
             ])
         }
         points = []
@@ -232,17 +232,25 @@ extension GPUWorkspace {
     /// The default destination for a project signed in to Hugging Face with none chosen:
     /// `<account>/<project>-lora`. Nil without a token or when the account cannot be read; the result
     /// is then downloaded into the project, as for a user without a Hub account.
-    func suggestedOutputRepo() async -> String? {
-        guard !demoMode, !hubToken.isEmpty, let projectFolder,
+    func suggestedOutputRepo() async throws -> String? {
+        guard !demoMode, hasHubCredential, let projectFolder,
               let url = URL(string: "https://huggingface.co/api/whoami-v2") else { return nil }
         // Asked as Start is pressed: the idle stop must not take the computer while this answers.
         beginAppWork()
         defer { endAppWork() }
         var request = URLRequest(url: url, timeoutInterval: 20)
-        request.setValue("Bearer \(hubToken)", forHTTPHeaderField: "Authorization")
-        guard let response = try? await transport.send(request), response.status == 200,
+        try await request.setValue("Bearer \(freshHubToken())", forHTTPHeaderField: "Authorization")
+        let response = try? await transport.send(request)
+        try Task.checkCancellation()
+        guard let response, response.status == 200,
               let account = try? JSONValue(parsing: response.body).objectValue?["name"]?.stringValue,
-              !account.isEmpty, !account.contains("/") else { return nil }
+              !account.isEmpty, !account.contains("/") else {
+            if usesHubOAuth {
+                throw StudioError.message("Hugging Face could not read your account. "
+                    + "Check your Hugging Face connection in Settings and try again.")
+            }
+            return nil
+        }
         return "\(account)/\(Self.repoName(project: projectFolder.lastPathComponent))"
     }
 
@@ -266,7 +274,9 @@ extension GPUWorkspace {
             try await waitForService("vllm", allowStopped: true)
         } else if plan.mode != "sequential", keepCaptionServer, !captionActive {
             if let reason = serviceUnavailableReason("vllm") { throw StudioError.message(reason) }
-            try await agent.start("vllm", gpus: plan.caption?.gpus ?? [], params: captionStartParams)
+            try await agent.start(
+                "vllm", gpus: plan.caption?.gpus ?? [], params: paramsWithFreshHubToken(captionStartParams)
+            )
         }
     }
 
@@ -396,7 +406,8 @@ extension GPUWorkspace {
         if !running {
             try await agent.start(
                 "vllm", gpus: plan.caption?.gpus ?? [],
-                params: Self.captionServerSettings(for: requestedModel).params(model: requestedModel)
+                params: paramsWithFreshHubToken(Self.captionServerSettings(for: requestedModel)
+                    .params(model: requestedModel))
             )
             captionServerActive = nil
         }

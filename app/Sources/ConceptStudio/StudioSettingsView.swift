@@ -24,7 +24,6 @@ struct StudioSettingsView: View {
     @State private var captioningAccount: CaptioningAccountChoice = .chatGPT
     @State private var account = "openrouter"
     @State private var enteredKey = ""
-    @State private var huggingFaceToken = ""
     @State private var runPodKey = ""
     @State private var keyPresence: [String: Bool] = [:]
     @State private var keyStatusText: [String: String] = [:]
@@ -37,7 +36,7 @@ struct StudioSettingsView: View {
 
     private let gateways = ["openrouter", "vercel", "gateway"]
     private let manualProviders = ["openrouter", "vercel", "gateway", "google", "anthropic", "openai", "vllm"]
-    private let additionalAccounts = ["huggingface", "runpod"]
+    private let additionalAccounts = ["runpod"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -121,7 +120,6 @@ struct StudioSettingsView: View {
             session.chatGPT.cancelSignIn()
             session.openRouter.cancel()
             enteredKey = ""
-            huggingFaceToken = ""
             runPodKey = ""
             reloadKeyStatuses()
         }
@@ -207,27 +205,7 @@ struct StudioSettingsView: View {
             title: "Publishing and training accounts",
             subtitle: "Use these accounts to publish datasets and rent cloud GPUs."
         ) {
-            Form {
-                LabeledContent("Hugging Face", value: keyStatus("huggingface"))
-                SecureField("Hugging Face write token", text: $huggingFaceToken, prompt: Text("Paste write token"))
-                    .help("Saved in this Mac’s Keychain and used for Hugging Face publishing.")
-            }.formStyle(.columns)
-            HStack(spacing: 12) {
-                Button(checkingAccount == "huggingface" ? "Checking token…" : "Save and check token") {
-                    saveAdditionalKey("huggingface", value: huggingFaceToken)
-                }
-                .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
-                .disabled(session.demoMode || session.busy || checkingAccount != nil
-                    || huggingFaceToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help("Saves the token, then asks Hugging Face who it belongs to; no data is uploaded.")
-                Button("Remove saved token") { removeKey("huggingface") }
-                    .disabled(session.demoMode || session.busy || checkingAccount != nil
-                        || keyPresence["huggingface"] != true)
-                    .help("Removes this token from the Mac; it does not revoke it on Hugging Face.")
-                if let url = URL(string: "https://huggingface.co/settings/tokens") {
-                    Link("Token settings", destination: url)
-                }
-            }
+            HuggingFaceAccountView(session: session, showsManualToken: true)
 
             Divider()
 
@@ -341,7 +319,7 @@ struct StudioSettingsView: View {
 
     private func saveAdditionalKey(_ name: String, value: String) {
         saveKey(name, value: value)
-        if name == "huggingface" { huggingFaceToken = "" } else { runPodKey = "" }
+        runPodKey = ""
     }
 
     private func saveKey(_ name: String, value: String) {
@@ -351,7 +329,6 @@ struct StudioSettingsView: View {
             try session.secrets.save(value, account: name)
             keyPresence[name] = true
             keyStatusText[name] = "Checking…"
-            if name == "huggingface" { session.providerCredentialsDidChange() }
             clearProviderModels(for: name)
             reloadGPUKeysIfNeeded(name)
             cancelKeyCheck()
@@ -369,7 +346,6 @@ struct StudioSettingsView: View {
             cancelKeyCheck()
             keyPresence[name] = false
             keyStatusText[name] = "Not set"
-            if name == "huggingface" { session.providerCredentialsDidChange() }
             clearProviderModels(for: name)
             reloadGPUKeysIfNeeded(name)
             if name == "openrouter" { Task { await session.openRouter.load() } }
@@ -379,7 +355,7 @@ struct StudioSettingsView: View {
     }
 
     private func reloadGPUKeysIfNeeded(_ name: String) {
-        guard ["runpod", "huggingface"].contains(name) else { return }
+        guard name == "runpod" else { return }
         session.configureGPU()
         session.gpuKeysLoadedFor = session.gpu
     }
@@ -405,12 +381,6 @@ struct StudioSettingsView: View {
         }
         do {
             switch name {
-            case "huggingface":
-                let token = try session.secrets.read(name) ?? ""
-                try await ProviderCredentialValidator.checkHuggingFace(token: token)
-                try Task.checkCancellation()
-                guard generation == keyCheckGeneration else { return }
-                keyStatusText[name] = "Works · account accepted the token"
             case "runpod":
                 let key = try session.secrets.read(name) ?? ""
                 try await ProviderCredentialValidator.checkRunPod(key: key)

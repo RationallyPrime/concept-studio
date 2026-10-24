@@ -189,6 +189,8 @@ final class GPUWorkspace {
     @ObservationIgnored var agent: (any PodAgent)?
     /// Observed: whether training reads a published dataset or uploads directly depends on it.
     var hubToken = ""
+    /// The Mac account owns renewal. Presence selects OAuth; the pasted token is never its fallback.
+    var hubOAuthToken: (@Sendable () async throws -> String)?
     @ObservationIgnored var imageName = ""
     @ObservationIgnored var saved: SavedPod?
     @ObservationIgnored var lastActivity = Date()
@@ -269,10 +271,14 @@ final class GPUWorkspace {
         }
     }
 
-    func configure(runpodKey: String, hubToken: String, imageName: String, networkVolumeID: String? = nil) throws {
+    func configure(
+        runpodKey: String, hubToken: String, imageName: String, networkVolumeID: String? = nil,
+        hubOAuthToken: (@Sendable () async throws -> String)? = nil
+    ) throws {
         guard !demoMode else { return }
         provider = runpodKey.isEmpty ? nil : RunPodProvider(key: runpodKey, transport: transport)
         self.hubToken = hubToken
+        self.hubOAuthToken = hubOAuthToken
         self.imageName = imageName
         if let networkVolumeID, !prefersNoSavedStorage { selectedVolume = networkVolumeID }
         if result == nil, let data = preferences.data(forKey: Self.pendingResultKey) {

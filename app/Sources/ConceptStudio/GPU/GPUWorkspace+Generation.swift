@@ -70,6 +70,7 @@ extension GPUWorkspace {
             "frame_rate": .double(Double(report?.group.settings.frameRate ?? run.generationFrameRate(in: modelTable))),
         ]
         if let references = report?.styleReferences { params["style_references"] = .object(references) }
+        let startParams = try await paramsWithFreshHubToken(params)
         generation = GeneratedComparison(
             runID: id, sourceRunID: run.runID, checkpoint: checkpoint.path, trainer: run.trainer,
             volumeID: run.volumeID, startedAt: Date(), state: .generating,
@@ -79,7 +80,9 @@ extension GPUWorkspace {
         lastActivity = Date()
         saveProjectRecord()
         persist()
-        try await agent.start("generate-\(run.trainer)", gpus: [plan.train?.gpus.first ?? 0], params: params)
+        try await agent.start(
+            "generate-\(run.trainer)", gpus: [plan.train?.gpus.first ?? 0], params: startParams
+        )
         message = "Generating matched base and LoRA outputs. "
             + "The same prompts, seeds and settings apply to both."
     }

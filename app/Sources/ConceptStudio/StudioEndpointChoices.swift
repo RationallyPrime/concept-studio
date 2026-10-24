@@ -328,11 +328,13 @@ extension StudioSession {
         updateTrainingProjectDefaults()
         guard !demoMode else { return }
         do {
+            let hub = try huggingFace.storedTokenConfiguration()
             try gpu.configure(
                 runpodKey: keyStore.read("runpod") ?? "",
-                hubToken: keyStore.read("huggingface") ?? "",
+                hubToken: hub.manualToken,
                 imageName: podImageName,
-                networkVolumeID: volumeID.isEmpty ? nil : volumeID
+                networkVolumeID: volumeID.isEmpty ? nil : volumeID,
+                hubOAuthToken: hub.oauthToken
             )
         } catch { errorMessage = Self.describe(error) }
     }

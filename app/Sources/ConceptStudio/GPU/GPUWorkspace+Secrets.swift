@@ -31,8 +31,9 @@ extension GPUWorkspace {
     /// token takes effect at the next rental.
     func storeCredentials(_ provider: any GPUProvider, cloud: GPUCloud) async throws -> PodCredentials {
         var env: [String: String] = [:]
-        if !hubToken.isEmpty, cloud.receivesHubToken {
-            try await provider.storeSecret(name: PodSecrets.hubTokenName, value: hubToken)
+        if hasHubCredential, cloud.receivesHubToken {
+            let token = try await freshHubToken()
+            try await provider.storeSecret(name: PodSecrets.hubTokenName, value: token)
             env["HF_TOKEN"] = PodSecrets.reference(PodSecrets.hubTokenName)
         }
         let agentSecret = try PodSecrets.newAgentSecretName()
@@ -78,11 +79,46 @@ extension GPUWorkspace {
 }
 
 extension GPUWorkspace {
+    var usesHubOAuth: Bool {
+        hubOAuthToken != nil
+    }
+
+    var hasHubCredential: Bool {
+        usesHubOAuth || !hubToken.isEmpty
+    }
+
+    func freshHubToken() async throws -> String {
+        try Task.checkCancellation()
+        guard let hubOAuthToken else { return hubToken }
+        let token = try await hubOAuthToken()
+        try Task.checkCancellation()
+        guard !token.isEmpty else {
+            throw StudioError.message("Sign in with Hugging Face again before using your account.")
+        }
+        return token
+    }
+
+    /// A service-start copy only: callers retain their canonical params for saved runs and repeat.
+    /// Manual tokens keep their existing rental environment; OAuth access tokens are renewed per operation.
+    func paramsWithFreshHubToken(_ params: JSONObject) async throws -> JSONObject {
+        var request = params
+        request["hf_token"] = nil
+        guard !demoMode, usesHubOAuth, cloudGPUHoldsHubToken else { return request }
+        let startRevision = agentStartRevision
+        let podID = pod?.id
+        let token = try await freshHubToken()
+        guard startRevision == agentStartRevision, podID == pod?.id, cloudGPUHoldsHubToken else {
+            throw CancellationError()
+        }
+        request["hf_token"] = .string(token)
+        return request
+    }
+
     /// Whether the cloud GPU holds the Hub token: the rented one as it was created, else the one selected
     /// to rent. Without it the cloud GPU works as for a person with no Hugging Face account: training media
     /// are uploaded from this Mac, and the trained model is saved to this Mac rather than published from it.
     var cloudGPUHoldsHubToken: Bool {
-        guard !hubToken.isEmpty else { return false }
+        guard hasHubCredential else { return false }
         if pod != nil { return saved?.hubTokenOnPod ?? true }
         return offers.first { $0.id == selectedGPU }?.cloud.receivesHubToken ?? true
     }
@@ -94,25 +130,26 @@ extension GPUWorkspace {
 
     /// The person has a Hub token, but the cloud GPU does not get it (Community Cloud).
     var hubTokenKeptOffCloudGPU: Bool {
-        !demoMode && !hubToken.isEmpty && !cloudGPUHoldsHubToken
+        !demoMode && hasHubCredential && !cloudGPUHoldsHubToken
     }
 
-    /// The training model when it is gated and no Hub token is configured, so no cloud GPU could download it.
+    /// The gated training model when no Hugging Face account or manual token is connected.
     var gatedModelWithoutHubToken: ModelRow? {
-        guard !demoMode, hubToken.isEmpty, let row = exactModelRow, row.source.gated else { return nil }
+        guard !demoMode, !hasHubCredential, let row = exactModelRow, row.source.gated else { return nil }
         return row
     }
 
     /// A gated model downloads only with the Hub token, so it cannot train on a cloud GPU kept without it.
     func checkModelDownloadsWithoutHubToken() throws {
         if let row = gatedModelWithoutHubToken {
-            throw StudioError.message("\(row.shortName) downloads from Hugging Face only with a token, and none "
-                + "is set. Add a Hugging Face token in Settings, then remove this cloud GPU and rent a Secure Cloud "
+            throw StudioError.message("\(row.shortName) needs your Hugging Face account to download. "
+                + "Sign in with Hugging Face in Settings, then remove this cloud GPU and rent a Secure Cloud "
                 + "GPU to train it.")
         }
         guard hubTokenKeptOffCloudGPU, let row = exactModelRow, row.source.gated else { return }
-        throw StudioError.message("\(row.shortName) downloads from Hugging Face only with your token, and this "
-            + "cloud GPU was rented without it (Community Cloud GPUs never get it). Remove this cloud GPU and rent "
+        throw StudioError.message("\(row.shortName) needs your Hugging Face account to download, and this "
+            + "cloud GPU was rented without account access (Community Cloud GPUs never get it). "
+            + "Remove this cloud GPU and rent "
             + "a Secure Cloud GPU to train it.")
     }
 

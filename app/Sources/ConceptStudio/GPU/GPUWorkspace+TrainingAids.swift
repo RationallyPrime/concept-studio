@@ -275,11 +275,15 @@ extension GPUWorkspace {
         try await prepareCaptionServerForTraining(agent, plan: plan) // a one-GPU computer frees its GPU to draw
         let drawID = "regularization-" + UUID().uuidString.prefix(12).lowercased()
         message = "Drawing regularisation images."
-        try await agent.start("draw-regularization", gpus: [plan.train?.gpus.first ?? 0], params: [
-            "run_id": .string(drawID), "dataset": params["dataset"] ?? .null,
-            "base_model": params["base_model"] ?? .null, "resolution": params["resolution"] ?? .null,
-            "regularization": .object(block),
-        ])
+        try await agent.start(
+            "draw-regularization",
+            gpus: [plan.train?.gpus.first ?? 0],
+            params: paramsWithFreshHubToken([
+                "run_id": .string(drawID), "dataset": params["dataset"] ?? .null,
+                "base_model": params["base_model"] ?? .null, "resolution": params["resolution"] ?? .null,
+                "regularization": .object(block),
+            ])
+        )
         try await waitForService("draw-regularization") {
             guard let log = try? await agent.runLog(runID: drawID),
                   let drawing = RegularizationProgress.parse(log: log) else { return }

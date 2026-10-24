@@ -89,7 +89,7 @@ struct OpenRouterAuthorization {
 }
 
 /// A callback verifier must never be forwarded by an HTTP redirect. This transport is only
-/// for the two fixed OpenRouter authorization/metadata endpoints; inference keeps the Core transport.
+/// for fixed account authorization/metadata endpoints; inference keeps the Core transport.
 struct OpenRouterAuthorizationTransport: HTTPTransport {
     private final class NoRedirect: NSObject, URLSessionTaskDelegate {
         func urlSession(
