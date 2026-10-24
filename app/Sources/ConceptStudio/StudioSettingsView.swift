@@ -347,7 +347,7 @@ struct StudioSettingsView: View {
     }
 
     private func reloadGPUKeysIfNeeded(_ name: String) {
-        guard ["runpod", "huggingface"].contains(name) else { return }
+        guard ["runpod", "huggingface", "logfire"].contains(name) else { return }
         session.configureGPU()
         session.gpuKeysLoadedFor = session.gpu
     }
@@ -432,6 +432,11 @@ extension StudioSettingsView {
                 .help("A Logfire write token. Cloud GPUs rented while it is saved send their timings and states "
                     + "to that Logfire project: never images, clips or captions. Without one, nothing is sent.")
             }.formStyle(.columns)
+            if keyPresence["logfire"] == true {
+                Button("Stop sending diagnostics") { removeKey("logfire") }
+                    .disabled(session.demoMode || session.busy)
+                    .help("Removes the diagnostics token from the Mac. Cloud GPUs rented from now on send nothing.")
+            }
             HStack(spacing: 12) {
                 Button("Save preferences") {
                     session.rememberChoices()

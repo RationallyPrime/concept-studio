@@ -70,8 +70,12 @@ def load_telemetry(env: os._Environ[str] | dict[str, str]) -> Telemetry | None:
 
 
 def _arguments_without_values(_request: Request | WebSocket, attributes: dict[str, Any]):
-    """Keep validation errors, drop the request's values: they can name repos, runs and files."""
-    errors = attributes.get("errors")
+    """Keep where and why validation failed, drop every value: request values (and the ``input`` a
+    validation error carries) can name repos, runs and files."""
+    errors = [
+        {"type": error.get("type"), "loc": list(error.get("loc", ()))}
+        for error in attributes.get("errors") or []
+    ]
     return {"errors": errors} if errors else None
 
 
@@ -96,4 +100,7 @@ def instrument(app: FastAPI) -> None:
     logfire.instrument_fastapi(
         app, excluded_urls=_EXCLUDED, request_attributes_mapper=_arguments_without_values
     )
-    logging.getLogger("podagent").addHandler(logfire.LogfireLoggingHandler())
+    agent_log = logging.getLogger("podagent")
+    # The agent's lifecycle lines (service started, exited) are INFO; the default threshold is WARNING.
+    agent_log.setLevel(logging.INFO)
+    agent_log.addHandler(logfire.LogfireLoggingHandler())

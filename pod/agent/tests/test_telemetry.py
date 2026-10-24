@@ -72,3 +72,32 @@ def test_requests_are_traced_without_their_values_and_polling_is_not(
     assert "/services/{name}/start" in routes
     assert "/services" not in routes
     assert "org/private-model" not in json.dumps(spans, default=str)
+
+
+def test_a_rejected_request_keeps_where_it_failed_but_not_what_was_sent(
+    settings: Settings, capfire: CaptureLogfire
+) -> None:
+    app = create_app(settings, FakeBackend(2))
+    telemetry.instrument(app)
+    with TestClient(app, headers=AUTH) as client:
+        rejected = client.post(
+            "/services/vllm/start",
+            json={"gpus": [0], "params": {"model": "org/m"}, "caption": "a private caption"},
+        )
+        assert rejected.status_code == 422
+    exported = json.dumps(capfire.exporter.exported_spans_as_dict(), default=str)
+    assert "a private caption" not in exported
+    assert "extra_forbidden" in exported
+
+
+def test_service_lifecycle_lines_reach_logfire(settings: Settings, capfire: CaptureLogfire) -> None:
+    app = create_app(settings, FakeBackend(2))
+    telemetry.instrument(app)
+    with TestClient(app, headers=AUTH) as client:
+        client.post("/services/vllm/start", json={"gpus": [0], "params": {"model": "org/m"}})
+        client.post("/services/vllm/stop", json={})
+    messages = [
+        span["attributes"].get("logfire.msg", "")
+        for span in capfire.exporter.exported_spans_as_dict()
+    ]
+    assert any(message.startswith("started vllm") for message in messages)
