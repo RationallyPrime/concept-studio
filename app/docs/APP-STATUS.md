@@ -6,10 +6,23 @@ The [Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for
 in 1 h 19 min at US$3.99 of GPU cost**. The signed, notarised app handled the full workflow,
 including regularisation, REPA, private publication and automatic idle stop.
 
-Updated 2026-10-22. The app defaults to **`v0.3.10-20261022`**, including SeedVR2 restoration,
-with **seven verified recipes** and **18 additional recipes** under Advanced user.
+Updated 2026-10-24. The default GPU images include SeedVR2 restoration and report the services
+each image can run, with **seven verified recipes** and **18 additional recipes** under Advanced user.
 [Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
 [GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
+
+## Installed GPU services, 2026-10-24
+
+**The app offers the tools installed on the running GPU.** Training, Resume, generation,
+Upscale, reports, cleanup and TensorBoard use the agent's actual service inventory. Each action
+refreshes its required services before preparing inputs or starting work. A missing retained
+caption server is included in that check. The recovery message identifies the image or rental
+choice needed for the task.
+
+A missing TensorBoard installation does not block training. If the image cannot publish a
+LoRA, the app collects the verified checkpoint into the project. The
+[image release ledger](../../pod/images/README.md) records each published image's exact installed
+service set and the refusal checks for unavailable services.
 
 ## Friction fixes, 2026-10-22
 

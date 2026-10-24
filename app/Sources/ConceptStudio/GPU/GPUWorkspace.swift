@@ -41,6 +41,7 @@ final class GPUWorkspace {
             if oldValue?.id != pod?.id || oldValue?.isRunning != pod?.isRunning {
                 agentStartRevision += 1
                 agentReadyAt = nil
+                serviceInventory = nil
                 plan = nil
             }
             sleepGuard.hold(!demoMode && pod?.isRunning == true)
@@ -50,6 +51,8 @@ final class GPUWorkspace {
     }
 
     var plan: TrainingPlan?
+    /// nil until the current start reports its installed tools.
+    var serviceInventory: [AgentService]?
     /// The first authenticated agent response for this start. Image pulling and boot time are never idle time.
     var agentReadyAt: Date?
     @ObservationIgnored var agentStartRevision = 0
@@ -454,7 +457,7 @@ extension GPUWorkspace {
         while true {
             try Task.checkCancellation()
             let services = try await agent.services()
-            updateCaptionServerState(services)
+            updateServiceState(services)
             let service = services.first(where: { $0.name == name })
             if let service, !service.active {
                 guard service.state == "exited" || (allowStopped && service.state == "stopped") else {

@@ -18,7 +18,13 @@ actor UpscaleAgent: PodAgent {
     }
 
     func services() -> [AgentService] {
-        starts.map { AgentService(name: $0.service, state: "exited", groupAlive: false, runID: nil) }
+        GPUWorkspace.serviceTitles.keys.sorted().map { name in
+            let start = starts.last { $0.service == name }
+            return AgentService(
+                name: name, state: start == nil ? "idle" : "exited", groupAlive: false,
+                runID: start?.params["run_id"]?.stringValue, available: true
+            )
+        }
     }
 
     func start(_ service: String, gpus: [Int], params: JSONObject) {
@@ -179,6 +185,10 @@ struct UpscaleWorkflowTests {
         #expect(workspace.upscaleUnavailableReason?.contains("Rent one") == true)
         workspace.pod = RentedPod(id: "offline", status: "RUNNING", cost: 0, gpu: .init(count: 1))
         workspace.agent = UpscaleAgent()
+        #expect(workspace.upscaleUnavailableReason?.contains("Waiting") == true)
+        workspace.updateServiceState([
+            AgentService(name: "upscale-media", state: "idle", groupAlive: false, available: true),
+        ])
         #expect(workspace.upscaleUnavailableReason == nil)
         workspace.trainingState = "running"
         #expect(workspace.upscaleUnavailableReason?.contains("training") == true)

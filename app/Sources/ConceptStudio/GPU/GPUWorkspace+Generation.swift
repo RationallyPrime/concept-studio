@@ -46,7 +46,7 @@ extension GPUWorkspace {
         guard !resultNeedsSaving else {
             throw StudioError.message("Retrieve the pending outputs before generating another comparison.")
         }
-        let services = try await agent.services()
+        let services = try await requireServices(generationServices(run.trainer), from: agent)
         guard !services.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
                 || $0.name.hasPrefix("generate-")) }) else {
             throw StudioError.message("Finish the active training or generation action first.")

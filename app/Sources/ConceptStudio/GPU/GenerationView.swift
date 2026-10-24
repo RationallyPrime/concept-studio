@@ -105,12 +105,17 @@ struct GenerationView: View {
                 + "Generation uses the rented GPU; the app's spending limit and Stop controls remain active.")
                 .font(.callout).foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
             StudioTermsHelp(terms: [.prompt, .seed, .checkpoint, .fps, .resolution, .lora])
+            if workspace.hasRunningPod, let run = selectedRun,
+               let reason = workspace.generationUnavailableReason(run.trainer) {
+                StudioNotice(reason)
+            }
             Button("Generate base and LoRA comparison", systemImage: "photo.on.rectangle.angled") {
                 generate()
             }
             .buttonStyle(.borderedProminent).tint(StudioStyle.actionTint)
             .disabled(workspace.isBusy || workspace.isTraining || !workspace.hasRunningPod
-                || selectedRun?.supportsGeneration != true || checkpointPath.isEmpty || workspace.demoMode)
+                || selectedRun?.supportsGeneration != true || checkpointPath.isEmpty || workspace.demoMode
+                || selectedRun.map { workspace.generationUnavailableReason($0.trainer) != nil } == true)
             if let generation = workspace.generation, generation.state != .saved {
                 Text(generation.summary).font(.callout).foregroundStyle(StudioStyle.supportingText)
                 if generation.state == .pending {

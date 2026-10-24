@@ -46,6 +46,7 @@ from pydantic import (
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from typing_extensions import TypedDict
 
+from . import availability
 from .artifacts import resolve_run_file
 from .checkpoints import checkpoint_step, latest_checkpoint
 from .errors import AgentError
@@ -1227,13 +1228,11 @@ class ServiceSpec:
     env: Callable[[ServiceParams, Settings], dict[str, str]]
     prepare: Callable[[ServiceParams, Paths], None]
     run_id: Callable[[ServiceParams], str | None]
-    # Whether this image carries the service's program. vLLM can be absent: the trainer images
-    # ship without it, and their "-captioning" variants add it (images/README.md). SeedVR2 is
-    # absent from images built before upscale-media existed.
-    available: Callable[[Paths], bool] = lambda _paths: True
+    # Every service declares the runtime and entrypoints its image must carry.
+    available: Callable[[Paths], bool]
     # The 409 message when ``available`` is false: what the person can do about it.
     missing: str = (
-        "This cloud GPU's image predates {name}. Rent one with a current image to use it."
+        "This cloud GPU's image does not include {name}. Rent one with the matching image."
     )
 
     def gpu_count_ok(self, count: int) -> bool:
@@ -1654,7 +1653,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_vllm_env,
         prepare=_noop_prepare,
         run_id=_no_run_id,
-        available=lambda paths: Path(paths.venv_bin("vllm", "vllm")).is_file(),
+        available=lambda paths: availability.command(paths, "vllm", "vllm"),
         missing="This computer's image has no {name}. Rent the computer with captioning "
         "(the image tag ending in -captioning) to caption on its GPU.",
     ),
@@ -1669,6 +1668,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_no_env,
         prepare=_noop_prepare,
         run_id=_no_run_id,
+        available=lambda paths: availability.command(paths, "agent", "tensorboard"),
     ),
     "trainer-aitoolkit": ServiceSpec(
         name="trainer-aitoolkit",
@@ -1681,6 +1681,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_trainer_prepare,
         run_id=_params_run_id,
+        available=lambda paths: availability.trainer(paths, "aitoolkit"),
     ),
     "trainer-ltx": ServiceSpec(
         name="trainer-ltx",
@@ -1693,6 +1694,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_trainer_prepare,
         run_id=_params_run_id,
+        available=lambda paths: availability.trainer(paths, "ltx"),
     ),
     "trainer-musubi": ServiceSpec(
         name="trainer-musubi",
@@ -1706,6 +1708,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_trainer_prepare,
         run_id=_params_run_id,
+        available=lambda paths: availability.trainer(paths, "musubi"),
     ),
     "cleanup-datasets": ServiceSpec(
         name="cleanup-datasets",
@@ -1718,6 +1721,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_no_env,
         prepare=_cleanup_prepare,
         run_id=_no_run_id,
+        available=lambda paths: availability.executable(paths.venv_bin("agent", "python")),
     ),
     "pull-dataset": ServiceSpec(
         name="pull-dataset",
@@ -1730,6 +1734,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_hf_env,
         prepare=_pull_dataset_prepare,
         run_id=_no_run_id,
+        available=lambda paths: availability.script(paths, "agent", "pull_dataset.py"),
     ),
     "draw-regularization": ServiceSpec(
         name="draw-regularization",
@@ -1742,6 +1747,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_draw_prepare,
         run_id=_params_run_id,
+        available=availability.regularization,
     ),
     "upscale-media": ServiceSpec(
         name="upscale-media",
@@ -1754,15 +1760,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_trainer_env,
         prepare=_upscale_prepare,
         run_id=_params_run_id,
-        available=lambda paths: (
-            Path(paths.venv_bin("seedvr2", "python")).is_file()
-            and any(
-                module.is_file()
-                for module in (paths.prefix / "venvs" / "seedvr2" / "lib").glob(
-                    "python*/site-packages/torch/__init__.py"
-                )
-            )
-        ),
+        available=availability.upscale,
         missing="This image has no SeedVR2 GPU runtime. Rent a GPU with a current trainer image to upscale.",
     ),
     "push-lora": ServiceSpec(
@@ -1776,6 +1774,7 @@ CATALOG: dict[str, ServiceSpec] = {
         env=_hf_env,
         prepare=_noop_prepare,
         run_id=_params_run_id,
+        available=lambda paths: availability.script(paths, "agent", "push_lora.py"),
     ),
 }
 
@@ -1792,6 +1791,7 @@ for _trainer in ("aitoolkit", "ltx", "musubi"):
         env=_trainer_env,
         prepare=_generation_prepare,
         run_id=_params_run_id,
+        available=lambda paths, trainer=_trainer: availability.generation(paths, trainer),
     )
 
 SERVICE_NAMES: tuple[str, ...] = tuple(CATALOG)

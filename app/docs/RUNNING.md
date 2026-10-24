@@ -239,6 +239,11 @@ a 300 GB persistent disk: **Stop** keeps its files, **Remove** deletes them. A n
 can be reused by another GPU in the same data center. Both storage choices continue billing
 while the GPU is stopped.
 
+The app checks which tools the running GPU image contains. Training, generation, captioning,
+Upscale, reports and cleanup are offered only when their tools are installed. Missing tools
+show the next step before any inputs are uploaded. Saved outputs remain downloadable; when
+the image cannot publish a LoRA, the result is saved to your Mac.
+
 Cloud GPU and Training list the prerequisites for training with links to the relevant steps.
 Complete them before starting training; you can rent earlier when you need the GPU for
 captioning. Keep a stopped GPU while renting another: **Stopped, kept** lists retained GPUs,

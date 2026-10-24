@@ -54,7 +54,7 @@ extension GPUWorkspace {
         }
         if isTraining { return "The cloud GPU is training. Upscale after the run finishes." }
         if isBusy || isStopping { return "The cloud GPU is busy with another action. Try again when it finishes." }
-        return nil
+        return unavailableServicesReason(upscaleServices)
     }
 
     /// The cloud GPU's price per hour, for the sentence beside the Upscale button.
@@ -70,8 +70,12 @@ extension GPUWorkspace {
         _ inputs: [UpscaleInput], model: UpscaleModel, target: UpscaleTarget, into folder: URL,
         progress: @escaping @MainActor (String) -> Void
     ) async throws -> UpscaleOutcome {
+        guard let agent, hasRunningPod else {
+            throw StudioError.message(upscaleUnavailableReason ?? "Rent a cloud GPU before upscaling.")
+        }
+        try await requireServices(upscaleServices, from: agent)
         if let reason = upscaleUnavailableReason { throw StudioError.message(reason) }
-        guard let agent, !inputs.isEmpty else { return UpscaleOutcome() }
+        guard !inputs.isEmpty else { return UpscaleOutcome() }
         isBusy = true
         beginAppWork()
         defer {

@@ -36,7 +36,13 @@ actor DatasetUploadAgent: PodAgent {
     }
 
     func services() -> [AgentService] {
-        starts.map { AgentService(name: $0.service, state: "exited", groupAlive: false, runID: nil) }
+        GPUWorkspace.serviceTitles.keys.sorted().map { name in
+            let start = starts.last { $0.service == name }
+            return AgentService(
+                name: name, state: start == nil ? "idle" : "exited", groupAlive: false,
+                runID: start?.params["run_id"]?.stringValue, available: true
+            )
+        }
     }
 
     func start(_ service: String, gpus: [Int], params: JSONObject) {

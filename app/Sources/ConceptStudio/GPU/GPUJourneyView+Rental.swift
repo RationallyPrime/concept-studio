@@ -93,7 +93,11 @@ extension GPUJourneyView {
                     HStack {
                         Button("Refresh storage usage") { Task { await workspace.refreshStorage() } }
                         Button("Clean completed dataset copies") { Task { await workspace.cleanupDatasets() } }
+                            .disabled(workspace.serviceUnavailableReason("cleanup-datasets") != nil)
                     }.disabled(workspace.isBusy || workspace.isStopping)
+                    if let reason = workspace.serviceUnavailableReason("cleanup-datasets") {
+                        Text(reason).font(.callout).foregroundStyle(StudioStyle.supportingText)
+                    }
                     Text("Cleanup keeps active inputs and the last three resumable datasets. "
                         + "Checkpoints, models, generated results and unknown or failed runs stay on storage.")
                         .font(.caption).foregroundStyle(StudioStyle.supportingText)

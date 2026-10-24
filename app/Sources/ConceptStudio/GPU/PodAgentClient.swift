@@ -14,7 +14,7 @@ struct AgentService: Decodable {
     let state: String
     let groupAlive: Bool?
     var runID: String?
-    /// Whether this computer's image carries the service's program; images before v0.3.6 omit it (all present).
+    /// Whether this image carries the program; nil means the agent has not reported installation.
     var available: Bool?
     enum CodingKeys: String, CodingKey {
         case name, state, available
@@ -401,7 +401,9 @@ actor DemoPodAgent: PodAgent {
     }
 
     func services() -> [AgentService] {
-        states.map { AgentService(name: $0.key, state: $0.value, groupAlive: false, runID: runIDs[$0.key]) }
+        GPUWorkspace.serviceTitles.keys.sorted().map {
+            AgentService(name: $0, state: states[$0] ?? "idle", groupAlive: false, runID: runIDs[$0], available: true)
+        }
     }
 
     func start(_ service: String, gpus: [Int], params: JSONObject) {

@@ -107,6 +107,9 @@ struct RunHistoryView: View {
                 TextField("Continue to total steps", value: $totalSteps, format: .number)
                     .help("The total includes training steps already completed; it is not the number of extra steps.")
             }.formStyle(.columns)
+            if workspace.hasRunningPod, let reason = workspace.resumeUnavailableReason(run) {
+                StudioNotice(reason)
+            }
             Button("Continue training this run", systemImage: "play.circle") {
                 Task { await workspace.resumeRun(
                     run,
@@ -115,7 +118,8 @@ struct RunHistoryView: View {
                 ) }
             }
             .disabled(workspace.isBusy || workspace.isTraining || !workspace.hasRunningPod
-                || session.busy || session.editing || run.checkpoints.isEmpty || totalSteps <= run.latestStep)
+                || session.busy || session.editing || run.checkpoints.isEmpty || totalSteps <= run.latestStep
+                || workspace.resumeUnavailableReason(run) != nil)
             .help("Find the checkpoints on this run's storage first. Continuing keeps its original data and settings.")
             if !run.checkpoints.isEmpty {
                 Text("\(run.checkpoints.count) saved checkpoints found for this run.")

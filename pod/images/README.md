@@ -1,6 +1,50 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.11-20261024`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.12-20261024`
+and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit
+`7ac3899aae3ef05b4c03c51deff2d7599a035194`. Each service reports whether its executable runtime,
+wrapper and native entry point are installed. All seven tags are published and resolve anonymously.
+The [release receipt](releases/v0.3.12-20261024.json) records the source, registry digests, download
+sizes, build arguments and complete per-image service checks.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.12-20261024` | `sha256:2f3d10cecda0fb51323cc25c6a49093769462e178cfdb6ed534197389fce6f45` | 3.56 GB |
+| `aitoolkit:v0.3.12-20261024` | `sha256:25774155339122bd3494f5812977875c454be62720070b053515e32e06c74e12` | 7.42 GB |
+| `ltx:v0.3.12-20261024` | `sha256:e2d89d909430ad9d11f014f93170cee78a086fb333c64124d6db42c4fb13b66d` | 7.17 GB |
+| `musubi:v0.3.12-20261024` | `sha256:4cbcb2b10df5e3e5e5a5c0676f296fb9cd0679c9d5084287d704f4a1fbcb0406` | 6.61 GB |
+| `aitoolkit:v0.3.12-20261024-captioning` | `sha256:c927262c7816bdb25e331a6671bb7cd67ffaa53e6db618548f5e3bd95059c43b` | 14.36 GB |
+| `ltx:v0.3.12-20261024-captioning` | `sha256:68e27a6942e4b701f109c47e6651ceb831f00cc0ac6fd8576da70d40acfe1e3d` | 14.11 GB |
+| `musubi:v0.3.12-20261024-captioning` | `sha256:8fde9d65718c1e34369b2d353418e8a5f3839fcef8d7b10300091250dad857ed` | 13.55 GB |
+
+Every image provides TensorBoard, dataset cleanup, dataset preparation and LoRA publication.
+The trainer images add these installed services:
+
+| image | additional installed services | total |
+| --- | --- | --- |
+| Base | None | 4 |
+| AI Toolkit | AI Toolkit training and generation, regularisation generation, Upscale | 8 |
+| LTX | LTX training and generation, Upscale | 7 |
+| musubi | musubi training and generation, Upscale | 7 |
+| AI Toolkit captioning | The AI Toolkit set plus vLLM | 9 |
+| LTX captioning | The LTX set plus vLLM | 8 |
+| musubi captioning | The musubi set plus vLLM | 8 |
+
+All seven real containers passed exact service-inventory checks on CPU. Every unavailable
+service refused its start with HTTP 409 before preparing inputs or spawning work. Authentication,
+workspace storage, fake services and H3's audio default/explicit-off setting also passed.
+Each captioning build validated all 23 allowed vLLM flags. These checks inspect installed runtimes;
+the GPU workload measurements below retain their original image tags.
+
+Captioning variants reuse the unchanged pinned vLLM installation stage from the v0.3.10 base;
+their final agent and trainer scripts come from the new v0.3.12 trainer images. Each added vLLM
+layer is 6.94 GB; the receipt records its distinct digest for each variant.
+
+## Earlier releases
+
+These entries preserve each release’s build and acceptance record.
+
+Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.11-20261024`
 and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit
 `c9ad8edb62aea4f0375ff0cec44c60f063153da4`, with H3’s project-level audio training choice.
 All seven tags are published and resolve anonymously. The [release receipt](releases/v0.3.11-20261024.json)
@@ -27,10 +71,6 @@ The native app completed six H3 training steps on a 96 GB Blackwell using this A
 The synthetic clips retained their audio tracks while the retrieved native configuration set
 `do_audio: false` for clip and still groups. The app saved and hash-verified the checkpoint.
 The [live acceptance record](../docs/POD-STATUS.md) includes GPU memory, cost and resource cleanup.
-
-## Earlier releases
-
-These entries preserve each release’s build and acceptance record.
 
 Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.10-20261022`
 and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit `6589efb`,

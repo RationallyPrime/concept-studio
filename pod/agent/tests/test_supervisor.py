@@ -572,8 +572,13 @@ def test_tail_file(tmp_path: Path) -> None:
 
 
 def test_spawn_failure_is_reported_not_swallowed(settings: Settings) -> None:
-    """Without fake mode the catalog argv points at /opt venvs that do not exist here."""
+    """Installed executable files can still fail at spawn (for example, a broken shebang)."""
     real = replace(settings, fake_gpus=None)
+    for name in ("python", "tensorboard"):
+        program = Path(real.paths.venv_bin("agent", name))
+        program.parent.mkdir(parents=True, exist_ok=True)
+        program.write_text("#!/missing-interpreter\n")
+        program.chmod(0o755)
     sup = Supervisor(real, FakeBackend(2))
     assert CATALOG["tensorboard"].argv  # sanity: the real builder is what will be used
     with pytest.raises(AgentError) as excinfo:
@@ -598,7 +603,7 @@ def test_vllm_is_reported_unavailable_and_refused_on_an_image_without_it(
     real = replace(settings, fake_gpus=None)
     sup = Supervisor(real, FakeBackend(2))
     assert sup.state("vllm").available is False
-    assert {s.name for s in sup.states() if not s.available} == {"vllm", "upscale-media"}
+    assert {s.name for s in sup.states() if not s.available} == set(CATALOG)
     with pytest.raises(AgentError) as excinfo:
         sup.start("vllm", [0], {"model": "Qwen/Qwen3-VL-8B-Instruct"})
     assert excinfo.value.code == "unavailable" and excinfo.value.status == 409
@@ -610,6 +615,10 @@ def test_vllm_is_reported_unavailable_and_refused_on_an_image_without_it(
     executable = Path(real.paths.venv_bin("vllm", "vllm"))
     executable.parent.mkdir(parents=True)
     executable.write_text("")
+    executable.chmod(0o755)
+    python = executable.with_name("python")
+    python.touch()
+    python.chmod(0o755)
     assert sup.state("vllm").available is True
     sup.shutdown()
 
