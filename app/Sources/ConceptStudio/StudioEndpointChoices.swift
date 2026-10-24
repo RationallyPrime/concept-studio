@@ -122,6 +122,23 @@ extension StudioSession {
         gpu.captionModel = model
     }
 
+    var projectUsesAnotherSelfHostedModel: Bool {
+        !demoMode && endpointKind == "vllm" && project?.job.endpoints?.captioner.kind == "vllm"
+            && modelName != ProviderChoices.defaultSelfHostedModel
+    }
+
+    /// Change only the saved caption model; custom endpoint and reviewer settings stay with the project.
+    func useDefaultSelfHostedCaptionModel() {
+        guard !busy, !editing, projectUsesAnotherSelfHostedModel, var project else { return }
+        do {
+            project.job.endpoints?.captioner.model = ProviderChoices.defaultSelfHostedModel
+            try project.save()
+            self.project = project
+            modelName = ProviderChoices.defaultSelfHostedModel
+            message = "Project caption model updated to the current default."
+        } catch { errorMessage = Self.describe(error) }
+    }
+
     /// Call when the captioning provider changes from `old` to `new` (views: `.onChange(of:)`).
     /// Switching resets the model to the new provider's default; with ChatGPT sign-in, OpenAI starts
     /// on the account's first model.

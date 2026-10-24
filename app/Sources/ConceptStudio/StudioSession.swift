@@ -330,8 +330,12 @@ final class StudioSession {
             } catch is CancellationError {
                 message = "Cancelled. Your completed work is saved."
             } catch {
-                message = ""
-                errorMessage = Self.describe(error)
+                if Task.isCancelled {
+                    message = "Cancelled. Your completed work is saved."
+                } else {
+                    message = ""
+                    errorMessage = Self.describe(error)
+                }
             }
         }
         switch gate {

@@ -114,23 +114,41 @@ extension StudioSession {
     }
 
     func openProject(url selected: URL) {
+        guard selected.isFileURL else {
+            errorMessage = "Open a ConceptStudio project folder from your Mac."
+            return
+        }
         guard !refuseWhileComputerBusy(
             "Finish the current cloud GPU action or Stop everything before changing projects."
         ) else { return }
         whenConfirmed(discardDraftsConfirmation) {
             self.perform("Opening your project…") {
+                // Invalid external opens must leave the current project and its work intact.
+                let accessed = selected.startAccessingSecurityScopedResource()
+                defer { if accessed { selected.stopAccessingSecurityScopedResource() } }
+                guard try selected.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
+                    throw StudioError.message("Open the project folder containing job.yaml, not an individual file.")
+                }
+                guard FileManager.default.fileExists(atPath: selected.appendingPathComponent("job.yaml").path) else {
+                    throw StudioError.message(
+                        "“\(selected.lastPathComponent)” is not a ConceptStudio project folder. "
+                            + "Open a folder containing job.yaml."
+                    )
+                }
+                let opened = try await StudioProject.open(at: selected)
                 await self.releaseProject()
                 self.demoMode = false
                 self.loadSavedChoices()
                 self.gpu = self.makeGPUWorkspace(demoMode: false)
                 self.projectAccess = selected
                 _ = selected.startAccessingSecurityScopedResource()
-                self.project = try await StudioProject.open(at: selected)
-                self.gpu.projectFolder = self.project?.directory
+                self.project = opened
+                self.gpu.projectFolder = opened.directory
                 self.projectState = ProjectAppState.load(from: selected)
                 self.rememberRecent(selected)
-                if let job = self.project?.job { self.applyJobChoices(job) }
-                self.selectedImageID = self.project?.images.first?.id
+                self.applyJobChoices(opened.job)
+                self.selectedImageID = opened.images.first?.id
+                self.step = .images
                 self.message = "Project opened. Your saved choices and final captions are preserved."
                 self.migrateOutsideSkill()
                 self.startImageAnalysis()

@@ -70,6 +70,39 @@ struct FaceMappingWorkflowTests {
         #expect(session.faceReferenceWarnings.isEmpty)
     }
 
+    @Test func clipAgreementUsesExistingConfirmationAndHumanDecisionRules() async throws {
+        let directory = temporaryTestDirectory("clip-mapping")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var project = try StudioProject.create(at: directory)
+        project.job = try Job(profile: "ltx-video", concepts: [Concept(trigger: "PERSON8", classNoun: "woman")])
+        let source = directory.appendingPathComponent("source.mp4")
+        try await MediaFixtures.video(at: source)
+        let bytes = try Data(contentsOf: source)
+        let ids = try ["matched.mp4", "disagrees.mp4", "confirmed.mp4", "unsure.mp4"].map {
+            try project.importData(bytes, name: $0)
+        }
+        try project.job.setMapping(["PERSON8": "the woman I confirmed"], for: ids[2])
+        try project.save()
+        let session = makeTestSession()
+        session.project = project
+        session.markNotSure(id: ids[3], note: "Review later")
+        let match = FaceRecognitionResult.clip(Array(repeating: result(.match), count: 5))
+        let disagrees = FaceRecognitionResult.clip([result(.match), result(.noMatch, score: 0.2)])
+        session.receiveFaceRecognition(FaceRecognitionBatch(samples: [
+            ids[0]: match, ids[1]: disagrees, ids[2]: match, ids[3]: match,
+        ], referenceWarnings: [:]))
+        #expect(session.singleFaceSuggestion(for: ids[0])? ["PERSON8"] == "the woman")
+        #expect(session.singleFaceSuggestion(for: ids[1]) == nil)
+        #expect(session.faceRecognitionResults[ids[2]] == nil)
+        #expect(session.faceRecognitionResults[ids[3]] == nil)
+        session.confirmRemainingSinglePerson()
+        #expect(session.project?.job.mapping(for: ids[0])? ["PERSON8"] == "the woman")
+        #expect(session.project?.job.mapping(for: ids[1]) == nil)
+        #expect(session.project?.job.mapping(for: ids[2])? ["PERSON8"] == "the woman I confirmed")
+        #expect(session.project?.job.mapping(for: ids[3]) == nil)
+        #expect(session.faceReviewIDs == [ids[1]])
+    }
+
     @Test func exclusionAndNullStaySeparateFromConfirmedPresence() async throws {
         var project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }

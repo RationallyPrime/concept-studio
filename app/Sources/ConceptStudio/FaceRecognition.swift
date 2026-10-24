@@ -54,6 +54,32 @@ struct FaceRecognitionResult: Equatable, Sendable {
         reviewReason == nil && faces.count == 1 && faces.first?.match?.trigger == trigger
     }
 
+    /// Every sampled frame must support the same identity bands. A strong frame never hides a disagreement.
+    static func clip(_ frames: [FaceRecognitionResult]) -> FaceRecognitionResult {
+        guard !frames.isEmpty, frames.allSatisfy({
+            $0.reviewReason == nil && $0.faces.count == 1 && $0.faces[0].reviewReason == nil
+        }) else {
+            return FaceRecognitionResult(reviewReason: "A sampled frame does not show one clear face.")
+        }
+        let faces = frames.map { $0.faces[0] }
+        let scores = faces.map { $0.scores.sorted { $0.trigger < $1.trigger } }
+        guard let first = scores.first, !first.isEmpty, scores.allSatisfy({ sample in
+            sample.count == first.count && zip(sample, first).allSatisfy {
+                $0.similarity.isFinite && $0.trigger == $1.trigger && $0.band == $1.band
+            }
+        }) else {
+            return FaceRecognitionResult(reviewReason: "Sampled frames disagree about who is present.")
+        }
+        var combined = first
+        for index in combined.indices {
+            let values = scores.map { $0[index].similarity }
+            // Show the weakest match or strongest negative/review score actually observed, never an average.
+            combined[index].similarity = combined[index].band == .match ? values.min()! : values.max()!
+        }
+        combined.sort { $0.similarity > $1.similarity }
+        return FaceRecognitionResult(faces: [RecognizedFace(box: faces[0].box, scores: combined)])
+    }
+
     var summary: String {
         if let reviewReason { return "Needs review · \(reviewReason)" }
         return faces.enumerated().map { index, face in

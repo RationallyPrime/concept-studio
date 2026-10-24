@@ -60,6 +60,7 @@ struct CaptioningView: View {
                                 ForEach(profiles, id: \.self) { Text(Self.profileTitle($0)).tag($0) }
                             }.disabled(session.demoMode)
                         }.formStyle(.columns).disabled(session.busy)
+                        if session.projectUsesAnotherSelfHostedModel { currentDefaultModelNotice }
                         if session.hasH3Clips {
                             H3AudioControls(workspace: session.gpu).disabled(session.busy)
                         }
@@ -536,5 +537,18 @@ extension CaptioningView {
                 }
             }.padding(.top, 12)
         }.disabled(session.busy)
+    }
+}
+
+private extension CaptioningView {
+    var currentDefaultModelNotice: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("This project uses a different caption model.")
+            Text("Current default: \(ProviderChoices.defaultSelfHostedModel)")
+                .foregroundStyle(StudioStyle.supportingText)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Use current default") { session.useDefaultSelfHostedCaptionModel() }
+                .disabled(session.busy || session.editing)
+        }.font(.callout)
     }
 }

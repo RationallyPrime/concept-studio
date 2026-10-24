@@ -284,6 +284,7 @@ final class GPUWorkspace {
             saved = previous
             pod = previous.pod
             agentReadyAt = previous.pod.isRunning ? previous.agentReadyAt : nil
+            rentsCaptionServer = previous.rentsCaptionServer
             budget = previous.budget
             if repeatSourceRunID.isEmpty, previous.pod.isRunning { trainer = previous.trainer }
             runID = previous.runID
@@ -349,7 +350,8 @@ final class GPUWorkspace {
             self.elapsedCost = 0
             self.saved = SavedPod(
                 pod: created, started: started, hourlyRate: max(created.cost, self.quotedHourlyRate),
-                budget: self.budget, trainer: self.trainer, runID: "", runpodKey: self.runpodKeyFingerprint,
+                budget: self.budget, trainer: self.trainer, rentsCaptionServer: self.rentsCaptionServer,
+                runID: "", runpodKey: self.runpodKeyFingerprint,
                 idleMinutes: self.idleMinutes, keepsRunningWhenIdle: self.keepsRunningWhenIdle,
                 volumeID: volume?.id ?? "pod:" + created.id,
                 agentSecret: credentials.agentSecret, hubTokenOnPod: credentials.holdsHubToken
@@ -408,8 +410,10 @@ final class GPUWorkspace {
             do {
                 try await action()
             } catch is CancellationError {
-                self.message = "Action cancelled. Check the cloud GPU status before closing."
+                self.message = ""
             } catch {
+                // A disappearing view cancels its refresh; URLSession reports URLError.cancelled.
+                guard !Task.isCancelled else { self.message = ""; return }
                 self.message = error.localizedDescription
                 if !self.restartBlockedByHost { self.failure = self.message }
             }

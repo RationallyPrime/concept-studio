@@ -95,6 +95,44 @@ struct SelfHostedCaptionModelTests {
         #expect(try session.jobForCaptioning().endpoints?.captioner.settings["extra_body"] == nil)
     }
 
+    @Test func copiedProjectShowsItsOldModelAndSwitchesWithoutChangingOtherSettings() async throws {
+        let directory = temporaryTestDirectory("copied-caption-model")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferences = IsolatedDefaults()
+        defer { preferences.remove() }
+        var project = try StudioProject.create(at: directory)
+        let old = "Qwen/Qwen3-VL-8B-Instruct"
+        let captioner = try EndpointSpec(
+            kind: "vllm", model: old, baseURL: "https://caption.example/v1", outputMode: .prompted,
+            settings: ["temperature": .double(0.3)], concurrency: 2
+        )
+        let critic = try EndpointSpec(kind: "openai", model: "fixture-critic")
+        project.job.endpoints = Endpoints(captioner: captioner, critic: critic)
+        try project.save()
+        let session = makeTestSession(preferences: preferences.defaults)
+        session.project = try await StudioProject.open(at: directory)
+        try session.applyJobChoices(#require(session.project?.job))
+        #expect(session.modelName == old)
+        #expect(session.gpu.captionModel == old)
+        #expect(session.projectUsesAnotherSelfHostedModel)
+        // An unfinished reviewer edit must not prevent switching the saved caption model.
+        session.criticModel = ""
+        session.useDefaultSelfHostedCaptionModel()
+        #expect(session.errorMessage == nil)
+        #expect(session.modelName == ProviderChoices.defaultSelfHostedModel)
+        #expect(session.gpu.captionModel == ProviderChoices.defaultSelfHostedModel)
+        #expect(!session.projectUsesAnotherSelfHostedModel)
+        let reopened = try await StudioProject.open(at: directory)
+        var expected = captioner
+        expected.model = ProviderChoices.defaultSelfHostedModel
+        #expect(reopened.job.endpoints == Endpoints(captioner: expected, critic: critic))
+        session.endpointKind = "openai"
+        session.modelName = "another-hosted-model"
+        session.useDefaultSelfHostedCaptionModel()
+        #expect(!session.projectUsesAnotherSelfHostedModel)
+        #expect(session.modelName == "another-hosted-model")
+    }
+
     private func vllmStarts(_ transport: UnreachableAgentTransport) async -> [String?] {
         await transport.starts.filter { $0.url?.path() == "/services/vllm/start" }.map { request in
             try? JSONValue(parsing: request.httpBody ?? Data()).objectValue?["params"]?

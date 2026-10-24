@@ -300,7 +300,32 @@ struct StudioPromptPresenter: ViewModifier {
 
 @MainActor
 final class StudioAppDelegate: NSObject, NSApplicationDelegate {
-    weak var session: StudioSession?
+    private weak var session: StudioSession?
+    private var pendingOpenURLs: [URL] = []
+
+    func attach(_ session: StudioSession) {
+        // A cold file-open event can arrive before the window. Recover billing state before
+        // opening its project, so the existing running-GPU guard also applies at launch.
+        session.restoreStartupComputer()
+        self.session = session
+        openPendingProject()
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        pendingOpenURLs.append(contentsOf: urls)
+        openPendingProject()
+    }
+
+    private func openPendingProject() {
+        guard let session, !pendingOpenURLs.isEmpty else { return }
+        let urls = pendingOpenURLs
+        pendingOpenURLs.removeAll()
+        guard urls.count == 1, let url = urls.first else {
+            session.errorMessage = "Open one project folder at a time."
+            return
+        }
+        session.openProject(url: url)
+    }
 
     /// The first pass asks in the window and cancels; the answer re-sends terminate. A confirmed stop then
     /// replies later, once the provider confirms the computer stopped; if it cannot, the app stays open.

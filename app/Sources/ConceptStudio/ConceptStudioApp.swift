@@ -11,8 +11,7 @@ struct ConceptStudioApp: App {
     var body: some Scene {
         Window("ConceptStudio", id: "studio") {
             StudioRootView(session: session).disclosureGroupStyle(StudioDisclosureStyle()).onAppear {
-                delegate.session = session
-                session.restoreStartupComputer()
+                delegate.attach(session)
             }
             .sheet(isPresented: $showNewHub) { NewHubProjectSheet(session: session) }
         }
