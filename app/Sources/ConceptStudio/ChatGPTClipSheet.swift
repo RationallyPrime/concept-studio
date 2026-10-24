@@ -26,8 +26,11 @@ struct ChatGPTClipSheet: Sendable {
             Describe changes supported by this ordered sequence in the project's clip profile, producing one caption \
             for the clip. Do not describe the sheet, its numbers or layout in the caption. Sample times are not exact \
             cut times. Do not invent action between samples, unseen events or precise transition times. \
-            Mention visible starts, stops, pauses and reversals in their observed order. When successive frames \
-            keep a subject in the same position, describe the visible hold rather than inventing movement. \(audio)
+            Mention supported starts, stops, pauses and reversals in their observed order. Distinguish stationary \
+            subjects from a stationary camera: a camera hold requires unchanged scene framing AND scale across \
+            successive samples. Describe a subject's pause only when successive samples support it. A first or \
+            last frame alone does not establish a hold, and a change from one camera movement to another does \
+            not establish a pause between them. \(audio)
             """),
             .image(data: jpeg, mediaType: "image/jpeg"),
         ]
