@@ -129,7 +129,7 @@ def dataset_groups(cfg: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
                 "fps": 24,
                 "auto_frame_count": False,
                 "shrink_video_to_frames": True,
-                "do_audio": count > 1,
+                "do_audio": count > 1 and cfg["train_audio"],
                 "buckets": True,
                 "bucket_tolerance": 32,
                 "square_crop": False,

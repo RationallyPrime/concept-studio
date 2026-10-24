@@ -457,6 +457,7 @@ class RunConfig(ServiceParams):
     triggers: list[str] = Field(min_length=1)
     profile: str | None = None
     base_model: str
+    train_audio: bool = Field(default=True, strict=True)
     steps: int = Field(default=2000, ge=1)
     learning_rate: float = Field(default=1e-4, gt=0, le=1)
     rank: int = Field(default=16, ge=1)
@@ -1058,6 +1059,7 @@ def _validate_training_start(name: str, params: RunConfig, paths: Paths) -> None
         "triggers",
         "profile",
         "base_model",
+        "train_audio",
         "learning_rate",
         "rank",
         "alpha",

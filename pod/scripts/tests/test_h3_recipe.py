@@ -128,7 +128,10 @@ def test_bad_counts_cadence_geometry_or_cap_refused_before_native_model(monkeypa
         dataset.probe_clip(Path("approved.mp4"), 512)
 
 
-def test_full_mixed_approved_inputs_grouped_without_global_trigger(tmp_path, monkeypatch):
+@pytest.mark.parametrize("audio_choice", [{}, {"train_audio": True}, {"train_audio": False}])
+def test_full_mixed_approved_inputs_grouped_without_global_trigger(
+    tmp_path, monkeypatch, audio_choice
+):
     monkeypatch.setenv("PODAGENT_WORKSPACE", str(tmp_path))
     root = tmp_path / "datasets/approved"
     root.mkdir(parents=True)
@@ -157,6 +160,8 @@ def test_full_mixed_approved_inputs_grouped_without_global_trigger(tmp_path, mon
             "rank": 32,
             "resolution": [768, 1024],
             "gradient_accumulation": 2,
+            "extra": {"dataset": {"do_audio": not audio_choice.get("train_audio", True)}},
+            **audio_choice,
         },
         tmp_path,
     )
@@ -173,13 +178,21 @@ def test_full_mixed_approved_inputs_grouped_without_global_trigger(tmp_path, mon
     assert Path(process["model"]["assistant_lora_path"]).name == recipe.ADAPTERS["ostris"]
     assert [d["num_frames"] for d in process["datasets"]] == [1, 22, 39]
     assert process["datasets"][0]["resolution"] == [768, 1024]
+    assert process["datasets"][0]["do_audio"] is False
+    assert cfg["train_audio"] is audio_choice.get("train_audio", True)
     for row in process["datasets"][1:]:
         assert row["resolution"] == [1024] and row["fps"] == 24
         assert row["auto_frame_count"] is False and row["shrink_video_to_frames"] is True
-        assert row["do_audio"] is True and row["square_crop"] is False
+        assert row["do_audio"] is cfg["train_audio"] and row["square_crop"] is False
         alias = next(Path(row["folder_path"]).glob("*.mp4"))
         assert alias.resolve().parent == root
         assert alias.with_suffix(".txt").read_text().startswith("NORA7 and IVAN9")
+    effective = recipe.comparison_recipe(process)
+    assert [row["do_audio"] for row in effective["datasets"]] == [
+        False,
+        cfg["train_audio"],
+        cfg["train_audio"],
+    ]
     facts = json.loads((run / "h3-inputs.json").read_text())
     assert {(r["width"], r["height"], r["frames"]) for r in facts if r["frames"] > 1} == {
         (1152, 864, 22),
@@ -290,6 +303,7 @@ def test_h3_pair_binds_actual_trained_network_recipe_and_no_assistant(tmp_path, 
                             "num_frames": 1,
                             "fps": 24,
                             "resolution": [1024],
+                            "do_audio": False,
                         }
                     ],
                 }

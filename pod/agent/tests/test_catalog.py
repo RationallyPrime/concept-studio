@@ -434,12 +434,16 @@ def test_trainer_env(paths: Paths, agent_settings: Settings, name: str) -> None:
 
 
 @pytest.mark.parametrize("name", ["trainer-aitoolkit", "trainer-ltx"])
-def test_trainer_prepare_writes_run_json_without_secrets(paths: Paths, name: str) -> None:
+@pytest.mark.parametrize("train_audio", [True, False])
+def test_trainer_prepare_writes_run_json_without_secrets(
+    paths: Paths, name: str, train_audio: bool
+) -> None:
     spec = CATALOG[name]
     cfg = RunConfig.model_validate(
         run_config(
             paths,
             hf_token=HF_SECRET,
+            train_audio=train_audio,
             profile="h3-still",
             sample_prompts=["NORA7 woman, studio portrait, soft key light"],
             hub={"repo_id": "you/nora7-h3-lora"},
@@ -458,6 +462,7 @@ def test_trainer_prepare_writes_run_json_without_secrets(paths: Paths, name: str
     assert written["dataset"] == {"path": str(paths.datasets / "faces"), "caption_ext": "txt"}
     assert written["triggers"] == ["NORA7"]
     assert written["profile"] == "h3-still"
+    assert written["train_audio"] is train_audio
     assert written["base_model"] == "black-forest-labs/FLUX.1-dev"
     assert written["rank"] == 16 and written["alpha"] == 16
     assert written["resolution"] == [512, 768, 1024]
@@ -482,6 +487,7 @@ def test_run_config_defaults_and_alpha(paths: Paths) -> None:
     cfg = RunConfig.model_validate(run_config(paths))
     assert cfg.alpha == 16 and cfg.rank == 16
     assert cfg.dataset.caption_ext == "txt"
+    assert cfg.train_audio is True
     assert cfg.resolution == [512, 768, 1024]
     assert cfg.learning_rate == pytest.approx(1e-4)
     assert cfg.hub is None and cfg.hf_token is None and cfg.extra == {}
@@ -546,6 +552,9 @@ def test_run_config_public_redacts_hf_token(paths: Paths) -> None:
         {"caption_dropout": 1.5},
         {"caption_dropout": -0.1},
         {"gradient_checkpointing": "sometimes"},
+        {"train_audio": "false"},
+        {"train_audio": 0},
+        {"train_audio": None},
         {"optimizer": "adam w"},
         {"lr_scheduler": "step"},
         {"lr_warmup_steps": -1},

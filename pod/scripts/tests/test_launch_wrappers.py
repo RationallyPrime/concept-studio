@@ -200,6 +200,7 @@ def test_validate_applies_defaults(wrapper: ModuleType, workspace: Path) -> None
     }
     assert cfg["triggers"] == ["NORA7", "IVAN9"]
     assert cfg["profile"] is None
+    assert cfg["train_audio"] is True
     assert cfg["steps"] == 2000
     assert cfg["learning_rate"] == pytest.approx(1e-4)
     assert cfg["rank"] == 16
@@ -262,6 +263,9 @@ def test_validate_normalises_scalars(wrapper: ModuleType, workspace: Path) -> No
         ({"caption_dropout": 1.5}, "caption_dropout"),
         ({"caption_dropout": True}, "caption_dropout"),
         ({"gradient_checkpointing": 1}, "gradient_checkpointing"),
+        ({"train_audio": "false"}, "train_audio"),
+        ({"train_audio": 0}, "train_audio"),
+        ({"train_audio": None}, "train_audio"),
         ({"optimizer": "adam w"}, "optimizer"),
         ({"lr_scheduler": "step"}, "lr_scheduler"),
         ({"lr_warmup_steps": -1}, "lr_warmup_steps"),

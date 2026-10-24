@@ -467,6 +467,7 @@ extension GPUWorkspace {
     }
 
     func loadProjectRecord() {
+        trainAudio = true
         nativeRecipe = nil
         nativeRecipeOriginal = nil
         initialCheckpoint = nil
@@ -480,6 +481,7 @@ extension GPUWorkspace {
         repeatSourceRunID = ""
         guard let projectFolder else { return }
         let record = ProjectTrainingRecord.load(from: projectFolder)
+        trainAudio = record.trainAudio
         runHistory = record.runs
         generations = record.comparisons
         reportGroups = record.reportGroups
@@ -502,6 +504,7 @@ extension GPUWorkspace {
     func saveProjectRecord() -> Bool {
         guard !demoMode, let projectFolder else { return false }
         var record = ProjectTrainingRecord.load(from: projectFolder)
+        record.trainAudio = trainAudio
         if let result, projectOwnsRun(result.runID) {
             record.results.removeAll { $0.runID == result.runID }
             record.results.append(result)

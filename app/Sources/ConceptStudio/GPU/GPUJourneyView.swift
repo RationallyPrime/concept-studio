@@ -120,6 +120,9 @@ struct GPUJourneyView: View {
                             : trainingDatasetRevision ?? "Latest revision on first download"
                     )
                     receiptRow(workspace.trainingLengthLabel, "\(workspace.steps)")
+                    if workspace.isH3Training, workspace.trainingDatasetContainsVideo {
+                        receiptRow("Train audio", workspace.trainAudio ? "On" : "Off")
+                    }
                     receiptRow("Spending limit", StudioMoney.format(workspace.activeBudget ?? workspace.budget))
                 }
                 Text(workspace.usesLocalDataset
@@ -158,6 +161,9 @@ struct GPUJourneyView: View {
             ReportPlanView(workspace: workspace)
             Divider()
             StudioSection(title: "Run settings", subtitle: workspace.trainingLengthSubtitle) {
+                if workspace.isH3Training, workspace.trainingDatasetContainsVideo {
+                    H3AudioControls(workspace: workspace)
+                }
                 Form {
                     TextField(workspace.trainingLengthLabel, value: $workspace.steps, format: .number.grouping(.never))
                         .help(workspace.trainingLengthHelp)

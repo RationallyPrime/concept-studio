@@ -118,6 +118,10 @@ struct TrainingRun: Codable, Equatable, Identifiable {
         modelRow()?.hooks.nativeRecipe == .minimaxH3
     }
 
+    var trainsAudio: Bool {
+        isH3 && datasetContainsVideo && (params["train_audio"]?.boolValue ?? true)
+    }
+
     var generatesVideo: Bool {
         generatesVideo(in: .shared)
     }
@@ -332,6 +336,7 @@ extension GPUWorkspace {
         }
         trainer = run.trainer
         baseModel = run.baseModel
+        trainAudio = run.params["train_audio"]?.boolValue ?? true
         let row = run.effectiveModelRow(in: modelTable)
         rank = run.rank
         alpha = run.params["alpha"]?.intValue ?? rank
@@ -373,6 +378,7 @@ extension GPUWorkspace {
         // published dataset supplies its own through `publishedRepeatRun`, and one that did not trains on these.
         repeatSourceRunID = run.runID
         selectedHistoryRunID = run.runID
+        saveProjectRecord()
         message = "Saved settings loaded. Change them in Training, then start a new run. "
             + "Dataset: \(run.datasetDescription)."
     }

@@ -136,6 +136,15 @@ extension PreviewRenderTests {
                 ]
             )
         }
+        workspace.chooseTrainingModel(GPUWorkspace.h3BaseModel)
+        for audio in [true, false] {
+            workspace.trainAudio = audio
+            try await capture(
+                "h3-audio-\(audio ? "on" : "off")", view: H3AudioControls(workspace: workspace).padding(24),
+                output: output, filter: filter, captures: &captures,
+                renderSizes: [("narrow", CGSize(width: 380, height: 240)), ("wide", CGSize(width: 640, height: 200))]
+            )
+        }
         try await capturePhotoOutliers(session: session, output: output, filter: filter, captures: &captures)
         try await captureReportScreens(session: session, output: output, filter: filter, captures: &captures)
     }

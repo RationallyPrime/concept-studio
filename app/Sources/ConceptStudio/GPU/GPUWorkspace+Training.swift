@@ -313,6 +313,7 @@ extension GPUWorkspace {
         if effectiveAugmentation != .none {
             params["augmentation"] = .string(effectiveAugmentation.rawValue)
         }
+        if isH3Training { params["train_audio"] = .bool(trainAudio) }
         if samplesEnabled {
             params["sample_prompts"] = .array([.string(words.joined(separator: " "))])
         }

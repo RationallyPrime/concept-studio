@@ -42,6 +42,9 @@ struct RunHistoryView: View {
             LabeledContent("Starting model", value: run.baseModel).textSelection(.enabled)
             LabeledContent("Dataset", value: run.datasetDescription).textSelection(.enabled)
             LabeledContent("Training length", value: "\(run.targetSteps) steps")
+            if run.isH3 {
+                LabeledContent("Train audio", value: run.trainsAudio ? "On" : "Off")
+            }
             ForEach(run.trainingAidSummary, id: \.self) { line in
                 Text(line).textSelection(.enabled)
             }
