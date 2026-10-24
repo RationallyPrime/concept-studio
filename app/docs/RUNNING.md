@@ -315,10 +315,13 @@ cost; raise the cap explicitly before resuming a run that reached it. Either lim
 GPU. Estimates cover GPU time; RunPod bills storage separately.
 
 **Keep ConceptStudio open on an awake Mac while the GPU runs.** The spending and idle guards
-run in the app. App-managed work such as dataset publishing holds off the idle stop and
-restarts the countdown when finished. **Stop everything** cancels local work, waits for it to
-settle and stops the GPU. Close and Quit warn while work or a GPU is active, and keep the
-project open until a requested stop is confirmed. A saved running GPU's cost and Stop controls
+run in the app. The idle clock starts when the cloud GPU's control agent first answers;
+image downloads and boot time do not consume it. Until then, the GPU shows **Starting**.
+The spending limit applies from rental, including startup. **Keep this cloud GPU running while
+idle** turns off the idle stop; the spending limit still applies. App-managed work such as
+dataset publishing holds off the idle stop and restarts the countdown when finished.
+**Stop everything** cancels local work, waits for it to settle and stops the GPU. Close and Quit
+warn while work or a GPU is active, and keep the project open until a requested stop is confirmed. A saved running GPU's cost and Stop controls
 appear on Welcome after relaunch, even before a project is opened.
 
 Stopping clears temporary container storage, keeps the persistent pod disk or network volume,

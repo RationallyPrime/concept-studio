@@ -30,6 +30,7 @@ actor UnreachableAgentTransport: HTTPTransport {
     private var stopped = false
     private var failedFirstStop: Bool
     private var agentAvailable: Bool
+    private var unavailableStatus = 522
     private var eventsMissing = false
     private let inferenceReady: Bool
     private let gpuCount: Int
@@ -84,6 +85,11 @@ actor UnreachableAgentTransport: HTTPTransport {
 
     func agentReachable(_ available: Bool) {
         agentAvailable = available
+    }
+
+    func agentRefuses(_ status: Int) {
+        agentAvailable = false
+        unavailableStatus = status
     }
 
     /// The agent answers a run's events with 404, as it does before the trainer creates the run directory.
@@ -142,7 +148,7 @@ actor UnreachableAgentTransport: HTTPTransport {
             return HTTPResponse(status: 200, body: JSONValue.object(["name": .string(hubAccount)]).pythonDumpsData())
         }
         if url.host() != "api.runpod.io" {
-            guard agentAvailable else { return HTTPResponse(status: 522) }
+            guard agentAvailable else { return HTTPResponse(status: unavailableStatus) }
             agentRequests.append(request)
             if eventsMissing, url.path().hasSuffix("/events") { return HTTPResponse(status: 404) }
             return try HTTPResponse(
@@ -159,6 +165,11 @@ actor UnreachableAgentTransport: HTTPTransport {
             if createFails { return HTTPResponse(status: 500) }
         }
         if url.path().hasSuffix("action") {
+            let action = try JSONValue(parsing: #require(request.httpBody)).objectValue?["action"]?.stringValue
+            if action == "start" {
+                stopped = false
+                return HTTPResponse(status: 200, body: Data(provider(request, url: url).utf8))
+            }
             stopCalls += 1
             stoppedPods.append(url.deletingLastPathComponent().lastPathComponent)
             if !failedFirstStop {

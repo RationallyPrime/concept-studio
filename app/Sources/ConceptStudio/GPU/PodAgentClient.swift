@@ -202,6 +202,8 @@ struct PodAgentClient: PodAgent {
     let transport: any HTTPTransport
     var downloader: any FileDownloading = URLSessionDownloader()
     var uploader: any FileUploading = URLSessionUploader()
+    /// Direct actions can reach the agent before its first background refresh.
+    var onResponse: @Sendable () async throws -> Void = {}
 
     func gpus() async throws -> [AgentGPU] {
         struct Result: Decodable { let gpus: [AgentGPU] }
@@ -316,6 +318,7 @@ struct PodAgentClient: PodAgent {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let status = try await downloader.download(request, to: destination)
         guard (200 ..< 300).contains(status) else { throw Self.failure(status) }
+        try await onResponse()
     }
 
     private func call(
@@ -344,6 +347,7 @@ struct PodAgentClient: PodAgent {
         guard (200 ..< 300).contains(response.status) || accepted.contains(response.status) else {
             throw Self.failure(response.status, body: response.body)
         }
+        if (200 ..< 300).contains(response.status) { try await onResponse() }
         return (response.status, response.body)
     }
 

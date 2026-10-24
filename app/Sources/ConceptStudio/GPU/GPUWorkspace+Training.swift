@@ -405,13 +405,17 @@ extension GPUWorkspace {
     }
 
     private func waitForCaptionAgent(_ agent: any PodAgent) async throws -> TrainingPlan {
+        let startRevision = agentStartRevision
         let deadline = ContinuousClock.now.advanced(by: .seconds(300))
         while true {
             try Task.checkCancellation()
+            guard startRevision == agentStartRevision else { throw CancellationError() }
             guard hasRunningPod
             else { throw StudioError.message("The cloud GPU stopped while starting its caption model.") }
             do {
-                return try await agent.plan()
+                let plan = try await agent.plan()
+                try noteAgentReady(for: startRevision)
+                return plan
             } catch {
                 let transient = error is URLError || error.localizedDescription.contains("starting or unreachable")
                 guard transient, ContinuousClock.now < deadline else { throw error }
