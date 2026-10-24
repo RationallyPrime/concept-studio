@@ -10,7 +10,8 @@ native app's completed workflows.
 
 - **Control agent:** authenticated GPU inventory, topology, service supervision, logs and
   training events. Workspace storage accounting reports the pod's actual workspace allocation.
-  TensorBoard uses the authenticated agent proxy.
+  Every service checks its installed runtime and entry point; the app offers actions supported
+  by that inventory. TensorBoard uses the authenticated agent proxy.
 - **Training and generation:** AI Toolkit, LTX and musubi routes follow the shared model table.
   Regularisation coverage is recorded for all 25 model rows. AI Toolkit supports sample-aware
   flips and loss masks; unsupported trainers reject those requests explicitly.
