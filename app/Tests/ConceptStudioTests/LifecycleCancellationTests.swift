@@ -5,16 +5,26 @@ import Testing
 
 private actor CancelledRefreshTransport: HTTPTransport {
     private(set) var requests = 0
+    private var pending: [UUID: CheckedContinuation<HTTPResponse, any Error>] = [:]
 
     func send(_ request: URLRequest) async throws -> HTTPResponse {
         requests += 1
+        let id = UUID()
         do {
-            try await Task.sleep(for: .seconds(30))
-        } catch {
-            // URLSession reports a cancelled request this way, rather than as CancellationError.
+            return try await withTaskCancellationHandler {
+                try Task.checkCancellation()
+                return try await withCheckedThrowingContinuation { pending[id] = $0 }
+            } onCancel: {
+                Task { await self.cancel(id) }
+            }
+        } catch is CancellationError {
             throw URLError(.cancelled)
         }
-        throw URLError(.timedOut)
+    }
+
+    private func cancel(_ id: UUID) {
+        // URLSession reports a cancelled request this way, rather than as CancellationError.
+        pending.removeValue(forKey: id)?.resume(throwing: URLError(.cancelled))
     }
 }
 
@@ -28,6 +38,7 @@ struct LifecycleCancellationTests {
         gpu.provider = RunPodProvider(key: "fixture", transport: transport)
         // GPUJourneyView.task owns this refresh; navigation/reopening cancels that task.
         let screenTask = Task { await gpu.refreshOffers() }
+        defer { screenTask.cancel() }
         for _ in 0 ..< 300 where await transport.requests == 0 {
             try await Task.sleep(for: .milliseconds(10))
         }
@@ -47,13 +58,14 @@ struct LifecycleCancellationTests {
         session.perform("Testing a connection…") {
             _ = try await transport.send(URLRequest(url: URL(string: "https://example.invalid")!))
         }
+        let work = try #require(session.task)
+        defer { work.cancel() }
         for _ in 0 ..< 300 where await transport.requests == 0 {
             try await Task.sleep(for: .milliseconds(10))
         }
         try #require(await transport.requests > 0)
-        let work = session.task
         session.cancel()
-        await work?.value
+        await work.value
         #expect(!session.busy)
         #expect(session.errorMessage == nil)
         #expect(session.message == "Cancelled. Your completed work is saved.")
