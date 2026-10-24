@@ -7,7 +7,7 @@ import Testing
 
 @Suite("ChatGPT native clip sheets")
 struct ChatGPTClipSheetTests {
-    @Test(arguments: [(4.0, 9), (12.0, 9), (12.01, 16), (24.0, 16)])
+    @Test(arguments: [(4.0, 9), (12.0, 9), (24.0, 9), (24.01, 16), (48.0, 16)])
     func defaultSamplingFollowsClipLength(duration: Double, count: Int) {
         #expect(ChatGPTClipSheet.defaultFrameCount(duration: duration) == count)
     }

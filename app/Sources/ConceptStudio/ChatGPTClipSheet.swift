@@ -33,9 +33,9 @@ struct ChatGPTClipSheet: Sendable {
         ]
     }
 
-    /// Nine frames retain the measured shorter actions; longer clips use sixteen observations.
+    /// Nine frames retain the measured motion through 24 seconds; longer clips use sixteen observations.
     static func defaultFrameCount(duration: Double) -> Int {
-        duration <= 12 ? 9 : 16
+        duration <= 24 ? 9 : 16
     }
 
     /// An explicit count supports paired measurement without changing the project's settings.

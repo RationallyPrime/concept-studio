@@ -97,7 +97,7 @@ available models and allowance, with usage charged to the plan or credit balance
 Other providers use their own accounts.
 
 **Caption clips with your ChatGPT plan.** The app sends each selected clip as a sheet of nine
-numbered frames up to 12 seconds, or sixteen for longer clips, in time order with sample
+numbered frames up to 24 seconds, or sixteen for longer clips, in time order with sample
 timestamps. ChatGPT describes the observed motion
 in your project's H3 video, LTX or other selected clip profile. The original clip, sample ID,
 caption sidecar and response record stay together in the project.
