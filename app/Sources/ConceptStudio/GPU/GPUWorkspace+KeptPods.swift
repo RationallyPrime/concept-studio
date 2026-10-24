@@ -48,6 +48,7 @@ extension GPUWorkspace {
         storage = kept.storage
         trainer = kept.trainer
         idleMinutes = kept.idleMinutes
+        keepsRunningWhenIdle = kept.keepsRunningWhenIdle
         budget = max(budget, kept.budget)
         restoreAgentToken(podID: id)
         connectAgent(kept.pod)

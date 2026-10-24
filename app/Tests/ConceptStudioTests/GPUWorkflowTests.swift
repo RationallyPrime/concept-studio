@@ -266,6 +266,27 @@ struct GPUWorkflowTests {
     }
 
     @MainActor @Test
+    func keepRunningWhileIdleSkipsTheIdleStopAndSurvivesReopening() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        let workspace = makeWorkspace(transport, preferences)
+        try workspace.configure(runpodKey: "test", hubToken: "test", imageName: "test")
+        await workspace.refreshOffers()
+        await workspace.rent()
+        workspace.keepsRunningWhenIdle = true
+        workspace.idleMinutes = 0
+        workspace.lastActivity = .distantPast
+        await workspace.refresh()
+        #expect(workspace.hasRunningPod)
+        #expect(await transport.stopCalls == 0)
+        let reopened = makeWorkspace(UnreachableAgentTransport(), preferences)
+        try reopened.configure(runpodKey: "test", hubToken: "test", imageName: "test")
+        #expect(reopened.keepsRunningWhenIdle)
+        await workspace.stopEverything()
+    }
+
+    @MainActor @Test
     func budgetWatchSurvivesFailedKeychainAndEmergencyStop() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
