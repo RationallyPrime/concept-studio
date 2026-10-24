@@ -1,13 +1,14 @@
 # CORE-STATUS
 
 **ConceptCore powers captioning, review and dataset exchange in the Mac app**, with the same
-job, skill, profile and sidecar formats as the Python CLI. It captions images through vLLM and
-ChatGPT, images and video through Gemini, and exchanges private datasets with Hugging Face.
+job, skill, profile and sidecar formats as the Python CLI. It captions images through vLLM,
+images and ordered clip frames through the app's ChatGPT connection, and native video through
+Gemini. It exchanges private datasets with Hugging Face.
 The owner also confirmed native ChatGPT and OpenRouter sign-in and captioning, and completed a
 267-image project through GPU captioning and private publication in ConceptStudio 0.3.1 on
 2026-10-21, reported in the following day's briefing.
 
-Updated 2026-10-22. [CORE-SPEC.md](CORE-SPEC.md) defines the shared contract;
+Updated 2026-10-24. [CORE-SPEC.md](CORE-SPEC.md) defines the shared contract;
 [development history](../../docs/process/status-history-2026-10-10.md) records the original
 2026-10-10 integration at `e620882`.
 

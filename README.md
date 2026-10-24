@@ -26,6 +26,7 @@ creating with it.
   that make each example distinct.
 - **Caption with your choice of AI.** Use your ChatGPT plan, OpenRouter, a provider key or
   your own vLLM server. Launch a captioning model on a cloud GPU directly from the app.
+  ChatGPT captions the action in your clips in the format your training model needs.
   Add a second model to review captions, edit them beside the media, and protect the ones
   you've finished.
 - **Put cloud power to work.** Compare live GPU prices and availability, choose your storage,

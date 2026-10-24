@@ -11,9 +11,9 @@ struct PromptTests {
     // The reference hashes come from `src/concept_captioner` at the commit that wrote CORE-SPEC.md:
     // bundled skill, profile h3-still, the NORA7/IVAN9 fixture job, the solo mapping. Recompute
     // them when the skill text changes.
-    static let captionerSHA256 = "e4741d8b45c63574244279524c94b06f769f7f5652cbdb64fdc0baa46b1d93b8"
-    static let criticSHA256 = "d7130304c37f3aee99c4574381ac35fe61de706faa9a9a1f548aeb0fcb047511"
-    static let captionerLength = 24066
+    static let captionerSHA256 = "37e333fbe4da1dad85da026dcadd1b85a8dee1317993a4960061b29fefd610e1"
+    static let criticSHA256 = "520708e3514be8bdc6e38352765e9fb85efd3e361bd16297ff9dedfff0c9511c"
+    static let captionerLength = 24103
 
     struct Inputs {
         let skill: Skill

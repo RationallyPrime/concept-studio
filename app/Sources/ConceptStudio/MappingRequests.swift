@@ -1,7 +1,6 @@
-import AppKit
 import ConceptCore
+import Foundation
 import ImageIO
-import UniformTypeIdentifiers
 
 struct MappingTile: Decodable, Sendable {
     let tile: Int
@@ -80,65 +79,22 @@ enum MappingRequests {
 
     /// 768px retains more face detail in full-body photographs than 512px; layouts remain explicit
     /// until a confirmed-data benchmark establishes the best choice for the user's model.
-    static let tilePixels = 768
+    static let tilePixels = NumberedContactSheet.tilePixels
 
     static func contactSheet(_ images: [ProjectImage]) throws -> UserContent {
         guard !images.isEmpty,
               images.count <= 9 else { throw StudioError.message("Choose one to nine mapping photos.") }
         let columns = images.count <= 1 ? 1 : images.count <= 4 ? 2 : 3
-        let rows = (images.count + columns - 1) / columns
-        let size = tilePixels
-        guard let context = CGContext(
-            data: nil,
-            width: columns * size,
-            height: rows * size,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        )
-        else { throw StudioError.message("The mapping contact sheet could not be prepared.") }
-        context.setFillColor(CGColor(gray: 0.15, alpha: 1))
-        context.fill(CGRect(x: 0, y: 0, width: columns * size, height: rows * size))
-        for (index, image) in images.enumerated() {
+        let tiles = try images.enumerated().map { index, image in
             guard let source = CGImageSourceCreateWithURL(image.url as CFURL, nil),
                   let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                       kCGImageSourceCreateThumbnailFromImageAlways: true,
                       kCGImageSourceCreateThumbnailWithTransform: true,
-                      kCGImageSourceThumbnailMaxPixelSize: size,
+                      kCGImageSourceThumbnailMaxPixelSize: tilePixels,
                   ] as CFDictionary) else { throw StudioError.message("\(image.id) could not be read.") }
-            let x = (index % columns) * size
-            let y = (rows - 1 - index / columns) * size
-            let scale = min(Double(size) / Double(thumbnail.width), Double(size - 68) / Double(thumbnail.height))
-            let width = Double(thumbnail.width) * scale
-            let height = Double(thumbnail.height) * scale
-            context.draw(thumbnail, in: CGRect(
-                x: Double(x) + (Double(size) - width) / 2,
-                y: Double(y) + (Double(size - 68) - height) / 2,
-                width: width,
-                height: height
-            ))
-            context.setFillColor(CGColor(gray: 0, alpha: 1))
-            context.fill(CGRect(x: x, y: y + size - 68, width: size, height: 68))
-            let label = NSAttributedString(string: "\(index + 1)", attributes: [
-                .font: NSFont.boldSystemFont(ofSize: 48), .foregroundColor: NSColor.white,
-            ])
-            let line = CTLineCreateWithAttributedString(label)
-            context.textPosition = CGPoint(x: x + 18, y: y + size - 52)
-            CTLineDraw(line, context)
+            return (image: thumbnail, label: "\(index + 1)")
         }
-        let output = NSMutableData()
-        guard let image = context.makeImage(),
-              let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil)
-        else { throw StudioError.message("The mapping contact sheet could not be encoded.") }
-        CGImageDestinationAddImage(
-            destination,
-            image,
-            [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary
-        )
-        guard CGImageDestinationFinalize(destination)
-        else { throw StudioError.message("The mapping contact sheet could not be encoded.") }
-        return .image(data: output as Data, mediaType: "image/jpeg")
+        return try .image(data: NumberedContactSheet.jpeg(tiles, columns: columns), mediaType: "image/jpeg")
     }
 }
 

@@ -380,6 +380,12 @@ struct CaptioningView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.padding(.vertical, 10)
+            if let clipCaptioningNote {
+                Text(clipCaptioningNote)
+                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }.background(InstantPrint.ground)
     }
 
@@ -416,6 +422,20 @@ struct CaptioningView: View {
 }
 
 private extension CaptioningView {
+    var clipCaptioningNote: String? {
+        guard !session.demoMode, session.usesChatGPTForThisRun,
+              session.project?.images.contains(where: { Sources.isVideo(Sources.suffix(of: $0.id)) }) == true
+        else { return nil }
+        var note = "ChatGPT follows the clip through numbered frames in time order. Audio is not sent."
+        if session.hasH3Clips {
+            note += session.gpu.trainAudio
+                ? " For H3 clips with sound, turn off Train audio to caption their picture and motion, "
+                + "or choose a captioner that can hear the clip."
+                : " Train audio is off, so both H3 audio fields use N/A."
+        }
+        return note
+    }
+
     var modelCatalogTaskID: ProviderModelRefreshIdentity {
         ProviderModelRefreshIdentity(
             cacheKey: session.providerModelCacheKey(for: session.endpointKind),

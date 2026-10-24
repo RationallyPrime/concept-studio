@@ -56,6 +56,7 @@ contract; CORE-STATUS and APP-STATUS record implementation, test results and liv
 | 2026-10-11 | Python imagefolder Hub datasets dispatch images and clips by file name, including mixed datasets | Sources |
 | 2026-10-11 | Per-sample partial-caption progress is an app-only hook through ModelClient, StructuredStage and Runner; shared job/record formats do not change | ModelClient, Runner |
 | 2026-10-11 | Owner-requested H3 clip support adds a bundled `h3-video` caption profile, shared verbatim with Python; `h3-still` remains the photograph/frame profile | Skills |
+| 2026-10-23 | The native ChatGPT plan route represents each clip with 9–16 numbered frames in time order, preserving the clip profile and original target; audio follows the H3 Train audio choice | Video route contract, ChatGPTModelClient |
 
 ## Package
 
@@ -1085,14 +1086,24 @@ Common rules for the API-key clients (ChatGPTModelClient has its own error type,
 
 ### Video route contract (owner decision, 2026-10-11)
 
-Send the exact clip through a video-capable route to a video-capable model or local server.
-Never substitute a still for motion evidence. Unsupported routes raise `ConfigurationError`
+Native video routes send the exact clip to a video-capable model or local server.
+Never substitute a single still for motion evidence. Unsupported routes raise `ConfigurationError`
 before any network call, including credential refresh. Provider and billing selections remain
 under user control; requests never switch either automatically.
 
+**Owner extension, 2026-10-23:** the Mac app's ChatGPT plan route sends each clip as a sheet of
+9–16 numbered frames sampled in time order from that same clip. The model describes changes
+supported by the sequence in the project's clip profile. The original clip remains the saved
+training target. The sheet supplies visual evidence only: it carries no audio. With H3's
+**Train audio** off, the existing execution policy requests N/A for both audio fields. With
+audio training on, required sound that cannot be inspected remains an unusable caption;
+confirmed absence of an audio track still supports N/A. Sample timestamps do not establish
+precise cut times between frames. This extension applies to ChatGPT in the native app.
+
 **One client size policy:** the fully encoded UTF-8 body of a video request must be **less than
 20 MiB (`20 * 1024 * 1024` bytes)** on every supported video route below, in both languages.
-The client enforces this cap independently of provider limits. Count the body sent on the
+This includes the encoded frame-sheet body on the app's ChatGPT route. The client enforces
+this cap independently of provider limits. Count the body sent on the
 wire, including base64 expansion, instructions, schema, settings and the entire conversation
 and retry history. Check before transport and refuse oversized requests. Never truncate,
 resample or change the approved target to fit. Tighter provider or model limits surface as
@@ -1103,7 +1114,8 @@ provider errors. This shared policy adds no job setting.
 | `google`; Gemini `gateway/google`, `gateway/google-cloud` | Exact clip as inline binary data; `videoMetadata.fps = 24`; shared client cap | GeminiClient checks the encoded body before transport | pydantic-ai Gemini BinaryContent with fps metadata; SDK HTTP request hook checks the encoded body before transport |
 | `openrouter` | Data URL in a `video_url` content part; shared client cap | Compatible client enables video and checks the encoded body | pydantic-ai OpenRouter video part with the same SDK request hook |
 | `vllm` | Data URL in a `video_url` content part to the configured video-capable server; shared client cap | Compatible client enables video and checks the encoded body | Clear refusal until pydantic-ai supports video on its OpenAI-compatible chat route |
-| `openai`, `gateway/openai`, `gateway/openai-responses`, `gateway/responses`; ChatGPT plan route | Refuse video before any network call | Responses encoder refuses; ChatGPT builds that body before requesting a credential | Runner refuses the route before invoking the captioner or critic |
+| `openai`, `gateway/openai`, `gateway/openai-responses`, `gateway/responses` API-key routes | Refuse video before any network call | Responses encoder refuses | Runner refuses the route before invoking the captioner or critic |
+| ChatGPT plan route in the native app | Numbered, ordered frame sheet from the exact clip; shared client cap; no transmitted audio | The app supplies native frame preparation before encoding and credential access; an unconfigured core client still refuses video | The CLI uses its configured API-key routes |
 | `anthropic`, `gateway/anthropic` | Refuse video before any network call | Refused during body encoding before inference transport | Runner refuses the route before invoking the captioner or critic |
 | `vercel`, `gateway/openai-chat`, `gateway/chat`, other unlisted routes | Refuse video | Compatible encoder refuses unless a supported resolver route enables video | Runner refuses unknown video routes, including injected models without a supported route identity |
 
@@ -1235,6 +1247,7 @@ public struct ChatGPTModelClient: ModelClient {
     public init(model: String,
                 accessToken: @escaping @Sendable () async throws -> String,   // asked fresh per request
                 onUsageLimit: (@Sendable (ChatGPTInferenceError) async -> Void)? = nil,
+                prepareVideo: (@Sendable (Data, String) async throws -> [UserContent])? = nil,
                 transport: any HTTPStreamingTransport = URLSessionTransport())
     /// Throws ConfigurationError for tool mode or any setting the plan route does not take.
     public static func validate(settings: RequestSettings, outputMode: OutputMode) throws
@@ -1250,6 +1263,13 @@ Request: `POST https://api.openai.com/v1/responses` (fixed; nothing configures i
 `Authorization: Bearer <access token>`, `Accept: text/event-stream`. The body is
 OpenAIResponsesClient's body plus `stream: true`: the plan route takes streamed requests only,
 and each event is consumed as it arrives.
+
+The app supplies `prepareVideo` to turn a selected clip into one numbered frame sheet and
+explicit timing/audio evidence. It uses native frame extraction, records actual decoded
+timestamps and removes its temporary clip file on completion, failure or cancellation.
+The client preserves surrounding text, images and assistant turns. A client without this
+callback refuses video before reading a credential. Original messages determine whether the
+encoded request is subject to the 20 MiB video cap, even after their video parts become images.
 
 Before any credential is read or any request is sent: an empty model, tool mode, or any of
 temperature, max_tokens, seed, top_p, top_k, stop_sequences, presence/frequency penalty,
