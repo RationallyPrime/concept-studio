@@ -1838,6 +1838,8 @@ public struct HubClient: Sendable {
     public let token: String?
     public let transport: any HTTPTransport
     public init(token: String?, endpoint: URL = defaultEndpoint, transport: any HTTPTransport = URLSessionTransport())
+    public init(tokenProvider: @escaping @Sendable () async throws -> String?,
+                endpoint: URL = defaultEndpoint, transport: any HTTPTransport = URLSessionTransport())
 
     /// GET /api/datasets/{repo}/tree/{revision}?recursive=true  (follows the `Link: <...>; rel="next"` cursor)
     public func listFiles(repo: RepoID, revision: String = "main") async throws -> [HubFile]
@@ -1853,8 +1855,13 @@ public struct HubClient: Sendable {
 }
 ```
 
-Wire details (all requests carry `Authorization: Bearer <token>` when a token is set; every
-path segment of `repo.id`, `revision` and file paths is percent-encoded with
+The renewable provider resolves credentials separately for each authenticated Hub request,
+including the final commit after LFS transfers. Provider failures stop that request; there is
+no fallback to a previous token. A disconnected provider may return nil for public reads.
+Signed LFS uploads and off-host pagination do not resolve or receive Hub credentials.
+
+Wire details (authenticated Hub requests carry `Authorization: Bearer <token>` when a token is
+available; every path segment of `repo.id`, `revision` and file paths is percent-encoded with
 `.urlPathAllowed` minus `/` kept as separator):
 
 - tree: response is a JSON array of `{type: "file"|"directory", path, size, oid, lfs?: {oid, size}}`;

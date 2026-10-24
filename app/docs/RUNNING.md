@@ -60,8 +60,19 @@ current project open.
 
 Open **Accounts & settings** to choose **Continue with ChatGPT**, **Connect OpenRouter** or a
 manual account key. A single OpenRouter, Vercel AI Gateway or Pydantic AI Gateway key gives
-access to its model catalog. Direct providers are available too. Add Hugging Face and RunPod
-credentials in the publishing and training section.
+access to its model catalog. Direct providers are available too. Add your RunPod API key in
+the publishing and training section.
+
+Choose **Sign in with Hugging Face** in Accounts & settings, Publish or Training. Your browser
+asks permission to read your public profile, create and update repositories, and download gated
+models you already have access to. The connection stays in Keychain; projects contain no
+credentials. Gate approval and model licences still belong to your Hugging Face account.
+
+A pasted Hugging Face write token remains available under **Advanced user → Advanced: paste a
+Hugging Face token**. Saving one explicitly switches the connection to that token. A browser
+sign-in that cannot renew asks you to reconnect; it never silently selects an older token.
+**Disconnect on this Mac** removes local credentials. **Manage connected apps** opens Hugging
+Face's grant controls for revocation.
 
 Saving a key checks account access without generating a caption. The **Captioning connection
 test** uses your selected model and consumes that account's allowance. Captioning lists models
@@ -288,7 +299,7 @@ Choose hardware for the training model:
   Accept its Qwen Research License terms, including non-commercial use. The first model
   download is about 32.5 GB.
 - **Krea 2 (Raw):** at least 96 GB GPU memory for bf16 training. Accept the Krea 2
-  Community License access conditions on Hugging Face and configure your token. Training
+  Community License access conditions on Hugging Face and connect that account. Training
   uses Raw weights; generated previews use Krea 2 Turbo at eight steps.
 - **H3:** the BF16 recipe uses a 96 GB GPU reference. The app checks the connected GPU's memory
   before uploading inputs. Batch size and resolution still determine the run's memory use.
@@ -328,11 +339,11 @@ involved, with neutral guidance in the bundled skill. Captioning recommends a se
 model; Publish keeps Private dataset on and checks that the destination is private. The
 shared `adult_content` job setting applies identically in Swift and Python.
 
-With a Hub token, Publish sends the selected targets, saved sidecars, imagefolder metadata and
+With Hugging Face connected, Publish sends the selected targets, saved sidecars, imagefolder metadata and
 `concept-captioner/job.yaml` in one commit. Media names remain the shared sample IDs; reference
 images stay local. **Private dataset** is on by default.
 
-Without a Hub token, choose **Check training data** on Publish. **Start training** captures
+Without a Hugging Face connection, choose **Check training data** on Publish. **Start training** captures
 saved inputs, uploads them through the pod agent and waits for installation before launching
 the trainer. Limits are 2 GiB per file and 20 GiB per dataset. Editing is held only while the
 snapshot is captured. Train directly from your Mac without a Hub dataset account. Gated base
@@ -399,8 +410,15 @@ show the failure; unsupported model/trainer combinations explain the requirement
 
 Set **Save trained model to** on Training for the current project. With a Hub account, an empty
 destination starts as `<account>/<project>-lora`; edit it to choose another repository.
-Without a Hub token, the result goes to the project's results folder. Each run retains its
+Without a Hugging Face connection, the result goes to the project's results folder. Each run retains its
 original destination and privacy, including when you retrieve or publish it later.
+
+Browser sign-in renews access on the Mac when Hugging Face provides a refresh token. Dataset
+requests and cloud model starts obtain a current access token. The refresh credential stays on
+the Mac. For browser-connected training on Secure Cloud, the app publishes the completed LoRA with a fresh
+credential; if the app is closed at completion, publication waits until it reconnects. The
+trained files remain on the cloud GPU's storage, and a failed publication retains the existing
+verified-download recovery path. A sign-in that cannot renew asks you to reconnect.
 
 Open **Saved runs** for dataset revisions, training settings, checkpoints, outputs and cost
 records. **Load settings for repeat** copies a run into Training and starts with its recorded
