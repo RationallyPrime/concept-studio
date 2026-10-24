@@ -187,6 +187,8 @@ extension GPUWorkspace {
         }
         let running = found.filter(\.isRunning)
         if pod == nil, let adopted = running.first {
+            // A lost GPU's exemption from the idle stop must not carry over to the one adopted in its place.
+            keepsRunningWhenIdle = false
             saved = SavedPod(
                 pod: adopted, started: Date(), hourlyRate: adopted.cost, budget: budget, trainer: trainer,
                 runID: "", runpodKey: runpodKeyFingerprint, idleMinutes: idleMinutes,
