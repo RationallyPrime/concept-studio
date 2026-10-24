@@ -161,6 +161,7 @@ extension StudioSession {
         chatGPTWorkGeneration += 1
         await chatGPT.cancelAndWait()
         await openRouter.cancelAndWait()
+        await huggingFace.cancelAndWait()
         stopImageAnalysis()
         editTask?.cancel()
         await editTask?.value
@@ -213,6 +214,7 @@ extension StudioSession {
         chatGPTWorkGeneration += 1
         await chatGPT.cancelAndWait()
         await openRouter.cancelAndWait()
+        await huggingFace.cancelAndWait()
         task?.cancel()
         editTask?.cancel()
         stopImageAnalysis()

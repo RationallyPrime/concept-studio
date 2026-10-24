@@ -49,9 +49,15 @@ def request():
 def test_generation_writes_own_config_and_uses_exact_trainer_venv(settings):
     paths = settings.paths
     run, _ = saved_run(paths)
-    params = parse_params("generate-aitoolkit", request(), paths)
+    params = parse_params(
+        "generate-aitoolkit", {**request(), "hf_token": "fresh-oauth-token"}, paths
+    )
     spec = CATALOG["generate-aitoolkit"]
     spec.prepare(params, paths)
+    assert spec.env(params, settings)["HF_TOKEN"] == "fresh-oauth-token"
+    for path in ("source-run.json", "generation.json"):
+        saved = (paths.run_dir(params.run_id) / path).read_text()
+        assert "fresh-oauth-token" not in saved and "hf_token" not in json.loads(saved)
     assert json.loads((paths.run_dir(params.run_id) / "generation.json").read_text())["seeds"] == [
         42,
         7,

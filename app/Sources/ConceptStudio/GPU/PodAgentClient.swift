@@ -16,10 +16,13 @@ struct AgentService: Decodable {
     var runID: String?
     /// Whether this image carries the program; nil means the agent has not reported installation.
     var available: Bool?
+    /// Missing on older agents: never assume a transient credential is accepted.
+    var supportsHFToken: Bool?
     enum CodingKeys: String, CodingKey {
         case name, state, available
         case groupAlive = "group_alive"
         case runID = "run_id"
+        case supportsHFToken = "supports_hf_token"
     }
 
     var active: Bool {

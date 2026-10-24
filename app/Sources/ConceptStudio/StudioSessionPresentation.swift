@@ -45,11 +45,16 @@ extension StudioSession {
     /// Gives a project with no training destination its own default, `<account>/<project>-lora`, when
     /// signed in to Hugging Face. Without an account it stays empty and the result is saved to the project.
     func fillDefaultTrainingOutput() async {
-        guard trainingOutputRepo.isEmpty, let directory = project?.directory,
-              let suggested = await gpu.suggestedOutputRepo() else { return }
-        // The open project, or its destination, may have changed while the account was read.
-        guard project?.directory == directory, trainingOutputRepo.isEmpty else { return }
-        trainingOutputRepo = suggested
+        guard trainingOutputRepo.isEmpty, let directory = project?.directory else { return }
+        do {
+            guard let suggested = try await gpu.suggestedOutputRepo() else { return }
+            // The open project, or its destination, may have changed while the account was read.
+            guard project?.directory == directory, trainingOutputRepo.isEmpty else { return }
+            trainingOutputRepo = suggested
+        } catch {
+            guard project?.directory == directory, !Task.isCancelled else { return }
+            errorMessage = Self.describe(error)
+        }
     }
 
     /// What is still to do before this project can train, in order, each with the step that does it. A dataset
@@ -101,7 +106,7 @@ extension StudioSession {
         SessionKeyStore(secrets: secrets, vllmBaseURL: customBaseURL.isEmpty ? nil : customBaseURL)
     }
 
-    /// Called when the Hugging Face key changes; the GPU workspace's copy follows wherever the user is.
+    /// Called when the Hugging Face connection changes; the GPU workspace follows the selected credential.
     func providerCredentialsDidChange() {
         providerCredentialRevision &+= 1
         preparePublishing()

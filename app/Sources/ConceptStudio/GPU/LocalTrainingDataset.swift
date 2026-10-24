@@ -150,6 +150,7 @@ extension GPUWorkspace {
             pull["repo_id"] = .string(repo)
             if let revision { pull["revision"] = .string(revision) }
             message = "Downloading your published media and captions."
+            pull = try await paramsWithFreshHubToken(pull, service: "pull-dataset", agent: agent)
         }
         try await agent.start("pull-dataset", gpus: [], params: pull)
         try await waitForService("pull-dataset")

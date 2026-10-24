@@ -32,12 +32,16 @@ def params(**overrides: object) -> dict[str, object]:
 
 def test_prepare_moves_the_upload_into_the_run(paths: Paths) -> None:
     staged(paths, files=("a.jpg", "b.mp4"))
-    parsed = parse_params("upscale-media", params(model="7b", resolution=768), paths)
+    parsed = parse_params(
+        "upscale-media", params(model="7b", resolution=768, hf_token="fresh-oauth-token"), paths
+    )
     CATALOG["upscale-media"].prepare(parsed, paths)
     run = paths.run_dir("upscale-001")
     assert sorted(p.name for p in (run / "inputs").iterdir()) == ["a.jpg", "b.mp4"]
     assert not (paths.uploads / "upscale-001").exists()
     saved = json.loads((run / "upscale.json").read_text())
+    assert "hf_token" not in saved
+    assert "fresh-oauth-token" not in (run / "upscale.json").read_text()
     assert (saved["model"], saved["resolution"], saved["max_resolution"]) == ("7b", 768, 2048)
     argv = CATALOG["upscale-media"].argv(parsed, [0], paths)
     assert argv[-2:] == ["--run", str(run)]

@@ -442,45 +442,43 @@ extension GPUWorkspace {
                 throw StudioError.message("Finish the current GPU action before resuming training.")
             }
             var params = run.params
+            params["hf_token"] = nil
             params["steps"] = .int(totalSteps)
             params["resume"] = .bool(true)
-            self.runID = run.runID
-            self.points = run.points
-            self.result = run.result
-            self.result?.state = .training
+            self.runID = run.runID; self.points = run.points
+            self.result = run.result; self.result?.state = .training
             // A cloud GPU without the Hub token cannot publish; its run is saved to this Mac instead.
             if !self.canPushToHub || self.serviceUnavailableReason("push-lora") != nil {
                 params["hub"] = nil
                 self.result?.destination = .download
+            } else if self.usesHubOAuth, var hub = params["hub"]?.objectValue {
+                hub["push_on_finish"] = .bool(false)
+                params["hub"] = .object(hub)
             }
             self.trainingState = "Preparing inputs"
             self.recordStartedRun(
                 datasetRepo: run.datasetRepo, params: params, resumed: true,
                 budget: cap, baseline: baseline
             )
-            self.persist()
-            self.persistResult()
+            self.persist(); self.persistResult()
             var trainerStartAttempted = false
             defer { if !trainerStartAttempted { self.finishFailedPreparation(previousResult: run.result) } }
             if let local {
                 try await self.installTrainingDataset(local, repo: "", revision: nil, name: run.runID, agent: agent)
             }
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
+            let service = "trainer-\(run.trainer)"
+            let startParams = try await self.paramsWithFreshHubToken(params, service: service, agent: agent)
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
             try self.resetReportForResumedTraining(run.runID)
             trainerStartAttempted = true
-            try await agent.start("trainer-\(run.trainer)", gpus: plan.train?.gpus ?? [], params: params)
-            self.trainingState = "running"
-            self.lastActivity = Date()
+            try await agent.start("trainer-\(run.trainer)", gpus: plan.train?.gpus ?? [], params: startParams)
+            self.trainingState = "running"; self.lastActivity = Date()
             await self.recordNewTrainingRun(
-                agent,
-                datasetRepo: run.datasetRepo,
-                params: params,
-                localInputDigest: run.localInputDigest
+                agent, datasetRepo: run.datasetRepo, params: params, localInputDigest: run.localInputDigest
             )
-            self.persist()
-            self.persistResult()
+            self.persist(); self.persistResult()
             self.message = "Continuing run \(run.runID) toward \(totalSteps) total steps from its latest checkpoint."
         }
     }

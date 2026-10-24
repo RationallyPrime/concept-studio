@@ -121,7 +121,7 @@ extension StudioSession {
             message = "Demo dataset imported locally. No Hub connection was used."
             return
         }
-        let client = try HubClient(token: keyStore.read("huggingface"))
+        let client = hubClient()
         let source = try await HubFolderSource.open(
             client: client, repo: location.repo, revision: location.revision, subfolder: location.subfolder
         )

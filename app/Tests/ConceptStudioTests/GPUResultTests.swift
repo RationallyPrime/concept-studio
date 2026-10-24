@@ -162,7 +162,7 @@ struct GPUResultTests {
             .directory
         await workspace.refreshOffers()
         await workspace.rent()
-        let suggested = await workspace.suggestedOutputRepo()
+        let suggested = try await workspace.suggestedOutputRepo()
         #expect(suggested == "tester/my-nora-lora")
         await workspace.train(datasetRepo: "test/images", output: HubDestination(repo: suggested ?? ""))
         #expect(workspace.result?.destination == .hub)

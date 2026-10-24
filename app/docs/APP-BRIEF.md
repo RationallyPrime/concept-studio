@@ -18,6 +18,10 @@ clothing, lighting, pose, scene and other details the user wants to control.
 Categories shape the questions, subject mapping and caption instructions. The chosen training
 model supplies the recipe.
 
+Hugging Face connects through browser sign-in. Users publish datasets and LoRAs and access
+their approved gated models from the same account. Credentials are saved in Keychain; pasted tokens
+remain an Advanced option.
+
 ## Who it is for
 
 A first-time user brings examples and an idea. ConceptStudio supplies the guidance, model

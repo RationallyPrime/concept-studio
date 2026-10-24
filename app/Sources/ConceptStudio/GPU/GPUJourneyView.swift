@@ -147,11 +147,13 @@ struct GPUJourneyView: View {
                     }
                     trainingDestinationFields
                 }.formStyle(.columns)
-                Text("This project's own destination. With a Hugging Face token in Settings and a Secure Cloud "
+                Text("This project's own destination. With Hugging Face connected and a Secure Cloud "
                     + "GPU, the trained model is published to this repository when training finishes. Without a "
-                    + "token, or on a Community Cloud GPU, it is saved in this project's results folder on your Mac.")
+                    + "connection, or on a Community Cloud GPU, it is saved in this project's results folder "
+                    + "on your Mac.")
                     .font(.callout).foregroundStyle(StudioStyle.supportingText)
                     .fixedSize(horizontal: false, vertical: true)
+                HuggingFaceAccountView(session: session)
             }
             .task(id: session.project?.directory) { await session.fillDefaultTrainingOutput() }
             Divider()
@@ -342,7 +344,7 @@ struct TrainingResultSection: View {
             switch state {
             case nil, .training?:
                 Text("When training finishes, the model is uploaded to your Hugging Face repository, or saved in "
-                    + "this project's results folder if you have no Hugging Face token.")
+                    + "this project's results folder if Hugging Face is not connected.")
                     .foregroundStyle(StudioStyle.supportingText).fixedSize(horizontal: false, vertical: true)
             case .pending?:
                 StudioNotice(

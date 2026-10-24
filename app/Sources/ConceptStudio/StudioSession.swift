@@ -166,6 +166,7 @@ final class StudioSession {
     var openAIUsesChatGPT = false
     var chatGPT: ChatGPTAccounts
     var openRouter: OpenRouterConnection
+    var huggingFace: HuggingFaceConnection
     var showChatGPTPlanNotice = false
     var chatGPTUsageLimitReached = false
     @ObservationIgnored var chatGPTWorkGeneration = 0
@@ -197,6 +198,7 @@ final class StudioSession {
         preferences: UserDefaults = .standard,
         chatGPT: ChatGPTAccounts? = nil,
         openRouter: OpenRouterConnection? = nil,
+        huggingFace: HuggingFaceConnection? = nil,
         secrets: any SecretStore = KeychainStore(),
         demoDirectory: URL = DemoProject.defaultDirectory
     ) {
@@ -206,6 +208,7 @@ final class StudioSession {
         self.demoDirectory = demoDirectory
         self.chatGPT = chatGPT ?? ChatGPTAccounts(preferences: preferences)
         self.openRouter = openRouter ?? OpenRouterConnection(secrets: secrets)
+        self.huggingFace = huggingFace ?? HuggingFaceConnection(secrets: secrets)
         gpu = Self.makeGPUWorkspace(demoMode: false, preferences: preferences, secrets: secrets)
         recentPaths = recents.paths
         loadSavedChoices()

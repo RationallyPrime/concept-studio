@@ -14,8 +14,8 @@ enum GPUUnavailability: Equatable {
     var explanation: String {
         switch self {
         case let .notEnoughMemory(model): "Not enough graphics memory for \(model)"
-        case let .gatedModelNeedsHubTokenInSettings(model): "\(model) needs a Hugging Face token in Settings"
-        case let .gatedModelNeedsHubToken(model): "\(model) needs your Hugging Face token, kept off Community Cloud"
+        case let .gatedModelNeedsHubTokenInSettings(model): "Sign in with Hugging Face to use \(model)"
+        case let .gatedModelNeedsHubToken(model): "\(model) needs Hugging Face access on a Secure Cloud GPU"
         case let .notOffered(count): "Not available as \(count) GPUs"
         case .storageNotFound: "Your saved storage was not found. Refresh the list."
         case .savedStorageIsSecureOnly: "Saved storage is Secure Cloud only"

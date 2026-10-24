@@ -29,6 +29,8 @@ creating with it.
   ChatGPT captions the action in your clips in the format your training model needs.
   Add a second model to review captions, edit them beside the media, and protect the ones
   you've finished.
+- **Publish from your own account.** Sign in with Hugging Face in your browser. Publish training
+  sets and LoRAs from the app, and use gated models you have access to.
 - **Put cloud power to work.** Compare live GPU prices and availability, choose your storage,
   and set your budget. ConceptStudio rents and controls the GPU for you. Keep stopped GPUs and their model caches,
   then switch computers when you need different hardware.

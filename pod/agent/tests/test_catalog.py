@@ -36,6 +36,7 @@ from podagent.catalog import (
     validate,
 )
 from podagent.settings import Paths, Settings
+from podagent.supervisor import child_env
 
 TOKEN = "agent-token-0123456789abcdef"
 HF_SECRET = "hf_secret_token_value_000"
@@ -431,6 +432,71 @@ def test_trainer_env(paths: Paths, agent_settings: Settings, name: str) -> None:
     }
     with_token = RunConfig.model_validate(run_config(paths, hf_token=HF_SECRET))
     assert env(with_token, agent_settings) == {"PYTHONUNBUFFERED": "1", "HF_TOKEN": HF_SECRET}
+
+
+@pytest.mark.parametrize(
+    ("name", "body"),
+    [
+        ("vllm", {"model": "fixture/model"}),
+        (
+            "draw-regularization",
+            {
+                "run_id": "draw",
+                "dataset": {"path": "/workspace/datasets/subjects"},
+                "base_model": "black-forest-labs/FLUX.1-dev",
+                "regularization": {
+                    "source": "generate",
+                    "images": 2,
+                    "weight": 1.0,
+                    "generation": {"steps": 28, "guidance_scale": 1.0, "seed": 0},
+                    "class_nouns": {"NORA7": "person"},
+                },
+            },
+        ),
+        (
+            "generate-aitoolkit",
+            {
+                "run_id": "generation",
+                "source_run_id": "source",
+                "checkpoint": "final.safetensors",
+                "prompts": ["A person"],
+                "seeds": [42],
+            },
+        ),
+        ("upscale-media", {"run_id": "upscale", "upload": "upscale"}),
+    ],
+)
+def test_fresh_hf_token_overrides_stale_environment_without_public_exposure(
+    name: str, body: dict[str, Any], agent_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HF_TOKEN", "expired-rental-token")
+    spec = CATALOG[name]
+    params = spec.params_model.model_validate({**body, "hf_token": HF_SECRET})
+    assert child_env(spec, [0], params, agent_settings)["HF_TOKEN"] == HF_SECRET
+    assert params.public()["hf_token"] == "***"
+    assert HF_SECRET not in json.dumps(params.public())
+    assert HF_SECRET not in " ".join(fake_argv(name, params))
+
+
+def test_draw_config_excludes_transient_hf_token(paths: Paths) -> None:
+    params = DrawRegularizationParams.model_validate(
+        {
+            "run_id": "draw",
+            "dataset": {"path": str(paths.datasets / "subjects")},
+            "base_model": "black-forest-labs/FLUX.1-dev",
+            "hf_token": HF_SECRET,
+            "regularization": {
+                "source": "generate",
+                "images": 2,
+                "weight": 1.0,
+                "generation": {"steps": 28, "guidance_scale": 1.0, "seed": 0},
+                "class_nouns": {"NORA7": "person"},
+            },
+        }
+    )
+    CATALOG["draw-regularization"].prepare(params, paths)
+    saved = (paths.run_dir("draw") / "regularization-draw.json").read_text()
+    assert HF_SECRET not in saved and "hf_token" not in json.loads(saved)
 
 
 @pytest.mark.parametrize("name", ["trainer-aitoolkit", "trainer-ltx"])

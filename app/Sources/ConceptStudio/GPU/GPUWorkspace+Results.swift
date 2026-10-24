@@ -6,7 +6,7 @@ import Foundation
 /// outlives Remove (the run stays on the network volume), and in the project's app file.
 struct TrainingResult: Codable, Equatable {
     enum Destination: String, Codable {
-        /// Pushed by the trainer on finish (`hub.push_on_finish`) to a private model repo.
+        /// Published to the chosen model repo, by the trainer or by the app's post-training push.
         case hub
         /// Downloaded through the agent into `<project>/results/<run-id>/`.
         case download
@@ -242,7 +242,10 @@ extension GPUWorkspace {
             // No trainer reports the run when the agent restarted (its state is in memory only);
             // the files on the volume then decide.
             if own == nil, trainers.contains(where: \.active) { return }
-            if own?.state == "exited", result.destination == .hub {
+            let run = runHistory.first { $0.runID == result.runID }
+                ?? saved?.run.flatMap { $0.runID == result.runID ? $0 : nil }
+            if own?.state == "exited", result.destination == .hub,
+               run?.params["hub"]?.objectValue?["push_on_finish"]?.boolValue == true {
                 updateResult(.pushed(repo: result.outputRepo))
                 message = "Training finished and the LoRA was published to \(result.outputRepo)."
                 return
@@ -320,10 +323,10 @@ extension GPUWorkspace {
             do {
                 try await requireServices(["push-lora"], from: agent)
                 message = "Publishing the LoRA to \(result.outputRepo)…"
-                try await agent.start("push-lora", gpus: [], params: [
+                try await agent.start("push-lora", gpus: [], params: paramsWithFreshHubToken([
                     "run_id": .string(result.runID), "repo_id": .string(result.outputRepo),
                     "private": .bool(result.isPrivate ?? true),
-                ])
+                ], service: "push-lora", agent: agent))
                 try await waitForService("push-lora")
                 updateResult(.pushed(repo: result.outputRepo))
                 message = "Your LoRA was published to \(result.outputRepo)."

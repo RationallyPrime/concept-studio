@@ -59,7 +59,11 @@ extension StudioSession {
 
     func preparePublishing() {
         guard !demoMode else { return }
-        do { gpu.hubToken = try keyStore.read("huggingface") ?? "" } catch { errorMessage = Self.describe(error) }
+        do {
+            let hub = try huggingFace.storedTokenConfiguration()
+            gpu.hubToken = hub.manualToken
+            gpu.hubOAuthToken = hub.oauthToken
+        } catch { errorMessage = Self.describe(error) }
     }
 
     /// The revision Publish produced: the project's record of it, and the revision the next run trains on.
@@ -109,10 +113,8 @@ extension StudioSession {
                     self.message = "Training data checked. No Hugging Face account is needed. "
                         + "Start training to upload these included targets directly to your cloud GPU."
                 } else {
-                    let client = try HubClient(token: self.keyStore.read("huggingface"))
-                    guard client.token?.isEmpty == false else {
-                        throw StudioError.message("Save your Hugging Face write token in Settings before publishing.")
-                    }
+                    _ = try await self.huggingFace.accessToken()
+                    let client = self.hubClient()
                     let repo = try RepoID(self.repoID)
                     try await client.createRepo(repo, private: self.privateDataset)
                     if project.job.adultContent { try await client.requirePrivateDataset(repo) }

@@ -180,7 +180,7 @@ struct DirectDatasetUploadTests {
         let workspace = connected(project: project, agent: agent, preferences: preferences)
         workspace.chooseTrainingModel("black-forest-labs/FLUX.1-dev")
         await workspace.train(datasetRepo: "")
-        #expect(workspace.message.contains("Add a Hugging Face token in Settings"))
+        #expect(workspace.message.contains("Sign in with Hugging Face in Settings"))
         #expect(workspace.runHistory.isEmpty)
         #expect(await agent.uploads.isEmpty)
         #expect(await agent.starts.isEmpty)
@@ -278,9 +278,28 @@ extension DirectDatasetUploadTests {
         session.preparePublishing()
         #expect(session.gpu.usesLocalDataset == !configured)
         #expect(session.gpu.hubToken == (configured ? "fixture-hub" : ""))
-        #expect(secrets.readAccounts == ["huggingface"])
+        #expect(secrets.readAccounts == ["huggingface.oauth", "huggingface"])
         #expect(session.gpu.provider == nil && session.gpu.agent == nil)
         #expect(session.gpu.pod == nil)
+    }
+
+    @Test
+    func publishEntryUsesStoredOAuthBeforeTheAccountViewLoads() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let secrets = MemorySecretStore([
+            "huggingface": "old-manual-token", "huggingface.oauth": "malformed-oauth-record",
+        ])
+        let session = StudioSession(preferences: preferences, secrets: secrets)
+        session.preparePublishing()
+        #expect(session.gpu.usesHubOAuth && !session.gpu.usesLocalDataset)
+        #expect(session.gpu.hubToken.isEmpty)
+        #expect(secrets.readAccounts == ["huggingface.oauth"])
+        #expect(session.gpu.provider == nil && session.gpu.agent == nil && session.gpu.pod == nil)
+        await #expect(throws: HuggingFaceAuthError.self) {
+            try await session.gpu.freshHubToken()
+        }
+        #expect(!secrets.readAccounts.contains("huggingface"))
     }
 }
 

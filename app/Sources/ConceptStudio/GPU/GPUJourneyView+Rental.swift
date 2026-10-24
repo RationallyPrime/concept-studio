@@ -35,6 +35,9 @@ extension GPUJourneyView {
                         : "One GPU captions while the others train.")
                         .font(.callout).foregroundStyle(StudioStyle.supportingText)
                 }.formStyle(.columns)
+                if workspace.gatedModelWithoutHubToken != nil || session.huggingFace.status.needsSignIn {
+                    HuggingFaceAccountView(session: session)
+                }
                 CloudGPUList(workspace: workspace)
                 Button("Refresh prices and availability") { Task { await workspace.refreshOffers() } }
                     .disabled(workspace.isBusy)

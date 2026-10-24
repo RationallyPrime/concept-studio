@@ -11,6 +11,32 @@ each image can run, with **seven verified recipes** and **18 additional recipes*
 [Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
 [GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
 
+## Hugging Face browser sign-in, 2026-10-24
+
+**Connect Hugging Face, publish your dataset and save your trained model without copying a token.**
+Sign-in is available in Settings, Publish and Training. The account grants repository publication
+and access to approved gated models; credentials are saved in Keychain. Pasted tokens remain
+under Advanced, with an explicit switch between the two connection methods.
+
+A fresh browser connection completed the workflow in the signed native app: three synthetic
+images were published as a private dataset, the gated FLUX.1-dev weights downloaded on a
+Secure Cloud RTX 5090, and one 512 px training step completed. The app then published the
+LoRA privately using the current credential. Reopening the app retained the connection and
+the project's published dataset revision.
+
+The **171,969,360-byte checkpoint** and all eight published files were downloaded from the
+exact private model revision and verified against Hub sizes and hashes. The checkpoint's
+SHA-256 is `17d77a46b5a8a07daad031bab1e71c011ee95a3d9717b825962299e94f601d04`.
+The saved native parameters and published run metadata record `push_on_finish: false` and
+contain no transient Hub token: the Mac initiated publication after the trainer finished.
+The test GPU was verified stopped and removed after output custody was established; its two
+task secrets were removed, and unrelated pods and secrets were preserved.
+
+The live training used `aitoolkit:v0.3.14-20261024`. Each credentialed action checks the running
+service's support before uploading inputs or changing services, then obtains a current token
+at launch. Refresh credentials stay on the Mac. [RUNNING.md](RUNNING.md) describes renewal,
+local disconnection and result recovery.
+
 ## Installed GPU services, 2026-10-24
 
 **The app offers the tools installed on the running GPU.** Training, Resume, generation,
