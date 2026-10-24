@@ -75,6 +75,87 @@ struct GPUHubCredentialTests {
         #expect(await agent.starts.isEmpty)
     }
 
+    @Test(arguments: ["upscale-media", "vllm"])
+    func upscaleRejectsUnsupportedOAuthBeforeInputOrCaptionEffects(_ unsupported: String) async throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let folder = temporaryTestDirectory("oauth-upscale-admission")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let input = folder.appendingPathComponent("sample.jpg")
+        try Data("synthetic source".utf8).write(to: input)
+        let retained = unsupported == "vllm"
+        let agent = UpscaleAgent(
+            unsupportedHubServices: [unsupported], concurrent: retained, captionRunning: !retained
+        )
+        let tokens = HubAccessFixture()
+        let gpu = connected(defaults.defaults, agent: agent)
+        gpu.hubOAuthToken = { try await tokens.token() }
+        gpu.keepCaptionServer = retained
+        // The action must refresh an older inventory that still enabled the button.
+        await gpu.updateServiceState(agent.services().map { original in
+            var service = original
+            service.supportsHFToken = true
+            return service
+        })
+        #expect(gpu.upscaleUnavailableReason == nil)
+        var progress: [String] = []
+        do {
+            _ = try await gpu.upscale(
+                [.init(sampleID: "sample.jpg", file: input)], model: .standard,
+                target: UpscaleTarget(shortSide: 1024), into: folder.appendingPathComponent("out")
+            ) { progress.append($0) }
+            Issue.record("Upscale used an image without the required OAuth service capability")
+        } catch {
+            #expect(error.localizedDescription == gpu.serviceUnavailableReason(unsupported))
+        }
+        #expect(gpu.upscaleUnavailableReason != nil)
+        #expect(progress.isEmpty)
+        #expect(await agent.uploads.isEmpty)
+        #expect(await agent.starts.isEmpty)
+        #expect(await agent.stops.isEmpty)
+        #expect(await tokens.reads == 0)
+    }
+
+    @Test(arguments: ["manual", "community", "anonymous"])
+    func oauthCapabilityDoesNotBlockOtherCredentialsOrLocalServices(_ connection: String) async throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let folder = temporaryTestDirectory("legacy-upscale-admission")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let input = folder.appendingPathComponent("sample.jpg")
+        try Data("synthetic source".utf8).write(to: input)
+        let agent = UpscaleAgent(
+            unsupportedHubServices: ["upscale-media", "vllm", "tensorboard", "cleanup-datasets"], captionRunning: true
+        )
+        let tokens = HubAccessFixture()
+        let gpu = connected(defaults.defaults, agent: agent)
+        gpu.keepCaptionServer = false
+        if connection == "manual" { gpu.hubToken = "manual-fixture" }
+        if connection == "community" {
+            gpu.hubOAuthToken = { try await tokens.token() }
+            gpu.saved?.hubTokenOnPod = false
+        }
+        let outcome = try await gpu.upscale(
+            [.init(sampleID: "sample.jpg", file: input)], model: .standard,
+            target: UpscaleTarget(shortSide: 1024), into: folder.appendingPathComponent("out")
+        ) { _ in }
+        #expect(outcome.results["sample.jpg"] != nil)
+        #expect(await agent.uploads.count == 1)
+        #expect(await agent.starts.map(\.service) == ["upscale-media"])
+        #expect(await agent.stops == ["vllm"])
+        #expect(await agent.starts.first?.params["hf_token"] == nil)
+        #expect(await tokens.reads == 0)
+        // Noncredentialed tools remain usable even with OAuth on an eligible Secure Cloud pod.
+        gpu.hubOAuthToken = { try await tokens.token() }
+        gpu.saved?.hubTokenOnPod = true
+        try await gpu.requireServices(["tensorboard", "cleanup-datasets"], from: agent)
+        #expect(gpu.serviceUnavailableReason("tensorboard") == nil)
+        #expect(gpu.serviceUnavailableReason("cleanup-datasets") == nil)
+        #expect(await tokens.reads == 0)
+    }
+
     @Test func capabilityMustBelongToRequestedService() async throws {
         let defaults = IsolatedDefaults()
         defer { defaults.remove() }

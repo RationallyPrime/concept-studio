@@ -31,7 +31,8 @@ extension GPUWorkspace {
             return "This GPU image cannot report whether \(title.lowercased()) is installed. "
                 + "Rent a cloud GPU with the current image."
         }
-        return available ? nil : missing
+        guard available else { return missing }
+        return hubTokenUnavailableReason(name, service: service)
     }
 
     func unavailableServicesReason(_ names: [String]) -> String? {

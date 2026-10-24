@@ -7,31 +7,50 @@ import Testing
 actor UpscaleAgent: PodAgent {
     private(set) var uploads: [(stage: String, name: String)] = []
     private(set) var starts: [HistoryAgent.Start] = []
+    private(set) var stops: [String] = []
+    private let unsupportedHubServices: Set<String>
+    private let concurrent: Bool
+    private var captionState: String
     let result = Data("upscaled bytes".utf8)
+
+    init(unsupportedHubServices: Set<String> = [], concurrent: Bool = false, captionRunning: Bool = false) {
+        self.unsupportedHubServices = unsupportedHubServices
+        self.concurrent = concurrent
+        captionState = captionRunning ? "running" : "idle"
+    }
 
     func upload(name: String, fileName: String, from file: URL, size: Int64) async throws {
         uploads.append((name, fileName))
     }
 
     func plan() -> TrainingPlan {
-        TrainingPlan(mode: "sequential", caption: .init(gpus: [0]), train: .init(gpus: [0]))
+        TrainingPlan(
+            mode: concurrent ? "concurrent" : "sequential",
+            caption: .init(gpus: [0]), train: .init(gpus: [concurrent ? 1 : 0])
+        )
     }
 
     func services() -> [AgentService] {
         GPUWorkspace.serviceTitles.keys.sorted().map { name in
             let start = starts.last { $0.service == name }
             return AgentService(
-                name: name, state: start == nil ? "idle" : "exited", groupAlive: false,
-                runID: start?.params["run_id"]?.stringValue, available: true
+                name: name, state: name == "vllm" ? captionState : start == nil ? "idle" : "exited",
+                groupAlive: false, runID: start?.params["run_id"]?.stringValue, available: true,
+                supportsHFToken: !unsupportedHubServices.contains(name)
             )
         }
     }
 
     func start(_ service: String, gpus: [Int], params: JSONObject) {
         starts.append(.init(service: service, gpus: gpus, params: params))
+        if service == "vllm" { captionState = "running" }
     }
 
-    func stop(_ service: String) {}
+    func stop(_ service: String) {
+        stops.append(service)
+        if service == "vllm" { captionState = "stopped" }
+    }
+
     func runLog(runID: String) -> String {
         "[upscale] ready 1/2\n[upscale] failed u0002.jpg: SeedVR2 wrote no result\n[upscale] ready 1/2"
     }

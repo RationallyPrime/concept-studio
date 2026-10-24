@@ -102,6 +102,15 @@ extension GPUWorkspace {
         return token
     }
 
+    /// Credentialed operations must be admitted before input uploads or changes to running services.
+    func hubTokenUnavailableReason(_ name: String, service: AgentService?) -> String? {
+        guard !demoMode, usesHubOAuth, cloudGPUHoldsHubToken,
+              !["tensorboard", "cleanup-datasets"].contains(name), service?.supportsHFToken != true else { return nil }
+        return "This cloud GPU image cannot renew Hugging Face access for "
+            + name + ". Use an updated ConceptStudio pod image before starting this operation. "
+            + "Existing pods are not upgraded automatically."
+    }
+
     /// A service-start copy only: callers retain their canonical params for saved runs and repeat.
     /// Manual tokens keep their existing rental environment; OAuth access tokens are renewed per operation.
     func paramsWithFreshHubToken(
@@ -116,10 +125,8 @@ extension GPUWorkspace {
         try Task.checkCancellation()
         guard startRevision == agentStartRevision, podID == pod?.id,
               usesHubOAuth, cloudGPUHoldsHubToken else { throw CancellationError() }
-        guard inventory.first(where: { $0.name == service })?.supportsHFToken == true else {
-            throw StudioError.message("This cloud GPU image cannot renew Hugging Face access for "
-                + service + ". Use an updated ConceptStudio pod image before starting this operation. "
-                + "Existing pods are not upgraded automatically.")
+        if let reason = hubTokenUnavailableReason(service, service: inventory.first(where: { $0.name == service })) {
+            throw StudioError.message(reason)
         }
         let token = try await freshHubToken()
         guard startRevision == agentStartRevision, podID == pod?.id, usesHubOAuth, cloudGPUHoldsHubToken else {
