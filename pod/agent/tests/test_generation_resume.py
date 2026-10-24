@@ -111,6 +111,20 @@ def test_resume_preserves_settings_and_requires_existing_checkpoint(settings):
         parse_params("trainer-aitoolkit", {**cfg, "resume": True}, settings.paths)
 
 
+@pytest.mark.parametrize("train_audio", [True, False])
+def test_h3_resume_preserves_the_saved_audio_choice(settings, train_audio):
+    run, cfg = saved_run(settings.paths, model="Comfy-Org/MiniMax-H3")
+    cfg["train_audio"] = train_audio
+    (run / "run.json").write_text(json.dumps(cfg))
+    request = {**cfg, "steps": 4, "resume": True}
+    params = parse_params("trainer-aitoolkit", request, settings.paths)
+    assert params.train_audio is train_audio
+    with pytest.raises(ValidationError, match="Use Repeat to change: train_audio"):
+        parse_params(
+            "trainer-aitoolkit", {**request, "train_audio": not train_audio}, settings.paths
+        )
+
+
 def test_ltx_resume_requires_matching_native_training_state(settings):
     run, cfg = saved_run(settings.paths, model="Lightricks/LTX-2.3")
     with pytest.raises(ValidationError, match="training_state_step"):

@@ -34,6 +34,7 @@ creating with it.
 - **Train with settings ready to go.** Choose a model and start from its prepared recipe.
   Add class images to preserve the base model's range, mask unwanted people out of training,
   and flip eligible examples on the fly. Each trainer exposes the controls it supports.
+  Teach H3 clips with sound or train their picture and motion alone—your project remembers the choice.
   Follow the learning curve and logs live, save checkpoints, and repeat runs with your saved
   settings. Advanced controls put the details within reach.
 - **Measure what you taught.** Get a report with matched renders, fixed seeds, identity and

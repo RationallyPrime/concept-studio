@@ -197,6 +197,11 @@ Video preparation follows the chosen model's requirements:
 Approving a segment selects the matching LTX or H3 caption format. Review or re-caption saved
 text when changing formats; existing captions retain their text.
 
+For H3 clips, **Train audio** on Captioning and Training chooses whether the model learns sound.
+It starts on. Turn it off to train picture and motion alone, and use `N/A` for both caption
+audio fields. The clips keep their audio tracks; the trainer excludes audio supervision.
+The project remembers the choice, and each saved run shows and retains its own setting.
+
 **Upscale and restore…** on Images enlarges and repairs images or clips with SeedVR2 on your
 cloud GPU. Choose the media and model, then compare each returned result with its original
 before keeping it. Pay particular attention to faces: restoration can invent detail.

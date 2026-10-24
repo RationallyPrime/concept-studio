@@ -100,6 +100,7 @@ def comparison_recipe(process: dict[str, Any]) -> dict[str, Any]:
                 "num_frames": row["num_frames"],
                 "fps": row["fps"],
                 "resolution": row["resolution"],
+                "do_audio": row["do_audio"],
             }
             for row in process["datasets"]
         ],

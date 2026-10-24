@@ -108,6 +108,7 @@ _TOP_KEYS = frozenset(
         "triggers",
         "profile",
         "base_model",
+        "train_audio",
         "steps",
         "learning_rate",
         "rank",
@@ -298,6 +299,9 @@ def validate_run_config(
     if not isinstance(base_model, str) or not base_model.strip():
         errors.append("base_model: must be a non-empty string")
     cfg["base_model"] = base_model
+    cfg["train_audio"] = raw.get("train_audio", True)
+    if not isinstance(cfg["train_audio"], bool):
+        errors.append("train_audio: must be true or false")
     cfg["steps"] = get_int("steps", 2000, 1)
     learning_rate = raw.get("learning_rate", 1e-4)
     if not _is_number(learning_rate) or learning_rate <= 0:

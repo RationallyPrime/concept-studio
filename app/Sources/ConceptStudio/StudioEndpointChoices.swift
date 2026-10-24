@@ -58,7 +58,7 @@ enum ProviderChoices {
 @MainActor
 extension StudioSession {
     static let defaultPodImageName =
-        "ghcr.io/rationallyprime/concept-captioner-pod-{trainer}:v0.3.10-20261022"
+        "ghcr.io/rationallyprime/concept-captioner-pod-{trainer}:v0.3.11-20261024"
 
     /// Builds before 2026-10-12 saved the shipped default image as the training-image preference,
     /// where it read as a manual override. Once per install, a stored value that is exactly such a

@@ -1,10 +1,11 @@
 import Foundation
 
 /// The app-only training file inside a project folder, `<project>/.conceptstudio/training.json`:
-/// the project's training results only. It is never published and is not part of job.yaml. The
+/// the project's training choices and results. It is never published and is not part of job.yaml. The
 /// output repo and its privacy live in the project's app state (`ProjectAppState.trainingOutput`),
 /// which the session passes to `train(output:)`; each run keeps the destination it started with.
 struct ProjectTrainingRecord: Codable, Equatable {
+    var trainAudio = true
     var results: [TrainingResult] = []
     var runs: [TrainingRun] = []
     var comparisons: [GeneratedComparison] = []
@@ -18,6 +19,7 @@ struct ProjectTrainingRecord: Codable, Equatable {
 
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        trainAudio = try values.decodeIfPresent(Bool.self, forKey: .trainAudio) ?? true
         results = try (values.decodeIfPresent([TrainingResult].self, forKey: .results) ?? [])
             .filter { RunArtifacts.validRunID($0.runID) }
         runs = try (values.decodeIfPresent([TrainingRun].self, forKey: .runs) ?? [])

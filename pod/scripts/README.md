@@ -207,6 +207,14 @@ only place a model's name appears in code; `model_table.HOOKS` registers them.
 
 ## H3 training, initialization and comparison
 
+H3's **Train audio** choice is saved per project and sent as `train_audio` in `run.json`
+(default `true`). When off, every clip dataset group has `do_audio: false`; the pinned trainer
+omits the audio target and audio loss even when the clip contains an audio track. Still-image
+groups always have `do_audio: false`. Imported recipe settings cannot re-enable a group's
+audio. The native `config.yaml` and `effective_native_config.datasets` record each group's
+actual setting; Repeat and Resume retain the run's choice. Captioning suggests `N/A` for both
+H3 audio fields when audio training is off.
+
 `Comfy-Org/MiniMax-H3` uses the pinned `minimax_h3` registration, BF16 DiT/Qwen encoder,
 frozen image-training adapter and AdamW quality defaults. Component filenames and canonical
 quality fields have one source: `app/Sources/ConceptStudio/Resources/Training/h3-recipe-fields.json`.

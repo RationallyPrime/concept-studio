@@ -1,6 +1,38 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.10-20261022`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.11-20261024`
+and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit
+`c9ad8edb62aea4f0375ff0cec44c60f063153da4`, with H3’s project-level audio training choice.
+All seven tags are published and resolve anonymously. The [release receipt](releases/v0.3.11-20261024.json)
+records source, digests, download sizes, build arguments, control checks and live acceptance.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.11-20261024` | `sha256:ef50d2b3528b4aba3d926492e4c7dd3111ceae84aeeb8cc48188d491ca968a08` | 3.56 GB |
+| `aitoolkit:v0.3.11-20261024` | `sha256:897eeaf99339df399e0b556a2072e687d4bc16b4469e0cbe6eb12842b24891e3` | 7.42 GB |
+| `ltx:v0.3.11-20261024` | `sha256:41c3eb4f8b903cd50e321796b237afc36dd273e3fd23281525acecb39e6a3b61` | 7.17 GB |
+| `musubi:v0.3.11-20261024` | `sha256:0d0684d4aa7fd4c663f2a4c86b2acb4784097ec6d060a0a5f6b51553b80cdb1e` | 6.61 GB |
+| `aitoolkit:v0.3.11-20261024-captioning` | `sha256:b0e1738cb317b90b6898dd85d54c76f24db4b6d9b1c2d40da88a8610c6915db2` | 14.36 GB |
+| `ltx:v0.3.11-20261024-captioning` | `sha256:dd13ac47693a53705154f54a4421ed186ff95478880fb8782fec83faa1e5f3c5` | 14.11 GB |
+| `musubi:v0.3.11-20261024-captioning` | `sha256:bdda1a90f632d68d1d6e238944c2dd05b8c6ddc546fa95261d7ecbd413aae34e` | 13.55 GB |
+
+All seven images passed authenticated control checks, workspace storage accounting, expected
+SeedVR2/vLLM availability, and the installed `train_audio` default and explicit-off setting.
+Each captioning build also validated all 23 allowed vLLM flags. Captioning variants reuse the
+unchanged pinned vLLM installation stage from the v0.3.10 base; their final agent and trainer
+scripts come from the new v0.3.11 trainer images. Each added vLLM layer is 6.94 GB; the receipt
+records its distinct digest for each variant.
+
+The native app completed six H3 training steps on a 96 GB Blackwell using this AI Toolkit image.
+The synthetic clips retained their audio tracks while the retrieved native configuration set
+`do_audio: false` for clip and still groups. The app saved and hash-verified the checkpoint.
+The [live acceptance record](../docs/POD-STATUS.md) includes GPU memory, cost and resource cleanup.
+
+## Earlier releases
+
+These entries preserve each release’s build and acceptance record.
+
+Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.10-20261022`
 and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit `6589efb`,
 including the workspace storage-accounting fix, expanded regularisation, training masks and
 augmentation, style report scoring, and the shared-PyTorch SeedVR2 environment. All seven tags
@@ -50,11 +82,6 @@ report acceptance on the same image: 16 generated and captioned class images, si
 steps, a saved checkpoint, four matched renders, prompt-adherence judgments and actual VGG19
 style scores. Both test pods were stopped and removed after their outputs were secured.
 Full runtime receipts, captioning and H3 acceptance are in [POD-STATUS](../docs/POD-STATUS.md).
-
-## Earlier releases
-
-These entries preserve the build and acceptance records at each release date. Current measurements
-are recorded above and in [POD-STATUS](../docs/POD-STATUS.md).
 
 Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.9-20261022`
 and the trainers' `-captioning` tags, a **clean build from commit `21247aa`** (PR #31 and PR #29): the base

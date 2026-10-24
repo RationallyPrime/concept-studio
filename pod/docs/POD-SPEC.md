@@ -703,7 +703,7 @@ log is `trainer.log`, and the existing authenticated file APIs serve only `outpu
 | `base_model` | supported source run base model ID |
 | `upstream_revision` | pinned inference implementation revision |
 | `source_config` | captured source `run.json`, with top-level credential fields removed |
-| `effective_native_config` | H3 only: allowlisted effective model/network/train quality settings and per-dataset frame/fps/resolution settings; private paths omitted |
+| `effective_native_config` | H3 only: allowlisted effective model/network/train quality settings and per-dataset frame/fps/resolution/`do_audio` settings; private paths omitted |
 | `comparison_training_adapter` | H3 only: false; the frozen training assistant is omitted from both inference arms |
 | `state` | `generating`, `complete`, or `failed` |
 | `pairs` | list of `{prompt, seed, base_path, lora_path}` |
@@ -862,6 +862,7 @@ no `/opt/venvs/seedvr2`; the agent then reports the service unavailable and refu
 | `triggers` | yes | | ≥ 1; preserved as run metadata; captions contain their actual mapped concepts. No global first-trigger injection |
 | `profile` | no | null | informational: which caption profile produced the captions; stored in `run.json` and the model card |
 | `base_model` | yes | | Hub id or `/workspace/models/<dir>`. No default: the H3 vs FLUX vs LTX choice is the user's |
+| `train_audio` | no | true | strict boolean; H3 clips use this as their dataset `do_audio` value. Stills always disable audio. Saved per run and immutable on Resume; other trainers ignore it |
 | `steps` | no | 2000 | |
 | `learning_rate` | no | 1e-4 | |
 | `rank` | no | 16 | LoRA rank; `alpha` defaults to `rank` |

@@ -92,6 +92,8 @@ final class GPUWorkspace {
     /// Advanced's trainer settings, defaulting to the selected row's values.
     var trainerSettings: TrainerSettings
     var guidanceLoss = false
+    /// The project's choice for H3 clip audio; still images never train audio.
+    var trainAudio = true
     /// Advanced's H3 training adapter; nil follows the imported recipe, the repeated run or automatic.
     var trainingAdapterChoice: H3TrainingAdapter?
     var guidanceTargetText = GPUWorkspace.defaultGuidanceTarget
