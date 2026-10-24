@@ -499,8 +499,8 @@ extension CaptioningView {
     var podCaptioning: some View {
         DisclosureGroup("Optional: caption on a cloud GPU") {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Hosted captioning needs no cloud GPU. To use a local model, rent a cloud GPU, "
-                    + "caption on GPU 0, then review and publish before training.")
+                Text("Hosted captioning needs no cloud GPU. To caption with your own model instead, rent a cloud GPU "
+                    + "for captioning and start its caption server, then review and publish before training.")
                     .foregroundStyle(StudioStyle.supportingText)
                 Button("Rent or choose a cloud GPU for captioning") {
                     session.gpu.rentsCaptionServer = true

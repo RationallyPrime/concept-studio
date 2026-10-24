@@ -423,6 +423,7 @@ extension GPUWorkspace {
     private func waitForCaptionModel(_ model: String) async throws {
         let clock = ContinuousClock()
         let began = Date()
+        var stage = CaptionStartupStage.starting
         let deadline = clock.now.advanced(by: .seconds(600))
         while clock.now < deadline {
             try Task.checkCancellation()
@@ -435,10 +436,11 @@ extension GPUWorkspace {
                         + ((try? agent.serviceLog("vllm")) ?? "Read its logs for the cause."))
                 }
                 let log = await (try? agent.serviceLog("vllm")) ?? ""
-                let lastLine = log.split(whereSeparator: \.isNewline).last.map(String.init)
-                captionStartupProgress = lastLine ?? "Loading \(model)…"
-                message = "Starting caption model · \(Int(Date().timeIntervalSince(began))) seconds · "
-                    + (captionStartupProgress ?? "")
+                stage = max(stage, CaptionStartupStage.latest(in: log))
+                let elapsed = Duration.seconds(Int(Date().timeIntervalSince(began)))
+                    .formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated))
+                captionStartupProgress = stage.description
+                message = "\(stage.description) \(elapsed) so far."
             }
             try await Task.sleep(for: .seconds(2))
         }
