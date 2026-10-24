@@ -47,7 +47,22 @@ frame-count, timing, audio and downloaded-hash checks passed. Both runs used the
 v0.3.10 images. The 32 GB recipe used VAE tiling; the 96 GB recipe did not. Both used CPU
 component offload without BlockSwap. The image ledger records the complete settings.
 
-### H3 regularisation and automatic report
+### H3 clips without audio supervision — 2026-10-24
+
+The native app's training path completed **six real H3 steps** on a **96 GB RTX PRO 6000
+Blackwell Server Edition** with **Train audio off**, using the published
+`aitoolkit:v0.3.11-20261024` image. The synthetic 22-frame, 24 fps clips retained their tone;
+the mixed dataset also contained still images. The retrieved native configuration records
+`do_audio: false` for both the one-frame and 22-frame groups. The recipe's audio loss multiplier
+remained 1.0: the dataset flag excluded audio supervision directly.
+
+The app retrieved and hash-verified the **44,757,776-byte checkpoint**. Trainer events and
+checkpoint metadata both record step 6. Peak observed GPU memory was **94,809 MiB of
+97,887 MiB**. Estimated compute and storage cost was **$0.63** against the $10 acceptance cap.
+The test GPU was stopped before its pod, temporary volume and agent secret were removed;
+fresh reads confirmed all three were gone. This is a functional clip-training check.
+
+### H3 regularisation and automatic report — 2026-10-22
 
 The native app completed the full H3 workflow on the **96 GB RTX PRO 6000 Blackwell**, using the
 published AI Toolkit captioning image. The project used four bundled synthetic safe-for-work
