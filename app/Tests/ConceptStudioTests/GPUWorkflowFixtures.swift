@@ -35,6 +35,7 @@ actor UnreachableAgentTransport: HTTPTransport {
     private let inferenceReady: Bool
     private let gpuCount: Int
     private var services: [String: String] = [:]
+    private var unavailableServices: Set<String> = []
     private var runIDs: [String: String] = [:]
     private var servedModel = ProviderChoices.defaultModel(for: "vllm")
     private var listedPods: [String] = []
@@ -81,6 +82,10 @@ actor UnreachableAgentTransport: HTTPTransport {
 
     func failFiles(_ fail: Bool) {
         filesFail = fail
+    }
+
+    func unavailable(_ names: Set<String>) {
+        unavailableServices = names
     }
 
     func agentReachable(_ available: Bool) {
@@ -226,8 +231,11 @@ actor UnreachableAgentTransport: HTTPTransport {
         if path.hasSuffix("scalars/scalars") {
             throw StudioError.message("answered by scalarsReply")
         }
-        return ["services": .array(services.map { name, state in
-            var service: JSONObject = ["name": .string(name), "state": .string(state)]
+        return ["services": .array(GPUWorkspace.serviceTitles.keys.sorted().map { name in
+            var service: JSONObject = [
+                "name": .string(name), "state": .string(services[name] ?? "idle"),
+                "available": .bool(!unavailableServices.contains(name)),
+            ]
             if let run = runIDs[name] { service["run_id"] = .string(run) }
             return .object(service)
         })]

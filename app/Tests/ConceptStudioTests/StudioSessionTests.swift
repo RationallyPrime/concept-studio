@@ -90,11 +90,11 @@ struct StudioSessionTests {
         #expect(session.gpu.podImage == (fromCaptioning || keepCaptionModel ? captioning : slim))
         await session.gpu.stopEverything()
 
-        session.gpu.updateCaptionServerState([AgentService(
+        session.gpu.updateServiceState([AgentService(
             name: "vllm", state: "idle", groupAlive: false, runID: nil, available: false
         )])
         #expect(!session.gpu.captionServerInstalled)
-        session.gpu.updateCaptionServerState([AgentService(name: "vllm", state: "idle", groupAlive: false)])
+        session.gpu.updateServiceState([AgentService(name: "vllm", state: "idle", groupAlive: false, available: true)])
         #expect(session.gpu.captionServerInstalled)
     }
 

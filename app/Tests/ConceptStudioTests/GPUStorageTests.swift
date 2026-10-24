@@ -15,7 +15,8 @@ actor StorageTransport: HTTPTransport {
         }
         if path.hasSuffix("/services") {
             return HTTPResponse(status: 200, body: Data(
-                #"{"services":[{"name":"cleanup-datasets","state":"exited","group_alive":false}]}"#.utf8
+                #"{"services":[{"name":"cleanup-datasets","state":"exited","group_alive":false,"available":true}]}"#
+                    .utf8
             ))
         }
         return HTTPResponse(status: 200, body: JSONValue.object([

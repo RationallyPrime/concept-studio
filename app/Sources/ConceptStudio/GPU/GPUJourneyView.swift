@@ -188,6 +188,9 @@ struct GPUJourneyView: View {
                             .disabled(workspace.isBusy || workspace.isTraining)
                     }
                 }
+                if workspace.hasRunningPod, let reason = workspace.trainingUnavailableReason {
+                    StudioNotice(reason)
+                }
                 Button("Start training", systemImage: "play.fill") {
                     Task {
                         await session.fillDefaultTrainingOutput()
@@ -203,7 +206,8 @@ struct GPUJourneyView: View {
                 .help("Start training (⌘↩)")
                 .disabled(workspace.isBusy || workspace.isTraining || !workspace
                     .hasRunningPod || session.busy || session
-                    .editing || (!workspace.usesLocalDataset && trainingDatasetRepo.isEmpty))
+                    .editing || workspace.trainingUnavailableReason != nil
+                    || (!workspace.usesLocalDataset && trainingDatasetRepo.isEmpty))
             }
             if !workspace.repeatSourceRunID.isEmpty {
                 StudioNotice(repeatNotice)
@@ -261,6 +265,8 @@ struct GPUJourneyView: View {
                 systemImage: "server.rack",
                 description: Text("Rent a cloud GPU and start training to view its detailed TensorBoard charts.")
             )
+        } else if let reason = workspace.serviceUnavailableReason("tensorboard") {
+            ContentUnavailableView("TensorBoard", systemImage: "chart.xyaxis.line", description: Text(reason))
         } else if let url = workspace.tensorBoardURL {
             TensorBoardView(url: url, token: workspace.agentToken)
         }

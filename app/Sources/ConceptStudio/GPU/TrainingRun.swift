@@ -420,6 +420,7 @@ extension GPUWorkspace {
             try await self.verifyGPUMemory(
                 agent, gpus: plan.train?.gpus ?? [], row: run.effectiveModelRow(in: self.modelTable)
             )
+            let services = try await self.requireServices(self.resumeServices(run), from: agent)
             let baseline = self.estimatedPodCost
             let local: LocalTrainingDataset?
             if let expected = run.localInputDigest {
@@ -436,7 +437,6 @@ extension GPUWorkspace {
                 local = prepared
             } else { local = nil }
             defer { local?.remove() }
-            let services = try await agent.services()
             guard !services.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
                     || $0.name.hasPrefix("generate-")) }) else {
                 throw StudioError.message("Finish the current GPU action before resuming training.")
@@ -449,14 +449,14 @@ extension GPUWorkspace {
             self.result = run.result
             self.result?.state = .training
             // A cloud GPU without the Hub token cannot publish; its run is saved to this Mac instead.
-            if !self.canPushToHub { params["hub"] = nil; self.result?.destination = .download }
+            if !self.canPushToHub || self.serviceUnavailableReason("push-lora") != nil {
+                params["hub"] = nil
+                self.result?.destination = .download
+            }
             self.trainingState = "Preparing inputs"
             self.recordStartedRun(
-                datasetRepo: run.datasetRepo,
-                params: params,
-                resumed: true,
-                budget: cap,
-                baseline: baseline
+                datasetRepo: run.datasetRepo, params: params, resumed: true,
+                budget: cap, baseline: baseline
             )
             self.persist()
             self.persistResult()

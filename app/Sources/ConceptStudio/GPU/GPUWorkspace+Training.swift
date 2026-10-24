@@ -57,11 +57,6 @@ extension GPUWorkspace {
         if !runID.isEmpty { trainingState = state.state }
     }
 
-    func updateCaptionServerState(_ services: [AgentService]) {
-        captionServerActive = services.contains { $0.name == "vllm" && $0.active }
-        captionServerInstalled = services.first { $0.name == "vllm" }?.available ?? true
-    }
-
     /// Starts a run on the rented computer. `output` is the open project's training destination: a
     /// non-empty repo with a Hub token pushes the LoRA there on finish; otherwise it is saved to the project.
     func train(
@@ -85,6 +80,14 @@ extension GPUWorkspace {
             try self.validateNextRunGuidance(containsVideo: self.trainingDatasetContainsVideo)
             let plan = try await agent.plan()
             try await self.verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: self.effectiveModelRow)
+            let servicesBeforeStart = try await self.requireServices(self.trainingServices, from: agent)
+            guard !servicesBeforeStart.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
+                    || $0.name.hasPrefix("generate-")) }) else {
+                throw StudioError.message("A training run is active. Stop it before starting another.")
+            }
+            let captioning = try self.captioningForRegularization(regularizationCaptioning)
+            if captioning?.usesPodCaptionServer == true,
+               let reason = self.serviceUnavailableReason("vllm") { throw StudioError.message(reason) }
             let local = try await self.currentLocalDataset(capture: captureLocal)
             defer { local?.remove() }
             guard self.trainer == selectedTrainer, self.baseModel == selectedModel else {
@@ -101,17 +104,12 @@ extension GPUWorkspace {
             try self.validateTrainingSettings(
                 local: local != nil, repo: repo, containsVideo: containsVideo, items: items
             )
-            let captioning = try self.captioningForRegularization(regularizationCaptioning)
             let initialization = try self.trainingInitialization()
-            let reportGroupID = try await self.prepareTrainingReport()
+            let reportGroupID: String? = if self.reportUnavailableReason(selectedTrainer) == nil {
+                try await self.prepareTrainingReport()
+            } else { nil }
             let dataset = "concept-" + UUID().uuidString.prefix(12).lowercased()
             var params = self.trainingParams(dataset: dataset, inputFacts: inputFacts, items: items)
-            let servicesBeforeStart = try await agent.services()
-            self.updateCaptionServerState(servicesBeforeStart)
-            guard !servicesBeforeStart.contains(where: { $0.active && ($0.name.hasPrefix("trainer-")
-                    || $0.name.hasPrefix("generate-")) }) else {
-                throw StudioError.message("A training run is active. Stop it before starting another.")
-            }
             self.plan = plan
             params = self.admitNewRun(
                 dataset, params: params, repo: repo, local: local, revision: revision,
@@ -138,8 +136,9 @@ extension GPUWorkspace {
                 agent, datasetRepo: local == nil ? repo : "", params: params, localInputDigest: local?.digest
             )
             let services = try await agent.services()
-            self.updateCaptionServerState(services)
-            if !services.contains(where: { $0.name == "tensorboard" && $0.active }) {
+            self.updateServiceState(services)
+            if self.serviceUnavailableReason("tensorboard") == nil,
+               !services.contains(where: { $0.name == "tensorboard" && $0.active }) {
                 try await agent.start("tensorboard", gpus: [], params: ["logdir": .string("/workspace/runs")])
             }
             self.trainingState = "running"
@@ -196,7 +195,8 @@ extension GPUWorkspace {
     ) -> JSONObject {
         var params = params
         runID = id
-        let destination: TrainingResult.Destination = canPushToHub && !output.repo.isEmpty ? .hub : .download
+        let destination: TrainingResult.Destination = canPushToHub && !output.repo.isEmpty
+            && serviceUnavailableReason("push-lora") == nil ? .hub : .download
         if destination == .hub {
             params["hub"] = .object([
                 "repo_id": .string(output.repo), "private": .bool(output.isPrivate), "push_on_finish": .bool(true),
@@ -259,12 +259,13 @@ extension GPUWorkspace {
 
     func prepareCaptionServerForTraining(_ agent: any PodAgent, plan: TrainingPlan) async throws {
         let services = try await agent.services()
-        updateCaptionServerState(services)
+        updateServiceState(services)
         let captionActive = services.contains(where: { $0.name == "vllm" && $0.active })
         if plan.mode == "sequential", captionActive {
             try await agent.stop("vllm")
             try await waitForService("vllm", allowStopped: true)
         } else if plan.mode != "sequential", keepCaptionServer, !captionActive {
+            if let reason = serviceUnavailableReason("vllm") { throw StudioError.message(reason) }
             try await agent.start("vllm", gpus: plan.caption?.gpus ?? [], params: captionStartParams)
         }
     }
@@ -364,7 +365,7 @@ extension GPUWorkspace {
             let plan = try await self.waitForCaptionAgent(agent)
             self.plan = plan
             let services = try await agent.services()
-            self.updateCaptionServerState(services)
+            self.updateServiceState(services)
             guard self.captionServerInstalled else { throw StudioError.message(Self.noCaptionServer) }
             if plan.mode == "sequential",
                services.contains(where: { $0.name.hasPrefix("trainer-") && $0.active }) {
@@ -382,6 +383,8 @@ extension GPUWorkspace {
     func ensureCaptionServer(
         _ agent: any PodAgent, plan: TrainingPlan, services: [AgentService], model: String? = nil
     ) async throws {
+        updateServiceState(services)
+        if let reason = serviceUnavailableReason("vllm") { throw StudioError.message(reason) }
         let requestedModel = model ?? captionModel
         var running = services.contains(where: { $0.name == "vllm" && $0.active })
         if running, !demoMode, let served = try await servedCaptionModels(), !served.contains(requestedModel) {

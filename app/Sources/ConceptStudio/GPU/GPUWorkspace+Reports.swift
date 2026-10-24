@@ -10,7 +10,7 @@ extension GPUWorkspace {
                       $0.runID == report.runID && $0.hasFinishedModel && $0.volumeID == currentVolumeID
                           && $0.trainer == trainer
                   }
-              }) else { return }
+              }), reportUnavailableReason(trainer) == nil else { return }
         reportTask = Task {
             await self.runTrainingReport(report.runID)
             self.reportTask = nil
@@ -27,6 +27,7 @@ extension GPUWorkspace {
                   group.settings.baseModel == run.baseModel, let projectFolder = self.projectFolder else {
                 throw StudioError.message("Connect this run's project and saved storage before making its report.")
             }
+            try await self.requireServices(["generate-\(run.trainer)", "vllm"], from: agent)
             self.beginReportBudget(runID)
             self.beginAppWork()
             self.updateReport(runID) { $0.state = .running; $0.failure = nil }

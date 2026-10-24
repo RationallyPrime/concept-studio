@@ -14,6 +14,12 @@ actor HistoryAgent: PodAgent {
     var logBodies: [String: Data] = [:]
     var damageDownloads = false
     var loseStartReply = false
+    private var unavailableServices: Set<String> = []
+
+    func unavailable(_ names: Set<String>) {
+        unavailableServices = names
+    }
+
     private var pauseProgress = false
     private var progressWaiter: CheckedContinuation<Void, Never>?
     private var progressRelease: CheckedContinuation<Void, Never>?
@@ -70,12 +76,14 @@ actor HistoryAgent: PodAgent {
     }
 
     func services() -> [AgentService] {
-        starts.map { start in
-            AgentService(
-                name: start.service,
-                state: ["pull-dataset", "push-lora"].contains(start.service) ? "exited" : "running",
+        GPUWorkspace.serviceTitles.keys.sorted().map { name in
+            let start = starts.last { $0.service == name }
+            return AgentService(
+                name: name,
+                state: start == nil ? "idle" : (["pull-dataset", "push-lora"].contains(name) ? "exited" : "running"),
                 groupAlive: false,
-                runID: start.params["run_id"]?.stringValue
+                runID: start?.params["run_id"]?.stringValue,
+                available: !unavailableServices.contains(name)
             )
         }
     }

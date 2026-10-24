@@ -46,7 +46,7 @@ extension GPUWorkspace {
             }
             let services = try await agent.services()
             try noteAgentReady(for: startRevision)
-            updateCaptionServerState(services)
+            updateServiceState(services)
             agentAnswered = true
             if message.hasPrefix("Your cloud GPU is rented and its control agent is connecting.") {
                 message = "Your cloud GPU is connected and ready. "
@@ -278,7 +278,8 @@ extension GPUWorkspace {
     private func updateProgress(_ agent: any PodAgent, services: [AgentService]) async throws {
         if historyRunID != runID {
             // TensorBoard is started by train(); after an agent restart it is down until started again.
-            if !services.contains(where: { $0.name == "tensorboard" && $0.active }) {
+            if serviceUnavailableReason("tensorboard") == nil,
+               !services.contains(where: { $0.name == "tensorboard" && $0.active }) {
                 try? await agent.start("tensorboard", gpus: [], params: ["logdir": .string("/workspace/runs")])
             }
             // Retried on every refresh until the full curve arrives.

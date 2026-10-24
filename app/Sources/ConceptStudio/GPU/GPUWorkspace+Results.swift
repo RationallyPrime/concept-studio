@@ -318,6 +318,7 @@ extension GPUWorkspace {
         }
         if result.destination == .hub, canPushToHub, !result.outputRepo.isEmpty {
             do {
+                try await requireServices(["push-lora"], from: agent)
                 message = "Publishing the LoRA to \(result.outputRepo)…"
                 try await agent.start("push-lora", gpus: [], params: [
                     "run_id": .string(result.runID), "repo_id": .string(result.outputRepo),

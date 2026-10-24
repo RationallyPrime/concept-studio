@@ -17,6 +17,7 @@ extension GPUWorkspace {
                 throw StudioError.message("Connect a cloud GPU to clean completed dataset copies on its storage.")
             }
             self.message = "Removing eligible completed dataset copies. Models and results are kept."
+            try await self.requireServices(["cleanup-datasets"], from: agent)
             try await agent.start("cleanup-datasets", gpus: [], params: [:])
             try await self.waitForService("cleanup-datasets")
             self.storage = try await agent.storageUsage()

@@ -139,7 +139,7 @@ All errors, including FastAPI validation errors, use one envelope:
 | 409 | `already_running` | start of a service that is running |
 | 409 | `gpu_busy` | requested GPU is held by a running service |
 | 409 | `not_running` | stop of a service that is not running; `/tensorboard/…` while nothing listens on TensorBoard's port |
-| 409 | `unavailable` | start of a service whose program this image does not carry: `vllm` on a trainer image without its `-captioning` tag (6.1). `detail`: `{"service": "vllm"}` |
+| 409 | `unavailable` | start of a service whose runtime or entrypoints this image does not carry, including a trainer from another image family or vLLM without the `-captioning` variant (6.1). `detail`: `{"service": "vllm"}` |
 | 413 | `payload_too_large` | request body above 1 MiB, or sent chunked (2.1); `detail`: `{"content_length": n, "max_bytes": 1048576}` |
 | 422 | `invalid_params` | pydantic rejects `params` (detail: pydantic's `errors()`) |
 | 422 | `gpu_count` | number of GPUs outside the service's range |
@@ -254,9 +254,15 @@ completed training run looks like), `stuck` (a stop's SIGKILL did not end the ch
 uninterruptible sleep in the driver, Xid fault; `pid` is still set, the GPUs stay booked, a later
 poll files it as `stopped` once it is gone). `params` never echoes secrets (`hf_token`,
 `api_key` are redacted to `"***"`). `run_id` is set for the trainers, generators and `push-lora`.
-`available` is false when this image does not carry the service's program; only `vllm` can be
-absent (a trainer image without its `-captioning` tag, 6.1), and its start is then
-`409 unavailable` before any other check. Fake mode reports every service available.
+Every service reports `available` from its installed executable interpreter/program, wrapper and
+native entrypoints. Shared wrapper files alone do not establish that a trainer or generator is
+installed. Trainer path overrides follow the same resolution as execution. Model weights are
+not required: installed services download them on first use.
+
+The base supplies transfers, publishing, cleanup and TensorBoard. Each trainer image adds its
+own trainer and generator plus SeedVR2; AI Toolkit also adds regularisation generation. The
+`-captioning` variants add vLLM. Missing services refuse a start with `409 unavailable` before
+parameter validation, preparation or spawning. Fake mode reports every simulated service available.
 
 `group_alive` is set when the direct child has exited (`failed` / `exited` / `stopped`) but its
 process group has not: a trainer whose launch wrapper died, vLLM engine workers after the API

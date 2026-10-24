@@ -8,6 +8,9 @@ struct ReportPlanView: View {
             title: "Post-training report",
             subtitle: "Render fixed prompts and seeds, then compare identity, style and prompt adherence."
         ) {
+            if workspace.hasRunningPod, let reason = workspace.reportUnavailableReason(workspace.trainer) {
+                StudioNotice(reason + " Training on this GPU will finish without an automatic report.")
+            }
             if let reason = workspace.reportAvailability {
                 Text(reason).font(.callout).foregroundStyle(StudioStyle.supportingText)
             } else if workspace.demoMode {
@@ -88,8 +91,12 @@ struct TrainingReportResultsView: View {
     var body: some View {
         StudioSection(title: "Training reports", subtitle: "Compare runs within the same frozen prompt group.") {
             if workspace.trainingReports.isEmpty {
-                Text("The next training run creates its report automatically after its checkpoint is saved.")
-                    .foregroundStyle(StudioStyle.supportingText)
+                if workspace.hasRunningPod, let reason = workspace.reportUnavailableReason(workspace.trainer) {
+                    StudioNotice(reason)
+                } else {
+                    Text("The next training run creates its report automatically after its checkpoint is saved.")
+                        .foregroundStyle(StudioStyle.supportingText)
+                }
             }
             ForEach(workspace.reportGroups.filter { group in
                 workspace.trainingReports.contains { $0.groupID == group.id }
@@ -129,7 +136,12 @@ struct TrainingReportResultsView: View {
                     if report.state == .failed || report.state == .waiting {
                         Button("Continue report for \(report.runID)") {
                             Task { await workspace.runTrainingReport(report.runID) }
-                        }.disabled(workspace.isBusy || !workspace.hasRunningPod)
+                        }.disabled(workspace.isBusy || !workspace.hasRunningPod
+                            || workspace.reportUnavailableReason(group.settings.trainer) != nil)
+                        if workspace.hasRunningPod,
+                           let reason = workspace.reportUnavailableReason(group.settings.trainer) {
+                            Text(reason).font(.callout).foregroundStyle(StudioStyle.supportingText)
+                        }
                     }
                 }
                 DisclosureGroup("Rendered outputs and individual scores") {
