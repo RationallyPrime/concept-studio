@@ -21,7 +21,7 @@ creating with it.
   Start a project directly from a Hugging Face dataset URL, down to the folder you want.
   Upscale and restore images and clips with SeedVR2, with a before-and-after preview.
 - **Teach the subject, keep the scene.** Define your person, pet, object, style or movement.
-  Match faces locally with SFace, or map nine photos per AI request with numbered contact sheets.
+  Match faces in photos and clips locally with SFace, or map nine photos per AI request with numbered contact sheets.
   Confirm matches in batches and set uncertain samples aside for review. Model-specific captions describe the surroundings, pose and lighting
   that make each example distinct.
 - **Caption with your choice of AI.** Use your ChatGPT plan, OpenRouter, a provider key or

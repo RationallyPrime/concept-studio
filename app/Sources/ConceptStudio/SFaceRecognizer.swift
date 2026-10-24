@@ -54,41 +54,61 @@ actor SFaceRecognizer {
         var samples: [String: FaceRecognitionResult] = [:]
         for url in images {
             try Task.checkCancellation()
-            guard !Sources.isVideo(Sources.suffix(of: url.lastPathComponent)) else {
-                samples[url.lastPathComponent] = FaceRecognitionResult(reviewReason: "Review video subjects manually")
-                continue
+            if Sources.isVideo(Sources.suffix(of: url.lastPathComponent)) {
+                samples[url.lastPathComponent] = try await recognizeClip(url, embeddings: embeddings)
+            } else {
+                samples[url.lastPathComponent] = try recognize(Self.image(url), embeddings: embeddings)
             }
-            let image = try Self.image(url), detected = try detect(image)
-            var faces: [RecognizedFace] = []
-            for face in detected {
-                try Task.checkCancellation()
-                guard face.reviewReason == nil else {
-                    faces.append(RecognizedFace(box: face.box, scores: [], reviewReason: face.reviewReason))
-                    continue
-                }
-                let vector = try embedding(image: image, points: face.points)
-                var scores = embeddings.map { trigger, reference in
-                    let similarity = zip(vector, reference).reduce(Float(0)) { $0 + $1.0 * $1.1 }
-                    return FaceIdentityScore(
-                        trigger: trigger, similarity: similarity, band: policy.band(similarity: similarity)
-                    )
-                }.sorted { $0.similarity > $1.similarity }
-                let ambiguous = scores.filter { $0.band == .match }.count > 1
-                if ambiguous {
-                    for index in scores.indices where scores[index].band == .match {
-                        scores[index].band = .needsReview
-                    }
-                }
-                faces.append(RecognizedFace(
-                    box: face.box, scores: scores,
-                    reviewReason: ambiguous ? "More than one reference matches this face" : nil
-                ))
-            }
-            samples[url.lastPathComponent] = FaceRecognitionResult(
-                faces: faces, reviewReason: detected.isEmpty ? "No face detected" : nil
-            )
         }
         return FaceRecognitionBatch(samples: samples, referenceWarnings: referenceWarnings)
+    }
+
+    private func recognizeClip(_ url: URL, embeddings: [String: [Float]]) async throws -> FaceRecognitionResult {
+        let frames: [MediaFrame]
+        do {
+            frames = try await MediaEditor.frames(url: url, count: 5)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            try Task.checkCancellation()
+            return FaceRecognitionResult(reviewReason: "The clip's frames could not be read. Review it manually.")
+        }
+        var results: [FaceRecognitionResult] = []
+        for frame in frames {
+            try Task.checkCancellation()
+            try results.append(recognize(frame.image, embeddings: embeddings))
+        }
+        return FaceRecognitionResult.clip(results)
+    }
+
+    private func recognize(_ image: CGImage, embeddings: [String: [Float]]) throws -> FaceRecognitionResult {
+        let detected = try detect(image)
+        var faces: [RecognizedFace] = []
+        for face in detected {
+            try Task.checkCancellation()
+            guard face.reviewReason == nil else {
+                faces.append(RecognizedFace(box: face.box, scores: [], reviewReason: face.reviewReason))
+                continue
+            }
+            let vector = try embedding(image: image, points: face.points)
+            var scores = embeddings.map { trigger, reference in
+                let similarity = zip(vector, reference).reduce(Float(0)) { $0 + $1.0 * $1.1 }
+                return FaceIdentityScore(
+                    trigger: trigger, similarity: similarity, band: policy.band(similarity: similarity)
+                )
+            }.sorted { $0.similarity > $1.similarity }
+            let ambiguous = scores.filter { $0.band == .match }.count > 1
+            if ambiguous {
+                for index in scores.indices where scores[index].band == .match {
+                    scores[index].band = .needsReview
+                }
+            }
+            faces.append(RecognizedFace(
+                box: face.box, scores: scores,
+                reviewReason: ambiguous ? "More than one reference matches this face" : nil
+            ))
+        }
+        return FaceRecognitionResult(faces: faces, reviewReason: detected.isEmpty ? "No face detected" : nil)
     }
 
     func referenceWarnings(url: URL) throws -> [String] {

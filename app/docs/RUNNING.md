@@ -53,6 +53,11 @@ captions. Mark a caption **Final** to protect it from future model runs. Project
 the app and CLI using the [shared file formats](CORE-SPEC.md#project-folder). Credentials stay
 in Keychain, separate from project files.
 
+Open an existing project folder from Finder with **Open With → ConceptStudio**, drop it on
+ConceptStudio’s Dock icon, or run `open -a ConceptStudio <folder>`. The app opens the project
+and keeps its saved choices. An invalid folder explains what is missing and leaves the
+current project open.
+
 Open **Accounts & settings** to choose **Continue with ChatGPT**, **Connect OpenRouter** or a
 manual account key. A single OpenRouter, Vercel AI Gateway or Pydantic AI Gateway key gives
 access to its model catalog. Direct providers are available too. Add Hugging Face and RunPod
@@ -74,6 +79,9 @@ at least **32 GB**. The measured launch recipe uses a 16,384-token context, four
 requests and 90% GPU memory utilisation. Requests disable thinking for this distilled caption
 model. Saved custom model choices, memory requirements and explicit request overrides remain
 yours; changing providers does not carry an automatically derived CapQwen setting into that provider.
+When a saved self-hosted project uses another model, Captioning shows the current default.
+**Use current default** switches its model and saves the choice, preserving its server,
+request settings and reviewer.
 
 ### Caption with your ChatGPT plan
 
@@ -152,7 +160,10 @@ estimated time remaining. See [the measured layout comparison](MAPPING-BENCHMARK
 
 SFace runs locally. First use downloads OpenCV Zoo's 39 MB Apache-licensed weights; credit and
 the licence are shown beside the action. Scores fall into **Match**, **Needs review**, and
-**No match**. Tilted faces, collapsed landmarks and photos with no detected face go to review.
+**No match**. Clips use five frames sampled across their duration. Consistent single-face
+results receive Match or No match; disagreements, missing faces, multiple faces and unclear
+landmarks stay in Needs review. Tilted faces, collapsed landmarks and photos with no detected
+face go to review.
 Concepts warns about small or blurry reference faces. Excluding a photo keeps its assignment;
 it never records a confirmed absence. [Calibration and measured behaviour](MAPPING-BENCHMARK.md).
 
@@ -231,7 +242,9 @@ while the GPU is stopped.
 Cloud GPU and Training list the prerequisites for training with links to the relevant steps.
 Complete them before starting training; you can rent earlier when you need the GPU for
 captioning. Keep a stopped GPU while renting another: **Stopped, kept** lists retained GPUs,
-their contents and daily storage cost. Starting one asks before stopping the current GPU.
+their contents and daily storage cost. Each GPU remembers whether it was rented for captioning
+or training, including after reopening the project. Starting a kept GPU restores its purpose
+and asks before stopping the current GPU.
 Only one GPU runs at a time. Remove confirms deletion of the selected GPU's disk, and the app
 blocks removal while its results remain unsettled or unsaved.
 

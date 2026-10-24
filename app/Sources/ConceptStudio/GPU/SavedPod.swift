@@ -10,6 +10,8 @@ struct SavedPod: Codable {
     var hourlyRate: Double
     var budget: Double
     var trainer: String
+    /// The purpose selected when this computer was rented; independent of the next rental choice.
+    var rentsCaptionServer = false
     var runID: String
     /// Which RunPod key the pod was rented under (`SavedPod.fingerprint`); empty for a record from before
     /// this was kept. A pod missing under a different key may still exist in another account.
@@ -45,6 +47,7 @@ extension SavedPod {
         hourlyRate = try values.decode(Double.self, forKey: .hourlyRate)
         budget = try values.decode(Double.self, forKey: .budget)
         trainer = try values.decode(String.self, forKey: .trainer)
+        rentsCaptionServer = try values.decodeIfPresent(Bool.self, forKey: .rentsCaptionServer) ?? false
         runID = try values.decode(String.self, forKey: .runID)
         idleMinutes = try values.decodeIfPresent(Int.self, forKey: .idleMinutes) ?? 15
         keepsRunningWhenIdle = try values.decodeIfPresent(Bool.self, forKey: .keepsRunningWhenIdle) ?? false

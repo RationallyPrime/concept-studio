@@ -47,6 +47,7 @@ extension GPUWorkspace {
         generation = kept.generation
         storage = kept.storage
         trainer = kept.trainer
+        rentsCaptionServer = kept.rentsCaptionServer
         idleMinutes = kept.idleMinutes
         keepsRunningWhenIdle = kept.keepsRunningWhenIdle
         budget = max(budget, kept.budget)

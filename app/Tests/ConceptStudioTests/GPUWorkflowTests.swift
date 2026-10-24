@@ -69,21 +69,27 @@ struct GPUWorkflowTests {
     @MainActor @Test
     func stoppedComputerIsKeptWhenRentingAnotherAndCanBeRestarted() async throws {
         let workspace = GPUWorkspace(demoMode: true)
+        workspace.rentsCaptionServer = true
         await workspace.refreshOffers()
         await workspace.rent()
         workspace.monitorTask?.cancel()
         let first = try #require(workspace.pod?.id)
         await workspace.stopEverything()
+        workspace.rentsCaptionServer = false
         workspace.gpuCount = 2
         await workspace.rent()
         workspace.monitorTask?.cancel()
         let second = try #require(workspace.pod?.id)
         #expect(second != first)
+        #expect(workspace.saved?.rentsCaptionServer == false)
+        #expect(workspace.keptPods.first?.rentsCaptionServer == true)
         #expect(workspace.keptPods.map(\.pod.id) == [first])
         #expect(workspace.hasRunningPod)
         await workspace.startKeptPod(id: first)
         workspace.monitorTask?.cancel()
         #expect(workspace.pod?.id == first)
+        #expect(workspace.rentsCaptionServer)
+        #expect(workspace.keptPods.first?.rentsCaptionServer == false)
         #expect(workspace.hasRunningPod)
         #expect(workspace.keptPods.map(\.pod.id) == [second])
         #expect(workspace.keptPods.allSatisfy { !$0.pod.isRunning })
