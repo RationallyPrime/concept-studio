@@ -159,10 +159,14 @@ extension GPUJourneyView {
                 } else {
                     TextField("Spending limit (USD)", value: $workspace.budget, format: .number)
                 }
+                Toggle("Keep this cloud GPU running while idle", isOn: $workspace.keepsRunningWhenIdle)
+                    .help("ConceptStudio won't stop it for sitting idle, for example while you map or review. "
+                        + "The spending limit still stops it.")
                 TextField("Stop after idle minutes", value: Binding(
                     get: { workspace.idleMinutes },
                     set: { workspace.idleMinutes = max(1, $0) }
                 ), format: .number.grouping(.never))
+                    .disabled(workspace.keepsRunningWhenIdle)
             }.formStyle(.columns)
             if workspace.hasRunningPod {
                 Button("Raise spending limit…") { raiseBudget() }

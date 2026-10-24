@@ -101,6 +101,18 @@ extension GPUWorkspace {
         }
     }
 
+    func connectAgent(_ pod: RentedPod) {
+        historyRunID = nil
+        if demoMode {
+            agent = DemoPodAgent(count: pod.gpu.count)
+        } else if let provider {
+            agent = PodAgentClient(
+                baseURL: provider.url(for: pod, port: PodPort.agent), token: agentToken,
+                transport: transport, downloader: downloader, uploader: uploader
+            )
+        }
+    }
+
     func beginAppWork() {
         appWorkInFlight += 1
         noteActivity()

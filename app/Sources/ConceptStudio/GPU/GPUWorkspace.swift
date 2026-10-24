@@ -31,6 +31,11 @@ final class GPUWorkspace {
         didSet { persist() }
     }
 
+    /// The person's choice to keep the cloud GPU running however long it sits idle; the spending limit still applies.
+    var keepsRunningWhenIdle = false {
+        didSet { persist() }
+    }
+
     var pod: RentedPod? {
         didSet {
             sleepGuard.hold(!demoMode && pod?.isRunning == true)
@@ -277,6 +282,7 @@ final class GPUWorkspace {
             // and pending-output custody, including while Welcome or another project is open.
             generation = previous.generation
             idleMinutes = previous.idleMinutes
+            keepsRunningWhenIdle = previous.keepsRunningWhenIdle
             watch()
         }
         if provider != nil, !reconciled {
@@ -333,7 +339,8 @@ final class GPUWorkspace {
             self.saved = SavedPod(
                 pod: created, started: started, hourlyRate: max(created.cost, self.quotedHourlyRate),
                 budget: self.budget, trainer: self.trainer, runID: "", runpodKey: self.runpodKeyFingerprint,
-                idleMinutes: self.idleMinutes, volumeID: volume?.id ?? "pod:" + created.id,
+                idleMinutes: self.idleMinutes, keepsRunningWhenIdle: self.keepsRunningWhenIdle,
+                volumeID: volume?.id ?? "pod:" + created.id,
                 agentSecret: credentials.agentSecret, hubTokenOnPod: credentials.holdsHubToken
             )
             self.saved?.networkVolume = volume
@@ -404,22 +411,11 @@ final class GPUWorkspace {
         // A failed agent/proxy request must not suppress the provider-level idle stop, but a
         // finished LoRA that is neither pushed nor downloaded keeps the computer up, and so does a
         // run the agent still answers for whose result has not been settled yet.
-        if hasRunningPod, !isBusy, appWorkInFlight == 0, !resultNeedsSaving, !(agentAnswered && resultUnsettled),
+        if hasRunningPod, !keepsRunningWhenIdle, !isBusy, appWorkInFlight == 0, !resultNeedsSaving,
+           !(agentAnswered && resultUnsettled),
            Date().timeIntervalSince(lastActivity) >= Double(idleMinutes * 60) {
             await stopEverything()
             if !hasRunningPod { message = "Stopped the idle cloud GPU to avoid further GPU charges." }
-        }
-    }
-
-    func connectAgent(_ pod: RentedPod) {
-        historyRunID = nil
-        if demoMode {
-            agent = DemoPodAgent(count: pod.gpu.count)
-        } else if let provider {
-            agent = PodAgentClient(
-                baseURL: provider.url(for: pod, port: PodPort.agent), token: agentToken,
-                transport: transport, downloader: downloader, uploader: uploader
-            )
         }
     }
 
@@ -430,6 +426,7 @@ final class GPUWorkspace {
             saved.trainer = trainer
             saved.runID = runID
             saved.idleMinutes = idleMinutes
+            saved.keepsRunningWhenIdle = keepsRunningWhenIdle
             saved.points = points
             saved.result = result
             if let run = runHistory.first(where: { $0.runID == runID }) {
