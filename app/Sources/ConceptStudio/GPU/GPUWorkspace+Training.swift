@@ -125,9 +125,8 @@ extension GPUWorkspace {
             params = try await self.captionedRegularization(params, plan: plan, captioning: captioning, agent: agent)
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
             self.historyRunID = self.runID
-            let startParams = try await self.paramsWithFreshHubToken(
-                params, service: "trainer-\(selectedTrainer)", agent: agent
-            )
+            let service = "trainer-\(selectedTrainer)"
+            let startParams = try await self.paramsWithFreshHubToken(params, service: service, agent: agent)
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
             trainerStartAttempted = true

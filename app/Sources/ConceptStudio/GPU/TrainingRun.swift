@@ -467,9 +467,8 @@ extension GPUWorkspace {
                 try await self.installTrainingDataset(local, repo: "", revision: nil, name: run.runID, agent: agent)
             }
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
-            let startParams = try await self.paramsWithFreshHubToken(
-                params, service: "trainer-\(run.trainer)", agent: agent
-            )
+            let service = "trainer-\(run.trainer)"
+            let startParams = try await self.paramsWithFreshHubToken(params, service: service, agent: agent)
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
             try self.resetReportForResumedTraining(run.runID)
@@ -477,10 +476,7 @@ extension GPUWorkspace {
             try await agent.start("trainer-\(run.trainer)", gpus: plan.train?.gpus ?? [], params: startParams)
             self.trainingState = "running"; self.lastActivity = Date()
             await self.recordNewTrainingRun(
-                agent,
-                datasetRepo: run.datasetRepo,
-                params: params,
-                localInputDigest: run.localInputDigest
+                agent, datasetRepo: run.datasetRepo, params: params, localInputDigest: run.localInputDigest
             )
             self.persist(); self.persistResult()
             self.message = "Continuing run \(run.runID) toward \(totalSteps) total steps from its latest checkpoint."
