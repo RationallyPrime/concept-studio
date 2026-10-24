@@ -11,7 +11,8 @@ native app's completed workflows.
 - **Control agent:** authenticated GPU inventory, topology, service supervision, logs and
   training events. Workspace storage accounting reports the pod's actual workspace allocation.
   Every service checks its installed runtime and entry point; the app offers actions supported
-  by that inventory. TensorBoard uses the authenticated agent proxy.
+  by that inventory. Credentialed services also advertise whether they accept a current Hugging
+  Face access token for each start. TensorBoard uses the authenticated agent proxy.
 - **Training and generation:** AI Toolkit, LTX and musubi routes follow the shared model table.
   Regularisation coverage is recorded for all 25 model rows. AI Toolkit supports sample-aware
   flips and loss masks; unsupported trainers reject those requests explicitly.
@@ -20,6 +21,14 @@ native app's completed workflows.
   remain available if scoring fails. The app adds SFace identity/bleed and GPU-captioner adherence.
 - **Images:** the base control image, three trainer images and their optional captioning variants
   are published on GHCR. Build and runtime receipts are in the linked release ledger.
+
+**Browser sign-in completed private dataset publication, gated FLUX.1-dev training and private
+LoRA publication** through the native app on a Secure Cloud RTX 5090, using
+`aitoolkit:v0.3.14-20261024`. The one-step run produced a 171,969,360-byte checkpoint. The Mac
+initiated publication with the current credential after training; the saved run contains no
+transient token. All eight published files were retrieved and hash-verified before the task
+pod and its secrets were removed. [APP-STATUS](../../app/docs/APP-STATUS.md#hugging-face-browser-sign-in-2026-10-24)
+records the native workflow and checkpoint hash.
 
 **32 GB caption-to-publication acceptance passed.** The exact CapQwen FP8/NVFP4 checkpoint ran
 on an RTX PRO 4500 Blackwell using the existing v0.3.8 captioning image. The native app's actions

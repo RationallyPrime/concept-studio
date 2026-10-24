@@ -1,6 +1,49 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.12-20261024`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.14-20261024`
+and the trainers’ `-captioning` tags. All seven are published and resolve anonymously. The
+agent accepts a current Hugging Face access token for each credentialed operation, advertises
+that support per service, and includes the opt-in diagnostics from current main.
+The [release receipt](releases/v0.3.14-20261024.json) records source, immutable runtime parents,
+registry digests, compressed sizes and actual container checks.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.14-20261024` | `sha256:798cf9d7e655671e55910c3b1985817b7eaaab5c66b317918213396ce45165b3` | 3.57 GB |
+| `aitoolkit:v0.3.14-20261024` | `sha256:24c4db9600ab22e9742ee9d7b6ee2e2fa38660b577cce8a8a1dc4ace4ec39c5c` | 7.61 GB |
+| `ltx:v0.3.14-20261024` | `sha256:8cd11aa562d288740b778fe9d59df7d03b5e5328405bbec5dbfc46e5d06487e6` | 7.35 GB |
+| `musubi:v0.3.14-20261024` | `sha256:074ce6466ef677a6bbd63b674cec36521a9729f127771a44981d9ab8314de28e` | 6.79 GB |
+| `aitoolkit:v0.3.14-20261024-captioning` | `sha256:df8902666e8e404887e52aba20fe36d078ab9a040aa3b82eedc4e1d1ba0a7a52` | 14.55 GB |
+| `ltx:v0.3.14-20261024-captioning` | `sha256:9cbf85e689265a77c973b2a1d820c3fb922c711640cc7eec8e7c2c941f6a29da` | 14.29 GB |
+| `musubi:v0.3.14-20261024-captioning` | `sha256:d8f7961c820066f5bbaa805e377a674889735f936755ee4247b66f45bd8be880` | 13.73 GB |
+
+All seven real containers passed the complete 13-service inventory check: eleven services
+advertise `supports_hf_token: true`; TensorBoard and dataset cleanup advertise false because
+they do not use a Hub credential. Available service sets remain the base’s four tools, eight
+for AI Toolkit, and seven each for LTX and musubi; each captioning variant adds vLLM.
+Unavailable starts returned HTTP 409 before preparing inputs. Fresh-token environment
+precedence and redaction passed on every image. Each captioning image passed the updated
+**24-flag vLLM check**.
+
+The base was built from an exact archive of `b7286e39d7bd2491445b4d7a076b068fdf39355a`.
+The six runtime variants replace the complete agent environment, source packages and shared
+program files on digest-pinned parents whose trainer, CUDA, SeedVR2 and vLLM inputs are
+unchanged. Every inherited parent layer was verified byte for byte. The replacement adds
+about 186 MB compressed per variant; the older agent layer remains underneath it. The receipt
+records the precise parents, source comparisons and build-file hashes. This release supersedes
+the partial v0.3.13 publication with the integrated credential-capability contract.
+
+The signed native app used this AI Toolkit image to download gated FLUX.1-dev weights, train
+one step on three synthetic 512 px images, and privately publish a 171,969,360-byte LoRA through
+its Hugging Face browser connection. All eight published files were retrieved and hash-verified
+before the task pod and its secrets were removed. [Native acceptance](../../app/docs/APP-STATUS.md#hugging-face-browser-sign-in-2026-10-24)
+records the checkpoint hash and credential lifecycle.
+
+## Earlier releases
+
+These entries preserve each release’s build and acceptance record.
+
+Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.12-20261024`
 and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit
 `7ac3899aae3ef05b4c03c51deff2d7599a035194`. Each service reports whether its executable runtime,
 wrapper and native entry point are installed. All seven tags are published and resolve anonymously.
@@ -39,10 +82,6 @@ the GPU workload measurements below retain their original image tags.
 Captioning variants reuse the unchanged pinned vLLM installation stage from the v0.3.10 base;
 their final agent and trainer scripts come from the new v0.3.12 trainer images. Each added vLLM
 layer is 6.94 GB; the receipt records its distinct digest for each variant.
-
-## Earlier releases
-
-These entries preserve each release’s build and acceptance record.
 
 Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.11-20261024`
 and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit
