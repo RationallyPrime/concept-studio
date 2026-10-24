@@ -331,6 +331,7 @@ extension StudioSession {
             try gpu.configure(
                 runpodKey: keyStore.read("runpod") ?? "",
                 hubToken: keyStore.read("huggingface") ?? "",
+                diagnosticsToken: keyStore.read("logfire") ?? "",
                 imageName: podImageName,
                 networkVolumeID: volumeID.isEmpty ? nil : volumeID
             )

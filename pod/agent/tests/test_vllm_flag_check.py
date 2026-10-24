@@ -12,7 +12,7 @@ from types import ModuleType
 
 import pytest
 
-from podagent.catalog import VLLM_EXTRA_FLAGS
+from podagent.catalog import VLLM_EXTRA_FLAGS, VLLM_TRACES_FLAG
 
 POD = Path(__file__).resolve().parents[2]
 SCRIPT = POD / "images" / "check_vllm_flags.py"
@@ -53,6 +53,10 @@ def test_every_allowlisted_flag_found(tmp_path: Path) -> None:
     flags = [flag.removeprefix("--no-").removeprefix("--") for flag in VLLM_EXTRA_FLAGS]
     package = fake_vllm(tmp_path, [f"--{flag}" for flag in flags])
     assert check.missing_flags(VLLM_EXTRA_FLAGS, package) == []
+    assert check.main([str(package)]) == 1  # the agent's own trace flag is checked too
+    package = fake_vllm(
+        tmp_path / "with-traces", [f"--{flag}" for flag in flags] + [VLLM_TRACES_FLAG]
+    )
     assert check.main([str(package)]) == 0
 
 

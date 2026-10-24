@@ -26,6 +26,7 @@ struct StudioSettingsView: View {
     @State private var enteredKey = ""
     @State private var huggingFaceToken = ""
     @State private var runPodKey = ""
+    @State private var diagnosticsToken = ""
     @State private var keyPresence: [String: Bool] = [:]
     @State private var keyStatusText: [String: String] = [:]
     @State private var checkingAccount: String?
@@ -252,40 +253,6 @@ struct StudioSettingsView: View {
         }
     }
 
-    private var advancedPreferences: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            StudioTermsHelp(terms: [.containerImage, .networkStorage, .provider])
-            Form {
-                TextField("vLLM server URL", text: $session.customBaseURL)
-                    .help("An OpenAI-compatible server you control; the vLLM key goes only to this configured host.")
-                TextField(
-                    "Custom training image",
-                    text: $session.podImageName,
-                    prompt: Text(StudioSession.defaultPodImageName)
-                )
-                .help("Leave blank to use the published default image when renting a cloud GPU.")
-                TextField("Saved storage ID", text: $session.volumeID, prompt: Text("Optional"))
-                    .help("An existing persistent storage volume (a RunPod network volume) in the data center "
-                        + "used for a rental.")
-            }.formStyle(.columns)
-            HStack(spacing: 12) {
-                Button("Save preferences") {
-                    session.rememberChoices()
-                    // A volume ID saved here is an explicit storage choice over an earlier "No saved storage".
-                    if !session.volumeID.isEmpty { session.gpu.chooseStorage(session.volumeID) }
-                    session.configureGPU()
-                    session.gpuKeysLoadedFor = session.gpu
-                    preferencesNote = "Preferences saved."
-                }
-                .disabled(session.demoMode)
-                .help("Saves these Mac-level choices and configures cloud GPU controls; it rents nothing.")
-                if !preferencesNote.isEmpty {
-                    Label(preferencesNote, systemImage: "checkmark.circle").font(.callout)
-                }
-            }
-        }
-    }
-
     private var accountKeyURL: URL? {
         switch account {
         case "openrouter": URL(string: "https://openrouter.ai/settings/keys")
@@ -320,6 +287,7 @@ struct StudioSettingsView: View {
             return
         }
         do {
+            keyPresence["logfire"] = try session.secrets.read("logfire")?.isEmpty == false
             for name in manualProviders + additionalAccounts {
                 let present = try session.secrets.read(name)?.isEmpty == false
                 keyPresence[name] = present
@@ -435,6 +403,63 @@ struct StudioSettingsView: View {
             if generation == keyCheckGeneration { keyStatusText[name] = "Saved in Keychain · check cancelled" }
         } catch {
             if generation == keyCheckGeneration { keyStatusText[name] = error.localizedDescription }
+        }
+    }
+}
+
+/// Advanced preferences live in an extension so the view type stays within SwiftLint's body length.
+extension StudioSettingsView {
+    private var advancedPreferences: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            StudioTermsHelp(terms: [.containerImage, .networkStorage, .provider])
+            Form {
+                TextField("vLLM server URL", text: $session.customBaseURL)
+                    .help("An OpenAI-compatible server you control; the vLLM key goes only to this configured host.")
+                TextField(
+                    "Custom training image",
+                    text: $session.podImageName,
+                    prompt: Text(StudioSession.defaultPodImageName)
+                )
+                .help("Leave blank to use the published default image when renting a cloud GPU.")
+                TextField("Saved storage ID", text: $session.volumeID, prompt: Text("Optional"))
+                    .help("An existing persistent storage volume (a RunPod network volume) in the data center "
+                        + "used for a rental.")
+                SecureField(
+                    "Diagnostics token",
+                    text: $diagnosticsToken,
+                    prompt: Text(keyPresence["logfire"] == true ? "Saved in Keychain" : "Optional")
+                )
+                .help("A Logfire write token. Cloud GPUs rented while it is saved send their timings and states "
+                    + "to that Logfire project: never images, clips or captions. Without one, nothing is sent.")
+            }.formStyle(.columns)
+            HStack(spacing: 12) {
+                Button("Save preferences") {
+                    session.rememberChoices()
+                    saveDiagnosticsToken()
+                    // A volume ID saved here is an explicit storage choice over an earlier "No saved storage".
+                    if !session.volumeID.isEmpty { session.gpu.chooseStorage(session.volumeID) }
+                    session.configureGPU()
+                    session.gpuKeysLoadedFor = session.gpu
+                    preferencesNote = "Preferences saved."
+                }
+                .disabled(session.demoMode)
+                .help("Saves these Mac-level choices and configures cloud GPU controls; it rents nothing.")
+                if !preferencesNote.isEmpty {
+                    Label(preferencesNote, systemImage: "checkmark.circle").font(.callout)
+                }
+            }
+        }
+    }
+
+    private func saveDiagnosticsToken() {
+        let token = diagnosticsToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return }
+        do {
+            try session.secrets.save(token, account: "logfire")
+            keyPresence["logfire"] = true
+            diagnosticsToken = ""
+        } catch {
+            failure = StudioSession.describe(error)
         }
     }
 }

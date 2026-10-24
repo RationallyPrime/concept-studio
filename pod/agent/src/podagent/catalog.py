@@ -54,6 +54,7 @@ from .ltx_rules import check_preprocess
 from .musubi_rules import check_extra as check_musubi_extra
 from .settings import Paths, Settings
 from .storage import RUN_STATE_FILE, cleanup_datasets
+from .telemetry import Telemetry
 from .uploads import (
     INSTALLING,
     STAGING_LOCK,
@@ -160,6 +161,9 @@ def _shaped(pattern: str, description: str) -> ExtraArgCheck:
 
     return check
 
+
+# The flag the agent itself adds when the pod sends traces (telemetry.py); not an app extra arg.
+VLLM_TRACES_FLAG = "--otlp-traces-endpoint"
 
 VLLM_EXTRA_FLAGS: dict[str, ExtraArgCheck] = {
     # scheduler / memory
@@ -1230,6 +1234,8 @@ class ServiceSpec:
     run_id: Callable[[ServiceParams], str | None]
     # Every service declares the runtime and entrypoints its image must carry.
     available: Callable[[Paths], bool]
+    # Extra arguments when the pod sends traces to Logfire (telemetry.py); only vLLM exports its own.
+    telemetry_args: Callable[[Telemetry], list[str]] = lambda _telemetry: []
     # The 409 message when ``available`` is false: what the person can do about it.
     missing: str = (
         "This cloud GPU's image does not include {name}. Rent one with the matching image."
@@ -1334,7 +1340,10 @@ def _vllm_argv(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[st
 
 def _vllm_env(params: ServiceParams, settings: Settings) -> dict[str, str]:
     p = _as(params, VllmParams)
-    return {"VLLM_API_KEY": p.api_key or settings.token}
+    env = {"VLLM_API_KEY": p.api_key or settings.token}
+    if settings.telemetry is not None:
+        env |= settings.telemetry.child_env("vllm")
+    return env
 
 
 def _tensorboard_argv(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[str]:
@@ -1654,6 +1663,7 @@ CATALOG: dict[str, ServiceSpec] = {
         prepare=_noop_prepare,
         run_id=_no_run_id,
         available=lambda paths: availability.command(paths, "vllm", "vllm"),
+        telemetry_args=lambda telemetry: [VLLM_TRACES_FLAG, telemetry.traces_endpoint],
         missing="This computer's image has no {name}. Rent the computer with captioning "
         "(the image tag ending in -captioning) to caption on its GPU.",
     ),

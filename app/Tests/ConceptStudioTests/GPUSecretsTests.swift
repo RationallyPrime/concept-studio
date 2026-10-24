@@ -93,13 +93,15 @@ struct GPUSecretsTests {
     }
 
     @MainActor @Test(arguments: [GPUCloud.secure, .community])
-    func onlyASecureCloudRentalGetsTheHubToken(_ cloud: GPUCloud) async throws {
+    func onlyASecureCloudRentalGetsTheHubAndDiagnosticsTokens(_ cloud: GPUCloud) async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
         let transport = UnreachableAgentTransport(agentAvailable: true, inferenceReady: true)
         await transport.offerCommunityCloud()
         let workspace = makeWorkspace(transport, preferences)
-        try workspace.configure(runpodKey: "provider-only", hubToken: "hub-write", imageName: "test")
+        try workspace.configure(
+            runpodKey: "provider-only", hubToken: "hub-write", diagnosticsToken: "pylf_v1_eu_write", imageName: "test"
+        )
         workspace.includeCommunityCloud = true
         await workspace.refreshOffers()
         // Community Cloud GPUs cannot use saved storage, so both rentals use the GPU's own disk.
@@ -116,9 +118,12 @@ struct GPUSecretsTests {
         if cloud == .secure {
             #expect(env["HF_TOKEN"]?.stringValue == PodSecrets.reference(PodSecrets.hubTokenName))
             #expect(await transport.secretValue(PodSecrets.hubTokenName) == "hub-write")
+            #expect(env["LOGFIRE_TOKEN"]?.stringValue == PodSecrets.reference(PodSecrets.diagnosticsTokenName))
+            #expect(await transport.secretValue(PodSecrets.diagnosticsTokenName) == "pylf_v1_eu_write")
         } else {
-            #expect(env["HF_TOKEN"] == nil)
+            #expect(env["HF_TOKEN"] == nil && env["LOGFIRE_TOKEN"] == nil)
             #expect(await transport.secretValue(PodSecrets.hubTokenName) == nil)
+            #expect(await transport.secretValue(PodSecrets.diagnosticsTokenName) == nil)
         }
         // A relaunch restores the record and keeps treating the cloud GPU as it was created.
         let record = try #require(preferences.data(forKey: GPUWorkspace.activePodKey))
@@ -138,7 +143,7 @@ struct GPUSecretsTests {
         await workspace.refreshOffers()
         await workspace.rent()
         let env = try #require(await transport.createBodies.first?["env"]?.objectValue)
-        #expect(env["HF_TOKEN"] == nil)
+        #expect(env["HF_TOKEN"] == nil && env["LOGFIRE_TOKEN"] == nil) // nothing is traced without a token
         #expect(env["PODAGENT_TOKEN"]?.stringValue?.hasPrefix("{{ RUNPOD_SECRET_conceptstudio_agent_") == true)
         #expect(await transport.secretValue(PodSecrets.hubTokenName) == nil)
         await workspace.stopEverything()
