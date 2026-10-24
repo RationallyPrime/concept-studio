@@ -76,17 +76,20 @@ public struct ChatGPTModelClient: ModelClient {
     public let transport: any HTTPStreamingTransport
     private let accessToken: @Sendable () async throws -> String
     private let onUsageLimit: (@Sendable (ChatGPTInferenceError) async -> Void)?
+    private let prepareVideo: (@Sendable (Data, String) async throws -> [UserContent])?
     private let usageLimit = ChatGPTUsageLimit()
 
     public init(
         model: String,
         accessToken: @escaping @Sendable () async throws -> String,
         onUsageLimit: (@Sendable (ChatGPTInferenceError) async -> Void)? = nil,
+        prepareVideo: (@Sendable (Data, String) async throws -> [UserContent])? = nil,
         transport: any HTTPStreamingTransport = URLSessionTransport()
     ) {
         requestedModel = model
         self.accessToken = accessToken
         self.onUsageLimit = onUsageLimit
+        self.prepareVideo = prepareVideo
         self.transport = transport
     }
 
@@ -97,7 +100,12 @@ public struct ChatGPTModelClient: ModelClient {
         settings: RequestSettings,
         onPartialText: (@Sendable (String) async -> Void)? = nil
     ) async throws -> ModelReply {
-        let body = try requestBody(instructions: instructions, messages: messages, output: output, settings: settings)
+        try validateRequest(settings: settings, outputMode: output.mode)
+        try Task.checkCancellation()
+        try await usageLimit.check()
+        let prepared = try await preparedMessages(messages)
+        let body = try requestBody(instructions: instructions, messages: prepared, output: output, settings: settings)
+        try MediaInput.checkVideoRequest(body, messages: messages)
         try await usageLimit.check()
         try Task.checkCancellation()
         let token = try await accessToken()
@@ -138,15 +146,41 @@ public struct ChatGPTModelClient: ModelClient {
         output: OutputRequest,
         settings: RequestSettings
     ) throws -> JSONObject {
-        guard !requestedModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw ConfigurationError("Choose a model available to your connected ChatGPT account.")
-        }
-        try Self.validate(settings: settings, outputMode: output.mode)
+        try validateRequest(settings: settings, outputMode: output.mode)
         var body = try OpenAIResponsesClient.body(
             model: requestedModel, instructions: instructions, messages: messages, output: output, settings: settings
         )
         body["stream"] = .bool(true)
         return body
+    }
+
+    private func validateRequest(settings: RequestSettings, outputMode: OutputMode) throws {
+        guard !requestedModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw ConfigurationError("Choose a model available to your connected ChatGPT account.")
+        }
+        try Self.validate(settings: settings, outputMode: outputMode)
+    }
+
+    /// Only the ChatGPT route substitutes explicit visual evidence for a clip. Other providers
+    /// keep their native video input, and assistant turns retain the existing Responses encoding.
+    private func preparedMessages(_ messages: [ChatMessage]) async throws -> [ChatMessage] {
+        var result: [ChatMessage] = []
+        for message in messages {
+            guard message.role == .user else { result.append(message); continue }
+            var content: [UserContent] = []
+            for part in message.content {
+                try Task.checkCancellation()
+                if case let .video(data, mediaType) = part {
+                    guard let prepareVideo else { throw MediaInput.unsupportedVideo() }
+                    content += try await prepareVideo(data, mediaType)
+                    try Task.checkCancellation()
+                } else {
+                    content.append(part)
+                }
+            }
+            result.append(ChatMessage(role: message.role, content: content))
+        }
+        return result
     }
 
     public static func validate(settings: RequestSettings, outputMode: OutputMode) throws {

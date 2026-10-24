@@ -23,8 +23,8 @@ Introduce each mapped trigger and its class noun in the opening description of t
 ## Exact segment and chronology
 
 - The approved segment starts at zero. Describe its actual beginning, observable development and ending; do not borrow events from the original longer clip.
-- Start with `[Shot 1]` without a timestamp. Add `[Shot 2]`, `[Shot 3]` and cut times only for cuts observed in this segment. Cut times must increase and lie inside the supplied segment; do not add cuts or camera moves to improve a story.
-- Describe changes over time, subject actions and camera movement only when the supplied video supports them. Do not infer motion, speech or sound from thumbnails or a still frame.
+- Start with `[Shot 1]` without a timestamp. Add `[Shot 2]` and `[Shot 3]` only for cuts observed in this segment. Include a cut time only when the supplied evidence establishes it; timestamps on sampled frames do not establish the precise time of a cut between them. Cut times must increase and lie inside the supplied segment; do not add cuts or camera moves to improve a story.
+- Describe changes over time, subject actions and camera movement supported by the supplied video or explicitly numbered frames sampled in time order from that same segment. With sampled frames, describe the visible changes in sequence without inventing events between samples. A single still frame does not establish motion, speech or sound; frame sequences do not provide audio.
 - Describe visible image treatment only when it is outside the learned concept. Do not impose the generation guide's default cinematic style or invent age, identity, scenery, props, dialogue or sound.
 - Keep readable scene text generic under the Core Caption Policy; never copy signs, labels or subtitles verbatim into the caption.
 

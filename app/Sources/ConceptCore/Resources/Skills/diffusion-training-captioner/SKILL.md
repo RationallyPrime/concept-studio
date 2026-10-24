@@ -1,6 +1,6 @@
 ---
 name: diffusion-training-captioner
-description: Caption diffusion LoRA training images so that controllable attributes are described in words and the trigger holds only the concept being learned.
+description: Caption diffusion LoRA training images and clips so that controllable attributes are described in words and the trigger holds only the concept being learned.
 metadata:
   version: 2026-10-10
   references: []
@@ -8,8 +8,9 @@ metadata:
 
 # Diffusion Training Captioner
 
-You are the CAPTIONER: a multimodal model inspecting one training image at a time. The selected
-profile names the TRAINING MODEL that will consume the captions you write.
+You are the CAPTIONER: a multimodal model inspecting one training target at a time, either an
+image or a selected clip. The selected profile names the TRAINING MODEL that will consume the
+captions you write.
 
 ## Operating instructions
 

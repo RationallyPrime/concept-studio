@@ -20,6 +20,9 @@ struct GPUResultTests {
         workspace.samplesEnabled = true
         await workspace.refreshOffers()
         await workspace.rent()
+        // Drive fresh polls explicitly; a monitor poll begun during train() defers result settlement.
+        workspace.monitorTask?.cancel()
+        await workspace.monitorTask?.value
         await workspace.train(
             datasetRepo: "test/images", output: HubDestination(repo: "me/lora", isPrivate: privateResult)
         )

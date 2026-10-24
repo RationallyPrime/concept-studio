@@ -88,7 +88,7 @@ request settings and reviewer.
 Choose **Continue with ChatGPT** in Settings, read the access explanation and approve sign-in
 in your browser. On Captioning, choose **OpenAI → ChatGPT plan**, then select a model from your
 account's catalog. **Manage usage** opens [ChatGPT usage settings](https://chatgpt.com/settings/usage)
-for your allowance and app limits. Choose a model with image support for photo captioning.
+for your allowance and app limits. Choose a model with image support for photos and clip frame sheets.
 
 The selected account handles every OpenAI request: captions, the optional reviewer, model
 comparisons and photo/concept assistance. **OpenAI API credits** selects your separate API key.
@@ -96,7 +96,18 @@ You choose the billing route; the app keeps that choice. Your ChatGPT account su
 available models and allowance, with usage charged to the plan or credit balance you authorize.
 Other providers use their own accounts.
 
-The ChatGPT route accepts images and returns native structured captions or JSON. Leave output
+**Caption clips with your ChatGPT plan.** The app sends each selected clip as a sheet of nine
+numbered frames up to 24 seconds, or sixteen for longer clips, in time order with sample
+timestamps. ChatGPT describes the observed motion
+in your project's H3 video, LTX or other selected clip profile. The original clip, sample ID,
+caption sidecar and response record stay together in the project.
+The [clip comparison](CLIP-CAPTION-BENCHMARK.md) records the motion checks behind this default.
+
+Frame sheets carry no audio. For H3 clips with sound, turn **Train audio** off to caption and
+train their picture and motion; both caption audio fields use **N/A**. To train sound too, use
+a captioner that can inspect it. A clip with no audio track can use N/A with either choice.
+
+The ChatGPT route returns native structured captions or JSON. Leave output
 token limits and sampling controls such as temperature unset: this API does not accept them.
 Unsupported settings produce an error. Reaching a usage limit stops new requests and directs
 you to **Manage usage**; completed captions stay saved.

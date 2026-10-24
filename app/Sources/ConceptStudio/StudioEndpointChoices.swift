@@ -225,6 +225,9 @@ extension StudioSession {
                     onUsageLimit: { [weak self] error in
                         await self?.stopForChatGPTUsageLimit(error)
                     },
+                    prepareVideo: { data, mediaType in
+                        try await ChatGPTClipSheet.prepare(data: data, mediaType: mediaType).content
+                    },
                     transport: streamingTransport
                 ),
                 settings: requestSettings,
