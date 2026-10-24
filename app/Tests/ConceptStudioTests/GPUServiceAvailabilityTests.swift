@@ -194,6 +194,42 @@ struct GPUServiceAvailabilityTests {
         await gpu.stopEverything()
     }
 
+    @Test func retainingTheCaptionServerIsCheckedBeforeGPUWork() async throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let transport = UnreachableAgentTransport(agentAvailable: true, gpuCount: 2)
+        await transport.unavailable(["vllm"])
+        let gpu = connected(folder: project.directory, preferences: defaults.defaults, transport: transport)
+        gpu.keepCaptionServer = true
+        try await gpu.requireServices([], from: #require(gpu.agent))
+        let reason = try #require(gpu.serviceUnavailableReason("vllm"))
+        #expect(gpu.upscaleUnavailableReason == reason)
+        let sample = try #require(project.images.first)
+        var progress: [String] = []
+        do {
+            _ = try await gpu.upscale(
+                [.init(sampleID: sample.id, file: sample.url)], model: .standard,
+                target: UpscaleTarget(shortSide: 1024), into: project.directory
+            ) { progress.append($0) }
+            Issue.record("Upscale ignored the missing retained caption server")
+        } catch { #expect(error.localizedDescription == reason) }
+        #expect(progress.isEmpty)
+        #expect(try await (#require(gpu.uploader as? RecordingUploader)).requests.isEmpty)
+        #expect(await transport.starts.isEmpty)
+        let run = savedRun()
+        gpu.runHistory = [run]
+        #expect(gpu.generationUnavailableReason(run.trainer) == reason)
+        await gpu.generateComparison(run: run, checkpoint: run.checkpoints[0], prompts: ["NORA7 outdoors"], seeds: [42])
+        #expect(gpu.failure == reason)
+        #expect(gpu.generation == nil)
+        #expect(await transport.starts.isEmpty)
+        gpu.keepCaptionServer = false
+        #expect(gpu.upscaleUnavailableReason == nil)
+        #expect(gpu.generationUnavailableReason(run.trainer) == nil)
+    }
+
     @Test func missingPublisherStillDeliversTheModelToTheMac() async throws {
         let defaults = IsolatedDefaults()
         defer { defaults.remove() }

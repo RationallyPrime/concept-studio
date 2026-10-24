@@ -54,11 +54,27 @@ extension GPUWorkspace {
         captionServerInstalled = services.first { $0.name == "vllm" }?.available == true
     }
 
+    /// GPU work also keeps the requested caption model running on a separate GPU.
+    var retainedCaptionServices: [String] {
+        keepCaptionServer && (pod?.gpu.count ?? 0) > 1 ? ["vllm"] : []
+    }
+
+    var upscaleServices: [String] {
+        ["upscale-media"] + retainedCaptionServices
+    }
+
+    func generationServices(_ trainer: String) -> [String] {
+        ["generate-\(trainer)"] + retainedCaptionServices
+    }
+
+    func generationUnavailableReason(_ trainer: String) -> String? {
+        unavailableServicesReason(generationServices(trainer))
+    }
+
     var trainingServices: [String] {
         var names = ["trainer-\(trainer)", "pull-dataset"]
         if usesRegularization, !ownRegularizationImages { names.append("draw-regularization") }
-        if keepCaptionServer, pod?.gpu.count ?? 0 > 1 { names.append("vllm") }
-        return names
+        return names + retainedCaptionServices
     }
 
     var trainingUnavailableReason: String? {
@@ -68,8 +84,7 @@ extension GPUWorkspace {
     func resumeServices(_ run: TrainingRun) -> [String] {
         var names = ["trainer-\(run.trainer)"]
         if run.localInputDigest != nil { names.append("pull-dataset") }
-        if keepCaptionServer, pod?.gpu.count ?? 0 > 1 { names.append("vllm") }
-        return names
+        return names + retainedCaptionServices
     }
 
     func resumeUnavailableReason(_ run: TrainingRun) -> String? {
