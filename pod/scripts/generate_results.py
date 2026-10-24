@@ -50,6 +50,11 @@ GENERATOR_HOOKS: dict[str, tuple[str, str | None]] = {
 }
 
 
+def aitoolkit_directory() -> str:
+    """The native toolkit import root, also inspected by the agent before offering generation."""
+    return os.environ.get("AI_TOOLKIT_DIR", "/opt/ai-toolkit")
+
+
 def model_table() -> dict[str, Any]:
     """``model_table.py``'s namespace: the scripts run under ``python -I``, so no sibling import."""
     return runpy.run_path(str(Path(__file__).with_name("model_table.py")))
@@ -113,7 +118,7 @@ def flux_generate(
     # so call these same concrete primitives with the explicit flowmatch scheduler.
     import torch
 
-    sys.path.insert(0, os.environ.get("AI_TOOLKIT_DIR", "/opt/ai-toolkit"))
+    sys.path.insert(0, aitoolkit_directory())
     from toolkit.config_modules import GenerateImageConfig, ModelConfig
     from toolkit.sampler import get_sampler
     from toolkit.stable_diffusion_model import StableDiffusion
@@ -175,7 +180,7 @@ def render_base(
     """
     import torch
 
-    sys.path.insert(0, os.environ.get("AI_TOOLKIT_DIR", "/opt/ai-toolkit"))
+    sys.path.insert(0, aitoolkit_directory())
     from toolkit.config_modules import GenerateImageConfig, ModelConfig
     from toolkit.sampler import get_sampler
     from toolkit.util.get_model import get_model_class
@@ -339,7 +344,7 @@ def h3_generate(
 ) -> None:
     import torch
 
-    sys.path.insert(0, os.environ.get("AI_TOOLKIT_DIR", "/opt/ai-toolkit"))
+    sys.path.insert(0, aitoolkit_directory())
     from toolkit.config_modules import GenerateImageConfig, ModelConfig, NetworkConfig
     from toolkit.util.get_model import get_model_class
 
@@ -422,7 +427,7 @@ def arch_generate(
     """
     import torch
 
-    sys.path.insert(0, os.environ.get("AI_TOOLKIT_DIR", "/opt/ai-toolkit"))
+    sys.path.insert(0, aitoolkit_directory())
     from toolkit.config_modules import GenerateImageConfig, ModelConfig, NetworkConfig
     from toolkit.util.get_model import get_model_class
 

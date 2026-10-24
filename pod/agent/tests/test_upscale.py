@@ -49,6 +49,13 @@ def test_upscale_requires_the_trainers_shared_torch(paths: Paths, trainer: str) 
     python = Path(paths.venv_bin("seedvr2", "python"))
     python.parent.mkdir(parents=True)
     python.touch()
+    python.chmod(0o755)
+    for entrypoint in (
+        paths.scripts / "upscale_media.py",
+        paths.prefix / "seedvr2/inference_cli.py",
+    ):
+        entrypoint.parent.mkdir(parents=True, exist_ok=True)
+        entrypoint.touch()
     service = CATALOG["upscale-media"]
     assert not service.available(paths)  # Thin base has packages but no GPU runtime.
 
