@@ -235,6 +235,7 @@ actor UnreachableAgentTransport: HTTPTransport {
             var service: JSONObject = [
                 "name": .string(name), "state": .string(services[name] ?? "idle"),
                 "available": .bool(!unavailableServices.contains(name)),
+                "supports_hf_token": .bool(true),
             ]
             if let run = runIDs[name] { service["run_id"] = .string(run) }
             return .object(service)

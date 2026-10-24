@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .telemetry import Telemetry, load_telemetry
+
 MIN_TOKEN_LENGTH = 16
 
 
@@ -69,6 +71,8 @@ class Settings:
     paths: Paths
     # None: the nvidia-smi backend; N: the fake backend with N GPUs, and fake services
     fake_gpus: int | None
+    # None unless the pod was given LOGFIRE_TOKEN (telemetry.py)
+    telemetry: Telemetry | None = None
 
     @property
     def fake(self) -> bool:
@@ -96,4 +100,4 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         workspace=Path(source.get("PODAGENT_WORKSPACE", "/workspace")).expanduser(),
         prefix=Path(source.get("PODAGENT_PREFIX", "/opt")),
     )
-    return Settings(token=token, paths=paths, fake_gpus=fake_gpus)
+    return Settings(token=token, paths=paths, fake_gpus=fake_gpus, telemetry=load_telemetry(source))

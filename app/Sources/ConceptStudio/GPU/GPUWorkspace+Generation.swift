@@ -70,7 +70,7 @@ extension GPUWorkspace {
             "frame_rate": .double(Double(report?.group.settings.frameRate ?? run.generationFrameRate(in: modelTable))),
         ]
         if let references = report?.styleReferences { params["style_references"] = .object(references) }
-        let startParams = try await paramsWithFreshHubToken(params)
+        let startParams = try await paramsWithFreshHubToken(params, service: "generate-\(run.trainer)", agent: agent)
         generation = GeneratedComparison(
             runID: id, sourceRunID: run.runID, checkpoint: checkpoint.path, trainer: run.trainer,
             volumeID: run.volumeID, startedAt: Date(), state: .generating,

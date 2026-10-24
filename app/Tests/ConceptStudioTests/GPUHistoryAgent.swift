@@ -15,6 +15,11 @@ actor HistoryAgent: PodAgent {
     var damageDownloads = false
     var loseStartReply = false
     private var unavailableServices: Set<String> = []
+    private var hubTokenSupport: Bool? = true
+
+    func reportHubTokenSupport(_ supported: Bool?) {
+        hubTokenSupport = supported
+    }
 
     func unavailable(_ names: Set<String>) {
         unavailableServices = names
@@ -83,7 +88,7 @@ actor HistoryAgent: PodAgent {
                 state: start == nil ? "idle" : (["pull-dataset", "push-lora"].contains(name) ? "exited" : "running"),
                 groupAlive: false,
                 runID: start?.params["run_id"]?.stringValue,
-                available: !unavailableServices.contains(name)
+                available: !unavailableServices.contains(name), supportsHFToken: hubTokenSupport
             )
         }
     }

@@ -326,7 +326,7 @@ extension GPUWorkspace {
                 try await agent.start("push-lora", gpus: [], params: paramsWithFreshHubToken([
                     "run_id": .string(result.runID), "repo_id": .string(result.outputRepo),
                     "private": .bool(result.isPrivate ?? true),
-                ]))
+                ], service: "push-lora", agent: agent))
                 try await waitForService("push-lora")
                 updateResult(.pushed(repo: result.outputRepo))
                 message = "Your LoRA was published to \(result.outputRepo)."

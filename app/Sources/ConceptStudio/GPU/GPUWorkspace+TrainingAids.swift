@@ -282,7 +282,7 @@ extension GPUWorkspace {
                 "run_id": .string(drawID), "dataset": params["dataset"] ?? .null,
                 "base_model": params["base_model"] ?? .null, "resolution": params["resolution"] ?? .null,
                 "regularization": .object(block),
-            ])
+            ], service: "draw-regularization", agent: agent)
         )
         try await waitForService("draw-regularization") {
             guard let log = try? await agent.runLog(runID: drawID),

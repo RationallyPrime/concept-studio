@@ -125,7 +125,9 @@ extension GPUWorkspace {
             params = try await self.captionedRegularization(params, plan: plan, captioning: captioning, agent: agent)
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
             self.historyRunID = self.runID
-            let startParams = try await self.paramsWithFreshHubToken(params)
+            let startParams = try await self.paramsWithFreshHubToken(
+                params, service: "trainer-\(selectedTrainer)", agent: agent
+            )
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
             trainerStartAttempted = true
@@ -275,7 +277,8 @@ extension GPUWorkspace {
         } else if plan.mode != "sequential", keepCaptionServer, !captionActive {
             if let reason = serviceUnavailableReason("vllm") { throw StudioError.message(reason) }
             try await agent.start(
-                "vllm", gpus: plan.caption?.gpus ?? [], params: paramsWithFreshHubToken(captionStartParams)
+                "vllm", gpus: plan.caption?.gpus ?? [],
+                params: paramsWithFreshHubToken(captionStartParams, service: "vllm", agent: agent)
             )
         }
     }
@@ -407,7 +410,7 @@ extension GPUWorkspace {
             try await agent.start(
                 "vllm", gpus: plan.caption?.gpus ?? [],
                 params: paramsWithFreshHubToken(Self.captionServerSettings(for: requestedModel)
-                    .params(model: requestedModel))
+                    .params(model: requestedModel), service: "vllm", agent: agent)
             )
             captionServerActive = nil
         }

@@ -191,6 +191,8 @@ final class GPUWorkspace {
     var hubToken = ""
     /// The Mac account owns renewal. Presence selects OAuth; the pasted token is never its fallback.
     var hubOAuthToken: (@Sendable () async throws -> String)?
+    /// A Logfire write token; pods rented while it is set trace to that project (pod/agent telemetry.py).
+    var diagnosticsToken = ""
     @ObservationIgnored var imageName = ""
     @ObservationIgnored var saved: SavedPod?
     @ObservationIgnored var lastActivity = Date()
@@ -272,13 +274,14 @@ final class GPUWorkspace {
     }
 
     func configure(
-        runpodKey: String, hubToken: String, imageName: String, networkVolumeID: String? = nil,
-        hubOAuthToken: (@Sendable () async throws -> String)? = nil
+        runpodKey: String, hubToken: String, diagnosticsToken: String = "", imageName: String,
+        networkVolumeID: String? = nil, hubOAuthToken: (@Sendable () async throws -> String)? = nil
     ) throws {
         guard !demoMode else { return }
         provider = runpodKey.isEmpty ? nil : RunPodProvider(key: runpodKey, transport: transport)
         self.hubToken = hubToken
         self.hubOAuthToken = hubOAuthToken
+        self.diagnosticsToken = diagnosticsToken
         self.imageName = imageName
         if let networkVolumeID, !prefersNoSavedStorage { selectedVolume = networkVolumeID }
         if result == nil, let data = preferences.data(forKey: Self.pendingResultKey) {

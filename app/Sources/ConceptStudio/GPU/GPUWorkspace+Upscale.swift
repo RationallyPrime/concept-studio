@@ -98,7 +98,7 @@ extension GPUWorkspace {
         try await agent.start("upscale-media", gpus: [plan.train?.gpus.first ?? 0], params: paramsWithFreshHubToken([
             "run_id": .string(runID), "upload": .string(runID), "model": .string(model.rawValue),
             "resolution": .int(target.shortSide), "max_resolution": .int(target.longSideLimit),
-        ]))
+        ], service: "upscale-media", agent: agent))
         progress("Upscaling on the cloud GPU. The first use downloads the model to its storage.")
         do {
             try await waitForService("upscale-media") {

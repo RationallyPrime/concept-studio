@@ -36,6 +36,10 @@ extension GPUWorkspace {
             try await provider.storeSecret(name: PodSecrets.hubTokenName, value: token)
             env["HF_TOKEN"] = PodSecrets.reference(PodSecrets.hubTokenName)
         }
+        if !diagnosticsToken.isEmpty, cloud.receivesHubToken {
+            try await provider.storeSecret(name: PodSecrets.diagnosticsTokenName, value: diagnosticsToken)
+            env["LOGFIRE_TOKEN"] = PodSecrets.reference(PodSecrets.diagnosticsTokenName)
+        }
         let agentSecret = try PodSecrets.newAgentSecretName()
         try await provider.storeSecret(name: agentSecret, value: agentToken)
         env["PODAGENT_TOKEN"] = PodSecrets.reference(agentSecret)
@@ -100,14 +104,25 @@ extension GPUWorkspace {
 
     /// A service-start copy only: callers retain their canonical params for saved runs and repeat.
     /// Manual tokens keep their existing rental environment; OAuth access tokens are renewed per operation.
-    func paramsWithFreshHubToken(_ params: JSONObject) async throws -> JSONObject {
+    func paramsWithFreshHubToken(
+        _ params: JSONObject, service: String, agent: any PodAgent
+    ) async throws -> JSONObject {
         var request = params
         request["hf_token"] = nil
         guard !demoMode, usesHubOAuth, cloudGPUHoldsHubToken else { return request }
         let startRevision = agentStartRevision
         let podID = pod?.id
+        let inventory = try await agent.services()
+        try Task.checkCancellation()
+        guard startRevision == agentStartRevision, podID == pod?.id,
+              usesHubOAuth, cloudGPUHoldsHubToken else { throw CancellationError() }
+        guard inventory.first(where: { $0.name == service })?.supportsHFToken == true else {
+            throw StudioError.message("This cloud GPU image cannot renew Hugging Face access for "
+                + service + ". Use an updated ConceptStudio pod image before starting this operation. "
+                + "Existing pods are not upgraded automatically.")
+        }
         let token = try await freshHubToken()
-        guard startRevision == agentStartRevision, podID == pod?.id, cloudGPUHoldsHubToken else {
+        guard startRevision == agentStartRevision, podID == pod?.id, usesHubOAuth, cloudGPUHoldsHubToken else {
             throw CancellationError()
         }
         request["hf_token"] = .string(token)

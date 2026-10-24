@@ -56,6 +56,7 @@ STATE_KEYS = {
     "port",
     "run_id",
     "available",
+    "supports_hf_token",
 }
 GPU_KEYS = {"index", "name", "memory_total_mib", "memory_used_mib", "uuid", "in_use_by"}
 HEALTH_KEYS = {"status", "version", "workspace", "gpu_backend", "gpu_count", "runpod", "time"}
@@ -654,6 +655,18 @@ def test_topology_four_gpus_reserves_gpu_zero_and_allows_override(
 
 
 # --- §2.6 services: listing and the state object ------------------------------------------------
+
+
+def test_service_token_capability_matches_live_schema(client: TestClient) -> None:
+    states = client.get("/services", headers=AUTH).json()["services"]
+    for state in states:
+        name = state["name"]
+        expected = "hf_token" in CATALOG[name].params_model.model_fields
+        assert state["supports_hf_token"] is expected
+        individual = client.get(f"/services/{name}", headers=AUTH).json()
+        assert individual["supports_hf_token"] is expected
+    assert any(state["supports_hf_token"] for state in states)
+    assert any(not state["supports_hf_token"] for state in states)
 
 
 def test_services_lists_every_catalog_name_idle(client: TestClient) -> None:

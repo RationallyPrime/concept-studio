@@ -57,6 +57,48 @@ struct GPUHubCredentialTests {
         )
     }
 
+    @Test(arguments: [false, true])
+    func unsupportedAgentFailsBeforeReadingCredential(explicitFalse: Bool) async throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let agent = HistoryAgent(), tokens = HubAccessFixture()
+        await agent.reportHubTokenSupport(explicitFalse ? false : nil)
+        let gpu = connected(defaults.defaults, agent: agent)
+        gpu.hubOAuthToken = { try await tokens.token() }
+        gpu.hubToken = "never-fall-back-to-manual"
+        await #expect(throws: StudioError.self) {
+            try await gpu.paramsWithFreshHubToken(
+                ["model": .string("fixture/model")], service: "vllm", agent: agent
+            )
+        }
+        #expect(await tokens.reads == 0)
+        #expect(await agent.starts.isEmpty)
+    }
+
+    @Test func capabilityMustBelongToRequestedService() async throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let agent = HistoryAgent(), tokens = HubAccessFixture()
+        let gpu = connected(defaults.defaults, agent: agent)
+        gpu.hubOAuthToken = { try await tokens.token() }
+        await #expect(throws: StudioError.self) {
+            try await gpu.paramsWithFreshHubToken([:], service: "unknown-service", agent: agent)
+        }
+        #expect(await tokens.reads == 0)
+        let canonical: JSONObject = ["model": .string("fixture/model")]
+        let request = try await gpu.paramsWithFreshHubToken(canonical, service: "vllm", agent: agent)
+        #expect(request["hf_token"] == .string("oauth-fixture-access-1"))
+        #expect(canonical["hf_token"] == nil)
+        #expect(await agent.starts.isEmpty)
+    }
+
+    @Test func legacyServiceInventoryDecodesWithoutCapability() throws {
+        let legacy = Data(#"{"name":"vllm","state":"idle","available":true}"#.utf8)
+        #expect(try JSONDecoder().decode(AgentService.self, from: legacy).supportsHFToken == nil)
+        let current = Data(#"{"name":"vllm","state":"idle","supports_hf_token":true}"#.utf8)
+        #expect(try JSONDecoder().decode(AgentService.self, from: current).supportsHFToken == true)
+    }
+
     @Test func rentalTrainingAndDeferredPublishingUseFreshAccessWithoutSavingIt() async throws {
         let defaults = IsolatedDefaults()
         defer { defaults.remove() }
@@ -162,7 +204,10 @@ struct GPUHubCredentialTests {
         #expect(await transport.secretValue(PodSecrets.hubTokenName) == nil)
         #expect(await transport.createBodies.first?["env"]?.objectValue?["HF_TOKEN"] == nil)
         #expect(!gpu.cloudGPUHoldsHubToken && gpu.usesLocalDataset)
-        #expect(try await gpu.paramsWithFreshHubToken(["run_id": .string("fixture")])["hf_token"] == nil)
+        let params = try await gpu.paramsWithFreshHubToken(
+            ["run_id": .string("fixture")], service: "vllm", agent: #require(gpu.agent)
+        )
+        #expect(params["hf_token"] == nil)
         #expect(await tokens.reads == 0)
         await gpu.stopEverything()
     }
@@ -185,7 +230,7 @@ struct GPUHubCredentialTests {
         gpu.hubOAuthToken = nil
         gpu.hubToken = "manual-fixture"
         let params: JSONObject = ["model": .string("fixture/model")]
-        #expect(try await gpu.paramsWithFreshHubToken(params) == params)
+        #expect(try await gpu.paramsWithFreshHubToken(params, service: "vllm", agent: agent) == params)
         #expect(try await gpu.freshHubToken() == "manual-fixture")
     }
 

@@ -77,8 +77,9 @@ TAIL_CHUNK_BYTES = 64 * 1024
 TRAINER_LOG_NAME = "trainer.log"
 
 # Never inherited by a child. The control-plane bearer is only the agent's business; vLLM's key
-# is set explicitly by the ``vllm`` spec's ``env()`` and must not reach the other services.
-CHILD_ENV_DROP: frozenset[str] = frozenset({"PODAGENT_TOKEN", "VLLM_API_KEY"})
+# is set explicitly by the ``vllm`` spec's ``env()`` and must not reach the other services, and
+# the Logfire write token reaches vLLM only as its OTLP header, through the same ``env()``.
+CHILD_ENV_DROP: frozenset[str] = frozenset({"PODAGENT_TOKEN", "VLLM_API_KEY", "LOGFIRE_TOKEN"})
 # Per-service drops on top of that. TensorBoard is an unauthenticated public listener that never
 # talks to the Hub, so it has no use for a Hub token.
 CHILD_ENV_DROP_FOR: dict[str, frozenset[str]] = {
@@ -105,6 +106,8 @@ class ServiceState(BaseModel):
     # False when this image does not carry the service's program (vLLM on a trainer image
     # rented without captioning); a start is then refused with 409 unavailable.
     available: bool = True
+    # Derived from the live catalog, never from a persisted run or image tag.
+    supports_hf_token: bool = False
 
     def holds_gpus(self) -> bool:
         return self.state in ("running", "stuck") or self.group_alive
@@ -298,7 +301,17 @@ class Supervisor:
 
     def _reported(self, name: str) -> ServiceState:
         """A copy of the polled state with ``available`` filled in. Call with the lock held."""
-        return self._poll(name).model_copy(deep=True, update={"available": self._available(name)})
+        return self._with_capabilities(self._poll(name))
+
+    def _with_capabilities(self, state: ServiceState) -> ServiceState:
+        name = state.name
+        return state.model_copy(
+            deep=True,
+            update={
+                "available": self._available(name),
+                "supports_hf_token": "hf_token" in CATALOG[name].params_model.model_fields,
+            },
+        )
 
     def logs(self, name: str, tail: int = 200) -> LogTail:
         """Last ``tail`` lines of the service's log; ``NotFound`` when none exists.
@@ -401,7 +414,7 @@ class Supervisor:
                     f"{name}: the process group of the previous incarnation is still alive",
                     detail={"pid": current.pid, "state": current.state, "group_alive": True},
                 )
-            return self._spawn(spec, gpus, parsed).model_copy(deep=True)
+            return self._with_capabilities(self._spawn(spec, gpus, parsed))
 
     def _check_gpu_count(self, spec: ServiceSpec, gpus: list[int]) -> None:
         low, high = spec.gpus
@@ -430,6 +443,8 @@ class Supervisor:
         argv = (
             fake_argv(spec.name, parsed) if self.settings.fake else spec.argv(parsed, gpus, paths)
         )
+        if self.settings.telemetry is not None and not self.settings.fake:
+            argv += spec.telemetry_args(self.settings.telemetry)
         env = child_env(spec, gpus, parsed, self.settings)
         for directory in (cwd, log_path.parent, paths.hf_cache):
             directory.mkdir(parents=True, exist_ok=True)
@@ -521,7 +536,7 @@ class Supervisor:
         else:
             self._await_kill(run, proc, pgid)
         with self._lock:
-            return self._reap(run).model_copy(deep=True)
+            return self._with_capabilities(self._reap(run))
 
     def _await_kill(self, run: _Run, proc: subprocess.Popen[bytes] | None, pgid: int) -> None:
         """Bounded wait after SIGKILL: the child, or (no child) the orphaned group. No lock held."""

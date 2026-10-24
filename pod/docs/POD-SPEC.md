@@ -57,7 +57,8 @@ With saved storage, `mounts.network` attaches the selected `volumeId` at `/works
 creates a 300 GB pod disk at `/workspace`; placement is not tied to a network-volume data
 center. `ports` is `["8800/http", "8000/http"]`. The `env` object carries
 `PODAGENT_TOKEN` and, when the user has a Hub token, `HF_TOKEN`, both as RunPod secret
-references rather than values: the app writes the Hub token to the account secret
+references rather than values (and `LOGFIRE_TOKEN`, as the secret `conceptstudio_logfire_token`,
+only when a diagnostics token is saved in Settings → Advanced): the app writes the Hub token to the account secret
 `conceptstudio_hf_token` before every creation (so a rotated token takes effect) and the pod's
 generated agent bearer to a per-pod secret `conceptstudio_agent_<random>`, then passes
 `{{ RUNPOD_SECRET_<name> }}` placeholders that RunPod substitutes when the container boots

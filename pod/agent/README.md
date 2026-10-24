@@ -26,7 +26,9 @@ Environment:
 | `PODAGENT_WORKSPACE` | volume root, default `/workspace` |
 | `PODAGENT_PREFIX` | where venvs/scripts live, default `/opt` |
 | `HF_TOKEN` | inherited by children that talk to the Hub (not by `tensorboard`) |
+| `LOGFIRE_TOKEN` | optional Logfire write token: traces the agent's requests (no request values; polled routes and uploads untraced), its log lines, and vLLM's request spans (token counts and latencies, no text). Unset: nothing is sent. |
 
-Children never inherit `PODAGENT_TOKEN` or a stray `VLLM_API_KEY`; vLLM gets its key from its
-own params (default: the agent token). Every child also gets `CUDA_VISIBLE_DEVICES`,
+Children never inherit `PODAGENT_TOKEN`, `LOGFIRE_TOKEN` or a stray `VLLM_API_KEY`; vLLM gets its
+key from its own params (default: the agent token) and, with `LOGFIRE_TOKEN` set, the token only
+as its OTLP export header. Every child also gets `CUDA_VISIBLE_DEVICES`,
 `CUDA_DEVICE_ORDER=PCI_BUS_ID` and `HF_HOME`.

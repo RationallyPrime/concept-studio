@@ -14,6 +14,7 @@ dependencies = [
   "uvicorn>=0.30,<1",
   "pydantic>=2.7,<3",
   "httpx>=0.27,<1",
+  "logfire[fastapi]>=5.3,<6",
 ]
 
 [project.optional-dependencies]

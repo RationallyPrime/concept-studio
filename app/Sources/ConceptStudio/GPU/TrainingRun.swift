@@ -467,7 +467,9 @@ extension GPUWorkspace {
                 try await self.installTrainingDataset(local, repo: "", revision: nil, name: run.runID, agent: agent)
             }
             try await self.prepareCaptionServerForTraining(agent, plan: plan)
-            let startParams = try await self.paramsWithFreshHubToken(params)
+            let startParams = try await self.paramsWithFreshHubToken(
+                params, service: "trainer-\(run.trainer)", agent: agent
+            )
             try Task.checkCancellation()
             try self.checkCurrentRunBudget()
             try self.resetReportForResumedTraining(run.runID)
