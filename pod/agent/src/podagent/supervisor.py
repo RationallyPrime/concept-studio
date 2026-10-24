@@ -77,8 +77,9 @@ TAIL_CHUNK_BYTES = 64 * 1024
 TRAINER_LOG_NAME = "trainer.log"
 
 # Never inherited by a child. The control-plane bearer is only the agent's business; vLLM's key
-# is set explicitly by the ``vllm`` spec's ``env()`` and must not reach the other services.
-CHILD_ENV_DROP: frozenset[str] = frozenset({"PODAGENT_TOKEN", "VLLM_API_KEY"})
+# is set explicitly by the ``vllm`` spec's ``env()`` and must not reach the other services, and
+# the Logfire write token reaches vLLM only as its OTLP header, through the same ``env()``.
+CHILD_ENV_DROP: frozenset[str] = frozenset({"PODAGENT_TOKEN", "VLLM_API_KEY", "LOGFIRE_TOKEN"})
 # Per-service drops on top of that. TensorBoard is an unauthenticated public listener that never
 # talks to the Hub, so it has no use for a Hub token.
 CHILD_ENV_DROP_FOR: dict[str, frozenset[str]] = {
@@ -430,6 +431,8 @@ class Supervisor:
         argv = (
             fake_argv(spec.name, parsed) if self.settings.fake else spec.argv(parsed, gpus, paths)
         )
+        if self.settings.telemetry is not None and not self.settings.fake:
+            argv += spec.telemetry_args(self.settings.telemetry)
         env = child_env(spec, gpus, parsed, self.settings)
         for directory in (cwd, log_path.parent, paths.hf_cache):
             directory.mkdir(parents=True, exist_ok=True)

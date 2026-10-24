@@ -41,7 +41,7 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from . import __version__
+from . import __version__, telemetry
 from .artifacts import RunFiles, list_run_files, list_run_logs, resolve_log_file, resolve_run_file
 from .auth import (
     TENSORBOARD_COOKIE,
@@ -282,6 +282,9 @@ def create_app(settings: Settings | None = None, backend: GpuBackend | None = No
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        # Native FastAPI telemetry exports raw URLs and exception details. Our opt-in
+        # middleware emits only registered route templates, methods, statuses and timings.
+        telemetry={"tracing": False, "metrics": False, "logs": False, "auto_configure": False},
     )
     app.state.settings = settings
     app.state.backend = backend
@@ -291,6 +294,8 @@ def create_app(settings: Settings | None = None, backend: GpuBackend | None = No
     install_handlers(app)
     _install_edge_handlers(app, auth)
     app.add_middleware(EdgeGuard, auth=auth, max_body_bytes=MAX_BODY_BYTES)
+    if settings.telemetry is not None:
+        telemetry.configure(app, settings.telemetry, __version__)
 
     def supervisor() -> Supervisor:
         return app.state.supervisor

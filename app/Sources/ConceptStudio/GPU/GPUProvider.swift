@@ -212,6 +212,8 @@ struct PodCreation {
 enum PodSecrets {
     /// The user's Hub token, rewritten before every rental so a rotated token takes effect.
     static let hubTokenName = "conceptstudio_hf_token"
+    /// The optional Logfire write token, rewritten before every rental like the Hub token.
+    static let diagnosticsTokenName = "conceptstudio_logfire_token"
     /// One agent bearer per pod, deleted when the pod is removed.
     static let agentPrefix = "conceptstudio_agent_"
     private static let marker = "RUNPOD_SECRET_"

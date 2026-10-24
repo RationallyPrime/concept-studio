@@ -1,5 +1,5 @@
-"""Build-time check: every flag in ``podagent.catalog.VLLM_EXTRA_FLAGS`` exists in the vLLM
-installed in this image.
+"""Build-time check: every flag in ``podagent.catalog.VLLM_EXTRA_FLAGS``, and the agent's own
+``VLLM_TRACES_FLAG``, exists in the vLLM installed in this image.
 
     /opt/venvs/agent/bin/python -I check_vllm_flags.py <vllm package directory>
 
@@ -51,11 +51,12 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) != 1 or not Path(args[0]).is_dir():
         print("usage: check_vllm_flags.py <vllm package directory>", file=sys.stderr)
         return 2
-    from podagent.catalog import VLLM_EXTRA_FLAGS
+    from podagent.catalog import VLLM_EXTRA_FLAGS, VLLM_TRACES_FLAG
 
     package_dir = Path(args[0])
     sources = sum(1 for _ in package_dir.rglob("*.py"))
-    missing = missing_flags(VLLM_EXTRA_FLAGS, package_dir)
+    flags = [*VLLM_EXTRA_FLAGS, VLLM_TRACES_FLAG]
+    missing = missing_flags(flags, package_dir)
     if missing:
         print(
             f"vLLM at {package_dir} has none of these allowlisted flags: {', '.join(missing)}. "
@@ -63,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"vLLM flag allowlist: {len(VLLM_EXTRA_FLAGS)} flags found in {sources} source files")
+    print(f"vLLM flag allowlist: {len(flags)} flags found in {sources} source files")
     return 0
 
 

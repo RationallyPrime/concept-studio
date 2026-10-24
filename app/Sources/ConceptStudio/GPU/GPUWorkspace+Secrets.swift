@@ -35,6 +35,10 @@ extension GPUWorkspace {
             try await provider.storeSecret(name: PodSecrets.hubTokenName, value: hubToken)
             env["HF_TOKEN"] = PodSecrets.reference(PodSecrets.hubTokenName)
         }
+        if !diagnosticsToken.isEmpty, cloud.receivesHubToken {
+            try await provider.storeSecret(name: PodSecrets.diagnosticsTokenName, value: diagnosticsToken)
+            env["LOGFIRE_TOKEN"] = PodSecrets.reference(PodSecrets.diagnosticsTokenName)
+        }
         let agentSecret = try PodSecrets.newAgentSecretName()
         try await provider.storeSecret(name: agentSecret, value: agentToken)
         env["PODAGENT_TOKEN"] = PodSecrets.reference(agentSecret)
