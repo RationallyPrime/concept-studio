@@ -243,7 +243,7 @@ extension StudioSession {
     /// The project's job with the current model choices, as job.yaml should store them. The caller
     /// writes it only when it differs from the saved job. A rented computer's caption server is
     /// temporary, so its URL is never stored: while it is in use the stored captioner stays as it was.
-    func jobForCaptioning(applyingTrainingPolicy: Bool = false) throws -> Job {
+    func jobForCaptioning() throws -> Job {
         guard var job = project?.job else { throw StudioError.message("Open a project first.") }
         if !demoMode {
             let captioner = try usingPodCaptioner && endpointKind == "vllm"
@@ -268,9 +268,6 @@ extension StudioSession {
         }
         job.captionerThinking = modelThinking
         job.criticThinking = criticThinking
-        if applyingTrainingPolicy, hasH3Clips, !gpu.trainAudio {
-            job.policyOverrides["h3_audio_training"] = Self.h3AudioCaptionPolicy
-        }
         return job
     }
 }

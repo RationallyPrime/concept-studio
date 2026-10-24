@@ -6,6 +6,30 @@ import Testing
 @Suite("H3 clip audio choice")
 @MainActor
 struct H3AudioTests {
+    @Test func repeatingAnotherModelPreservesTheProjectsH3AudioChoice() async throws {
+        let preferences = IsolatedDefaults()
+        defer { preferences.remove() }
+        let project = try await makeDemoProject()
+        defer { try? FileManager.default.removeItem(at: project.directory) }
+        let workspace = makeWorkspace(UnreachableAgentTransport(), preferences.defaults)
+        workspace.projectFolder = project.directory
+        workspace.trainAudio = false
+        let run = TrainingRun(
+            runID: "earlier-image-run", trainer: "aitoolkit", datasetRepo: "synthetic/stills",
+            datasetContainsVideo: false, paramsJSON: JSONValue.object([
+                "base_model": .string("black-forest-labs/FLUX.1-dev"), "steps": .int(6), "rank": .int(4),
+            ]).pythonDumpsData(), volumeID: "storage", startedAt: Date(), updatedAt: Date(), podSpendAtStart: 0
+        )
+        workspace.runHistory = [run]
+        workspace.repeatSettings(from: run)
+        #expect(!workspace.trainAudio)
+        workspace.chooseTrainingModel(GPUWorkspace.h3BaseModel)
+        #expect(!workspace.trainAudio)
+        let reopened = makeWorkspace(UnreachableAgentTransport(), preferences.defaults)
+        reopened.projectFolder = project.directory
+        #expect(!reopened.trainAudio)
+    }
+
     @Test func choiceIsProjectLocalAndDefaultsOn() async throws {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
@@ -77,22 +101,32 @@ struct H3AudioTests {
         session.project = project
         session.gpu.trainAudio = false
         #expect(session.hasH3Clips)
-        let execution = try session.jobForCaptioning(applyingTrainingPolicy: true)
+        // Review's comparison uses its own endpoint. Unfinished main/reviewer settings must not block it.
+        session.modelName = ""
+        session.useCritic = true
+        session.criticModel = ""
+        #expect(throws: (any Error).self) { try session.jobForCaptioning() }
+        let execution = try session.applyingTrainingAudioPolicy(to: #require(session.project?.job))
         #expect(execution.policyOverrides["h3_audio_training"] == StudioSession.h3AudioCaptionPolicy)
         #expect(execution.policyOverrides["custom"] == project.job.policyOverrides["custom"])
+        session.modelName = "synthetic-caption-model"
+        session.useCritic = false
         #expect(try session.jobForCaptioning().policyOverrides == project.job.policyOverrides)
         #expect(session.project?.job.policyOverrides == project.job.policyOverrides)
         session.gpu.trainAudio = true
-        #expect(try session.jobForCaptioning(applyingTrainingPolicy: true).policyOverrides == project.job
+        #expect(try session.applyingTrainingAudioPolicy(to: #require(session.project?.job)).policyOverrides == project
+            .job
             .policyOverrides)
         session.gpu.trainAudio = false
         session.project?.job.profile = "ltx-video"
         #expect(!session.hasH3Clips)
-        #expect(try session.jobForCaptioning(applyingTrainingPolicy: true).policyOverrides == project.job
+        #expect(try session.applyingTrainingAudioPolicy(to: #require(session.project?.job)).policyOverrides == project
+            .job
             .policyOverrides)
         session.project?.job.profile = "h3-still"
         #expect(!session.hasH3Clips)
-        #expect(try session.jobForCaptioning(applyingTrainingPolicy: true).policyOverrides == project.job
+        #expect(try session.applyingTrainingAudioPolicy(to: #require(session.project?.job)).policyOverrides == project
+            .job
             .policyOverrides)
     }
 }

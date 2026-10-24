@@ -23,6 +23,15 @@ struct H3AudioControls: View {
 }
 
 extension StudioSession {
+    /// Apply the current training choice only to the execution copy, including model comparisons.
+    func applyingTrainingAudioPolicy(to original: Job) -> Job {
+        var job = original
+        if hasH3Clips, !gpu.trainAudio {
+            job.policyOverrides["h3_audio_training"] = Self.h3AudioCaptionPolicy
+        }
+        return job
+    }
+
     var hasH3Clips: Bool {
         guard let project, let row = gpu.modelTable.nativeRecipeRow(.minimaxH3) else { return false }
         return project.job.profile == row.captions.videoProfile

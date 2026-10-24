@@ -379,7 +379,7 @@ extension StudioSession {
                 baseURL: self.criticTargetURL
             ) : nil
             let runner = try Runner(
-                job: self.jobForCaptioning(applyingTrainingPolicy: true),
+                job: self.applyingTrainingAudioPolicy(to: project.job),
                 captioner: resolved,
                 critic: critic,
                 skill: self.selectedSkill(),
@@ -457,7 +457,7 @@ extension StudioSession {
         perform("Requesting a comparison caption…") {
             guard let project = self.project else { return }
             let runner = try Runner(
-                job: self.jobForCaptioning(applyingTrainingPolicy: true),
+                job: self.applyingTrainingAudioPolicy(to: project.job),
                 captioner: self.endpoint(model: model, kind: kind),
                 skill: self.selectedSkill(),
                 overwrite: true

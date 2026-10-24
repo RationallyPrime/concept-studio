@@ -336,7 +336,7 @@ extension GPUWorkspace {
         }
         trainer = run.trainer
         baseModel = run.baseModel
-        trainAudio = run.params["train_audio"]?.boolValue ?? true
+        if run.isH3 { trainAudio = run.params["train_audio"]?.boolValue ?? true }
         let row = run.effectiveModelRow(in: modelTable)
         rank = run.rank
         alpha = run.params["alpha"]?.intValue ?? rank
