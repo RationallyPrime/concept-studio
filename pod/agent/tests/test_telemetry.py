@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 from conftest import AUTH, TOKEN
-from fastapi import Request
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from logfire.testing import CaptureLogfire
 
@@ -77,7 +77,7 @@ def test_requests_are_traced_without_their_values_and_polling_is_not(
 
 
 @pytest.mark.parametrize("private_field", ["caption", "NORA7-private-caption-as-key"])
-def test_a_rejected_request_exports_only_an_error_count(
+def test_a_rejected_request_exports_no_validation_content(
     settings: Settings, capfire: CaptureLogfire, private_field: str
 ) -> None:
     app = create_app(settings, FakeBackend(2))
@@ -91,29 +91,61 @@ def test_a_rejected_request_exports_only_an_error_count(
     exported = json.dumps(capfire.exporter.exported_spans_as_dict(), default=str)
     assert "a private caption" not in exported
     assert "NORA7-private-caption-as-key" not in exported
-    assert "validation_error_count" in exported
     assert "extra_forbidden" not in exported
+    assert any(
+        span["attributes"].get("http.status_code") == 422
+        for span in capfire.exporter.exported_spans_as_dict()
+    )
 
 
-def test_validation_mapper_drops_custom_error_types_and_all_request_content() -> None:
-    request = Request({"type": "http"})
-    assert telemetry._arguments_without_values(
-        request,
-        {
-            "values": {"caption": "NORA7-private-value"},
-            "errors": [
-                {
-                    "type": "NORA7-private-custom-error-type",
-                    "loc": ["body", "NORA7-private-field-name"],
-                    "input": "NORA7-private-input",
-                    "msg": "NORA7-private-message",
-                    "ctx": {"detail": "NORA7-private-context"},
-                }
-            ],
-        },
-    ) == {"validation_error_count": 1}
-    assert telemetry._arguments_without_values(request, {"errors": []}) is None
-    assert telemetry._arguments_without_values(request, {"values": {"caption": "private"}}) is None
+@pytest.mark.parametrize(
+    ("method", "path", "status", "route"),
+    [
+        ("POST", "/services/vllm/start", 422, "/services/{name}/start"),
+        ("POST", "/services/NORA7-private-path/start", 422, "/services/{name}/start"),
+        ("GET", "/NORA7-private-unmatched", 404, "<unmatched>"),
+        ("NORA7-private-method", "/services/vllm/start", 405, "/services/{name}/start"),
+    ],
+)
+def test_request_spans_export_only_safe_metadata(
+    settings: Settings, capfire: CaptureLogfire, method: str, path: str, status: int, route: str
+) -> None:
+    app = create_app(settings, FakeBackend(2))
+    telemetry.instrument(app)
+    with TestClient(app, headers=AUTH) as client:
+        response = client.request(
+            method,
+            path + "?note=NORA7-private-query",
+            headers={"User-Agent": "NORA7-private-header", "Cookie": "note=NORA7-private-cookie"},
+            json={"NORA7-private-field": "NORA7-private-body"},
+        )
+        assert response.status_code == status
+    spans = capfire.exporter.exported_spans_as_dict()
+    assert "NORA7-private" not in json.dumps(spans, default=str)
+    request_spans = [span for span in spans if span["name"] == "Agent request"]
+    assert len(request_spans) == 1
+    attributes = request_spans[0]["attributes"]
+    assert attributes["http.method"] == ("OTHER" if method.startswith("NORA7") else method)
+    assert attributes["http.route"] == route
+    assert attributes["http.status_code"] == status
+    assert not {"http.url", "http.target", "url.full", "url.path", "url.query"} & attributes.keys()
+
+
+def test_request_exceptions_propagate_without_exporting_their_content(
+    capfire: CaptureLogfire,
+) -> None:
+    app = FastAPI(telemetry={"tracing": False, "metrics": False, "logs": False})
+
+    @app.get("/failure")
+    async def failure() -> None:
+        raise RuntimeError("NORA7-private-exception")
+
+    telemetry.instrument(app)
+    with TestClient(app) as client, pytest.raises(RuntimeError, match="NORA7-private-exception"):
+        client.get("/failure?note=NORA7-private-query")
+    spans = capfire.exporter.exported_spans_as_dict()
+    assert "NORA7-private" not in json.dumps(spans, default=str)
+    assert any(span["attributes"].get("http.status_code") == 500 for span in spans)
 
 
 def test_service_lifecycle_lines_reach_logfire(settings: Settings, capfire: CaptureLogfire) -> None:
@@ -127,3 +159,36 @@ def test_service_lifecycle_lines_reach_logfire(settings: Settings, capfire: Capt
         for span in capfire.exporter.exported_spans_as_dict()
     ]
     assert any(message.startswith("started vllm") for message in messages)
+
+
+def test_requests_emit_nothing_without_opt_in(settings: Settings, capfire: CaptureLogfire) -> None:
+    with TestClient(create_app(settings, FakeBackend(2)), headers=AUTH) as client:
+        client.post("/services/vllm/start?note=NORA7-private-query", json={"unexpected": "private"})
+    assert capfire.exporter.exported_spans_as_dict() == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/health",
+        "/gpus",
+        "/storage",
+        "/services",
+        "/services/vllm",
+        "/services/vllm/logs",
+        "/runs/NORA7-private-run/events",
+        "/runs/NORA7-private-run/files",
+        "/runs/NORA7-private-run/log-files",
+        "/tensorboard/NORA7-private-path",
+        "/uploads/NORA7-private-file",
+    ],
+)
+def test_excluded_requests_emit_no_spans(
+    settings: Settings, capfire: CaptureLogfire, path: str
+) -> None:
+    app = create_app(settings, FakeBackend(2))
+    telemetry.instrument(app)
+    with TestClient(app) as client:
+        # Unauthorized requests exercise the exclusion without opening log streams or services.
+        client.get(path + "?note=NORA7-private-query")
+    assert capfire.exporter.exported_spans_as_dict() == []

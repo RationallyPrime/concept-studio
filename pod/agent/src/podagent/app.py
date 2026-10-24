@@ -282,6 +282,9 @@ def create_app(settings: Settings | None = None, backend: GpuBackend | None = No
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        # Native FastAPI telemetry exports raw URLs and exception details. Our opt-in
+        # middleware emits only registered route templates, methods, statuses and timings.
+        telemetry={"tracing": False, "metrics": False, "logs": False, "auto_configure": False},
     )
     app.state.settings = settings
     app.state.backend = backend

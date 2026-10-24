@@ -12,10 +12,13 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from starlette.routing import BaseRoute, Route
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 if TYPE_CHECKING:
-    from fastapi import FastAPI, Request, WebSocket
+    from fastapi import FastAPI
 
 # A Logfire write token names its region (``pylf_v1_eu_…``); older tokens without one are US.
 _REGION = re.compile(r"^pylf_v[0-9]+_(?P<region>[a-z]+)_")
@@ -69,11 +72,56 @@ def load_telemetry(env: os._Environ[str] | dict[str, str]) -> Telemetry | None:
     return Telemetry(token=token, resource={key: value for key, value in resource.items() if value})
 
 
-def _arguments_without_values(_request: Request | WebSocket, attributes: dict[str, Any]):
-    """Export only the count: locations include client-supplied field names, and custom error
-    types, messages, context and inputs can all contain private request content."""
-    errors = attributes.get("errors") or []
-    return {"validation_error_count": len(errors)} if errors else None
+class RequestTelemetry:
+    """Trace only allowlisted metadata, never automatic ASGI URL/argument/exception fields."""
+
+    def __init__(self, app: ASGIApp, routes: list[BaseRoute]) -> None:
+        self.app = app
+        # Middleware is constructed after route registration. Only these fixed templates may leave.
+        self.routes = {id(route): route.path for route in routes if isinstance(route, Route)}
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or any(
+            re.search(pattern, scope.get("path", "")) for pattern in _EXCLUDED
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        import logfire
+
+        method = scope.get("method", "")
+        if method not in {
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS",
+            "TRACE",
+            "CONNECT",
+        }:
+            method = "OTHER"
+        status = 500
+
+        async def record_status(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                value = message.get("status")
+                if type(value) is int and 100 <= value <= 599:
+                    status = value
+            await send(message)
+
+        span = logfire.span("Agent request", **{"http.method": method})
+        span.__enter__()
+        try:
+            await self.app(scope, receive, record_status)
+        finally:
+            span.set_attribute("http.route", self.routes.get(id(scope.get("route")), "<unmatched>"))
+            span.set_attribute("http.status_code", status)
+            # End normally even when the request raises: exception text/locals may contain inputs.
+            # The original exception still propagates to the server unchanged.
+            span.__exit__(None, None, None)
 
 
 def configure(app: FastAPI, telemetry: Telemetry, version: str) -> None:
@@ -94,9 +142,7 @@ def instrument(app: FastAPI) -> None:
     """Trace the agent's requests and send its log lines to whatever Logfire is configured."""
     import logfire
 
-    logfire.instrument_fastapi(
-        app, excluded_urls=_EXCLUDED, request_attributes_mapper=_arguments_without_values
-    )
+    app.add_middleware(RequestTelemetry, routes=app.routes)
     agent_log = logging.getLogger("podagent")
     # The agent's lifecycle lines (service started, exited) are INFO; the default threshold is WARNING.
     agent_log.setLevel(logging.INFO)
