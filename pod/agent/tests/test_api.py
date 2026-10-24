@@ -682,6 +682,7 @@ def test_start_returns_201_and_the_state_object(client: TestClient, settings: Se
     assert state["gpus"] == [0]
     assert state["params"] == {
         "model": "org/fake-vl-model",
+        "hf_token": None,
         "port": params["port"],
         "max_model_len": 16384,
         "gpu_memory_utilization": 0.9,

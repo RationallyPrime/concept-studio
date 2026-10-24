@@ -281,6 +281,7 @@ class ServiceParams(BaseModel):
 
 class VllmParams(ServiceParams):
     model: str
+    hf_token: Secret = None
     port: Port = 8000
     max_model_len: int = Field(default=16384, ge=1024)
     gpu_memory_utilization: float = Field(default=0.9, ge=0.1, le=0.99)
@@ -436,6 +437,7 @@ class DrawRegularizationParams(ServiceParams):
     run_id: str = Field(pattern=RUN_ID_PATTERN)
     dataset: DatasetRef
     base_model: str
+    hf_token: Secret = None
     resolution: int | list[int] = [512, 768, 1024]
     regularization: GeneratedRegularization
 
@@ -659,6 +661,7 @@ class UpscaleMediaParams(ServiceParams):
 
     run_id: str = Field(pattern=RUN_ID_PATTERN)
     upload: str = Field(pattern=NAME_PATTERN)
+    hf_token: Secret = None
     model: Literal["3b", "7b"] = "3b"
     resolution: int = Field(default=1024, ge=256, le=4096)
     max_resolution: int = Field(default=2048, ge=256, le=MAX_RESOLUTION)
@@ -714,6 +717,7 @@ class GenerationParams(ServiceParams):
 
     run_id: str = Field(pattern=RUN_ID_PATTERN)
     source_run_id: str = Field(pattern=RUN_ID_PATTERN)
+    hf_token: Secret = None
     checkpoint: str = Field(min_length=1)
     prompts: list[str] = Field(min_length=1, max_length=6)
     seeds: list[Annotated[int, Field(ge=0, le=2**32 - 1)]] = Field(min_length=1, max_length=4)
@@ -1334,7 +1338,7 @@ def _vllm_argv(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[st
 
 def _vllm_env(params: ServiceParams, settings: Settings) -> dict[str, str]:
     p = _as(params, VllmParams)
-    return {"VLLM_API_KEY": p.api_key or settings.token}
+    return {"VLLM_API_KEY": p.api_key or settings.token, **_hf_env(params, settings)}
 
 
 def _tensorboard_argv(params: ServiceParams, _gpus: list[int], paths: Paths) -> list[str]:
@@ -1514,7 +1518,11 @@ def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
                 shutil.copyfile(image, destination / file)
     (run_dir / "generation.json").write_text(
         json.dumps(
-            {**cfg.model_dump(mode="json"), "checkpoint_sha256": digest.hexdigest()}, indent=2
+            {
+                **cfg.model_dump(mode="json", exclude=set(SECRET_FIELDS)),
+                "checkpoint_sha256": digest.hexdigest(),
+            },
+            indent=2,
         )
         + "\n",
         encoding="utf-8",
@@ -1527,7 +1535,10 @@ def _draw_prepare(params: ServiceParams, paths: Paths) -> None:
     run_dir = paths.run_dir(cfg.run_id)
     run_dir.mkdir(parents=True, exist_ok=False)
     (run_dir / "regularization-draw.json").write_text(
-        json.dumps(cfg.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n",
+        json.dumps(
+            cfg.model_dump(mode="json", exclude=set(SECRET_FIELDS)), indent=2, ensure_ascii=False
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -1553,7 +1564,8 @@ def _upscale_prepare(params: ServiceParams, paths: Paths) -> None:
         run_dir.mkdir(parents=True, exist_ok=False)
         folder.rename(run_dir / "inputs")
     (run_dir / "upscale.json").write_text(
-        json.dumps(cfg.model_dump(mode="json"), indent=2) + "\n", encoding="utf-8"
+        json.dumps(cfg.model_dump(mode="json", exclude=set(SECRET_FIELDS)), indent=2) + "\n",
+        encoding="utf-8",
     )
 
 
