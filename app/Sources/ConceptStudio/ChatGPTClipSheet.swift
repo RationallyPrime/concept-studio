@@ -26,18 +26,26 @@ struct ChatGPTClipSheet: Sendable {
             Describe changes supported by this ordered sequence in the project's clip profile, producing one caption \
             for the clip. Do not describe the sheet, its numbers or layout in the caption. Sample times are not exact \
             cut times. Do not invent action between samples, unseen events or precise transition times. \
-            Repeated frames do not establish motion. \(audio)
+            Mention visible starts, stops, pauses and reversals in their observed order. When successive frames \
+            keep a subject in the same position, describe the visible hold rather than inventing movement. \(audio)
             """),
             .image(data: jpeg, mediaType: "image/jpeg"),
         ]
     }
 
-    /// The count is explicit for the paired benchmark; the production default is finalized from its results.
+    /// Nine frames retain the measured shorter actions; longer clips use sixteen observations.
+    static func defaultFrameCount(duration: Double) -> Int {
+        duration <= 12 ? 9 : 16
+    }
+
+    /// An explicit count supports paired measurement without changing the project's settings.
     static func prepare(
-        data: Data, mediaType: String, frameCount: Int = 9,
+        data: Data, mediaType: String, frameCount: Int? = nil,
         temporaryDirectory: URL = FileManager.default.temporaryDirectory
     ) async throws -> ChatGPTClipSheet {
-        guard [9, 16].contains(frameCount) else { throw StudioError.message("Choose nine or sixteen clip frames.") }
+        if let frameCount, ![9, 16].contains(frameCount) {
+            throw StudioError.message("Choose nine or sixteen clip frames.")
+        }
         guard let type = UTType(mimeType: mediaType), type.conforms(to: .movie),
               let suffix = type.preferredFilenameExtension else {
             throw StudioError.message("This clip format cannot be prepared for ChatGPT.")
@@ -48,6 +56,7 @@ struct ChatGPTClipSheet: Sendable {
         try data.write(to: file, options: .atomic)
         try Task.checkCancellation()
         let info = try await MediaEditor.videoInfo(url: file)
+        let frameCount = frameCount ?? defaultFrameCount(duration: info.duration)
         let frames = try await MediaEditor.frames(url: file, count: frameCount)
         try Task.checkCancellation()
         let tiles = frames.enumerated().map { (

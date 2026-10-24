@@ -12,6 +12,16 @@ Updated 2026-10-24. [CORE-SPEC.md](CORE-SPEC.md) defines the shared contract;
 [development history](../../docs/process/status-history-2026-10-10.md) records the original
 2026-10-10 integration at `e620882`.
 
+## ChatGPT clip captioning, 2026-10-24
+
+The production ChatGPT client and Runner captioned three synthetic clips at both nine and
+sixteen frames, saving six H3 captions and reopening their original IDs, profiles and response
+records. A targeted two-request follow-up made a visible pause and final hold explicit. All
+eight requests used `gpt-6.1-sol` through the connected ChatGPT plan and completed on their first
+attempt. H3 audio-off fields used N/A, including the source clip that retained a tone.
+The [comparison](CLIP-CAPTION-BENCHMARK.md) records the observed motion, timings, input tokens
+and selected length policy. This establishes the live client/Runner/sidecar path.
+
 ## Capabilities
 
 All nine CORE-SPEC modules are implemented:

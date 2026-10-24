@@ -96,10 +96,12 @@ You choose the billing route; the app keeps that choice. Your ChatGPT account su
 available models and allowance, with usage charged to the plan or credit balance you authorize.
 Other providers use their own accounts.
 
-**Caption clips with your ChatGPT plan.** The app sends each selected clip as a sheet of 9–16
-numbered frames in time order, with sample timestamps. ChatGPT describes the observed motion
+**Caption clips with your ChatGPT plan.** The app sends each selected clip as a sheet of nine
+numbered frames up to 12 seconds, or sixteen for longer clips, in time order with sample
+timestamps. ChatGPT describes the observed motion
 in your project's H3 video, LTX or other selected clip profile. The original clip, sample ID,
 caption sidecar and response record stay together in the project.
+The [clip comparison](CLIP-CAPTION-BENCHMARK.md) records the motion checks behind this default.
 
 Frame sheets carry no audio. For H3 clips with sound, turn **Train audio** off to caption and
 train their picture and motion; both caption audio fields use **N/A**. To train sound too, use
