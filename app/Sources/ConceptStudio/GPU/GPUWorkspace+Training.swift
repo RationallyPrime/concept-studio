@@ -406,10 +406,10 @@ extension GPUWorkspace {
             running = false
         }
         if !running {
+            let params = Self.captionServerSettings(for: requestedModel).params(model: requestedModel)
             try await agent.start(
                 "vllm", gpus: plan.caption?.gpus ?? [],
-                params: paramsWithFreshHubToken(Self.captionServerSettings(for: requestedModel)
-                    .params(model: requestedModel), service: "vllm", agent: agent)
+                params: paramsWithFreshHubToken(params, service: "vllm", agent: agent)
             )
             captionServerActive = nil
         }
