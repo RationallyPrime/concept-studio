@@ -50,6 +50,8 @@ struct GPUTrainingDisplayTests {
             volumeID: "pod:fixture",
             state: .saved(folder: "/tmp/results")
         )
+        #expect(gpu.computerStatus == "Starting" && gpu.trainingStatus == "Not started")
+        gpu.agentReadyAt = Date()
         #expect(gpu.computerStatus == "Running" && gpu.trainingStatus == "Not started")
         gpu.runID = "fixture-run"
         gpu.trainingState = "running"

@@ -159,6 +159,11 @@ actor UnreachableAgentTransport: HTTPTransport {
             if createFails { return HTTPResponse(status: 500) }
         }
         if url.path().hasSuffix("action") {
+            let action = try JSONValue(parsing: #require(request.httpBody)).objectValue?["action"]?.stringValue
+            if action == "start" {
+                stopped = false
+                return HTTPResponse(status: 200, body: Data(provider(request, url: url).utf8))
+            }
             stopCalls += 1
             stoppedPods.append(url.deletingLastPathComponent().lastPathComponent)
             if !failedFirstStop {

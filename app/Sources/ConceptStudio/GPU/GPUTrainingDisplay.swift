@@ -55,7 +55,7 @@ extension GPUWorkspace {
     var computerStatus: String {
         guard let pod else { return "Not rented" }
         switch pod.status.uppercased() {
-        case "RUNNING": return "Running"
+        case "RUNNING", "STARTING": return agentReadyAt == nil ? "Starting" : "Running"
         case "EXITED": return "Stopped"
         case "ERROR": return "Unavailable"
         case "TERMINATED": return "Removed"

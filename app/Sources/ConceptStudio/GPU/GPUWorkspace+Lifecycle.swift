@@ -16,6 +16,88 @@ extension GPUWorkspace {
         await work.value
     }
 
+    func refreshState() async {
+        guard let provider, let current = pod, hasRunningPod else { return }
+        let startRevision = agentStartRevision
+        let resultBefore = result
+        let settlementRevision = isBusy ? nil : operationRevision
+        var agentAnswered = false
+        do {
+            try await enforceLimits()
+            // A pod found stopped ends the polling, so a resolved error must clear here too.
+            guard hasRunningPod else { clearRefreshFailure(); return }
+            let currentStatus = try await provider.status(id: current.id)
+            try requireCurrentAgentStart(startRevision)
+            if !currentStatus.isRunning { freezePodCost() }
+            updateHourlyRate(currentStatus)
+            pod = currentStatus
+            persist()
+            guard hasRunningPod else { clearRefreshFailure(); return }
+            guard let agent else {
+                throw StudioError.message("Open Settings to restore this cloud GPU’s saved connection.")
+            }
+            if plan == nil {
+                let currentPlan = try await agent.plan()
+                try noteAgentReady(for: startRevision)
+                plan = currentPlan
+                let currentStorage = try? await agent.storageUsage()
+                try requireCurrentAgentStart(startRevision)
+                storage = currentStorage
+            }
+            let services = try await agent.services()
+            try noteAgentReady(for: startRevision)
+            updateCaptionServerState(services)
+            agentAnswered = true
+            if message.hasPrefix("Your cloud GPU is rented and its control agent is connecting.") {
+                message = "Your cloud GPU is connected and ready. "
+                    + "Its cost is visible below; you can stop it at any time."
+            }
+            let active = services.contains { $0.active && !["tensorboard", "vllm"].contains($0.name) }
+            if active { lastActivity = Date() }
+            updateTrainingService(services)
+            if !runID.isEmpty { try await updateProgress(agent, services: services) }
+            // A result created while this refresh was in flight is judged on the next one.
+            if settlementRevision == operationRevision, !isBusy, result == resultBefore { try await settleResult(
+                agent,
+                services: services
+            ) }
+            if settlementRevision == operationRevision,
+               !isBusy { try await settleGeneration(agent, services: services) }
+            startAutomaticReport()
+            clearRefreshFailure()
+        } catch is CancellationError {
+            return
+        } catch {
+            showRefreshFailure(error, for: startRevision)
+        }
+        // A failed agent/proxy request must not suppress the provider-level idle stop, but a
+        // finished LoRA that is neither pushed nor downloaded keeps the computer up, and so does a
+        // run the agent still answers for whose result has not been settled yet.
+        if startRevision == agentStartRevision, hasRunningPod, agentReadyAt != nil,
+           !keepsRunningWhenIdle, !isBusy, appWorkInFlight == 0, !resultNeedsSaving,
+           !(agentAnswered && resultUnsettled),
+           Date().timeIntervalSince(lastActivity) >= Double(idleMinutes * 60) {
+            await stopEverything()
+            if !hasRunningPod { message = "Stopped the idle cloud GPU to avoid further GPU charges." }
+        }
+    }
+
+    /// A reply from a previous pod or start cannot make its replacement ready.
+    func requireCurrentAgentStart(_ startRevision: Int) throws {
+        try Task.checkCancellation()
+        guard startRevision == agentStartRevision, hasRunningPod else { throw CancellationError() }
+    }
+
+    func noteAgentReady(for startRevision: Int) throws {
+        try requireCurrentAgentStart(startRevision)
+        if agentReadyAt == nil {
+            let ready = Date()
+            agentReadyAt = ready
+            lastActivity = ready
+            persist()
+        }
+    }
+
     func enforceLimits(now: Date = Date()) async throws {
         guard let saved, hasRunningPod else { return }
         elapsedCost = saved.accruedGPUCostUSD + max(0, now.timeIntervalSince(saved.started)) / 3600 * saved.hourlyRate
@@ -123,8 +205,8 @@ extension GPUWorkspace {
         noteActivity()
     }
 
-    func showRefreshFailure(_ error: any Error) {
-        guard !isBusy else { return }
+    func showRefreshFailure(_ error: any Error, for startRevision: Int) {
+        guard startRevision == agentStartRevision, !Task.isCancelled, !isBusy else { return }
         message = error.localizedDescription
         refreshFailureMessage = message
     }
@@ -184,5 +266,33 @@ extension GPUWorkspace {
                 : "Cloud GPU removed. Its disk was deleted with "
                 + lost.joined(separator: ", ") + "; separate saved storage remains in RunPod."
         }
+    }
+}
+
+extension GPUWorkspace {
+    private func updateProgress(_ agent: any PodAgent, services: [AgentService]) async throws {
+        if historyRunID != runID {
+            // TensorBoard is started by train(); after an agent restart it is down until started again.
+            if !services.contains(where: { $0.name == "tensorboard" && $0.active }) {
+                try? await agent.start("tensorboard", gpus: [], params: ["logdir": .string("/workspace/runs")])
+            }
+            // Retried on every refresh until the full curve arrives.
+            if let history = try? await agent.history(runID: runID), !history.isEmpty {
+                merge(history)
+                historyRunID = runID
+            }
+        }
+        if let point = try await agent.latest(runID: runID) { merge([point]) }
+        if let log = try? await agent.runLog(runID: runID) { logs = log }
+        persist()
+        saveProjectRecord()
+    }
+
+    private func merge(_ incoming: [TrainingPoint]) {
+        var byStep = Dictionary(points.map { ($0.step, $0) }, uniquingKeysWith: { first, _ in first })
+        for point in incoming {
+            byStep[point.step] = point
+        }
+        points = byStep.values.sorted { $0.step < $1.step }
     }
 }

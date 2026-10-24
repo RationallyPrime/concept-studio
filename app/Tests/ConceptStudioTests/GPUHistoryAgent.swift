@@ -17,6 +17,23 @@ actor HistoryAgent: PodAgent {
     private var pauseProgress = false
     private var progressWaiter: CheckedContinuation<Void, Never>?
     private var progressRelease: CheckedContinuation<Void, Never>?
+    private var pausePlan = false
+    private var planWaiter: CheckedContinuation<Void, Never>?
+    private var planRelease: CheckedContinuation<Void, Never>?
+
+    func pauseNextPlanRead() {
+        pausePlan = true
+    }
+
+    func waitForPausedPlanRead() async {
+        if planRelease != nil { return }
+        await withCheckedContinuation { planWaiter = $0 }
+    }
+
+    func releasePlanRead() {
+        planRelease?.resume()
+        planRelease = nil
+    }
 
     func pauseNextProgressRead() {
         pauseProgress = true
@@ -40,8 +57,16 @@ actor HistoryAgent: PodAgent {
         (0 ... 1).map { .init(index: $0, name: "Synthetic 80 GB GPU", memoryTotalMiB: 81920) }
     }
 
-    func plan() -> TrainingPlan {
-        TrainingPlan(mode: "concurrent", caption: .init(gpus: [0]), train: .init(gpus: [1]))
+    func plan() async -> TrainingPlan {
+        if pausePlan {
+            pausePlan = false
+            await withCheckedContinuation { continuation in
+                planRelease = continuation
+                planWaiter?.resume()
+                planWaiter = nil
+            }
+        }
+        return TrainingPlan(mode: "concurrent", caption: .init(gpus: [0]), train: .init(gpus: [1]))
     }
 
     func services() -> [AgentService] {

@@ -16,6 +16,7 @@ struct SavedPod: Codable {
     var runpodKey = ""
     var idleMinutes = 15
     var keepsRunningWhenIdle = false
+    var agentReadyAt: Date?
     var volumeID = ""
     /// The RunPod secret holding this pod's agent bearer; deleted when the pod is removed.
     var agentSecret = ""
@@ -47,6 +48,7 @@ extension SavedPod {
         runID = try values.decode(String.self, forKey: .runID)
         idleMinutes = try values.decodeIfPresent(Int.self, forKey: .idleMinutes) ?? 15
         keepsRunningWhenIdle = try values.decodeIfPresent(Bool.self, forKey: .keepsRunningWhenIdle) ?? false
+        agentReadyAt = try values.decodeIfPresent(Date.self, forKey: .agentReadyAt)
         volumeID = try values.decodeIfPresent(String.self, forKey: .volumeID) ?? ""
         agentSecret = try values.decodeIfPresent(String.self, forKey: .agentSecret) ?? ""
         hubTokenOnPod = try values.decodeIfPresent(Bool.self, forKey: .hubTokenOnPod) ?? true

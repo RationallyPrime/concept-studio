@@ -168,6 +168,12 @@ extension GPUJourneyView {
                 ), format: .number.grouping(.never))
                     .disabled(workspace.keepsRunningWhenIdle)
             }.formStyle(.columns)
+            if workspace.hasRunningPod, workspace.agentReadyAt == nil {
+                Text("Starting your cloud GPU. Idle timing begins when it is ready; "
+                    + "the spending limit still applies.")
+                    .font(.callout).foregroundStyle(StudioStyle.supportingText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if workspace.hasRunningPod {
                 Button("Raise spending limit…") { raiseBudget() }
                     .disabled((newBudget ?? 0) <= (workspace.activeBudget ?? workspace.budget))

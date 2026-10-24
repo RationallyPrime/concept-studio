@@ -199,7 +199,7 @@ struct GPUResultTests {
     func theAppsOwnWorkForTheComputerIsNotIdleTime() async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
-        let transport = UnreachableAgentTransport()
+        let transport = UnreachableAgentTransport(agentAvailable: true)
         let workspace = makeWorkspace(transport, preferences)
         try workspace.configure(runpodKey: "test", hubToken: "test", imageName: "test")
         await workspace.refreshOffers()
