@@ -80,7 +80,7 @@ final class GPUWorkspace {
     @ObservationIgnored let modelTable: ModelTable
     var trainer: String {
         didSet {
-            if oldValue != trainer {
+            if oldValue != trainer, modelTable.exact(trainer: trainer, baseModel: baseModel) == nil {
                 baseModel = modelTable.trainerDefault(trainer).modelRef
             }
         }

@@ -72,12 +72,14 @@ struct ModelTable: Sendable {
     }
 
     static let format = "conceptstudio-model-table"
-    static let version = 1
+    static let version = 2
 
     let defaultModelID: String
     let trainers: [Trainer]
     /// In table order: the picker order, the order of video formats and of names in messages.
-    let models: [ModelRow]
+    var models: [ModelRow] { pairings.filter { $0.trainer == $0.defaultTrainer } }
+    /// Derived model/trainer views. Model identity is declared once in the source table.
+    let pairings: [ModelRow]
 
     /// The bytes of the table bundled with the app.
     static func bundledData() throws -> Data {
@@ -113,8 +115,26 @@ struct ModelTable: Sendable {
             )
         }
         guard let rows = try root.raw("models").arrayValue else { throw ModelTableError("models must be a list") }
-        models = try rows.enumerated().map { index, row in
-            try ModelRow(TableObject(row, path: "models[\(index)]"))
+        pairings = try rows.enumerated().flatMap { index, value -> [ModelRow] in
+            let model = try TableObject(value, path: "models[\(index)]")
+            let settings = try model.child("trainers")
+            let defaultTrainer = try model.string("default_trainer")
+            guard settings.object[defaultTrainer] != nil else {
+                throw ModelTableError("\(model.path).default_trainer names no pairing")
+            }
+            return try settings.object.keys.map { trainer in
+                var projection = model.object
+                projection.removeValue(forKey: "trainers")
+                for (key, value) in try settings.child(trainer).object.pairs {
+                    guard projection[key] == nil else {
+                        throw ModelTableError("\(model.path).trainers.\(trainer).\(key) duplicates a model fact")
+                    }
+                    projection[key] = value
+                }
+                projection["trainer"] = .string(trainer)
+                projection["available_trainers"] = .array(settings.object.keys.map(JSONValue.string))
+                return try ModelRow(TableObject(.object(projection), path: "\(model.path).trainers.\(trainer)"))
+            }
         }
         try validate()
     }
@@ -129,11 +149,14 @@ struct ModelTable: Sendable {
             throw ModelTableError("default_model names no row")
         }
         for trainer in trainers {
-            guard let row = row(id: trainer.defaultModel), row.trainer == trainer.name else {
+            guard pairings.contains(where: { $0.id == trainer.defaultModel && $0.trainer == trainer.name }) else {
                 throw ModelTableError("trainers.\(trainer.name).default_model must name a row on that trainer")
             }
         }
-        for (index, row) in models.enumerated() {
+        for (index, row) in pairings.enumerated() {
+            guard trainers.contains(where: { $0.name == row.trainer }) else {
+                throw ModelTableError("unknown trainer \(row.trainer)")
+            }
             try row.validateTrainingAids(path: "models[\(index)]")
         }
     }
@@ -156,7 +179,7 @@ struct ModelTable: Sendable {
 
     /// The row for this trainer and base model, if the table has one (case-sensitive).
     func exact(trainer: String, baseModel: String) -> ModelRow? {
-        models.first { $0.trainer == trainer && $0.modelRef == baseModel }
+        pairings.first { $0.trainer == trainer && $0.modelRef == baseModel }
     }
 
     /// The exact row, else the trainer's default row; an unknown trainer uses the table's default model.
@@ -166,7 +189,13 @@ struct ModelTable: Sendable {
     }
 
     func trainerDefault(_ trainer: String) -> ModelRow {
-        trainers.first { $0.name == trainer }.flatMap { row(id: $0.defaultModel) } ?? defaultRow
+        trainers.first { $0.name == trainer }.flatMap { settings in
+            pairings.first { $0.id == settings.defaultModel && $0.trainer == trainer }
+        } ?? defaultRow
+    }
+
+    func pairings(modelRef: String) -> [ModelRow] {
+        pairings.filter { $0.modelRef == modelRef }
     }
 
     /// The precision a row saves checkpoints in: its own, else the default model's (LTX has none of its own).
@@ -203,11 +232,11 @@ struct ModelTable: Sendable {
     }
 
     func nativeRecipeRow(_ hook: ModelHooks.NativeRecipe) -> ModelRow? {
-        models.first { $0.hooks.nativeRecipe == hook }
+        pairings.first { $0.hooks.nativeRecipe == hook }
     }
 
     var nativeRecipeRows: [ModelRow] {
-        models.filter { $0.hooks.nativeRecipe != nil }
+        pairings.filter { $0.hooks.nativeRecipe != nil }
     }
 
     /// Titles of every profile the table names, in table order.

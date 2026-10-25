@@ -39,7 +39,7 @@ def trainer(paths: Paths, name: str) -> bool:
             entrypoints = [launcher["preprocess_script"](), launcher["train_script"]()]
         else:
             table = launcher["_TABLE"]
-            rows = table["models"](table["load"](paths.scripts / "model-table.json"))
+            rows = table["pair_rows"](table["load"](paths.scripts / "model-table.json"))
             architectures = {row["architecture"]["arch"] for row in rows if row["trainer"] == name}
             entrypoints = [
                 launcher["musubi_script"](architecture, task)

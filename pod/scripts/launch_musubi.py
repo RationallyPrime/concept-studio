@@ -804,7 +804,7 @@ def run_row(cfg: dict[str, Any]) -> dict[str, Any]:
     """The musubi row whose ``model_ref`` is run.json's ``base_model``; there is no custom model."""
     row = _TABLE["exact_row"](cfg["base_model"], TRAINER)
     if row is None:
-        names = [r["model_ref"] for r in _TABLE["models"]() if r["trainer"] == TRAINER]
+        names = [r["model_ref"] for r in _TABLE["pair_rows"]() if r["trainer"] == TRAINER]
         raise ConfigError("base_model: musubi-tuner trains " + ", ".join(names) + " only")
     return row
 

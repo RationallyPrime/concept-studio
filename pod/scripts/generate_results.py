@@ -493,7 +493,16 @@ def arch_generate(
     process = native["config"]["process"][0]
     if process["network"].get("type") != "lora":
         raise ValueError("Comparison requires a trained LoRA network")
-    model = ModelConfig(**process["model"])
+    model_values = dict(process["model"])
+    model_kwargs = dict(model_values.get("model_kwargs") or {})
+    sample_model = model_kwargs.pop("sample_model", None)
+    model_values["model_kwargs"] = model_kwargs
+    if sample_model is not None:
+        # The captured recipe declares inference weights separately from its training base.
+        # Krea 2 comparisons use Turbo, including its fixed schedule, with the trained network.
+        model_values.update(sample_model)
+        model_values["model_kwargs"] = {**model_kwargs, **sample_model.get("model_kwargs", {})}
+    model = ModelConfig(**model_values)
     cls = get_model_class(model)
     sd = cls(
         device="cuda:0",

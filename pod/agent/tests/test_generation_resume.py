@@ -362,3 +362,14 @@ def test_portable_source_cannot_claim_a_different_run_or_carry_credentials(setti
                 {**request(), "source": {"repo": "fixture/model", "config": config}},
                 settings.paths,
             )
+
+
+def test_multi_trainer_model_captures_recipe_for_requested_pair(settings):
+    paths = settings.paths
+    source, _ = saved_run(paths, model="krea/Krea-2-Raw")
+    native = {"config": {"process": [{"model": {"arch": "krea2"}, "network": {"type": "lora"}}]}}
+    (source / "native-config.json").write_text(json.dumps(native))
+    params = parse_params("generate-aitoolkit", request(), paths)
+    CATALOG["generate-aitoolkit"].prepare(params, paths)
+    captured = paths.run_dir("comparison-run") / "source-native-config.json"
+    assert json.loads(captured.read_text()) == native

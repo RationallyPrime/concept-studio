@@ -251,6 +251,17 @@ extension GPUWorkspace {
     func chooseTrainingModel(_ model: String) {
         guard !isBusy, !isTraining, model != baseModel else { return }
         let neededRow = modelTable.row(modelRef: model) ?? modelTable.defaultRow
+        chooseTrainingPair(neededRow)
+    }
+
+    /// Selects another recipe for the same model; saved runs retain their explicit trainer.
+    func chooseTrainingTrainer(_ selected: String) {
+        guard !isBusy, !isTraining, selected != trainer,
+              let row = modelTable.exact(trainer: selected, baseModel: baseModel) else { return }
+        chooseTrainingPair(row)
+    }
+
+    private func chooseTrainingPair(_ neededRow: ModelRow) {
         guard !hasRunningPod || trainer == neededRow.trainer else {
             message = "This cloud GPU has a different trainer. Stop and remove it before choosing this model."
             return
@@ -265,7 +276,7 @@ extension GPUWorkspace {
         let previousRow = effectiveModelRow
         let previous = previousRow.recipe
         trainer = neededRow.trainer
-        baseModel = model
+        baseModel = neededRow.modelRef
         nativeRecipe = nil
         nativeRecipeOriginal = nil
         initialCheckpoint = nil

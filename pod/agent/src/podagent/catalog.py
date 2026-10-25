@@ -991,9 +991,9 @@ def _model_table(paths: Paths) -> dict[str, Any]:
     return runpy.run_path(str(script))
 
 
-def _run_row(table: dict[str, Any], base_model: Any) -> dict[str, Any] | None:
-    """The row for a run.json's ``base_model``; ``model_ref`` is unique, so no trainer is needed."""
-    return table["exact_row"](base_model)
+def _run_row(table: dict[str, Any], base_model: Any, trainer: str) -> dict[str, Any] | None:
+    """Resolve the run's pairing, including its trainer-specific hooks."""
+    return table["exact_row"](base_model, trainer)
 
 
 def _row_hook(table: dict[str, Any], row: dict[str, Any] | None, concern: str) -> str | None:
@@ -1509,7 +1509,7 @@ _TRAINER_CONFIG_HOOKS: dict[str, Callable[[RunConfig, Paths, Path, dict[str, Any
 }
 
 
-def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
+def _trainer_prepare(params: ServiceParams, paths: Paths, *, trainer: str) -> None:
     """Create ``<runs>/<id>/`` (with ``tensorboard/``) and write ``run.json``, secrets stripped."""
     cfg = _as(params, RunConfig)
     run_dir = paths.run_dir(cfg.run_id)
@@ -1519,7 +1519,7 @@ def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
         if payload.get(key) is None:
             payload.pop(key, None)
     table = _model_table(paths)
-    config_hook = _row_hook(table, _run_row(table, cfg.base_model), "trainer_config")
+    config_hook = _row_hook(table, _run_row(table, cfg.base_model, trainer), "trainer_config")
     if config_hook is not None:
         _TRAINER_CONFIG_HOOKS[config_hook](cfg, paths, run_dir, payload)
     _prestart_cleanup(cfg, paths)
@@ -1534,7 +1534,7 @@ def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
         (run_dir / "dataset-manifest.json").write_text(manifest.read_text(), encoding="utf-8")
 
 
-def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
+def _generation_prepare(params: ServiceParams, paths: Paths, *, trainer: str) -> None:
     cfg = _as(params, GenerationParams)
     source, checkpoint = _generation_source(cfg, paths)
     _prestart_cleanup(cfg, paths)
@@ -1546,7 +1546,7 @@ def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
     # both selected inputs before launching either inference variant, not after base sampling.
     (run_dir / "source-run.json").write_text(json.dumps(source, indent=2) + "\n", encoding="utf-8")
     table = _model_table(paths)
-    generator = _row_hook(table, _run_row(table, source.get("base_model")), "generator")
+    generator = _row_hook(table, _run_row(table, source.get("base_model"), trainer), "generator")
     capture = _GENERATOR_HOOKS[generator].capture if generator is not None else None
     if capture is not None:
         if cfg.source is None:
@@ -1754,7 +1754,7 @@ CATALOG: dict[str, ServiceSpec] = {
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_trainer_prepare,
+        prepare=lambda params, paths: _trainer_prepare(params, paths, trainer="aitoolkit"),
         run_id=_params_run_id,
         available=lambda paths: availability.trainer(paths, "aitoolkit"),
     ),
@@ -1767,7 +1767,7 @@ CATALOG: dict[str, ServiceSpec] = {
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_trainer_prepare,
+        prepare=lambda params, paths: _trainer_prepare(params, paths, trainer="ltx"),
         run_id=_params_run_id,
         available=lambda paths: availability.trainer(paths, "ltx"),
     ),
@@ -1781,7 +1781,7 @@ CATALOG: dict[str, ServiceSpec] = {
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_trainer_prepare,
+        prepare=lambda params, paths: _trainer_prepare(params, paths, trainer="musubi"),
         run_id=_params_run_id,
         available=lambda paths: availability.trainer(paths, "musubi"),
     ),
@@ -1864,7 +1864,9 @@ for _trainer in ("aitoolkit", "ltx", "musubi"):
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_generation_prepare,
+        prepare=lambda params, paths, trainer=_trainer: _generation_prepare(
+            params, paths, trainer=trainer
+        ),
         run_id=_params_run_id,
         available=lambda paths, trainer=_trainer: availability.generation(paths, trainer),
     )
