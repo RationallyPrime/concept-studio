@@ -108,6 +108,42 @@ extension StudioSession {
         useCritic = false
     }
 
+    /// A new project starts with a connected account, rather than a previous project's temporary GPU.
+    /// Keep a remembered API provider when its key is configured; otherwise prefer enabled ChatGPT plan
+    /// access, then another configured API provider, and finally a configured custom server.
+    func loadConnectedCaptionChoices() async {
+        await chatGPT.load()
+        guard !Task.isCancelled else { return }
+        let planReady = chatGPTReady
+        let configured = ProviderChoices.kinds.filter { kind in
+            guard kind != "vllm" else { return false }
+            if kind == "openai", openAIUsesChatGPT { return planReady }
+            let account = String(kind.split(separator: "/").first ?? "")
+            return (try? secrets.read(account))?.isBlank == false
+        }
+        let selected = if configured.contains(endpointKind) {
+            endpointKind
+        } else if planReady {
+            "openai"
+        } else {
+            configured.first ?? (customBaseURL.isBlank ? ProviderChoices.defaultKind : "vllm")
+        }
+        let changedProvider = selected != endpointKind
+        endpointKind = selected
+        if selected == "openai", planReady, changedProvider || openAIUsesChatGPT {
+            openAIUsesChatGPT = true
+            if chatGPT.availableModels.isEmpty { await chatGPT.refreshModels() }
+            guard !Task.isCancelled else { return }
+            if !chatGPT.availableModels.contains(where: { $0.slug == modelName }) {
+                modelName = chatGPT.availableModels.first?.slug ?? ""
+            }
+        } else if changedProvider || modelName.isBlank {
+            modelName = defaultModel(for: selected)
+        }
+        criticKind = endpointKind
+        criticModel = modelName
+    }
+
     /// The default model for `kind` as this session sees it: for vllm, the remembered self-hosted model.
     func defaultModel(for kind: String) -> String {
         kind == "vllm" ? gpu.captionModel : ProviderChoices.defaultModel(for: kind)

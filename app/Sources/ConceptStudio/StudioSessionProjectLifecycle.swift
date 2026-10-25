@@ -92,6 +92,10 @@ extension StudioSession {
                 self.demoMode = false
                 self.loadSavedChoices()
                 self.gpu = self.makeGPUWorkspace(demoMode: false)
+                if !existing {
+                    await self.loadConnectedCaptionChoices()
+                    try Task.checkCancellation()
+                }
                 self.projectAccess = url
                 _ = url.startAccessingSecurityScopedResource()
                 self.project = opened

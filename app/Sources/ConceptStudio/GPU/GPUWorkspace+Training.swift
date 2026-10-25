@@ -258,7 +258,8 @@ extension GPUWorkspace {
     /// A Hub model name from the project folder: letters, digits, `-`, `_` and `.`, ending in `-lora`.
     nonisolated static func repoName(project: String) -> String {
         let allowed = Set("abcdefghijklmnopqrstuvwxyz0123456789-_.")
-        var cleaned = String(project.lowercased().map { allowed.contains($0) ? $0 : "-" }.prefix(80))
+        let latin = project.applyingTransform(StringTransform("Any-Latin; Latin-ASCII"), reverse: false) ?? project
+        var cleaned = String(latin.lowercased().map { allowed.contains($0) ? $0 : "-" }.prefix(80))
         while cleaned.contains("--") || cleaned.contains("..") {
             cleaned = cleaned.replacingOccurrences(of: "--", with: "-").replacingOccurrences(of: "..", with: ".")
         }
