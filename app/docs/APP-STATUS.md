@@ -39,7 +39,7 @@ open **Advanced: custom servers and training images**, enter an **SSH public key
 **Save preferences** before creating the pod. The images start SSH only when a key is supplied;
 without one, the agent starts as before. The server includes `rsync` and SFTP for file transfer.
 
-Verification: 493 app tests, 276 core tests, 823 agent tests and 394 script tests passed, along
+Verification: 493 app tests, 276 core tests, 823 agent tests and 406 script tests passed, along
 with the pinned formatting, lint and affected type checks. Independent review covered the
 implementation and repairs. A native synthetic-media walkthrough verified image and clip
 opening, playback, navigation, caption saving and the overlay layout. Real CPU containers
