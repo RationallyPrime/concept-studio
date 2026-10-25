@@ -318,6 +318,7 @@ struct CaptioningView: View {
         return VStack(alignment: .leading, spacing: 0) {
             TrainingTargetPreview(url: image.url, fill: true)
                 .frame(maxWidth: .infinity).frame(height: 160).clipped()
+                .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(session.project?.images ?? []))
             VStack(alignment: .leading, spacing: 6) {
                 Group {
                     if !partial.isEmpty {

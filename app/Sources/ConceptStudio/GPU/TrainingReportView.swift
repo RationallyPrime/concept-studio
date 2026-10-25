@@ -196,10 +196,22 @@ struct TrainingReportResultsView: View {
                             Text(report.runID).font(.caption)
                             if let sample = report.samples
                                 .first(where: { $0.promptID == prompt.id && $0.seed == seed }),
-                               let comparison = workspace.generations
-                                   .first(where: { $0.runID == sample.comparisonID }),
-                               let url = workspace.comparisonFile(sample.loraPath, in: comparison) {
-                                if url.pathExtension == "mp4" { GeneratedVideo(url: url) } else { PhotoView(url: url) }
+                                let comparison = workspace.generations
+                                .first(where: { $0.runID == sample.comparisonID }) {
+                                HStack(alignment: .top, spacing: 12) {
+                                    reportRender(
+                                        sample.basePath,
+                                        label: "Base model",
+                                        prompt: prompt.text,
+                                        comparison: comparison
+                                    )
+                                    reportRender(
+                                        sample.loraPath,
+                                        label: "With LoRA",
+                                        prompt: prompt.text,
+                                        comparison: comparison
+                                    )
+                                }
                                 ForEach(
                                     [sample.identity, sample.style, sample.adherence].compactMap(\.self).indices,
                                     id: \.self
@@ -210,10 +222,31 @@ struct TrainingReportResultsView: View {
                                     }
                                 }
                             } else { Text("Waiting for this output.").foregroundStyle(StudioStyle.supportingText) }
-                        }.frame(width: 240)
+                        }.frame(width: 480)
                     }
                 }
             }
         }.padding(.vertical, 12)
+    }
+
+    private func reportRender(
+        _ path: String, label: String, prompt: String, comparison: GeneratedComparison
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let url = workspace.comparisonFile(path, in: comparison) {
+                Group {
+                    if url.pathExtension == "mp4" { GeneratedVideo(url: url) } else { PhotoView(url: url) }
+                }
+                .frame(width: 228, height: 228)
+                .mediaViewerPreview(
+                    .render(url: url, title: label, prompt: prompt, source: comparison.sourceRunID),
+                    among: MediaViewerItem.comparison(comparison, workspace: workspace)
+                )
+            } else {
+                Text("This output is not downloaded.").foregroundStyle(StudioStyle.supportingText)
+                    .frame(width: 228, height: 228)
+            }
+            Text(label).font(.caption.weight(.semibold))
+        }
     }
 }

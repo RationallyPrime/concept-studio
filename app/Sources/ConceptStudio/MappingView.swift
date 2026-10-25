@@ -239,6 +239,7 @@ struct MappingView: View {
         VStack(alignment: .leading, spacing: 0) {
             photo(image).frame(width: photoSide, height: photoSide)
                 .background(InstantPrint.filterTrack)
+                .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(images))
             VStack(alignment: .leading, spacing: 6) {
                 Text(image.id).font(.system(size: 14, weight: .semibold)).foregroundStyle(InstantPrint.ink)
                     .lineLimit(1).truncationMode(.middle).textSelection(.enabled)

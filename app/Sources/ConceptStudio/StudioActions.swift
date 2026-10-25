@@ -90,7 +90,10 @@ extension StudioSession {
             )
             guard project?.images.contains(where: { $0.id == name }) != true else { return false }
             try Task.checkCancellation()
-            return try project?.importData(data, name: name) != nil
+            guard let id = try project?.importData(data, name: name) else { return false }
+            project?.mediaState.origins[id] = "Apple Photos"
+            try project?.save()
+            return true
         case let .video(file):
             let hash = try await VisionInspector.contentHash(fileURL: file)
             try Task.checkCancellation()
@@ -99,7 +102,10 @@ extension StudioSession {
                 suffix: file.pathExtension.lowercased()
             )
             guard project?.images.contains(where: { $0.id == name }) != true else { return false }
-            return try project?.importVideo(file, name: name) != nil
+            guard let id = try project?.importVideo(file, name: name) else { return false }
+            project?.mediaState.origins[id] = "Apple Photos"
+            try project?.save()
+            return true
         }
     }
 
@@ -132,6 +138,8 @@ extension StudioSession {
             try Task.checkCancellation()
             guard let name = try project?.importData(sample.data, name: sample.sampleID),
                   let project else { return }
+            self.project?.mediaState.origins[name] = "Hugging Face · \(location.repo)"
+            try self.project?.save()
             if let row = source.rows.first(where: { $0.fileName == sample.sampleID }),
                row.record != nil || row.caption != nil {
                 // A caption without its own record is kept as a model caption marked as imported;
@@ -438,7 +446,9 @@ extension StudioSession {
             }
             guard let project = self.project else { return }
             try await StudioProject.writeCaption(
-                id: id, text: text, final: final, imagesDirectory: project.imagesDirectory,
+                id: id, text: text, final: final,
+                imagesDirectory: project.allMedia.first { $0.id == id }?.url.deletingLastPathComponent()
+                    ?? project.imagesDirectory,
                 skill: project.skillName, profile: project.job.profile
             )
             self.project?.applySavedCaption(id: id, text: text, final: final)

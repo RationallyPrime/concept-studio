@@ -3,6 +3,8 @@ import Foundation
 
 struct ProjectMediaState: Codable {
     var selections: [String: MediaSelection] = [:]
+    /// Import provenance for the full-size viewer. Older projects have no recorded origin.
+    var origins: [String: String] = [:]
     /// Samples whose caption the user changed and saved without marking it final. App-only: the response
     /// record keeps the shared contract's two sources (model, human final).
     var editedCaptions: Set<String> = []
@@ -14,6 +16,7 @@ struct ProjectMediaState: Codable {
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        origins = try container.decodeIfPresent([String: String].self, forKey: .origins) ?? [:]
         selections = try container.decodeIfPresent([String: MediaSelection].self, forKey: .selections) ?? [:]
         editedCaptions = try container.decodeIfPresent(Set<String>.self, forKey: .editedCaptions) ?? []
         pendingUpscales = try container.decodeIfPresent([PendingUpscale].self, forKey: .pendingUpscales) ?? []

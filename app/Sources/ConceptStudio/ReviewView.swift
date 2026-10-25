@@ -18,9 +18,9 @@ extension FocusedValues {
 
 struct ReviewView: View {
     @Bindable var session: StudioSession
+    @Environment(\.openMediaViewer) private var openMediaViewer
     @State private var filter = ReviewFilter.all
     @State private var comparingImage: ProjectImage?
-    @State private var inspectedImage: ProjectImage?
     @State private var sideA = ComparisonChoice(kind: "", model: "")
     @State private var sideB = ComparisonChoice(kind: "", model: "")
     @State private var resultA = ""
@@ -122,20 +122,18 @@ struct ReviewView: View {
                     }
                 }
                 .scrollIndicators(.automatic)
+                .focusable()
+                .onKeyPress(.space) {
+                    guard let image = lead else { return .ignored }
+                    openViewer(image)
+                    return .handled
+                }
             }
         }
         .padding(.leading, 12).padding(.trailing, 18).padding(.top, 10)
         .background(InstantPrint.ground)
         .focusedSceneValue(\.captionSaveAction, saveAction)
         .sheet(item: $comparingImage) { image in comparisonSheet(for: image) }
-        .sheet(item: $inspectedImage) { image in
-            VStack(spacing: 12) {
-                TrainingTargetPreview(url: image.url).frame(minWidth: 560, minHeight: 560)
-                Text("The whole training target, as the trainer receives it.").font(.callout)
-                    .foregroundStyle(StudioStyle.supportingText)
-                Button("Done") { inspectedImage = nil }.keyboardShortcut(.defaultAction)
-            }.padding(20)
-        }
         .onAppear {
             if selection.isEmpty, let id = session.selectedImageID ?? images.first?.id {
                 session.reviewSelection = [id]
@@ -234,8 +232,16 @@ struct ReviewView: View {
             image: image, state: state(of: image), triggers: triggers, photoHeight: photoHeight,
             selected: selection.count > 1 && selection.contains(image.id)
         )
-        .onTapGesture { choose(image) }
+        .onTapGesture {
+            choose(image)
+            if !NSEvent.modifierFlags.contains(.command), !NSEvent.modifierFlags.contains(.shift) {
+                openViewer(image)
+            }
+        }
+        .focusable()
+        .onKeyPress(.space) { openViewer(image); return .handled }
         .contextMenu {
+            Button("View full size") { openViewer(image) }
             let excluded = state(of: image) == .excluded
             Button(excluded ? "Include in training" : "Exclude from training") {
                 session.includeMedia(image.id, included: excluded)
@@ -245,6 +251,10 @@ struct ReviewView: View {
             }
         }
         .accessibilityAddTraits(.isButton)
+    }
+
+    private func openViewer(_ image: ProjectImage) {
+        openMediaViewer(.project(image.id), among: MediaViewerItem.projects(shown))
     }
 
     /// Click opens a print; ⌘-click adds it to (or removes it from) a set to re-caption together.
@@ -269,8 +279,7 @@ struct ReviewView: View {
                 .frame(maxWidth: .infinity).frame(height: width * 0.656).clipped()
                 .opacity(excluded ? 0.55 : 1)
                 .overlay { if excluded { StrikeLine() } }
-                .onTapGesture(count: 2) { inspectedImage = image }
-                .help("Double-click to see the whole training target.")
+                .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(shown))
             Text(triggers.joined(separator: ", "))
                 .font(InstantPrint.display(size: 38 * width / 425)).tracking(3.5 * width / 425)
                 .foregroundStyle(InstantPrint.ink)
