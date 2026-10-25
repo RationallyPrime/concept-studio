@@ -5,8 +5,8 @@ import Testing
 
 @Suite("Comparisons after the training GPU is gone")
 struct PortableComparisonTests {
-    @MainActor @Test(arguments: [false, true])
-    func newVolumeUsesPublishedOrLocalWeights(local: Bool) async throws {
+    @MainActor @Test(arguments: [false, true], [false, true])
+    func missingWeightsUsePublishedOrLocalWeights(local: Bool, matchingVolume: Bool) async throws {
         let (preferences, suite) = try temporaryPreferences()
         defer { preferences.removePersistentDomain(forName: suite) }
         let project = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -21,15 +21,16 @@ struct PortableComparisonTests {
         )
         workspace.agent = agent
         workspace.hubToken = "fixture-token"
+        let originalVolume = matchingVolume ? "new-storage" : "deleted-storage"
         var run = TrainingRun(
             runID: "saved-run", trainer: "aitoolkit", datasetRepo: "fixture/data", datasetContainsVideo: false,
             paramsJSON: JSONValue.object([
                 "run_id": .string("saved-run"), "base_model": .string("black-forest-labs/FLUX.1-dev"),
                 "resolution": .int(512), "rank": .int(16),
             ]).pythonDumpsData(),
-            volumeID: "deleted-storage", startedAt: Date(), updatedAt: Date(),
+            volumeID: originalVolume, startedAt: Date(), updatedAt: Date(),
             result: TrainingResult(
-                runID: "saved-run", outputRepo: "fixture/lora", destination: .hub, volumeID: "deleted-storage",
+                runID: "saved-run", outputRepo: "fixture/lora", destination: .hub, volumeID: originalVolume,
                 state: .pushed(repo: "fixture/lora")
             ), podSpendAtStart: 0
         )
@@ -55,6 +56,6 @@ struct PortableComparisonTests {
             #expect(source["repo"]?.stringValue == "fixture/lora")
         }
         #expect(workspace.generation?.volumeID == "new-storage")
-        #expect(workspace.runHistory[0].volumeID == "deleted-storage")
+        #expect(workspace.runHistory[0].volumeID == run.volumeID)
     }
 }

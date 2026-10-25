@@ -241,6 +241,7 @@ struct GPUWalkthroughTests {
         )
         workspace.agent = agent
         if generation {
+            await agent.serve(["chosen.safetensors": Data("synthetic retained checkpoint".utf8)])
             let run = TrainingRun(
                 runID: "source", trainer: "aitoolkit", datasetRepo: "fixture/data", datasetContainsVideo: false,
                 paramsJSON: JSONValue.object(["base_model": .string("black-forest-labs/FLUX.1-dev")])

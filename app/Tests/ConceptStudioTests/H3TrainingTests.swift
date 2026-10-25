@@ -6,6 +6,7 @@ import Testing
 actor H3TestAgent: PodAgent {
     private(set) var starts: [HistoryAgent.Start] = []
     private(set) var uploads: [DatasetUploadAgent.Upload] = []
+    private var files: [RunFile] = []
     var memoryMiB = 97887
     var failsUpload = false
     var paused = false
@@ -77,7 +78,11 @@ actor H3TestAgent: PodAgent {
     }
 
     func runFiles(runID: String) -> [RunFile] {
-        []
+        files
+    }
+
+    func serveFiles(_ files: [RunFile]) {
+        self.files = files
     }
 
     func download(runID: String, path: String, to destination: URL) {}
@@ -287,13 +292,11 @@ struct H3TrainingTests {
             podSpendAtStart: 0
         )
         workspace.runHistory = [run]
+        let checkpoint = RunFile(path: "chosen.safetensors", size: 10, sha256: "synthetic")
+        await agent.serveFiles([checkpoint])
         await workspace.generateComparison(
             run: run,
-            checkpoint: .init(
-                path: "chosen.safetensors",
-                size: 10,
-                sha256: "synthetic"
-            ),
+            checkpoint: checkpoint,
             prompts: ["NORA7 synthetic figure"],
             seeds: [42],
             videoFrames: frames
