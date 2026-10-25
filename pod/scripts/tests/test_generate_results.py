@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import runpy
 import select
 import signal
 import subprocess
@@ -18,18 +19,28 @@ spec = importlib.util.spec_from_file_location(
 )
 generation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generation)
+publication = runpy.run_path(str(Path(__file__).parents[1] / "push_lora.py"))
 
 
-def test_published_source_fetches_exact_commit_without_original_storage(tmp_path, monkeypatch):
+def published_source(tmp_path, monkeypatch, weights, *, declared=None, card_run="source"):
     destination = tmp_path / "runs/comparison"
     destination.mkdir(parents=True)
     repo_files = tmp_path / "published"
     repo_files.mkdir()
     files = {
         "run.json": json.dumps({"run_id": "source", "base_model": "krea/Krea-2-Raw"}).encode(),
-        "output/final.safetensors": b"published synthetic LoRA",
         "config.yaml": b"job: extension\nconfig:\n  process: []\n",
+        **weights,
     }
+    if declared is not None:
+        files["README.md"] = publication["model_card"](
+            {"base_model": "krea/Krea-2-Raw"},
+            run_id=card_run,
+            weights=declared,
+            samples=0,
+            dataset={},
+            version="fixture",
+        ).encode()
     for name, contents in files.items():
         file = repo_files / name
         file.parent.mkdir(parents=True, exist_ok=True)
@@ -55,9 +66,19 @@ def test_published_source_fetches_exact_commit_without_original_storage(tmp_path
         "checkpoint": "published.safetensors",
         "source": {"repo": "fixture/lora", "config": {"base_model": "krea/Krea-2-Raw"}},
     }
+    return destination, request, files, calls
+
+
+def test_published_source_fetches_exact_commit_without_original_storage(tmp_path, monkeypatch):
+    destination, request, files, calls = published_source(
+        tmp_path,
+        monkeypatch,
+        {"output/source/source.safetensors": b"published synthetic LoRA"},
+        declared=["output/source/source.safetensors"],
+    )
     generation.fetch_published_source(request, destination)
     assert (destination / "selected-checkpoint.safetensors").read_bytes() == files[
-        "output/final.safetensors"
+        "output/source/source.safetensors"
     ]
     assert json.loads((destination / "source-native-config.json").read_text())["job"] == "extension"
     assert request["source_revision"] == "fixed-commit"
@@ -65,6 +86,114 @@ def test_published_source_fetches_exact_commit_without_original_storage(tmp_path
     request["source_run_id"] = "different-run"
     with pytest.raises(ValueError, match="different training run"):
         generation.fetch_published_source(request, destination)
+
+
+@pytest.mark.parametrize(
+    "declared",
+    [
+        ["output/source/source.safetensors"],
+        [
+            "output/source/source_000000250.safetensors",
+            "output/source/source_000000500.safetensors",
+            "output/source/source.safetensors",
+        ],
+        # A resumed checkpoint can be newer than the final file: reuse the publisher's order.
+        ["output/source/source.safetensors", "output/source/source_000000500.safetensors"],
+    ],
+)
+def test_published_source_uses_matching_publication_among_retained_runs(
+    tmp_path, monkeypatch, declared
+):
+    weights = {
+        "output/earlier/earlier.safetensors": b"earlier run",
+        "output/another/another.safetensors": b"another run",
+        "output/source/source_000000250.safetensors": b"first checkpoint",
+        "output/source/source_000000500.safetensors": b"resumed checkpoint",
+        "output/source/source.safetensors": b"final checkpoint",
+    }
+    destination, request, _, calls = published_source(
+        tmp_path, monkeypatch, weights, declared=declared
+    )
+    generation.fetch_published_source(request, destination)
+    assert (destination / "selected-checkpoint.safetensors").read_bytes() == weights[declared[-1]]
+    assert [name for _, name, _ in calls if name.endswith(".safetensors")] == [declared[-1]]
+    assert all(revision == "fixed-commit" for _, _, revision in calls)
+
+
+@pytest.mark.parametrize(
+    "selected", ["source/source_000000250.safetensors", "earlier/earlier.safetensors"]
+)
+def test_specific_published_checkpoint_must_belong_to_current_publication(
+    tmp_path, monkeypatch, selected
+):
+    destination, request, _, _ = published_source(
+        tmp_path,
+        monkeypatch,
+        {
+            "output/earlier/earlier.safetensors": b"earlier run",
+            "output/source/source_000000250.safetensors": b"first checkpoint",
+            "output/source/source.safetensors": b"final checkpoint",
+        },
+        declared=["output/source/source_000000250.safetensors", "output/source/source.safetensors"],
+    )
+    request["checkpoint"] = selected
+    if selected.startswith("earlier/"):
+        with pytest.raises(ValueError, match="not published for this run"):
+            generation.fetch_published_source(request, destination)
+        assert not (destination / "selected-checkpoint.safetensors").exists()
+    else:
+        generation.fetch_published_source(request, destination)
+        assert (destination / "selected-checkpoint.safetensors").read_bytes() == b"first checkpoint"
+
+
+@pytest.mark.parametrize(
+    "invalid", ["wrong-run", "missing-weight", "duplicate-weight", "edited-card"]
+)
+def test_published_source_refuses_mismatched_or_ambiguous_weight_declaration(
+    tmp_path, monkeypatch, invalid
+):
+    weight = "output/source/source.safetensors"
+    declared = [weight]
+    if invalid == "missing-weight":
+        declared = ["output/source/missing.safetensors"]
+    elif invalid == "duplicate-weight":
+        declared *= 2
+    destination, request, _, _ = published_source(
+        tmp_path,
+        monkeypatch,
+        {weight: b"final checkpoint"},
+        declared=declared,
+        card_run="earlier" if invalid == "wrong-run" else "source",
+    )
+    if invalid == "edited-card":
+        (tmp_path / "published/README.md").write_text("# source\n\nA custom model card.\n")
+    with pytest.raises(ValueError, match="Publish this run again"):
+        generation.fetch_published_source(request, destination)
+    assert not (destination / "selected-checkpoint.safetensors").exists()
+
+
+@pytest.mark.parametrize(
+    "weight", ["output/source/source.safetensors", "output/source.safetensors"]
+)
+def test_older_publication_without_card_uses_only_matching_run_weight(
+    tmp_path, monkeypatch, weight
+):
+    destination, request, _, _ = published_source(
+        tmp_path,
+        monkeypatch,
+        {weight: b"older published LoRA", "output/earlier.safetensors": b"earlier run"},
+    )
+    generation.fetch_published_source(request, destination)
+    assert (destination / "selected-checkpoint.safetensors").read_bytes() == b"older published LoRA"
+
+
+def test_no_card_never_uses_another_runs_only_weight(tmp_path, monkeypatch):
+    destination, request, _, _ = published_source(
+        tmp_path, monkeypatch, {"output/earlier.safetensors": b"earlier run"}
+    )
+    with pytest.raises(ValueError, match="Publish this run again"):
+        generation.fetch_published_source(request, destination)
+    assert not (destination / "selected-checkpoint.safetensors").exists()
 
 
 def test_inaccessible_published_source_has_actionable_error(tmp_path, monkeypatch):

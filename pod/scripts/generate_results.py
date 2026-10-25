@@ -104,18 +104,57 @@ def fetch_published_source(request: dict[str, Any], destination: Path) -> None:
             "base_model"
         ) != request["source"]["config"].get("base_model"):
             raise ValueError("The model repository now holds a different training run")
-        wanted = request["checkpoint"]
-        if wanted == "published.safetensors":
-            candidates = [name for name in names if name.endswith(".safetensors")]
+        run_id = request["source_run_id"]
+        if "README.md" in names:
+            # push_lora.model_card declares this commit's uploaded weights oldest first,
+            # exactly as select_weights selected them. Older runs' files can remain in the repo.
+            card = downloaded("README.md").read_text(encoding="utf-8")
+            title = re.search(r"^# (.+)$", card, re.MULTILINE)
+            sections = card.split("\n## Files\n\n")
+            candidates = (
+                re.findall(
+                    r"^- `([^`\r\n]+)` — LoRA weights$",
+                    sections[1].split("\n## ", 1)[0],
+                    re.MULTILINE,
+                )
+                if title is not None and title[1] == run_id and len(sections) == 2
+                else []
+            )
+            if (
+                not candidates
+                or len(set(candidates)) != len(candidates)
+                or any(
+                    name not in names or not name.endswith(".safetensors") for name in candidates
+                )
+            ):
+                raise ValueError(
+                    "The model card has no unambiguous weight list for this run. "
+                    "Publish this run again"
+                )
+        else:
+            # Older publications without a card can still identify the final AI Toolkit or
+            # musubi weight by this run's exact output name; never guess from other runs' files.
+            candidates = [
+                name
+                for name in (
+                    f"output/{run_id}/{run_id}.safetensors",
+                    f"output/{run_id}.safetensors",
+                )
+                if name in names
+            ]
             if len(candidates) != 1:
                 raise ValueError(
-                    "Choose a specific published checkpoint; the repository has several"
+                    "The published weight cannot be identified. Publish this run again"
                 )
-            wanted = candidates[0]
+        wanted = request["checkpoint"]
+        if wanted == "published.safetensors":
+            wanted = candidates[-1]
         else:
-            wanted = next((name for name in ("output/" + wanted, wanted) if name in names), "")
+            wanted = next((name for name in ("output/" + wanted, wanted) if name in candidates), "")
             if not wanted:
-                raise ValueError("This checkpoint was not published; choose the published LoRA")
+                raise ValueError(
+                    "This checkpoint was not published for this run; choose the published LoRA"
+                )
         shutil.copyfile(downloaded(wanted), destination / "selected-checkpoint.safetensors")
         if "native-config.json" in names:
             shutil.copyfile(
