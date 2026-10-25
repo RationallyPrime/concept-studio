@@ -135,7 +135,6 @@ struct ModelTable: Sendable {
                     projection[key] = value
                 }
                 projection["trainer"] = .string(trainer)
-                projection["available_trainers"] = .array(settings.object.keys.map(JSONValue.string))
                 return try ModelRow(TableObject(.object(projection), path: "\(model.path).trainers.\(trainer)"))
             }
         }

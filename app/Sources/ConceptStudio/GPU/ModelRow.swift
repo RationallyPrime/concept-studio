@@ -182,7 +182,6 @@ struct ModelRow: Sendable, Identifiable, Equatable {
     let shortName: String
     let trainer: String
     let defaultTrainer: String
-    let availableTrainers: [String]
     let modelRef: String
     let source: Source
     let architecture: Architecture
@@ -346,7 +345,6 @@ extension ModelRow {
         shortName = try row.string("short_name")
         trainer = try row.string("trainer")
         defaultTrainer = try row.string("default_trainer")
-        availableTrainers = try row.strings("available_trainers")
         modelRef = try row.string("model_ref")
         source = try Source(row.child("source"))
         architecture = try Architecture(row.child("architecture"))
