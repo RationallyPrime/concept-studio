@@ -18,7 +18,7 @@ images/    Dockerfile.base (CUDA + agent + concept-captioner), Dockerfile.aitool
            Dockerfile.ltx, Dockerfile.musubi (trainers layered on base), Dockerfile.captioning
            (vLLM on top of a trainer image, its `-captioning` tag), Dockerfile.fake +
            compose.fake.yaml (no GPU),
-           entrypoint.sh (starts the agent and nothing else).
+           entrypoint.sh (starts the agent, plus key-only SSH when PUBLIC_KEY is provided).
 scripts/   pull_dataset.py (Hub dataset -> /workspace/datasets/<name>), push_lora.py (run ->
            model repo), launch_aitoolkit.py / launch_ltx.py / launch_musubi.py (run.json -> native
            trainer config).

@@ -102,6 +102,7 @@ extension StudioSession {
         customBaseURL = preferences.string(forKey: "vllmBaseURL") ?? ""
         loadPodImageChoice()
         volumeID = preferences.string(forKey: "volumeID") ?? ""
+        sshPublicKey = preferences.string(forKey: PodSSH.preferenceKey) ?? ""
         requestBaseURL = ""
         criticRequestBaseURL = ""
         usingPodCaptioner = false
@@ -372,7 +373,8 @@ extension StudioSession {
                 diagnosticsToken: keyStore.read("logfire") ?? "",
                 imageName: podImageName,
                 networkVolumeID: volumeID.isEmpty ? nil : volumeID,
-                hubOAuthToken: hub.oauthToken
+                hubOAuthToken: hub.oauthToken,
+                sshPublicKey: sshPublicKey
             )
         } catch { errorMessage = Self.describe(error) }
     }

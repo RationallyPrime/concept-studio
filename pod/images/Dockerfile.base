@@ -67,6 +67,7 @@ ENV LANG=C.UTF-8 \
 #   libgl1, libglib2.0-0       : opencv-python, which both trainers pull in
 #   tini                       : PID 1 in the container (entrypoint.sh); reaps the orphans the
 #                                supervisor's process-group bookkeeping depends on
+#   openssh-server, rsync       : optional key-authenticated shell and direct file transfers
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
@@ -77,7 +78,10 @@ RUN apt-get update \
       libgl1 \
       libglib2.0-0 \
       tini \
- && rm -rf /var/lib/apt/lists/*
+      openssh-server \
+      rsync \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /etc/ssh/ssh_host_*
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
@@ -155,7 +159,7 @@ WORKDIR /workspace
 
 # 8800 agent: the public HTTP port (the captioning variant adds 8000, vLLM). TensorBoard is behind
 # /tensorboard/.
-EXPOSE 8800
+EXPOSE 8800 22
 
-# Starts the agent and nothing else (POD-SPEC §6.2). Services are started by the app through it.
+# Starts the agent, plus key-only SSH when PUBLIC_KEY is supplied. GPU services remain app-started.
 ENTRYPOINT ["/opt/pod/entrypoint.sh"]

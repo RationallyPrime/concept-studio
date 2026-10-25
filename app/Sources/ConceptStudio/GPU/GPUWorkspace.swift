@@ -194,6 +194,7 @@ final class GPUWorkspace {
     /// A Logfire write token; pods rented while it is set trace to that project (pod/agent telemetry.py).
     var diagnosticsToken = ""
     @ObservationIgnored var imageName = ""
+    @ObservationIgnored var sshPublicKey = ""
     @ObservationIgnored var saved: SavedPod?
     @ObservationIgnored var lastActivity = Date()
     /// The status line a failed refresh wrote; the next refresh that succeeds clears it.
@@ -275,14 +276,17 @@ final class GPUWorkspace {
 
     func configure(
         runpodKey: String, hubToken: String, diagnosticsToken: String = "", imageName: String,
-        networkVolumeID: String? = nil, hubOAuthToken: (@Sendable () async throws -> String)? = nil
+        networkVolumeID: String? = nil, hubOAuthToken: (@Sendable () async throws -> String)? = nil,
+        sshPublicKey: String = ""
     ) throws {
         guard !demoMode else { return }
+        let publicKey = try PodSSH.publicKey(sshPublicKey)
         provider = runpodKey.isEmpty ? nil : RunPodProvider(key: runpodKey, transport: transport)
         self.hubToken = hubToken
         self.hubOAuthToken = hubOAuthToken
         self.diagnosticsToken = diagnosticsToken
         self.imageName = imageName
+        self.sshPublicKey = publicKey
         if let networkVolumeID, !prefersNoSavedStorage { selectedVolume = networkVolumeID }
         if result == nil, let data = preferences.data(forKey: Self.pendingResultKey) {
             result = try? JSONDecoder().decode(TrainingResult.self, from: data)

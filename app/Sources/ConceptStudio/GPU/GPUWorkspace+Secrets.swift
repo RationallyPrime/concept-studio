@@ -69,6 +69,7 @@ extension GPUWorkspace {
     ) async throws -> RentedPod {
         do {
             var env = credentials.env
+            if !sshPublicKey.isEmpty { env["PUBLIC_KEY"] = sshPublicKey }
             env["PODAGENT_WORKSPACE_BYTES"] = String(Int64(volume?.size ?? RunPodProvider.podDiskGB) * 1_000_000_000)
             return try await provider.create(PodCreation(
                 name: PodNaming.name(project: projectFolder?.lastPathComponent ?? ""),

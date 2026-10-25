@@ -468,6 +468,9 @@ drive the fake services (POD-SPEC §3, §6.3) and is not a stand-in for the CUDA
 HTTP ports `8800,8000` exposed, `PODAGENT_TOKEN` (16+ characters) and `HF_TOKEN` as env, the
 volume at `/workspace`, a trainer image, and a CUDA 13.0+ host for the trainer images. The agent
 refuses to start without the token, so a pod created without it exits immediately and visibly.
+The app also exposes `22/tcp`. An optional SSH public key from Settings is sent as `PUBLIC_KEY`;
+the entrypoint then starts key-only SSH, and `rsync` is installed for direct transfers. Without
+a public key, startup runs only the agent. Private SSH keys never enter the image or pod.
 `nvidia-smi` is not in the image: the NVIDIA container runtime mounts it (the base sets
 `NVIDIA_DRIVER_CAPABILITIES=compute,utility`), which is how `/gpus` reads the inventory.
 

@@ -83,7 +83,7 @@ def test_only_authenticated_service_ports_are_published() -> None:
 def test_fake_image_exposes_the_same_ports() -> None:
     exposed = re.search(r"^EXPOSE\s+(.+)$", DOCKERFILE.read_text(), re.MULTILINE)
     assert exposed is not None
-    assert {int(p) for p in exposed.group(1).split()} == set(HTTP_PORTS)
+    assert {int(p) for p in exposed.group(1).split()} == {*HTTP_PORTS, 22}
 
 
 def _copy_sources(dockerfile: Path) -> list[str]:

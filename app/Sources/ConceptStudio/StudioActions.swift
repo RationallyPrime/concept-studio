@@ -494,6 +494,7 @@ extension StudioSession {
             "vllmBaseURL": customBaseURL,
             "podImage": podImageName,
             "volumeID": volumeID,
+            PodSSH.preferenceKey: sshPublicKey,
         ] {
             preferences.set(value, forKey: key)
         }

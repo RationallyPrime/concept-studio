@@ -394,6 +394,15 @@ extension StudioSettingsView {
                 TextField("Saved storage ID", text: $session.volumeID, prompt: Text("Optional"))
                     .help("An existing persistent storage volume (a RunPod network volume) in the data center "
                         + "used for a rental.")
+                TextField(
+                    "SSH public key",
+                    text: $session.sshPublicKey,
+                    prompt: Text("Optional · id_ed25519.pub"),
+                    axis: .vertical
+                )
+                .lineLimit(2 ... 4)
+                .help("Enables direct SSH and rsync on newly rented GPUs. Paste your public .pub key; "
+                    + "the private key stays on this Mac. Leave blank to keep SSH off.")
                 SecureField(
                     "Diagnostics token",
                     text: $diagnosticsToken,

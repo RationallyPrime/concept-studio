@@ -1446,17 +1446,35 @@ off, no secrets at build time, `HF_HOME` not baked (it points into `/workspace` 
 
 1. `mkdir -p /workspace/{datasets,runs,models/hf-cache,logs}`
 2. `export HF_HOME=/workspace/models/hf-cache`
-3. `exec tini -s -- /opt/venvs/agent/bin/python -m podagent --host 0.0.0.0 --port 8800`
+3. When `PUBLIC_KEY` is nonempty, write `/root/.ssh/authorized_keys` (directory 0700, file 0600),
+   validate it, generate missing host keys and start `sshd` on port 22. Authentication is public-key
+   only, using that authorized-keys file for root. Password and keyboard-interactive login are disabled.
+4. `exec tini -s -- /opt/venvs/agent/bin/python -m podagent --host 0.0.0.0 --port 8800`
 
-Nothing else: no sshd, no Jupyter, no service autostart. The agent refuses to start without
+No key means no SSH daemon. There is no Jupyter or GPU service autostart. The agent refuses to start without
 `PODAGENT_TOKEN`, so a pod created without the env var exits immediately, visibly.
 
 `tini` (apt package, on the fake image too) is PID 1 and a subreaper (`-s`); the agent is its
-only child. The supervisor's GPU bookkeeping follows process groups and probes them with
+primary child, alongside the optional daemonised SSH process. The supervisor's GPU bookkeeping follows process groups and probes them with
 `killpg(pgid, 0)`, which stays true while any member exists, zombies included: the orphans a
 crashed launch wrapper or vLLM API server leaves behind must be reaped by init, or their GPUs
 would stay booked until the container restarts. The agent does not reap with `waitpid(-1)`
 itself (that would make `Popen` lose its children's exit codes). `tini` forwards SIGTERM.
+
+Every production image and the fake image include OpenSSH and `rsync`. Host keys are removed
+at image build time and generated for each container on boot. The app always requests `22/tcp`
+alongside `8800/http` and `8000/http`. Settings → Advanced → SSH public key is optional and
+stored as public text in this Mac's preferences; a configured key is sent as `PUBLIC_KEY` for
+new rentals. The private key stays on the Mac. To transfer files, use the full SSH host and
+mapped TCP port in RunPod's Connect panel, for example:
+
+```sh
+rsync -av -e 'ssh -p MAPPED_PORT -i ~/.ssh/id_ed25519' root@POD_IP:/workspace/runs/RUN_ID/ ./saved-run/
+```
+
+This uses RunPod's [full SSH connection](https://docs.runpod.io/pods/configuration/use-ssh#full-ssh-via-public-ip-with-key-authentication),
+which supports file transfers. The basic `ssh.runpod.io` terminal proxy does not provide the
+full SSH transport needed for `rsync`.
 
 ### 6.3 Compose (`images/compose.fake.yaml`)
 

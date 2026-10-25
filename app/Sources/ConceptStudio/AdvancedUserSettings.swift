@@ -8,6 +8,7 @@ extension StudioSession {
         if !customBaseURL.isEmpty { values.append("Custom caption server: \(customBaseURL)") }
         if !podImageName.isEmpty { values.append("Training image: \(podImageName)") }
         if !volumeID.isEmpty { values.append("Saved storage: \(volumeID)") }
+        if !sshPublicKey.isEmpty { values.append("SSH access enabled for new cloud GPUs") }
         return values
     }
 
