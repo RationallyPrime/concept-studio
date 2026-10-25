@@ -57,13 +57,24 @@ private struct MediaViewerPreview: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .contentShape(Rectangle())
-            .onTapGesture { open(item, among: items) }
+            .allowsHitTesting(false)
+            .overlay {
+                Color.clear.contentShape(Rectangle()).onTapGesture { open(item, among: items) }
+            }
             .focusable()
             .onKeyPress(.space) { open(item, among: items); return .handled }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityLabel)
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: "Open full-size viewer") { open(item, among: items) }
             .help("Click or press Space to view full size. Use arrow keys to browse and Esc to close.")
+    }
+
+    private var accessibilityLabel: String {
+        switch item {
+        case let .project(id): id
+        case let .render(_, title, _, _): title
+        }
     }
 }
 
