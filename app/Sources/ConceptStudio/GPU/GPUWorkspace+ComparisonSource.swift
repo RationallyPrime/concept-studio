@@ -17,7 +17,7 @@ extension GPUWorkspace {
                 ]),
                     values.isRegularFile == true, values.isSymbolicLink != true,
                     file.resolvingSymlinksInPath().path.hasPrefix(folder.path + "/") else { continue }
-                let path = String(file.path.dropFirst(folder.path.count + 1))
+                let path = String(file.resolvingSymlinksInPath().path.dropFirst(folder.path.count + 1))
                 if !files.contains(where: { $0.path == path }) {
                     files.append(RunFile(path: path, size: values.fileSize ?? 0, sha256: ""))
                 }
