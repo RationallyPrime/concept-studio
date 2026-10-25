@@ -61,7 +61,7 @@ cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <key>LSItemContentTypes</key><array><string>public.folder</string></array>
 <key>LSHandlerRank</key><string>Alternate</string>
 </dict></array>
-<key>CFBundleShortVersionString</key><string>0.4.0</string>
+<key>CFBundleShortVersionString</key><string>0.4.1</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
 <key>NSHighResolutionCapable</key><true/>

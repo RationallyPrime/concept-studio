@@ -18,30 +18,57 @@ names a **hook** (see [Hooks](#hooks)). Code may still branch on the trainer (`a
 ```json
 {
   "format": "conceptstudio-model-table",
-  "version": 1,
+  "version": 2,
   "default_model": "flux1-dev",
   "trainers": { "aitoolkit": {...}, "ltx": {...}, "musubi": {...} },
-  "models": [ row, row, ... ]
+  "models": [{
+    "id": "krea2",
+    "model_ref": "krea/Krea-2-Raw",
+    "display_name": "Krea 2 (raw)",
+    "source": {...}, "license": {...}, "captions": {...}, "video": null,
+    "default_trainer": "musubi",
+    "trainers": { "musubi": { ...recipe... }, "aitoolkit": { ...recipe... } }
+  }, ...]
 }
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `format`, `version` | `conceptstudio-model-table`, `1`. |
+| `format`, `version` | `conceptstudio-model-table`, `2`. |
 | `default_model` | Row id a new project and an unknown caption profile start with. |
 | `trainers.<name>.min_cuda` | Lowest host CUDA the trainer image needs, as `major.minor`. |
 | `trainers.<name>.default_model` | Row selected when the trainer changes, and the row a custom base model on that trainer borrows its defaults from. |
 | `trainers.<name>.resume` | `false`: runs on this trainer cannot be continued from a checkpoint. The app shows no Continue action for them and the agent refuses `resume: true` (musubi-tuner restarts its step counter on `--resume`). |
 | `models` | Rows. Order is the picker order, the order of video formats in the media editor, the order of names in messages and the order of family matching. |
 
-Every row field is required unless marked optional; `null` is written where a field does not
+Model identity is declared once. `model_ref` and `id` are unique. `default_trainer` must name
+one of the model's `trainers`, whose keys name entries in the top-level trainer table. A model
+with one trainer has no trainer picker; a model with several starts on its default and shows
+a trainer choice. Recipe status, memory floor, regularisation, training length, generation and
+reports follow that pairing. Selecting another trainer preserves explicitly edited settings.
+
+The **model fields** are `id`, `display_name`, `short_name`, `model_ref`, `source`, `video`,
+`captions`, `selection`, `license`, `usage_note`, `default_trainer` and `trainers`.
+The remaining fields below live inside `models[i].trainers[trainer]`, including recipe status,
+architecture, GPU requirements, previews, hooks, regularisation and transforms. A pairing cannot
+redeclare a model field. The top-level trainer table holds CUDA and Resume capability.
+
+The app's `ModelRow` and pod's `exact_row` expose a derived view combining one model with one
+trainer's settings. These projections are not additional declarations in the file. `models`
+returns one default-trainer view per model; `pairings` / `pair_rows` enumerate every pairing.
+
+Saved runs keep their existing format and recorded trainer. Both readers resolve `base_model`
+plus trainer, so earlier musubi Krea runs keep their musubi recipe after AI Toolkit is added.
+The app and every pod image must be released together for table version 2.
+
+Every field is required unless marked optional; `null` is written where a field does not
 apply.
 
 | Row field | Meaning |
 | --- | --- |
 | `id` | Row id, used inside the table. |
 | `display_name`, `short_name` | Names in pickers and messages (`FLUX.1-dev` / `FLUX`). |
-| `trainer` | `aitoolkit`, `ltx` or `musubi` (kohya-ss musubi-tuner). |
+| `default_trainer`, `trainers` | Default trainer key and settings keyed by each supported trainer. |
 | `model_ref` | The `base_model` value in run.json, a Hub id. Unique across the table. |
 | `source.revision` | Pinned Hub revision, or `null` when the trainer resolves the name itself. |
 | `source.weight_repos` | Optional. Other Hub repos the trainer downloads this model's weights from (a repack). With an unpinned revision, cached regularisation images are keyed by the current commit of each. |
@@ -77,6 +104,23 @@ apply.
 
 Readers keep the order of `architecture.model_extra` and `trainer_options.run_extra`: use an
 order-preserving parser (the app uses `JSONValue(parsing:)`).
+
+### Krea 2 on two trainers
+
+Krea 2 retains musubi-tuner as its default and its measured recipe unchanged. Its AI Toolkit
+pairing is **unverified** until the owner compares an in-app run against the musubi run. Both
+pairings stay available after that comparison. AI Toolkit starts with generated regularisation
+on: 40 class images from base Krea 2 Raw, weight 1.0. The comparison recipe keeps rank/alpha 32,
+AdamW at 1e-4, a constant schedule, 1024 px, 1600 steps and zero caption dropout.
+
+`trainer_options.sample_model` declares the inference model and its `model_kwargs`. The
+launcher captures it in `model.model_kwargs.sample_model`, and sets training samples from
+`preview.generation`. For Krea 2 this is Turbo at 8 steps, guidance 1 (the Krea class subtracts
+1, so CFG is off), and fixed `schedule_mu: 1.15`. Comparisons use those captured inference
+weights with the trained LoRA. A local patch swaps the frozen base tensors for training-time
+samples, preserves parameter objects and restores the exact Raw tensors in `finally`.
+Regularisation loads Raw independently and uses its normal schedule. These source and offline
+checks do not establish completed GPU training or comparison quality.
 
 ### Trainer settings
 
@@ -231,6 +275,7 @@ prior-preservation mode. “Not possible” below describes those pins, not an i
 | `hidream-o1` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
 | `prx-pixel` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
 | `iris3b` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
+| `krea2` | aitoolkit | offered | On; 40 Raw class stills, 40 generation steps, weight 1. Pairing unverified. |
 | `krea2` | musubi | not possible | Pinned trainer has no separate class/prior-preservation loss or class-loss weight. |
 | `boogu-image` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
 | `flex2` | aitoolkit | own images only | Native AI Toolkit class loss; automatic generation is not connected for this row. |
@@ -315,23 +360,26 @@ must be a musubi row's `model_ref`.
 ## Advanced user recipes
 
 `recipe_status` is `verified` for recipes measured end to end (Krea 2 on musubi-tuner among them)
-and `unverified` for recipes copied from AI Toolkit's pinned UI. The app offers unverified rows only while Settings → Advanced user
-is on. Turning it off retains the selected model and all edited values; each affected screen
+and `unverified` for recipes copied from AI Toolkit's pinned UI. The app offers models whose default recipe is unverified only while Settings → Advanced user
+is on. An existing model with several trainers shows each trainer and its recipe status; the
+Krea 2 AI Toolkit pairing remains selectable with its unverified warning. Turning it off retains the selected model and all edited values; each affected screen
 reports the overrides still in force. `training_notice` is an optional visible sentence about
 the upstream issue check. An unverified recipe is not a measured training or quality result.
 
-Unverified rows use per-architecture defaults from the `ui.tsx` registrations at
+The additional AI Toolkit-only model recipes use per-architecture defaults from the `ui.tsx` registrations at
 `AI_TOOLKIT_COMMIT`, layered over `ui/src/app/jobs/new/jobConfig.ts`. `trainer_options.dataset`
 contains dataset defaults; the launcher merges them into each runtime dataset without replacing
 its path or chosen resolutions. `trainer_options.process` supplies the remaining native defaults;
-explicit run settings still win. Samples and comparison stay unavailable until verified.
+explicit run settings still win. Their samples and comparisons stay unavailable until connected.
+Krea 2 is the explicit second-trainer recipe described above, with Turbo rendering connected
+while its training recipe remains unverified.
 
 Their download size is the Hub repository file-size total (including alternate formats), not a
 measured first download. Model-specific dependencies can add files. GPU floors are conservative
 allocations, not evidence that the recipe fits; the pod checks its actual memory before upload.
 
-New rows require rebuilding the pod image before they can train. This change does not rebuild
-or publish images and does not run rented-GPU smoke tests.
+New pairings require rebuilding the pod image before they can train. Recipe status is independent
+of image publication and GPU acceptance.
 
 Models a strictly better successor has replaced get no row (owner decision, 2026-10-14):
 Qwen-Image and Qwen-Image-2512 (Qwen-Image-2.1), Qwen-Image-Edit, -2509 and -2511, Wan 2.1,

@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000004 Mon Sep 17 00:00:00 2001
+From: ConceptStudio <pod@concept-captioner.invalid>
+Date: Sun, 25 Oct 2026 00:00:00 +0000
+Subject: [PATCH] Krea 2 sample on explicit inference weights and restore training base
+
+Training remains on Raw; the model table supplies Turbo sampling weights and its fixed schedule. Preserve parameter identities and restore base tensors on failure.
+
+diff --git a/extensions_built_in/diffusion_models/krea2/krea2.py b/extensions_built_in/diffusion_models/krea2/krea2.py
+--- a/extensions_built_in/diffusion_models/krea2/krea2.py
++++ b/extensions_built_in/diffusion_models/krea2/krea2.py
+@@ -409,6 +409,32 @@
+     # ------------------------------------------------------------------
+     def get_generation_pipeline(self):
+         return Krea2Pipeline(self)
++    def generate_images(self, image_configs, sampler=None, pipeline=None):
++        sample = self.model_config.model_kwargs.get("sample_model")
++        if sample is None:
++            return super().generate_images(image_configs, sampler=sampler, pipeline=pipeline)
++        if self.model_config.quantize:
++            raise ValueError("Krea 2 sampling on another base requires unquantized weights")
++        # Copy into existing parameters: LoRA hooks and optimizer references stay attached.
++        # Only frozen base tensors change. Restore the exact training state even on failure.
++        transformer = unwrap_model(self.transformer)
++        training = {key: value.detach().to("cpu", copy=True)
++                    for key, value in transformer.state_dict().items()}
++        model_kwargs = self.model_config.model_kwargs
++        weights = _load_mmdit_state_dict(
++            sample["name_or_path"], sample.get("checkpoint_filename")
++        )
++        try:
++            transformer.load_state_dict(weights, strict=True)
++            del weights
++            self.model_config.model_kwargs = {**model_kwargs, **sample.get("model_kwargs", {})}
++            return super().generate_images(image_configs, sampler=sampler, pipeline=pipeline)
++        finally:
++            transformer.load_state_dict(training, strict=True)
++            self.model_config.model_kwargs = model_kwargs
++            del training
++            flush()
++
+ 
+     def generate_single_image(
+         self,

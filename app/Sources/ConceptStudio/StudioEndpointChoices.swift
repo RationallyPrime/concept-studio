@@ -58,7 +58,7 @@ enum ProviderChoices {
 @MainActor
 extension StudioSession {
     static let defaultPodImageName =
-        "ghcr.io/rationallyprime/concept-captioner-pod-{trainer}:v0.3.14-20261024"
+        "ghcr.io/rationallyprime/concept-captioner-pod-{trainer}:v0.3.16-20261025"
 
     /// Builds before 2026-10-12 saved the shipped default image as the training-image preference,
     /// where it read as a manual override. Once per install, a stored value that is exactly such a
@@ -102,10 +102,48 @@ extension StudioSession {
         customBaseURL = preferences.string(forKey: "vllmBaseURL") ?? ""
         loadPodImageChoice()
         volumeID = preferences.string(forKey: "volumeID") ?? ""
+        sshPublicKey = preferences.string(forKey: PodSSH.preferenceKey) ?? ""
         requestBaseURL = ""
         criticRequestBaseURL = ""
         usingPodCaptioner = false
         useCritic = false
+    }
+
+    /// A new project starts with a connected account, rather than a previous project's temporary GPU.
+    /// Keep a remembered API provider when its key is configured; otherwise prefer enabled ChatGPT plan
+    /// access, then another configured API provider, and finally a configured custom server.
+    func loadConnectedCaptionChoices() async {
+        await chatGPT.load()
+        guard !Task.isCancelled else { return }
+        let planReady = chatGPTReady
+        let configured = ProviderChoices.kinds.filter { kind in
+            guard kind != "vllm" else { return false }
+            if kind == "openai", openAIUsesChatGPT { return planReady }
+            let account = String(kind.split(separator: "/").first ?? "")
+            return (try? secrets.read(account))?.isBlank == false
+        }
+        let selected = if configured.contains(endpointKind) {
+            endpointKind
+        } else if planReady {
+            "openai"
+        } else {
+            configured.first ?? (customBaseURL.isBlank ? ProviderChoices.defaultKind : "vllm")
+        }
+        let changedProvider = selected != endpointKind
+        endpointKind = selected
+        if selected == "openai", planReady,
+           changedProvider || openAIUsesChatGPT || !configured.contains("openai") {
+            openAIUsesChatGPT = true
+            if chatGPT.availableModels.isEmpty { await chatGPT.refreshModels() }
+            guard !Task.isCancelled else { return }
+            if !chatGPT.availableModels.contains(where: { $0.slug == modelName }) {
+                modelName = chatGPT.availableModels.first?.slug ?? ""
+            }
+        } else if changedProvider || modelName.isBlank {
+            modelName = defaultModel(for: selected)
+        }
+        criticKind = endpointKind
+        criticModel = modelName
     }
 
     /// The default model for `kind` as this session sees it: for vllm, the remembered self-hosted model.
@@ -335,7 +373,8 @@ extension StudioSession {
                 diagnosticsToken: keyStore.read("logfire") ?? "",
                 imageName: podImageName,
                 networkVolumeID: volumeID.isEmpty ? nil : volumeID,
-                hubOAuthToken: hub.oauthToken
+                hubOAuthToken: hub.oauthToken,
+                sshPublicKey: sshPublicKey
             )
         } catch { errorMessage = Self.describe(error) }
     }

@@ -18,9 +18,22 @@ extension GPUJourneyView {
             }
         }
         .disabled(workspace.isBusy || workspace.isTraining)
-        if session.advancedUser, let row = workspace.exactModelRow, row.recipeStatus == .unverified {
+        let pairings = workspace.modelTable.pairings(modelRef: workspace.baseModel)
+        if pairings.count > 1 {
+            Picker("Trainer", selection: Binding(
+                get: { workspace.trainer },
+                set: { workspace.chooseTrainingTrainer($0) }
+            )) {
+                ForEach(pairings, id: \.trainer) { row in
+                    Text(trainerTitle(row.trainer) + (row.recipeStatus == .unverified ? " · Unverified recipe" : ""))
+                        .tag(row.trainer)
+                }
+            }
+            .disabled(workspace.isBusy || workspace.isTraining)
+        }
+        if let row = workspace.exactModelRow, row.recipeStatus == .unverified {
             StudioNotice(
-                "Unverified recipe. These are AI Toolkit UI defaults, not a measured recipe. "
+                "Unverified recipe. This model and trainer pairing has not completed an in-app comparison. "
                     + (row.trainingNotice ?? ""),
                 symbol: "exclamationmark.triangle"
             )
@@ -37,6 +50,15 @@ extension GPUJourneyView {
         if let note = workspace.exactModelRow?.usageNote {
             Text(note).font(.callout).foregroundStyle(StudioStyle.supportingText)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func trainerTitle(_ trainer: String) -> String {
+        switch trainer {
+        case "aitoolkit": "AI Toolkit"
+        case "musubi": "musubi-tuner"
+        case "ltx": "LTX trainer"
+        default: trainer
         }
     }
 }

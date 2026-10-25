@@ -1,6 +1,54 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.14-20261024`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.16-20261025`
+and the trainers’ `-captioning` tags. All seven are published and resolve anonymously. This release
+includes the v2 model/trainer table, Krea 2 AI Toolkit regularisation and Turbo sampling, comparison
+checkpoint selection within the chosen published run, and optional key-only SSH with rsync.
+The [release receipt](releases/v0.3.16-20261025.json) records the exact source archive, immutable
+runtime parents, registry and built-image identities, compressed sizes and per-image checks.
+
+| tag | index digest | compressed download |
+| --- | --- | --- |
+| `base:v0.3.16-20261025` | `sha256:af31df3726d03fb0d5cc59601e2f9e4e03ff25621296a0bddb9eb1db6b1a6680` | 3.57 GB |
+| `aitoolkit:v0.3.16-20261025` | `sha256:2719eb7eafc854dbd51ffb583ed9eeb008fcde9efe2866021156188474e687d1` | 7.79 GB |
+| `ltx:v0.3.16-20261025` | `sha256:ebf143f9a4540e174fef75d81ca6486d695da7cad4cab85ba0acbdfc2d244ab7` | 7.54 GB |
+| `musubi:v0.3.16-20261025` | `sha256:fc2e31dbbec7369641b3ddaf619961b179fb5f47ca5682d6e13839ea40844248` | 6.98 GB |
+| `aitoolkit:v0.3.16-20261025-captioning` | `sha256:97c8d6d75c9f9054c0fb2f83a39c22d034a0d66c41308b1b1fc3033693ec89d0` | 14.73 GB |
+| `ltx:v0.3.16-20261025-captioning` | `sha256:b5443ab0422cdbce3ad6ac916b4692fd5bdef767f81a575b7565eb8ee00071dc` | 14.48 GB |
+| `musubi:v0.3.16-20261025-captioning` | `sha256:fc67ebcaf2e7142e09e3ce8e766b6cb42f2573daa728bafdbce4997ed007ab76` | 13.92 GB |
+
+The base was built from an exact archive of `86561c47b74d225b656850f1cb996e22b40dce81`.
+The six runtime variants replace the complete agent environment, source packages and shared
+program trees on digest-pinned v0.3.14 parents. Their Python GPU packages, trainer, CUDA,
+SeedVR2 and vLLM inputs are inherited unchanged; AI Toolkit additionally receives patch `0004`
+for Krea 2 Turbo sampling and restoration of training weights. All variants install OpenSSH
+and rsync, carry the fresh entrypoint, and omit baked SSH private host keys. Every inherited
+parent layer was verified byte for byte. The replacement adds about 189 MB compressed per
+runtime variant; the earlier agent layer remains underneath the deleted and replaced files.
+
+All seven real containers passed CPU checks for bearer authentication, workspace storage,
+exact service availability, current Hugging Face token precedence and redaction, and the installed
+v2 table’s 25 unique models and Krea pairing settings. The AI Toolkit variants contain the exact
+reviewed Turbo patch; all three captioning variants passed the **24-flag vLLM check**.
+Each image also passed actual SSH and bidirectional rsync checks from the cx53 host to its
+local container: no key means no SSH listener, the configured key logs in, a wrong key fails,
+the server offers only `publickey`, three files round-trip with matching SHA-256 hashes, and
+an unchanged checksum dry run transfers nothing. These checks used CPU containers on builder
+loopback ports. GPU training, generation, publication and RunPod-to-Mac transfer acceptance
+for this release are left to the owner’s live run; the historical measurements below retain
+their original image tags.
+
+The task registry login was removed after publication. Preexisting containers and images were
+preserved, no image or build cache was pruned, and no RunPod resources or GPUs were used.
+The earlier v0.3.15 publication stopped after four tags when review found checkpoint selection
+and report-budget defects. Those four tags remain untouched; the receipt records their digests
+and the reason for completing the repaired seven-image set under v0.3.16.
+
+## Earlier releases
+
+These entries preserve each release’s build and acceptance record.
+
+Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.14-20261024`
 and the trainers’ `-captioning` tags. All seven are published and resolve anonymously. The
 agent accepts a current Hugging Face access token for each credentialed operation, advertises
 that support per service, and includes the opt-in diagnostics from current main.
@@ -38,10 +86,6 @@ one step on three synthetic 512 px images, and privately publish a 171,969,360-b
 its Hugging Face browser connection. All eight published files were retrieved and hash-verified
 before the task pod and its secrets were removed. [Native acceptance](../../app/docs/APP-STATUS.md#hugging-face-browser-sign-in-2026-10-24)
 records the checkpoint hash and credential lifecycle.
-
-## Earlier releases
-
-These entries preserve each release’s build and acceptance record.
 
 Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.12-20261024`
 and the trainers’ `-captioning` tags. Built on cx53 from an exact archive of commit
@@ -303,7 +347,7 @@ are distinguished in [POD-STATUS](../docs/POD-STATUS.md).
 | `Dockerfile.aitoolkit` | base + `ostris/ai-toolkit` at a pinned commit in `/opt/ai-toolkit` with the local patch series applied on top (`git am`; `patches/ai-toolkit/`), venv `/opt/venvs/aitoolkit` with upstream's own torch/flash-attn/NATTEN stack. The build fails if a patch does not apply |
 | `Dockerfile.ltx` | base + `Lightricks/LTX-2` at a pinned commit in `/opt/ltx-2` (uv workspace), venv `/opt/venvs/ltx` plus TensorBoard 2.21.0 (pinned, with an event write/read check) |
 | `Dockerfile.fake` | `python:3.12-slim` + podagent only, for `compose.fake.yaml` (no CUDA, no trainers) |
-| `entrypoint.sh` | creates `/workspace/{datasets,runs,models/hf-cache,logs}`, exports `HF_HOME`, execs `tini -s -- python -m podagent --host 0.0.0.0 --port 8800`; nothing else |
+| `entrypoint.sh` | creates `/workspace/{datasets,runs,models/hf-cache,logs}`, exports `HF_HOME`, starts key-only SSH when `PUBLIC_KEY` is configured, then execs `tini -s -- python -m podagent --host 0.0.0.0 --port 8800` |
 | `compose.fake.yaml` | local fake-GPU agent: `PODAGENT_FAKE_GPUS=2`, `PODAGENT_FAKE_HOST=0.0.0.0`, bind mount `./workspace:/workspace`, ports 8800 (agent), 8000 (fake vLLM); fake TensorBoard stays on loopback |
 
 ## Layout inside an image
@@ -353,7 +397,7 @@ Every pin was read from its source on 2026-10-10. `date` is when upstream publis
 | torch for vLLM | `torch==2.13.0+cu129`, `torchvision==0.28.0+cu129`, `torchaudio==2.11.0+cu129`, `torchcodec==0.15.0+cu129` | 2026-07-08 | exactly what the vllm wheel requires (`torch==2.13.0`, `torchvision==0.28.0`, `torchaudio==2.11.0`, `torchcodec>=0.14`), from the cu129 index |
 | FlashInfer kernel cache | `flashinfer-jit-cache==0.7.0.post1` from `https://flashinfer.ai/whl/cu129` | — | the FlashInfer version vllm 0.31.0 pins (`flashinfer-python==0.7.0.post1`, and `FLASHINFER_VERSION` in its `docker/Dockerfile`) and the install vLLM's own image performs so FlashInfer needs no `nvcc` for its shipped kernels; optional (`FLASHINFER_JIT_CACHE_VERSION=""` skips it) |
 | ai-toolkit | `ostris/ai-toolkit@f7a1fb9a77e5418269b1e9eda4ace6d7c1b7bb47` ("Version bump") | 2026-10-10 | the release commit at the top of `main` at pin time |
-| ai-toolkit patches | the series in `pod/images/patches/ai-toolkit/` (REPA, three patches), applied with `git am --3way` | — | The pin above is the **base**: `AI_TOOLKIT_COMMIT` and `generate_results.AI_PIN` keep naming it. |
+| ai-toolkit patches | the series in `pod/images/patches/ai-toolkit/` (REPA and Krea 2 Turbo sampling, four patches), applied with `git am --3way` | — | The pin above is the **base**: `AI_TOOLKIT_COMMIT` and `generate_results.AI_PIN` keep naming it. |
 | ai-toolkit torch | `torch==2.13.0+cu130`, `torchvision==0.28.0+cu130`, `torchaudio==2.11.0+cu130`, `torchcodec==0.15.0+cu130` | 2026-07-08 (torch) | copied from that commit's `docker/Dockerfile` and `manager/spec.py` (upstream's "linux cu130" spec). cu126 is upstream's only other prebuilt stack and has no Blackwell kernels |
 | ai-toolkit extras | `requirements.txt` at the commit (diffusers at `c9438378…`, transformers 5.5.3, peft 0.18.1, …), then `setuptools==69.5.1`, `natten==0.21.7+torch2130cu130` (whl.natten.org), `flash_attn 2.8.3+cu130torch2.13` cp312 (mjun0812/flash-attention-prebuild-wheels v0.9.47) | — | the same files and the same order as upstream's Dockerfile |
 | SeedVR2 command line | `numz/ComfyUI-SeedVR2_VideoUpscaler@5a4bf428f3735cc72ac760d40f372f94dec28422` (v2.5.23) | 2025-12-24 | the newest release at pin time (2026-10-22); Apache-2.0, as are the ByteDance-Seed SeedVR2-3B/7B weights it downloads (FP16 repacks from `numz/SeedVR2_comfyUI`, SHA-256-checked by the program) |
@@ -366,9 +410,9 @@ apt packages (`git curl ca-certificates build-essential ffmpeg libgl1 libglib2.0
 version-pinned on purpose: Ubuntu's archive keeps only the current security build, so an exact pin
 breaks at the next security update. The base digest pins the layer beneath them.
 
-The ai-toolkit patch series is part of that pin: after a bump to a commit that already contains
-REPA, delete the series (and the Dockerfile's `COPY` and `git am` steps); otherwise re-export it
-against the new base and let the build show whether it still applies.
+The ai-toolkit patch series is part of that pin. After a base bump, remove any patches whose
+changes are already upstream and re-export the remaining patches against the new base; the
+build verifies that each still applies. Remove the Dockerfile's patch steps when no patches remain.
 
 To bump a pin: `curl -s https://pypi.org/pypi/vllm/json | jq .info.version` and the release's
 asset list on GitHub for vLLM (look for the `+cu129` wheel), `git ls-remote <repo> HEAD` for the
@@ -468,6 +512,9 @@ drive the fake services (POD-SPEC §3, §6.3) and is not a stand-in for the CUDA
 HTTP ports `8800,8000` exposed, `PODAGENT_TOKEN` (16+ characters) and `HF_TOKEN` as env, the
 volume at `/workspace`, a trainer image, and a CUDA 13.0+ host for the trainer images. The agent
 refuses to start without the token, so a pod created without it exits immediately and visibly.
+The app also exposes `22/tcp`. An optional SSH public key from Settings is sent as `PUBLIC_KEY`;
+the entrypoint then starts key-only SSH, and `rsync` is installed for direct transfers. Without
+a public key, startup runs only the agent. Private SSH keys never enter the image or pod.
 `nvidia-smi` is not in the image: the NVIDIA container runtime mounts it (the base sets
 `NVIDIA_DRIVER_CAPABILITIES=compute,utility`), which is how `/gpus` reads the inventory.
 

@@ -183,6 +183,7 @@ final class StudioSession {
     /// App-only settings for the open project (`<project>/.conceptstudio/project.json`).
     var projectState = ProjectAppState()
     var podImageName = ""
+    var sshPublicKey = ""
     var volumeID = ""
     var projectAccess: URL?
     var gpu: GPUWorkspace {

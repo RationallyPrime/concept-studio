@@ -126,6 +126,7 @@ struct ImagesView: View {
                         ForEach(group) { image in
                             VStack(alignment: .leading, spacing: 8) {
                                 PhotoView(url: image.url).frame(width: 150, height: 120)
+                                    .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(group))
                                 Text(image.id).font(.caption).lineLimit(1)
                                 Toggle("Include", isOn: Binding(
                                     get: { session.project?.isIncluded(image.id) == true },
@@ -200,6 +201,7 @@ struct ImagesView: View {
         return VStack(alignment: .leading, spacing: 0) {
             TrainingTargetPreview(url: image.url, fill: true)
                 .frame(maxWidth: .infinity).frame(height: 150).clipped()
+                .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(visibleImages))
                 .opacity(included ? 1 : 0.55)
                 .overlay { if !included { StrikeLine() } }
                 .overlay(alignment: .topTrailing) {

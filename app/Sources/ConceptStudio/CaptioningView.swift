@@ -304,10 +304,6 @@ struct CaptioningView: View {
         }
     }
 
-    private var triggers: [String] {
-        session.project?.job.concepts.map(\.trigger) ?? []
-    }
-
     private func developingPrint(_ image: ProjectImage) -> some View {
         let partial = session.partialCaptions[image.id] ?? ""
         let state = image.captionState
@@ -318,6 +314,7 @@ struct CaptioningView: View {
         return VStack(alignment: .leading, spacing: 0) {
             TrainingTargetPreview(url: image.url, fill: true)
                 .frame(maxWidth: .infinity).frame(height: 160).clipped()
+                .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(session.project?.images ?? []))
             VStack(alignment: .leading, spacing: 6) {
                 Group {
                     if !partial.isEmpty {
@@ -422,6 +419,10 @@ struct CaptioningView: View {
 }
 
 private extension CaptioningView {
+    var triggers: [String] {
+        session.project?.job.concepts.map(\.trigger) ?? []
+    }
+
     var clipCaptioningNote: String? {
         guard !session.demoMode, session.usesChatGPTForThisRun,
               session.project?.images.contains(where: { Sources.isVideo(Sources.suffix(of: $0.id)) }) == true

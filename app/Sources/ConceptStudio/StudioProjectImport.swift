@@ -26,6 +26,7 @@ extension StudioProject {
             }
             do {
                 try await importSidecars(sidecars, for: target)
+                mediaState.origins[target] = "Folder · " + source.lastPathComponent
             } catch {
                 images.removeAll { $0.id == target }
                 job = previousJob

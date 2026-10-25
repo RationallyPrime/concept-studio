@@ -97,4 +97,4 @@ RUN /opt/venvs/agent/bin/python -I /opt/pod/checks/check_vllm_flags.py \
       "$(/opt/venvs/vllm/bin/python -I -c "import importlib.util as u; print(u.find_spec('vllm').submodule_search_locations[0])")"
 
 # 8000: vLLM, beside the trainer image's 8800 (the agent).
-EXPOSE 8000
+EXPOSE 8000 22

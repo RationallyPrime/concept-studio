@@ -416,7 +416,9 @@ restarted) it calls the handshake again.
 The run's output directory, `/workspace/runs/<id>/output/`: both trainers write checkpoints,
 final weights and samples there (4.1). This is how a user without a Hub account gets the
 trained LoRA. `id` as in 2.7 (`422 validation` otherwise, `404` when the run directory does
-not exist). A run without `output/` yet answers an empty `files` list.
+not exist). The fixed `native-config.json` file is also listed and downloadable at that name
+when present, so a saved LoRA retains its effective model/network recipe. It is resolved from
+the run directory; other paths still resolve only under `output/`.
 
 ```json
 {
@@ -664,8 +666,9 @@ they expose no port and use the same supervisor/GPU reservation as training. The
 | field | type / bounds | default |
 | --- | --- | --- |
 | `run_id` | new run ID, `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`; distinct from `source_run_id` | required |
-| `source_run_id` | existing run ID, same pattern | required |
+| `source_run_id` | saved training run ID, same pattern; need not exist on this storage when `source` is supplied | required |
 | `checkpoint` | nonempty relative path under the source run's `output/`; regular `.safetensors`, no symlink in any component | required |
+| `source` | optional `{config, upload}` or `{config, repo}`; sanitized saved run settings plus an upload stage or published model repository | absent: original storage |
 | `prompts` | list of 1–6 nonblank strings, each at most 4000 characters; no NUL or `--` overrides | required |
 | `seeds` | list of 1–4 integers, each 0–4,294,967,295 | required |
 | `width`, `height` | integers 64–2048, each a multiple of 32 | 512, 512 |
@@ -674,8 +677,19 @@ they expose no port and use the same supervisor/GPU reservation as training. The
 | `num_frames` | integer 1–257; the source model's frame law from the model table (4.4): FLUX and Z-Image require 1, LTX requires 8n+1, H3 accepts 1 or 17n+5 (5–243) | 1 |
 | `frame_rate` | number greater than 0 and at most 60; a model with a fixed cadence requires it (H3: exactly 24) | 24 |
 
-Validation refuses an existing generation directory and an unavailable source config or
-checkpoint before `prepare()` creates anything. Prompt override refusal preserves identical
+For a local source, the upload stage contains `comparison-lora.safetensors` and, when the
+generator needs it, `comparison-recipe.json` (the run's effective native config). Preparation
+captures them privately in the new generation directory. For a published source, the child
+fetches `run.json` and the selected weights at one resolved Hub commit, checks the run ID and
+base model, and fetches `native-config.json` or the older `config.yaml` recipe. The app uses
+`checkpoint: "published.safetensors"` to select a repository with one published LoRA; an
+explicit path selects that checkpoint. A repository with multiple weights requires a specific
+checkpoint. Downloads run in the supervised child and remain stoppable. Access failures name
+the repository and explain how to reconnect or use the Mac's copy. Newly published runs include
+`native-config.json` beside their weights.
+
+Validation refuses an existing generation directory and an unavailable retained/local source
+before `prepare()` creates anything. Published access is checked by the child. Prompt override refusal preserves identical
 requested settings for both arms; prompts are argv values, never shell input.
 
 A source run is admitted when the model table (4.4) has a row for its `base_model` on this
@@ -698,7 +712,9 @@ new run directory. `generation.json` contains the validated/defaulted request fi
 plus `checkpoint_sha256`, computed from that copy. The script checks that SHA before use.
 argv is `[/opt/venvs/<trainer>/bin/python, /opt/pod/scripts/generate_results.py, --trainer,
 <trainer>, --config, /workspace/runs/<id>/generation.json]`; cwd is the generation run,
-log is `trainer.log`, and the existing authenticated file APIs serve only `output/`.
+log is `trainer.log`, and the existing authenticated file APIs serve the generated `output/`.
+The comparison is recorded against the generation GPU's storage; the training run keeps its
+original storage identity.
 
 `output/comparison.json` has these exact fields:
 
@@ -1430,17 +1446,35 @@ off, no secrets at build time, `HF_HOME` not baked (it points into `/workspace` 
 
 1. `mkdir -p /workspace/{datasets,runs,models/hf-cache,logs}`
 2. `export HF_HOME=/workspace/models/hf-cache`
-3. `exec tini -s -- /opt/venvs/agent/bin/python -m podagent --host 0.0.0.0 --port 8800`
+3. When `PUBLIC_KEY` is nonempty, write `/root/.ssh/authorized_keys` (directory 0700, file 0600),
+   validate it, generate missing host keys and start `sshd` on port 22. Authentication is public-key
+   only, using that authorized-keys file for root. Password and keyboard-interactive login are disabled.
+4. `exec tini -s -- /opt/venvs/agent/bin/python -m podagent --host 0.0.0.0 --port 8800`
 
-Nothing else: no sshd, no Jupyter, no service autostart. The agent refuses to start without
+No key means no SSH daemon. There is no Jupyter or GPU service autostart. The agent refuses to start without
 `PODAGENT_TOKEN`, so a pod created without the env var exits immediately, visibly.
 
 `tini` (apt package, on the fake image too) is PID 1 and a subreaper (`-s`); the agent is its
-only child. The supervisor's GPU bookkeeping follows process groups and probes them with
+primary child, alongside the optional daemonised SSH process. The supervisor's GPU bookkeeping follows process groups and probes them with
 `killpg(pgid, 0)`, which stays true while any member exists, zombies included: the orphans a
 crashed launch wrapper or vLLM API server leaves behind must be reaped by init, or their GPUs
 would stay booked until the container restarts. The agent does not reap with `waitpid(-1)`
 itself (that would make `Popen` lose its children's exit codes). `tini` forwards SIGTERM.
+
+Every production image and the fake image include OpenSSH and `rsync`. Host keys are removed
+at image build time and generated for each container on boot. The app always requests `22/tcp`
+alongside `8800/http` and `8000/http`. Settings → Advanced → SSH public key is optional and
+stored as public text in this Mac's preferences; a configured key is sent as `PUBLIC_KEY` for
+new rentals. The private key stays on the Mac. To transfer files, use the full SSH host and
+mapped TCP port in RunPod's Connect panel, for example:
+
+```sh
+rsync -av -e 'ssh -p MAPPED_PORT -i ~/.ssh/id_ed25519' root@POD_IP:/workspace/runs/RUN_ID/ ./saved-run/
+```
+
+This uses RunPod's [full SSH connection](https://docs.runpod.io/pods/configuration/use-ssh#full-ssh-via-public-ip-with-key-authentication),
+which supports file transfers. The basic `ssh.runpod.io` terminal proxy does not provide the
+full SSH transport needed for `rsync`.
 
 ### 6.3 Compose (`images/compose.fake.yaml`)
 

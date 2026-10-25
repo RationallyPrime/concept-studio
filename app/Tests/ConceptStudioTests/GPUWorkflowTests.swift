@@ -383,7 +383,7 @@ struct GPUWorkflowTests {
         // Both trainer images carry CUDA 13 wheels and need an R580+ (CUDA 13.0) host driver.
         #expect(body?["gpu"]?.objectValue?["minCudaVersion"]?.stringValue == "13.0")
         #expect(body?["gpu"]?.objectValue?["minRamPerGpu"]?.intValue == 60)
-        #expect(body?["ports"]?.arrayValue?.compactMap(\.stringValue) == ["8800/http", "8000/http"])
+        #expect(body?["ports"]?.arrayValue?.compactMap(\.stringValue) == ["8800/http", "8000/http", "22/tcp"])
         #expect(body?["mounts"]?.objectValue?["network"]?.arrayValue?.first?.objectValue?["path"]?.stringValue
             == "/workspace")
         // Credentials reach the pod as secret references, never as values (POD-SPEC §1).

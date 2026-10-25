@@ -128,6 +128,7 @@ struct PublishView: View {
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, image in
                 VStack(spacing: 0) {
                     TrainingTargetPreview(url: image.url, fill: true).frame(width: 96, height: 96).clipped()
+                        .mediaViewerPreview(.project(image.id), among: MediaViewerItem.projects(images))
                     Color.clear.frame(width: 96, height: 22)
                 }
                 .padding([.horizontal, .top], 5)

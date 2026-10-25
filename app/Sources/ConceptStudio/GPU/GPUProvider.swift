@@ -328,7 +328,7 @@ struct RunPodProvider: GPUProvider {
                 "minRamPerGpu": .int(60),
             ]),
             "disk": .int(50),
-            "ports": .array([.string("\(PodPort.agent)/http"), .string("\(PodPort.inference)/http")]),
+            "ports": .array(["\(PodPort.agent)/http", "\(PodPort.inference)/http", PodSSH.port].map(JSONValue.string)),
             "env": .object(JSONObject(
                 request.env.sorted { $0.key < $1.key }.map { ($0.key, JSONValue.string($0.value)) }
             )),

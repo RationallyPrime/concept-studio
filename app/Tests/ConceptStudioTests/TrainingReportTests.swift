@@ -253,7 +253,8 @@ struct TrainingReportTests {
         #expect(workspace.reportTask == nil)
     }
 
-    @Test func reportBudgetStopCancelsGenerationWithoutJoiningItsOwnTask() async throws {
+    @Test(arguments: [false, true])
+    func reportBudgetStopCancelsGenerationWithoutJoiningItsOwnTask(replacementStorage: Bool) async throws {
         let project = try await makeDemoProject()
         defer { try? FileManager.default.removeItem(at: project.directory) }
         let preferences = IsolatedDefaults()
@@ -264,7 +265,8 @@ struct TrainingReportTests {
         workspace.pod = RentedPod(id: "test", status: "RUNNING", cost: 1, gpu: .init(count: 1))
         workspace.saved = try SavedPod(
             pod: #require(workspace.pod), started: Date(), hourlyRate: 1, budget: 20,
-            trainer: "aitoolkit", runID: "finished-run", volumeID: "retained"
+            trainer: "aitoolkit", runID: "finished-run",
+            volumeID: replacementStorage ? "replacement" : "retained"
         )
         let agent = HistoryAgent()
         await agent.serve(["finished.safetensors": Data("synthetic checkpoint".utf8)])
@@ -274,7 +276,11 @@ struct TrainingReportTests {
             runID: "finished-run", trainer: "aitoolkit", datasetRepo: "", datasetRevision: nil,
             datasetContainsVideo: false,
             paramsJSON: JSONValue.object(["base_model": .string(workspace.baseModel)]).pythonDumpsData(),
-            volumeID: "retained", startedAt: Date(), updatedAt: Date(), estimatedGPUCostUSD: 0.1,
+            volumeID: "retained", startedAt: Date(), updatedAt: Date(),
+            result: TrainingResult(
+                runID: "finished-run", outputRepo: "fixture/lora", destination: .hub,
+                volumeID: "retained", state: .pushed(repo: "fixture/lora")
+            ), estimatedGPUCostUSD: 0.1,
             gpuBudgetUSD: 1, podSpendAtStart: 0
         )]
         workspace.attachTrainingReport(runID: "finished-run", groupID: groupID)
@@ -293,6 +299,7 @@ struct TrainingReportTests {
         #expect(!workspace.hasRunningPod)
         #expect(workspace.trainingReports[0].state == .failed)
         #expect(workspace.activeReportRunID == nil)
+        #expect(workspace.runHistory[0].volumeID == "retained")
         #expect((workspace.runHistory[0].estimatedGPUCostUSD ?? 0) >= 2)
     }
 }

@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 TABLE_FORMAT = "conceptstudio-model-table"
-TABLE_VERSION = 1
+TABLE_VERSION = 2
 IMAGE_TABLE_PATH = Path("/opt/pod/scripts/model-table.json")
 CHECKOUT_TABLE_PATH = (
     Path(__file__).resolve().parents[2]
@@ -74,6 +74,20 @@ def load(path: Path | None = None) -> dict[str, Any]:
         raise ValueError(f"{table_path}: not a {TABLE_FORMAT} document")
     if table.get("version") != TABLE_VERSION:
         raise ValueError(f"{table_path}: unsupported model table version {table.get('version')!r}")
+    seen_ids: set[str] = set()
+    seen_refs: set[str] = set()
+    for model in table["models"]:
+        if model["id"] in seen_ids or model["model_ref"] in seen_refs:
+            raise ValueError("model ids and model_ref values must be unique")
+        seen_ids.add(model["id"])
+        seen_refs.add(model["model_ref"])
+        if model["default_trainer"] not in model["trainers"]:
+            raise ValueError(f"{model['id']}: default_trainer names no pairing")
+        for trainer, settings in model["trainers"].items():
+            if trainer not in table["trainers"]:
+                raise ValueError(f"{model['id']}: unknown trainer {trainer!r}")
+            if set(settings) & (set(model) - {"trainers"}):
+                raise ValueError(f"{model['id']}: pairing duplicates a model field")
     return table
 
 
@@ -82,8 +96,24 @@ def _table(table: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def models(table: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    """Every row, in table order (picker order, message order, family-match order)."""
-    return list(_table(table)["models"])
+    """One model view on its default trainer, in picker order."""
+    return [_pair(model, model["default_trainer"]) for model in _table(table)["models"]]
+
+
+def _pair(model: dict[str, Any], trainer: str) -> dict[str, Any]:
+    """A derived view for existing recipe consumers; the JSON declares model facts once."""
+    return {
+        **{key: value for key, value in model.items() if key != "trainers"},
+        "trainer": trainer,
+        **model["trainers"][trainer],
+    }
+
+
+def pair_rows(table: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Every model/trainer pairing, derived in table and trainer order."""
+    return [
+        _pair(model, trainer) for model in _table(table)["models"] for trainer in model["trainers"]
+    ]
 
 
 def row_by_id(row_id: str, table: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -103,9 +133,10 @@ def exact_row(
     """
     if not isinstance(base_model, str):
         return None
-    for row in models(table):
-        if row["model_ref"] == base_model and (trainer is None or row["trainer"] == trainer):
-            return row
+    for model in _table(table)["models"]:
+        if model["model_ref"] == base_model:
+            selected = trainer or model["default_trainer"]
+            return _pair(model, selected) if selected in model["trainers"] else None
     return None
 
 
@@ -124,7 +155,8 @@ def trainer_default_row(trainer: str, table: dict[str, Any] | None = None) -> di
     document = _table(table)
     settings = document["trainers"].get(trainer)
     default = settings["default_model"] if settings else document["default_model"]
-    return row_by_id(default, document)
+    model = next(model for model in document["models"] if model["id"] == default)
+    return _pair(model, trainer if settings else model["default_trainer"])
 
 
 def trainer_resumes(trainer: str, table: dict[str, Any] | None = None) -> bool:
@@ -153,7 +185,7 @@ def _family_matches(family: dict[str, Any], lowered: str) -> bool:
 def family_row(base_model: str, table: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """First AI Toolkit row, in table order, whose ``family_match`` matches ``base_model``."""
     lowered = base_model.lower()
-    for row in models(table):
+    for row in pair_rows(table):
         family = row["family_match"]
         if (
             row["trainer"] == "aitoolkit"
@@ -202,7 +234,7 @@ def hook(row: dict[str, Any], concern: str) -> str | None:
 
 def generator_rows(table: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Rows that support comparison generation (they name a ``generator`` hook), table order."""
-    return [row for row in models(table) if hook(row, "generator") is not None]
+    return [row for row in pair_rows(table) if hook(row, "generator") is not None]
 
 
 def join_names(names: list[str]) -> str:
@@ -214,7 +246,7 @@ def join_names(names: list[str]) -> str:
 
 def generation_support(table: dict[str, Any] | None = None) -> str:
     """The display names of every model that supports generation, as one phrase."""
-    return join_names([row["display_name"] for row in generator_rows(table)])
+    return join_names(list(dict.fromkeys(row["display_name"] for row in generator_rows(table))))
 
 
 def frame_count_ok(row: dict[str, Any], num_frames: int) -> bool:

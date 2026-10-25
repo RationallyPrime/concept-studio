@@ -1816,6 +1816,7 @@ def test_row_dataset_defaults_preserve_runtime_paths_and_user_extra():
             "checkpoints": {"dtype": "bf16", "keep": 4},
         },
         "trainer_options": {"dataset": {"cache_latents_to_disk": False}},
+        "preview": {},
     }
     launcher.apply_row_recipe(process, row)
     merged = launcher.deep_merge(process, {"train": {"lr": 0.002}})

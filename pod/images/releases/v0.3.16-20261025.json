@@ -1,0 +1,3355 @@
+{
+  "sourceCommit": "86561c47b74d225b656850f1cb996e22b40dce81",
+  "release": "v0.3.16-20261025",
+  "builder": "cx53 linux/amd64 rootless Docker BuildKit",
+  "sourceDelivery": "git archive exact commit; task-local Dockerfile refreshes agent/programs, installs SSH transfer tools and applies Krea Turbo patch on immutable GPU runtime parents",
+  "tags": [
+    {
+      "name": "base",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-base:v0.3.16-20261025",
+      "tag": "v0.3.16-20261025",
+      "digest": "sha256:af31df3726d03fb0d5cc59601e2f9e4e03ff25621296a0bddb9eb1db6b1a6680",
+      "compressedBytes": 3569042099,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f330a38c89f2a1e8bdd22bfd3b0a6cf0e15af55163b951fbd55b529419aec6db",
+          "size": 256464000
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b028f3c6407e7c45e5d94226eb464d0915a2f4be5c6e4e2fdac7b80cbb789062",
+          "size": 22754971
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:077a8680f8f3d20cc2e3e9cae1190319c485aa255eb4578ecb2051f83f36e6c8",
+          "size": 41207950
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:6d62f2557fd35008de2a9ea12cc6da52ddf69eafafb04cd56e6d6a030f1cfa2d",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2e6f0dd47a0b0660ba09908bb649572d0540ecdd5ce1b0385e4d793d9aec3323",
+          "size": 744
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7b3026dd8e1c1aeb497669adc24cc03cdd8d5e28e6d8304cfbd34942071ebac8",
+          "size": 202241329
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8efbf95bacce2ee84be3ddb4ca4dcc9cea51de30983b4d8f7d4d8897ead19fad",
+          "size": 4885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f7be2f159070c55cf243d4f45c812a4e9e71161335015529c0ddc072b571ab3c",
+          "size": 42338
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:dd308429a0a560fd750b0970cc971bf7b3af22d961a5f3d5263c6511ded7c312",
+          "size": 1933
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:d56f7e1ae103b993eef7d03e0304bb53fba05ae102a7d0ca1a9595fad817ba39",
+          "size": 65032
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:21c4906601d2b23d4f19a3f67df3b5c579f5bf00b11f9ebf6cde6712910bd77d",
+          "size": 186103690
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ab2b3e4907f08a47fc8fd81f9ce015bde671cdd5d12099c23377816b5c29d000",
+          "size": 97169
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a42efde3ec8812bce24993cd8884a203703cde7bd71b28e1ee089ae83bc968d",
+          "size": 931
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0d6714a72d2311d64899fe074f4cba52035e68628004d84acd5be8e1f3232711",
+          "size": 11579
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0f13d2a98c0df46324f4771833d61d26296e25c293ddcbb8b784cfc1abe346bc",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f3d1fb72179bc62194c67dd3088491c5e97514d039ba03f1573b70ccec48bd4d",
+          "size": 1708
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1b56108e7c5c0646c0b24a7286d247143d77fb59a274605e6b7619f345046523",
+          "size": 1031
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:00d4dac6fdbf3454e3d4559afd558ecd68dcd7e206dfaf459ed84e6b841dc19d",
+          "size": 99
+        }
+      ],
+      "configDigest": "sha256:a5a031370cf46d4018ce32dcf2602709f6c39a6b77e235722758fad0ba691361",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "CUDA runtime, podagent and concept-captioner for concept-captioner GPU pods",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-base",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:af31df3726d03fb0d5cc59601e2f9e4e03ff25621296a0bddb9eb1db6b1a6680",
+      "builtImageIDMatches": "registry manifest digest"
+    },
+    {
+      "name": "aitoolkit",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.16-20261025",
+      "tag": "v0.3.16-20261025",
+      "digest": "sha256:2719eb7eafc854dbd51ffb583ed9eeb008fcde9efe2866021156188474e687d1",
+      "compressedBytes": 7794319129,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1c7a5b530e2600a6de6c8be2c7aa9ba27fe871ebbba779244690e2e563300364",
+          "size": 254181748
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5d78fb19f97dc80778668fa049e990dad0b95e84927a568fd6d2f15049a8669",
+          "size": 22754987
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a790cbfc2a600bf62bc0b78b8ee581839f769f1f55cc928a1086e654bdfa1d3",
+          "size": 41207756
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72d8fc0095ba959f1f053b9935e77ab0c39ebec77e116fd716cf62ae2d33d6c8",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0b1cee74b8e046a2897e06db9933e047c9d35f2c2d0e146d34800d5eec9d8964",
+          "size": 745
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:da36f1ed234d4cee8e156c0c511864bfe97f227543e1ad1dbf44655d010f94fb",
+          "size": 202240399
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:15d3141d15948fa7198b16d89cdf11c2512340ff1aacbec91d6fe9cce3e791bd",
+          "size": 4821
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22ac4ae58e617b06cd8520b378edc2b6dd0a6918cb7d8415b9cce424cb6f7170",
+          "size": 42341
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8ad37e009d409815a28398919e980495481f6d2992441b30809508b902d65477",
+          "size": 1766
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fac67a7b57faa26bea87d7ed59e41ebf6765631de535f88b1e45b31985db858a",
+          "size": 61627
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3b288b8fbd2fa10d7bda340e9d6b5ff59a0f75e4badd1a7db8243699c7b76a5b",
+          "size": 178793820
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0a9d351b650cba769a25f8f27c45fa4c692ef85577b0b6342de4071b2e4a9902",
+          "size": 95201
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3f12b33c1a84b212d32cfb6042f5fff8398033fa49154deef9a2581650a6a9f4",
+          "size": 931
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:bbec3cd23d122815dd1d6c29cb49f3f290f04659de9e00039cca3d2bab64cb3f",
+          "size": 10835
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:cb1f5737392786a1187319f87b10b5087cdec5815496361453c02d85d9c7e2fa",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:54a3c4a71c026fd38b7230025b998b472f19eaa023807ec7cd26dee61f780134",
+          "size": 1708
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0d0312a91ac2489bb2e452218fc710e099d7bdfa78c03f7ffbb86c4c2fa86af7",
+          "size": 703
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ae1fbe8cfab30d9ca4d375d2f50c9225fe4c6606db3de813a8493d3641978f3d",
+          "size": 99
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2b3c57199eb49def5b9093cfa45a710b7f47eb93fb2ddee3586128d9fa54c5b3",
+          "size": 67957295
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:80eeb8f8bb7ad54b9c3b08cdf56fb0fb88d032cfca1ba90979be19e8d280eb29",
+          "size": 21145
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2515a7e2459c5cd68ee8d4898e385da9183cfe07cf5c323c6f3b41c71c5003b3",
+          "size": 371870
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f6ac1b0adbc7adce3a7679b475e4cdf710eb395a87ca1d753a89308a182426bc",
+          "size": 3790600510
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:88ab59007e7a4327c517bdcb03d561669c66478675f550225f36cbfd5bfe8df5",
+          "size": 367102
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8c84ec1eddb12d0b0f8c47b1f731ec3cbb1ab2c146846f65069b0a1665bead62",
+          "size": 212
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:d6547359df71a440d77b0ff2e8e3bbec5c2f5ad0282943c3250c796002b5c76d",
+          "size": 186093613
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:337ffe6414dcbe72a248d0629c30867bc7854e1c33b3678c0f3cfc72d0002399",
+          "size": 65923
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b4e3984361d71d6bdccd809d05e30dc03a210c0d17c670c627d514a881c6486b",
+          "size": 46828
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:98a5d8a84e27e877c6a38224c49a87b969a214ea7f13c0ca8644a3aef211498d",
+          "size": 110801
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8441357bf919ba96c7209590ea0a757fc46f2e044a80b65b02dc2808cb4342bc",
+          "size": 1648
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3efd2420ed6b34bd693a9e75ffe326cc3948b26ed0900f45a71523ccb3cf1a44",
+          "size": 2843577
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:93b9273ae91506b6fac1dbacac8ca3c4fb2b5ecb63a1d098ac80cb7b9872f46c",
+          "size": 186103861
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0dd9b01887a79aaf44aa8a72711346b5d77bd366470c1858fd283a825b2467a4",
+          "size": 66608
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9606f6b1f62df71ac9b034a3ab4767a91446f2110775c1b5c947eaaf8d18d2ce",
+          "size": 46892
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:13adcf26b572f23114770b55a2e597cc1dd0cf2e86e1e0db34487b416cef47d8",
+          "size": 113838
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7c9c4b882821f97933728bbd7164d8ff189cf569dd9a933912db207e81ce43d0",
+          "size": 1655
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:020493691f09fb2d0d3325b432482d62c68975496bdcdd13c9d76c7864b85a6e",
+          "size": 1046
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:01cc12cc4e50876759df14f99c6ba6c2067fe5f8e6a19ad5c133a969171ca33e",
+          "size": 62476
+        }
+      ],
+      "configDigest": "sha256:eb59d8fe2b522e265b6de2152685385aecec46a8e05ff4cdee32bd44a8c0950a",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "concept-captioner pod base plus ostris/ai-toolkit in /opt/venvs/aitoolkit",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-aitoolkit",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:2719eb7eafc854dbd51ffb583ed9eeb008fcde9efe2866021156188474e687d1",
+      "builtImageIDMatches": "registry manifest digest"
+    },
+    {
+      "name": "ltx",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.16-20261025",
+      "tag": "v0.3.16-20261025",
+      "digest": "sha256:ebf143f9a4540e174fef75d81ca6486d695da7cad4cab85ba0acbdfc2d244ab7",
+      "compressedBytes": 7541006699,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1c7a5b530e2600a6de6c8be2c7aa9ba27fe871ebbba779244690e2e563300364",
+          "size": 254181748
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5d78fb19f97dc80778668fa049e990dad0b95e84927a568fd6d2f15049a8669",
+          "size": 22754987
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a790cbfc2a600bf62bc0b78b8ee581839f769f1f55cc928a1086e654bdfa1d3",
+          "size": 41207756
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72d8fc0095ba959f1f053b9935e77ab0c39ebec77e116fd716cf62ae2d33d6c8",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0b1cee74b8e046a2897e06db9933e047c9d35f2c2d0e146d34800d5eec9d8964",
+          "size": 745
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:da36f1ed234d4cee8e156c0c511864bfe97f227543e1ad1dbf44655d010f94fb",
+          "size": 202240399
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:15d3141d15948fa7198b16d89cdf11c2512340ff1aacbec91d6fe9cce3e791bd",
+          "size": 4821
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22ac4ae58e617b06cd8520b378edc2b6dd0a6918cb7d8415b9cce424cb6f7170",
+          "size": 42341
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8ad37e009d409815a28398919e980495481f6d2992441b30809508b902d65477",
+          "size": 1766
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fac67a7b57faa26bea87d7ed59e41ebf6765631de535f88b1e45b31985db858a",
+          "size": 61627
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3b288b8fbd2fa10d7bda340e9d6b5ff59a0f75e4badd1a7db8243699c7b76a5b",
+          "size": 178793820
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0a9d351b650cba769a25f8f27c45fa4c692ef85577b0b6342de4071b2e4a9902",
+          "size": 95201
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3f12b33c1a84b212d32cfb6042f5fff8398033fa49154deef9a2581650a6a9f4",
+          "size": 931
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:bbec3cd23d122815dd1d6c29cb49f3f290f04659de9e00039cca3d2bab64cb3f",
+          "size": 10835
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:cb1f5737392786a1187319f87b10b5087cdec5815496361453c02d85d9c7e2fa",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:54a3c4a71c026fd38b7230025b998b472f19eaa023807ec7cd26dee61f780134",
+          "size": 1708
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0d0312a91ac2489bb2e452218fc710e099d7bdfa78c03f7ffbb86c4c2fa86af7",
+          "size": 703
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ae1fbe8cfab30d9ca4d375d2f50c9225fe4c6606db3de813a8493d3641978f3d",
+          "size": 99
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7d16703d80f63fdab4ac7d19837c15e1a6c4f4fe576a1a5bfb46d2bc18db4e9e",
+          "size": 2317806
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:11ddeec51e42b8bb9b510386a52c2aa08b8fb141f2354bcc6dbb2b1f84bd8de9",
+          "size": 3581832780
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:90617a3373072d875a6b22df3889bd22d0c494195241eb98f3d1b8b73410fd2b",
+          "size": 21550177
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:aa2eba69be0de64ad38e9fd86c1041f9bcbf00796d44c5bf1de229a69e62280b",
+          "size": 367165
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:e45545ec7c9c1182c22815b29caf6c1d9ad74e287284ac0977b0fcdf3c729cc7",
+          "size": 212
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0a998ef70a824cf9229414d111f9f4e316745262b6b36795bf6fd9576f646f7b",
+          "size": 186093630
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:04cc3ff61a8b521ee5d70064fab2035cdc9b236f1fddb225d82b66766900ed98",
+          "size": 65923
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1cce2d4e3d49261af99aabbcbfaa2c07f8dcdc8545c69838a42b77140338114",
+          "size": 46829
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:64a4b285ef6ed141fe1afc66ad9a08e47124ab5cf0ed52d1c08c00f2fe67b8b4",
+          "size": 110800
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73c612a154981e06d45f20cc348f085903051c299fba4ae429c88361e68d139d",
+          "size": 1652
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:a9e7aa8b0b20b1a9e6aa49333317d37edd1268b266a663ddc18898382fc36d13",
+          "size": 2843593
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:256e8b6da68fe6c4066a51ac07ad9a9adb09ed8fd8d45553eafbdf27a9f263fd",
+          "size": 186103836
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f9745e358e3231cac8a1fd265f229fd5b36974b606a00d281cad5110b62d6119",
+          "size": 66609
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:e1a5eb5c5538303df1a48ed91518f60d4942ceb3cf7c1074e4b2f3e7e2933389",
+          "size": 46894
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1b4331425cd7c5ae8fef854ab0b0af1c42843d41e4ec817a60cd38af3bbc2008",
+          "size": 113838
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:a7922ab8d223a293cbc5db3c88d6bb17ae94e6365d1ccbb38c47974194bc4015",
+          "size": 1656
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:a0927afda91ff552ca979ae97e8329c49a014b79a573dc80e5d4679ad54baa82",
+          "size": 1038
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        }
+      ],
+      "configDigest": "sha256:f4150d441eb0cd1a35d758b021462d33ba1ac6d39f0d58e6b154e38ce419d40c",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "concept-captioner pod base plus the Lightricks LTX-2 trainer (LTX-2.3, LTX-2.5) in /opt/venvs/ltx",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-ltx",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:ebf143f9a4540e174fef75d81ca6486d695da7cad4cab85ba0acbdfc2d244ab7",
+      "builtImageIDMatches": "registry manifest digest"
+    },
+    {
+      "name": "musubi",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.16-20261025",
+      "tag": "v0.3.16-20261025",
+      "digest": "sha256:fc2e31dbbec7369641b3ddaf619961b179fb5f47ca5682d6e13839ea40844248",
+      "compressedBytes": 6981258013,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1c7a5b530e2600a6de6c8be2c7aa9ba27fe871ebbba779244690e2e563300364",
+          "size": 254181748
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5d78fb19f97dc80778668fa049e990dad0b95e84927a568fd6d2f15049a8669",
+          "size": 22754987
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a790cbfc2a600bf62bc0b78b8ee581839f769f1f55cc928a1086e654bdfa1d3",
+          "size": 41207756
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72d8fc0095ba959f1f053b9935e77ab0c39ebec77e116fd716cf62ae2d33d6c8",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0b1cee74b8e046a2897e06db9933e047c9d35f2c2d0e146d34800d5eec9d8964",
+          "size": 745
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:da36f1ed234d4cee8e156c0c511864bfe97f227543e1ad1dbf44655d010f94fb",
+          "size": 202240399
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:15d3141d15948fa7198b16d89cdf11c2512340ff1aacbec91d6fe9cce3e791bd",
+          "size": 4821
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22ac4ae58e617b06cd8520b378edc2b6dd0a6918cb7d8415b9cce424cb6f7170",
+          "size": 42341
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8ad37e009d409815a28398919e980495481f6d2992441b30809508b902d65477",
+          "size": 1766
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fac67a7b57faa26bea87d7ed59e41ebf6765631de535f88b1e45b31985db858a",
+          "size": 61627
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3b288b8fbd2fa10d7bda340e9d6b5ff59a0f75e4badd1a7db8243699c7b76a5b",
+          "size": 178793820
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0a9d351b650cba769a25f8f27c45fa4c692ef85577b0b6342de4071b2e4a9902",
+          "size": 95201
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3f12b33c1a84b212d32cfb6042f5fff8398033fa49154deef9a2581650a6a9f4",
+          "size": 931
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:bbec3cd23d122815dd1d6c29cb49f3f290f04659de9e00039cca3d2bab64cb3f",
+          "size": 10835
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:cb1f5737392786a1187319f87b10b5087cdec5815496361453c02d85d9c7e2fa",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:54a3c4a71c026fd38b7230025b998b472f19eaa023807ec7cd26dee61f780134",
+          "size": 1708
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0d0312a91ac2489bb2e452218fc710e099d7bdfa78c03f7ffbb86c4c2fa86af7",
+          "size": 703
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ae1fbe8cfab30d9ca4d375d2f50c9225fe4c6606db3de813a8493d3641978f3d",
+          "size": 99
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:a863e7f19c0f4b5d37c225ac798ab5d38960168bb2c6c816ba92a5d53abceb30",
+          "size": 6451053
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:e3d5c529730522c698371ac13d8a6102cbdb55ff0c5cc3e4db55472d38e9742a",
+          "size": 3039501167
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8d8f80c3c6aac3ced328a039230e425e0f64b9707b54695a4261f856a48d9f3d",
+          "size": 367133
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:52da17eb8a2c80932db9166ccdf2031a11810c0876dfc7f1ec6ed106c0cc9f28",
+          "size": 211
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:a05e5e0c71584303f826155cdcc8de732175d3e65d281d16e79488f87471264f",
+          "size": 186093630
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:832afd9f894e9e7d5a99a034d631dd723096adbc167cf258a3bc85e41e150dd4",
+          "size": 65924
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4d0b091e096b303576a38b874449aaa185965255b17917d1ac5ce17f42b8f04b",
+          "size": 46830
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1227421b679b93d53c5f700088c1d38aff1baf08305629d89c9553ef5983d9ae",
+          "size": 110800
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0b7ba5945025efea3892d7392ed850407f71534e8883e7523073e3ed4abfbd28",
+          "size": 1651
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c03cc855fe152df97db6aaf29c3f0445bbd49c049ce27b229e6c670a9258884d",
+          "size": 2843496
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:646fb8e54059bc931cf2763e206efd0f7b7fd74a8190c388fab6e5ba703711d5",
+          "size": 186103819
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:46cf07a4a879aa4e9b74ef21e3a2ca6af851cf64f6caedc8470b15da0da5fcca",
+          "size": 66611
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2c1cfd891e5d7285c03cfc8a7395c52382d506ee4803b2df0a8b0d974b8801b4",
+          "size": 46894
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5a2b85e22f74e2b1540d1925fe22597257e71afadf48fafd9a9970f3cbccaefb",
+          "size": 113838
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c93db97191055127f41d4878b337de71cc96faaf566f1d69a620cf0cde74f004",
+          "size": 1657
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:56472166d3eca5587794962baa28816522fc3c3484eee9b2a5b00b7581c1b9c5",
+          "size": 1038
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        }
+      ],
+      "configDigest": "sha256:61b78e19bb84afc94170bac5f814226d7ebefddb1d14187d704b4be725648141",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "concept-captioner pod base plus kohya-ss/musubi-tuner in /opt/venvs/musubi",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-musubi",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:fc2e31dbbec7369641b3ddaf619961b179fb5f47ca5682d6e13839ea40844248",
+      "builtImageIDMatches": "registry manifest digest"
+    },
+    {
+      "name": "aitoolkit-captioning",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.16-20261025-captioning",
+      "tag": "v0.3.16-20261025-captioning",
+      "digest": "sha256:97c8d6d75c9f9054c0fb2f83a39c22d034a0d66c41308b1b1fc3033693ec89d0",
+      "compressedBytes": 14734430913,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1c7a5b530e2600a6de6c8be2c7aa9ba27fe871ebbba779244690e2e563300364",
+          "size": 254181748
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5d78fb19f97dc80778668fa049e990dad0b95e84927a568fd6d2f15049a8669",
+          "size": 22754987
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a790cbfc2a600bf62bc0b78b8ee581839f769f1f55cc928a1086e654bdfa1d3",
+          "size": 41207756
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72d8fc0095ba959f1f053b9935e77ab0c39ebec77e116fd716cf62ae2d33d6c8",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0b1cee74b8e046a2897e06db9933e047c9d35f2c2d0e146d34800d5eec9d8964",
+          "size": 745
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:da36f1ed234d4cee8e156c0c511864bfe97f227543e1ad1dbf44655d010f94fb",
+          "size": 202240399
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:15d3141d15948fa7198b16d89cdf11c2512340ff1aacbec91d6fe9cce3e791bd",
+          "size": 4821
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22ac4ae58e617b06cd8520b378edc2b6dd0a6918cb7d8415b9cce424cb6f7170",
+          "size": 42341
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8ad37e009d409815a28398919e980495481f6d2992441b30809508b902d65477",
+          "size": 1766
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fac67a7b57faa26bea87d7ed59e41ebf6765631de535f88b1e45b31985db858a",
+          "size": 61627
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3b288b8fbd2fa10d7bda340e9d6b5ff59a0f75e4badd1a7db8243699c7b76a5b",
+          "size": 178793820
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0a9d351b650cba769a25f8f27c45fa4c692ef85577b0b6342de4071b2e4a9902",
+          "size": 95201
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3f12b33c1a84b212d32cfb6042f5fff8398033fa49154deef9a2581650a6a9f4",
+          "size": 931
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:bbec3cd23d122815dd1d6c29cb49f3f290f04659de9e00039cca3d2bab64cb3f",
+          "size": 10835
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:cb1f5737392786a1187319f87b10b5087cdec5815496361453c02d85d9c7e2fa",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:54a3c4a71c026fd38b7230025b998b472f19eaa023807ec7cd26dee61f780134",
+          "size": 1708
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0d0312a91ac2489bb2e452218fc710e099d7bdfa78c03f7ffbb86c4c2fa86af7",
+          "size": 703
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ae1fbe8cfab30d9ca4d375d2f50c9225fe4c6606db3de813a8493d3641978f3d",
+          "size": 99
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2b3c57199eb49def5b9093cfa45a710b7f47eb93fb2ddee3586128d9fa54c5b3",
+          "size": 67957295
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:80eeb8f8bb7ad54b9c3b08cdf56fb0fb88d032cfca1ba90979be19e8d280eb29",
+          "size": 21145
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2515a7e2459c5cd68ee8d4898e385da9183cfe07cf5c323c6f3b41c71c5003b3",
+          "size": 371870
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f6ac1b0adbc7adce3a7679b475e4cdf710eb395a87ca1d753a89308a182426bc",
+          "size": 3790600510
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:88ab59007e7a4327c517bdcb03d561669c66478675f550225f36cbfd5bfe8df5",
+          "size": 367102
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:57e5701489015ffb9f0b919ecd3b6d63db853669c4a64579a9533e467b56f6ed",
+          "size": 6940110121
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3963251355c0d2e4eba4bbb46c57aeb794d025fdcf2f38230f94db64714b11b5",
+          "size": 1611
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3de7109de20230b83d9c4f90d9d1626cc0824962285761066785e8df4676bb5f",
+          "size": 214
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:d71c226eb4b37c2bbc2f26057756a060dc8c55d25a47f9517e64883e223d4d45",
+          "size": 186093630
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b01a11ad4bceb4b28d1072f28c74fe431f06528beff656b44598de3b4ef0be0f",
+          "size": 65925
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c08e2da568023840324d7822390010680e155584cfbaeca193b08d1ead526715",
+          "size": 46827
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:769d4a42cdd6424b61f50e9328ce42ea048c090ce751ba62011a82ea53bad708",
+          "size": 110803
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fb995bebd3fe9fa0497d12b4f1d46aeb04c4efe8c9dd3dd938818d8c37e172b1",
+          "size": 1658
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:f082d66d4c9bebc29becc40aeef278ff516bd13f38c8c5c74c9266e5c85330c9",
+          "size": 2843598
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:2933ae77f3fabec23a83ddb607a5b29405cecae7f79626d864c1f8542a63bb73",
+          "size": 186103792
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9bd6d2ae338ab3dba891ae8cd37f8d296e2431a378bf926e6cc2f84017bae3d7",
+          "size": 66608
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:e2fc381f7d34e714312eff5175948a46911d893104e525666efe543420e8a424",
+          "size": 46892
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:a19ca52e05b5b3815f7aef277728c54e17e1c4ec7279f2eb93b127187f8a4c54",
+          "size": 113838
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:32dd996e8552581d51e59fdd064b6903ba3cbc448f84a89f1544f419c6296e99",
+          "size": 1657
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:60f315091e820bed35d54c4d74ffa4150eb5a54567be63ee202a65776e566497",
+          "size": 1045
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0209eaa9325eddae40c8928ebb11bbb090b80793b90910dfb51797494a9f1d59",
+          "size": 62479
+        }
+      ],
+      "configDigest": "sha256:2f062d32d6cffe91dc989079425512305405f3803b17120a1e1e34f33814896d",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "concept-captioner trainer image with vLLM for captioning on the pod",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-aitoolkit",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:97c8d6d75c9f9054c0fb2f83a39c22d034a0d66c41308b1b1fc3033693ec89d0",
+      "builtImageIDMatches": "registry manifest digest"
+    },
+    {
+      "name": "ltx-captioning",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.16-20261025-captioning",
+      "tag": "v0.3.16-20261025-captioning",
+      "digest": "sha256:b5443ab0422cdbce3ad6ac916b4692fd5bdef767f81a575b7565eb8ee00071dc",
+      "compressedBytes": 14481118420,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1c7a5b530e2600a6de6c8be2c7aa9ba27fe871ebbba779244690e2e563300364",
+          "size": 254181748
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5d78fb19f97dc80778668fa049e990dad0b95e84927a568fd6d2f15049a8669",
+          "size": 22754987
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a790cbfc2a600bf62bc0b78b8ee581839f769f1f55cc928a1086e654bdfa1d3",
+          "size": 41207756
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72d8fc0095ba959f1f053b9935e77ab0c39ebec77e116fd716cf62ae2d33d6c8",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0b1cee74b8e046a2897e06db9933e047c9d35f2c2d0e146d34800d5eec9d8964",
+          "size": 745
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:da36f1ed234d4cee8e156c0c511864bfe97f227543e1ad1dbf44655d010f94fb",
+          "size": 202240399
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:15d3141d15948fa7198b16d89cdf11c2512340ff1aacbec91d6fe9cce3e791bd",
+          "size": 4821
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22ac4ae58e617b06cd8520b378edc2b6dd0a6918cb7d8415b9cce424cb6f7170",
+          "size": 42341
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8ad37e009d409815a28398919e980495481f6d2992441b30809508b902d65477",
+          "size": 1766
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fac67a7b57faa26bea87d7ed59e41ebf6765631de535f88b1e45b31985db858a",
+          "size": 61627
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3b288b8fbd2fa10d7bda340e9d6b5ff59a0f75e4badd1a7db8243699c7b76a5b",
+          "size": 178793820
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0a9d351b650cba769a25f8f27c45fa4c692ef85577b0b6342de4071b2e4a9902",
+          "size": 95201
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3f12b33c1a84b212d32cfb6042f5fff8398033fa49154deef9a2581650a6a9f4",
+          "size": 931
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:bbec3cd23d122815dd1d6c29cb49f3f290f04659de9e00039cca3d2bab64cb3f",
+          "size": 10835
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:cb1f5737392786a1187319f87b10b5087cdec5815496361453c02d85d9c7e2fa",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:54a3c4a71c026fd38b7230025b998b472f19eaa023807ec7cd26dee61f780134",
+          "size": 1708
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0d0312a91ac2489bb2e452218fc710e099d7bdfa78c03f7ffbb86c4c2fa86af7",
+          "size": 703
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ae1fbe8cfab30d9ca4d375d2f50c9225fe4c6606db3de813a8493d3641978f3d",
+          "size": 99
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7d16703d80f63fdab4ac7d19837c15e1a6c4f4fe576a1a5bfb46d2bc18db4e9e",
+          "size": 2317806
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:11ddeec51e42b8bb9b510386a52c2aa08b8fb141f2354bcc6dbb2b1f84bd8de9",
+          "size": 3581832780
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:90617a3373072d875a6b22df3889bd22d0c494195241eb98f3d1b8b73410fd2b",
+          "size": 21550177
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:aa2eba69be0de64ad38e9fd86c1041f9bcbf00796d44c5bf1de229a69e62280b",
+          "size": 367165
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3a682970231b72fa50951dd11123129c62af0b818aca0be26bc70725989559df",
+          "size": 6940110063
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8621ada3a385abe462d150f409f40f1df7e425674968c9e73252db9da6cc9cfd",
+          "size": 1612
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c9c733d2aa300cc5499e291ff60d6406ff479c79fda49812f344c24b91503efd",
+          "size": 209
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:80f8d4ca74e970806efb6c7328726bde4f28c21a8b544b1f5ea4f231415da954",
+          "size": 186093629
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22f636a55891f2b32286f6688b952dd118d773b4d0a3057587a702a86a073be4",
+          "size": 65921
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:d16eb3a4999e83f80ef954861f9f493c4fb2bcf87d6d31ecf67726a2fd8c18b9",
+          "size": 46830
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:3369e7a281dbffe85f63aac89d1e19c6af1eb668792b736f92bca9a3ca043df8",
+          "size": 110800
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:e6161982fb9748d178f55a8bb47ac347632216bb0cb215dd1fac63a44f52bc2c",
+          "size": 1655
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:67164c1a415fd7234b97c5b6cc876484f46a8716249092338a01df9ec2b7b1a6",
+          "size": 2843585
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0bc27b501fce7bf49c65e466ccb335bd56e24663b438cf4ab75ed6015223b3a6",
+          "size": 186103837
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ef37d4961a003ecac2a5803ae21cb5219ce2c7afc0c2b7ae50e0e5cacebaf3cf",
+          "size": 66604
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:99444c08f373fda9ef5c790b1f82fbe67b43aac180604ccab8c8eb6aba53c543",
+          "size": 46889
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1a798802122f90398e0cfab94509be663321ef333c32b98a662df1023b6de2a9",
+          "size": 113838
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:8125fdd991d72712587c38e07fb0bd86cdc0bea442de8d592c08fc5e3d854e8f",
+          "size": 1657
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:fe007a2f568617cdd25888cfd6289e44a9e03fcc4d6f190cd90581d4a0fe3030",
+          "size": 1038
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        }
+      ],
+      "configDigest": "sha256:9baf9ea8be0e1cd7e6782bdb83dfcf7e88b8a6937634c255b9ac2eb4310aaa5b",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "concept-captioner trainer image with vLLM for captioning on the pod",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-ltx",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:b5443ab0422cdbce3ad6ac916b4692fd5bdef767f81a575b7565eb8ee00071dc",
+      "builtImageIDMatches": "registry manifest digest"
+    },
+    {
+      "name": "musubi-captioning",
+      "image": "ghcr.io/rationallyprime/concept-captioner-pod-musubi:v0.3.16-20261025-captioning",
+      "tag": "v0.3.16-20261025-captioning",
+      "digest": "sha256:fc67ebcaf2e7142e09e3ce8e766b6cb42f2573daa728bafdbce4997ed007ab76",
+      "compressedBytes": 13921258701,
+      "layers": [
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:9cb31e2e37eab1bff50f727e979fcacb509e225fb853433a6fe21d2fb34e6305",
+          "size": 29535941
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:b95112eaf2836b9c7193858419f6d17933a873c4a2c9227dc497f5e090ea9c87",
+          "size": 4636499
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:030ef82509363afebdc78482e6f8c07f2bc8b65a45caf082c2a9a621c7deae63",
+          "size": 64297624
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:72ac9ccfda38d144ef8e3aadbd5851e7fa9aacd261f8e15d7365db0f816d3433",
+          "size": 186
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:73389fbd088f5ed5d9fd258baced59de092978b4f483920ea6d074522a105119",
+          "size": 6885
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0264850675f7464ed6385d030d281ffb0f2037323c73511a5372948c1c69d92c",
+          "size": 2057992898
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:de1d03310308c2871217cf179589d5e7fcd8eee31d8f331b61041347f50404a0",
+          "size": 64086
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c1d2af7fad0f1c6cdaf09c568c086019e834bc6523c30aa9b2b0b24c4b782086",
+          "size": 1683
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5601308b3ac642f7df8b1dc62b9582abdd34857eec6190bcb50162abc5719226",
+          "size": 1522
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7847788b0be8932a0f76c72c2501bcb806b85f95761beb1f127403f83fb99cc3",
+          "size": 703501891
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:1c7a5b530e2600a6de6c8be2c7aa9ba27fe871ebbba779244690e2e563300364",
+          "size": 254181748
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5d78fb19f97dc80778668fa049e990dad0b95e84927a568fd6d2f15049a8669",
+          "size": 22754987
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4a790cbfc2a600bf62bc0b78b8ee581839f769f1f55cc928a1086e654bdfa1d3",
+          "size": 41207756
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:011f78f823b89750f251f2af0445547cd965b9e2f75f50651d11aa1745cbc7bb",
+          "size": 957
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:aeaf7d5c553f8b38cde633d4c70a6cd105f39cce5d3f6ecacfa5b1378f7d0717",
+          "size": 742
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7c5ea91811d3941e2d12aa5f6d1f71a8b069ccc165a331c572936490f59b8dbd",
+          "size": 202239791
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5c0bf3663e3a598bbfdd0682bd7ff562ff0e9353158f256d4b038fa4f3149724",
+          "size": 4787
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:10ca3642ae349f50ef4f550307df38a17564083a5e4f82eda9803e922bc65268",
+          "size": 42218
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:841aab025740584a262185b4341e7a65ad652067bcef91a91fe65905bff79496",
+          "size": 1768
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:6bd66f0444212ef830f6518882d9fd9ef463b0d3452f85cb45233cb705837160",
+          "size": 61607
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:df3d56f1ccff9aefec82843607b627fb0a75a7c300c2e9b61729632a808d71de",
+          "size": 178656441
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0ed810a88d1ab61b7e78d5c2bfc214a5b18b3b06a1f5a168cfa12b50f5dd8248",
+          "size": 95196
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5ff26804a5ea5ac741febc5a68ace7f9c660e10221f62bb905d94b34422be123",
+          "size": 930
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:90c48863a467dc559395edcbe8e3fc81ca50b6a2e9a3b29da2cb847b76128153",
+          "size": 10834
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:216ac8c1a7b5d02824583b81cc10ae2889c7dfdfe7dc9c833825d4d6264c2712",
+          "size": 2506
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:db5245bbf55907da6edb8039ac4218baf88590cdae189c8feb90f2aa8f10838d",
+          "size": 1707
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:d5066dc731a15b7cd4dd13220109a7c7fbbef73462178766a87c3229878a027d",
+          "size": 701
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:6f22b7e179bff54882933fcf41ba354b0de11a453bd21a12e207aac14b8bced7",
+          "size": 99
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:069aa8926013973549a4198e2b7956f64962d435b0527828ac18f6ed2001f8d9",
+          "size": 6451084
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:96d33e23299752b8ce132437a935fe8fdaa9e4784f4fff84eca66fefb4df92c5",
+          "size": 3039528286
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:eb482b5696168fd8f747004d543d5c87e9ee5e36843bd781ac76d9699cd89028",
+          "size": 367131
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0591aa59e3d6114f472afaf63a9b49647363eb2456bab794c2231e699e8c4e0a",
+          "size": 6940109890
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:ea43e43544639fb445835240adb9518fba0d0d3c12ca3a181c7f68570d86aca6",
+          "size": 1612
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:e178f88ae7e2b368995fb73c4501a45461a62631c19c2cb229fab6534ec9d258",
+          "size": 213
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:42a5f884caf8ca7285c2142e7bc3e1060336743367702748548f00d604ddb15f",
+          "size": 186093654
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:7aafb2cd8c718f182f1fcdd8efb2f9f3a9785ca9d868742a91fc913007346538",
+          "size": 65925
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:5a5cb7de81f2066920a63b74128301cf8ccc17e249680dd780647fdeaf2c3b33",
+          "size": 46831
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:0f4780d9178cdb002c5fb0626c0e6cfb232306e9cc16c85799b9b4f79844d5ad",
+          "size": 110804
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4997a5848ac8c8ce71be503a522c5911c9fb2d6f25b8747d9c7d7cd3678b95dc",
+          "size": 1659
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:c5c90e27f695a55fe12b897564cbaefbf24ffa12ce6f7375be96cd4bd69e0a8c",
+          "size": 2843584
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:32e7cc095a2b9c90d478a9dc4ff229114543e70fad479ad7c4ac3ab61b5e38e3",
+          "size": 186103840
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:cbab5b9ce026425cf63d34b80a398ad0c7fe16d8615d9440d7252cd8afc5d943",
+          "size": 66610
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:67d9c8f7d05ada242a434ee97ce84566136411fe22a0698f3229060ec0746ac2",
+          "size": 46895
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:42f37fb136d8b2b38ed17f6d58d768bee3b79ede378388c0c8803b8e1f6035b0",
+          "size": 113837
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:22bb1a86a77cd736c994d59ae995fe2418ef96a32c5eed839002efc53a8f3211",
+          "size": 1658
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:65722b153a11392a698b2f9742b2124688f16a27c69a2643d1659886a3352f30",
+          "size": 1038
+        },
+        {
+          "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+          "digest": "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+          "size": 32
+        }
+      ],
+      "configDigest": "sha256:c0e1e0e5012bf97ecb0f58140490877499328ac4bbc87bbe163ff4db8be905aa",
+      "labels": {
+        "com.nvidia.cudnn.version": "9.8.0.87-1",
+        "maintainer": "NVIDIA CORPORATION <cudatools@nvidia.com>",
+        "org.opencontainers.image.description": "concept-captioner trainer image with vLLM for captioning on the pod",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.ref.name": "ubuntu",
+        "org.opencontainers.image.revision": "86561c47b74d225b656850f1cb996e22b40dce81",
+        "org.opencontainers.image.source": "https://github.com/RationallyPrime/concept-captioner",
+        "org.opencontainers.image.title": "concept-captioner-pod-musubi",
+        "org.opencontainers.image.version": "22.04"
+      },
+      "builtImageID": "sha256:fc67ebcaf2e7142e09e3ce8e766b6cb42f2573daa728bafdbce4997ed007ab76",
+      "builtImageIDMatches": "registry manifest digest"
+    }
+  ],
+  "cpuSmokeCount": 7,
+  "cpuChecks": [
+    "unauthenticated health 401; authenticated health 200",
+    "workspace-scoped storage: 3 bytes used, 80 GB allocation",
+    "Full 13-service catalog advertised, with exact per-image installed availability sets",
+    "Base 4; AI Toolkit 8; LTX 7; musubi 7; captioning variants add vllm",
+    "train_audio defaults true and preserves explicit false in installed RunConfig",
+    "Installed catalog SHA256 matches reviewed pod source",
+    "All 13 services advertise supports_hf_token derived from the installed schema; expected 11 true and two false",
+    "Fresh hf_token overrides stale environment for vllm, draw, generation and upscale; public params and fake argv redact it",
+    "Installed v2 table lists 25 unique models; Krea default musubi and AI Toolkit unverified with regularisation weight 1 and Turbo 8 steps/no CFG",
+    "Real container entrypoint: no PUBLIC_KEY means no SSH listener; configured key logs in; wrong key refused; password authentication disabled; bidirectional rsync roundtrip hashes match"
+  ],
+  "logsDirectory": "/home/hive/work-ariadne/conceptstudio-ari-brief-20261025-v0316-build/logs",
+  "archive": {
+    "sourceCommit": "86561c47b74d225b656850f1cb996e22b40dce81",
+    "sha256": "e2226c292d32c323d564adeff908bb50032cf297745063feaf1c4aca0fe6bd0b",
+    "bytes": 37877760,
+    "method": "git archive exact frozen commit; fresh base; complete source/agent refresh and optional SSH packages plus explicit Krea Turbo patch on immutable v0.3.14 runtime parents"
+  },
+  "sourceLabelVerifiedAnonymously": true,
+  "vllmLayers": {
+    "aitoolkit-captioning": {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:57e5701489015ffb9f0b919ecd3b6d63db853669c4a64579a9533e467b56f6ed",
+      "size": 6940110121
+    },
+    "ltx-captioning": {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:3a682970231b72fa50951dd11123129c62af0b818aca0be26bc70725989559df",
+      "size": 6940110063
+    },
+    "musubi-captioning": {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:0591aa59e3d6114f472afaf63a9b49647363eb2456bab794c2231e699e8c4e0a",
+      "size": 6940109890
+    }
+  },
+  "buildArguments": {
+    "baseDockerfile": "pod/images/Dockerfile.base",
+    "refreshDockerfile": "Dockerfile.refresh-agent",
+    "freshBaseDigest": "sha256:af31df3726d03fb0d5cc59601e2f9e4e03ff25621296a0bddb9eb1db6b1a6680",
+    "runtimeParents": {
+      "aitoolkit": {
+        "release": "v0.3.14-20261024",
+        "digest": "sha256:24c4db9600ab22e9742ee9d7b6ee2e2fa38660b577cce8a8a1dc4ace4ec39c5c",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit@sha256:24c4db9600ab22e9742ee9d7b6ee2e2fa38660b577cce8a8a1dc4ace4ec39c5c",
+        "sourceCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a"
+      },
+      "ltx": {
+        "release": "v0.3.14-20261024",
+        "digest": "sha256:8cd11aa562d288740b778fe9d59df7d03b5e5328405bbec5dbfc46e5d06487e6",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-ltx@sha256:8cd11aa562d288740b778fe9d59df7d03b5e5328405bbec5dbfc46e5d06487e6",
+        "sourceCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a"
+      },
+      "musubi": {
+        "release": "v0.3.14-20261024",
+        "digest": "sha256:074ce6466ef677a6bbd63b674cec36521a9729f127771a44981d9ab8314de28e",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-musubi@sha256:074ce6466ef677a6bbd63b674cec36521a9729f127771a44981d9ab8314de28e",
+        "sourceCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a"
+      },
+      "aitoolkit-captioning": {
+        "release": "v0.3.14-20261024",
+        "digest": "sha256:df8902666e8e404887e52aba20fe36d078ab9a040aa3b82eedc4e1d1ba0a7a52",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit@sha256:df8902666e8e404887e52aba20fe36d078ab9a040aa3b82eedc4e1d1ba0a7a52",
+        "sourceCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a"
+      },
+      "ltx-captioning": {
+        "release": "v0.3.14-20261024",
+        "digest": "sha256:9cbf85e689265a77c973b2a1d820c3fb922c711640cc7eec8e7c2c941f6a29da",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-ltx@sha256:9cbf85e689265a77c973b2a1d820c3fb922c711640cc7eec8e7c2c941f6a29da",
+        "sourceCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a"
+      },
+      "musubi-captioning": {
+        "release": "v0.3.14-20261024",
+        "digest": "sha256:d8f7961c820066f5bbaa805e377a674889735f936755ee4247b66f45bd8be880",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-musubi@sha256:d8f7961c820066f5bbaa805e377a674889735f936755ee4247b66f45bd8be880",
+        "sourceCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a"
+      }
+    }
+  },
+  "runtimeReuseProof": {
+    "baselineCommit": "b7286e39d7bd2491445b4d7a076b068fdf39355a",
+    "targetCommit": "86561c47b74d225b656850f1cb996e22b40dce81",
+    "unchangedGPURuntimeInputs": [
+      {
+        "path": "pod/images/Dockerfile.aitoolkit",
+        "sha256": "a285fd2c5092925b266fe05d1544f9b358c825dd926c35d4ae1b9bcf4a7c717d",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/Dockerfile.ltx",
+        "sha256": "67ea6aed6113fbcd68ca11b71b780e36ae77534c45de9a288806dfedf3b5044d",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/Dockerfile.musubi",
+        "sha256": "32f9074d036e663673f0af23d763b1ae9ccf579ea3e7a172e8b4b36e339df554",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/share_seedvr2_torch.py",
+        "sha256": "2d887c5ac8f0050b27ff409ea73e9c22a515ababc719b276252a38c3dc55f66c",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/seedvr2-requirements.txt",
+        "sha256": "bc146a7f5060eb1f5b30c9e2745896861459c93e6a9bba84537bec459a6fc8b0",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/patches/ai-toolkit/0001-REPA-representation-alignment-loss-for-DiT-training-.patch",
+        "sha256": "d7a3f270e5de444ef6fdb4a804ef6cea219e8d6b642f86999eec7757cc9ba1c1",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/patches/ai-toolkit/0002-REPA-Z-Image-target-tokens.patch",
+        "sha256": "c0fb20170d81e004dd3568dc8abc1cbdf6f7a00047f4574d8454d594a6c315bb",
+        "byteIdenticalToPriorRelease": true
+      },
+      {
+        "path": "pod/images/patches/ai-toolkit/0003-REPA-UI-section-and-docs.patch",
+        "sha256": "cdc36142746442b4729ea337af0159c125747e35482944fa9f62a73fa55a8387",
+        "byteIdenticalToPriorRelease": true
+      }
+    ],
+    "explicitRuntimeChanges": [
+      "openssh-server and rsync installed in base and runtime refresh",
+      "new entrypoint copied from exact source; missing PUBLIC_KEY means no SSH listener",
+      "AI Toolkit variants apply only committed 0004-Krea-2-Turbo-samples.patch; prior three REPA patches and CUDA/Python GPU environments retained",
+      "captioning Dockerfile changes EXPOSE 8000 to EXPOSE 8000 22; vLLM installation bytes inherited"
+    ],
+    "updatedSource": "entire agent venv, source packages, shared pod scripts including reviewed checkpoint selection repair, entrypoint and v2 table copied from fresh exact-source base"
+  },
+  "buildMethod": "Fresh exact-source base; replace complete agent environment/source/program trees on immutable v0.3.14 runtime parents; add openssh-server and rsync; apply only Krea Turbo patch 0004 to AI Toolkit variants. Existing Python GPU runtime packages are inherited unchanged.",
+  "oldAgentLayerOverhead": "Prior agent layer remains in inherited runtime layers; its environment and source trees are deleted before copying fresh replacements, so old packages and removed files cannot execute.",
+  "captioningLayerReuse": "Existing immutable captioning runtime parents retain identical vLLM bytes; the new flag checker verifies the installed vLLM before publication.",
+  "runtimeLayerReuse": {
+    "aitoolkit": {
+      "parentDigest": "sha256:24c4db9600ab22e9742ee9d7b6ee2e2fa38660b577cce8a8a1dc4ace4ec39c5c",
+      "allParentLayersByteIdentical": true,
+      "inheritedLayerCount": 41,
+      "replacementLayerCompressedBytes": 189239953
+    },
+    "ltx": {
+      "parentDigest": "sha256:8cd11aa562d288740b778fe9d59df7d03b5e5328405bbec5dbfc46e5d06487e6",
+      "allParentLayersByteIdentical": true,
+      "inheritedLayerCount": 40,
+      "replacementLayerCompressedBytes": 189177496
+    },
+    "musubi": {
+      "parentDigest": "sha256:074ce6466ef677a6bbd63b674cec36521a9729f127771a44981d9ab8314de28e",
+      "allParentLayersByteIdentical": true,
+      "inheritedLayerCount": 39,
+      "replacementLayerCompressedBytes": 189177385
+    },
+    "aitoolkit-captioning": {
+      "parentDigest": "sha256:df8902666e8e404887e52aba20fe36d078ab9a040aa3b82eedc4e1d1ba0a7a52",
+      "allParentLayersByteIdentical": true,
+      "inheritedLayerCount": 45,
+      "replacementLayerCompressedBytes": 189239909
+    },
+    "ltx-captioning": {
+      "parentDigest": "sha256:9cbf85e689265a77c973b2a1d820c3fb922c711640cc7eec8e7c2c941f6a29da",
+      "allParentLayersByteIdentical": true,
+      "inheritedLayerCount": 44,
+      "replacementLayerCompressedBytes": 189177480
+    },
+    "musubi-captioning": {
+      "parentDigest": "sha256:d8f7961c820066f5bbaa805e377a674889735f936755ee4247b66f45bd8be880",
+      "allParentLayersByteIdentical": true,
+      "inheritedLayerCount": 43,
+      "replacementLayerCompressedBytes": 189177494
+    }
+  },
+  "cpuAvailabilityEvidence": {
+    "base": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": false,
+        "generate-aitoolkit": false,
+        "generate-ltx": false,
+        "generate-musubi": false,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": false,
+        "trainer-ltx": false,
+        "trainer-musubi": false,
+        "upscale-media": false,
+        "vllm": false
+      },
+      "available": [
+        "cleanup-datasets",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "base",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": null,
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "draw-regularization": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "draw-regularization"
+            },
+            "message": "This cloud GPU's image does not include draw-regularization. Rent one with the matching image."
+          }
+        },
+        "generate-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include generate-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "generate-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-ltx"
+            },
+            "message": "This cloud GPU's image does not include generate-ltx. Rent one with the matching image."
+          }
+        },
+        "generate-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-musubi"
+            },
+            "message": "This cloud GPU's image does not include generate-musubi. Rent one with the matching image."
+          }
+        },
+        "trainer-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include trainer-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "trainer-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-ltx"
+            },
+            "message": "This cloud GPU's image does not include trainer-ltx. Rent one with the matching image."
+          }
+        },
+        "trainer-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-musubi"
+            },
+            "message": "This cloud GPU's image does not include trainer-musubi. Rent one with the matching image."
+          }
+        },
+        "upscale-media": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "upscale-media"
+            },
+            "message": "This image has no SeedVR2 GPU runtime. Rent a GPU with a current trainer image to upscale."
+          }
+        },
+        "vllm": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "vllm"
+            },
+            "message": "This computer's image has no vllm. Rent the computer with captioning (the image tag ending in -captioning) to caption on its GPU."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    },
+    "aitoolkit": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": false,
+        "generate-musubi": false,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": false,
+        "trainer-musubi": false,
+        "upscale-media": true,
+        "vllm": false
+      },
+      "available": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "upscale-media"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "upscale-media"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "aitoolkit",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": "73e4675a0b02fae0fc8aa5db61be550b27a8c9934ba292b39f1586d1e5b0fa91",
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "generate-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-ltx"
+            },
+            "message": "This cloud GPU's image does not include generate-ltx. Rent one with the matching image."
+          }
+        },
+        "generate-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-musubi"
+            },
+            "message": "This cloud GPU's image does not include generate-musubi. Rent one with the matching image."
+          }
+        },
+        "trainer-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-ltx"
+            },
+            "message": "This cloud GPU's image does not include trainer-ltx. Rent one with the matching image."
+          }
+        },
+        "trainer-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-musubi"
+            },
+            "message": "This cloud GPU's image does not include trainer-musubi. Rent one with the matching image."
+          }
+        },
+        "vllm": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "vllm"
+            },
+            "message": "This computer's image has no vllm. Rent the computer with captioning (the image tag ending in -captioning) to caption on its GPU."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    },
+    "ltx": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": false,
+        "generate-aitoolkit": false,
+        "generate-ltx": true,
+        "generate-musubi": false,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": false,
+        "trainer-ltx": true,
+        "trainer-musubi": false,
+        "upscale-media": true,
+        "vllm": false
+      },
+      "available": [
+        "cleanup-datasets",
+        "generate-ltx",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-ltx",
+        "upscale-media"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "generate-ltx",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-ltx",
+        "upscale-media"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "ltx",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": null,
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "draw-regularization": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "draw-regularization"
+            },
+            "message": "This cloud GPU's image does not include draw-regularization. Rent one with the matching image."
+          }
+        },
+        "generate-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include generate-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "generate-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-musubi"
+            },
+            "message": "This cloud GPU's image does not include generate-musubi. Rent one with the matching image."
+          }
+        },
+        "trainer-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include trainer-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "trainer-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-musubi"
+            },
+            "message": "This cloud GPU's image does not include trainer-musubi. Rent one with the matching image."
+          }
+        },
+        "vllm": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "vllm"
+            },
+            "message": "This computer's image has no vllm. Rent the computer with captioning (the image tag ending in -captioning) to caption on its GPU."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    },
+    "musubi": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": false,
+        "generate-aitoolkit": false,
+        "generate-ltx": false,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": false,
+        "trainer-ltx": false,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": false
+      },
+      "available": [
+        "cleanup-datasets",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-musubi",
+        "upscale-media"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-musubi",
+        "upscale-media"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "musubi",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": null,
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "draw-regularization": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "draw-regularization"
+            },
+            "message": "This cloud GPU's image does not include draw-regularization. Rent one with the matching image."
+          }
+        },
+        "generate-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include generate-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "generate-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-ltx"
+            },
+            "message": "This cloud GPU's image does not include generate-ltx. Rent one with the matching image."
+          }
+        },
+        "trainer-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include trainer-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "trainer-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-ltx"
+            },
+            "message": "This cloud GPU's image does not include trainer-ltx. Rent one with the matching image."
+          }
+        },
+        "vllm": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "vllm"
+            },
+            "message": "This computer's image has no vllm. Rent the computer with captioning (the image tag ending in -captioning) to caption on its GPU."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    },
+    "aitoolkit-captioning": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": false,
+        "generate-musubi": false,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": false,
+        "trainer-musubi": false,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "available": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "upscale-media",
+        "vllm"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "upscale-media",
+        "vllm"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "aitoolkit-captioning",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": "73e4675a0b02fae0fc8aa5db61be550b27a8c9934ba292b39f1586d1e5b0fa91",
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "generate-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-ltx"
+            },
+            "message": "This cloud GPU's image does not include generate-ltx. Rent one with the matching image."
+          }
+        },
+        "generate-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-musubi"
+            },
+            "message": "This cloud GPU's image does not include generate-musubi. Rent one with the matching image."
+          }
+        },
+        "trainer-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-ltx"
+            },
+            "message": "This cloud GPU's image does not include trainer-ltx. Rent one with the matching image."
+          }
+        },
+        "trainer-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-musubi"
+            },
+            "message": "This cloud GPU's image does not include trainer-musubi. Rent one with the matching image."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    },
+    "ltx-captioning": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": false,
+        "generate-aitoolkit": false,
+        "generate-ltx": true,
+        "generate-musubi": false,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": false,
+        "trainer-ltx": true,
+        "trainer-musubi": false,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "available": [
+        "cleanup-datasets",
+        "generate-ltx",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-ltx",
+        "upscale-media",
+        "vllm"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "generate-ltx",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-ltx",
+        "upscale-media",
+        "vllm"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "ltx-captioning",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": null,
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "draw-regularization": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "draw-regularization"
+            },
+            "message": "This cloud GPU's image does not include draw-regularization. Rent one with the matching image."
+          }
+        },
+        "generate-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include generate-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "generate-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-musubi"
+            },
+            "message": "This cloud GPU's image does not include generate-musubi. Rent one with the matching image."
+          }
+        },
+        "trainer-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include trainer-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "trainer-musubi": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-musubi"
+            },
+            "message": "This cloud GPU's image does not include trainer-musubi. Rent one with the matching image."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    },
+    "musubi-captioning": {
+      "authentication": "401 without bearer;200 with bearer",
+      "availability": {
+        "cleanup-datasets": true,
+        "draw-regularization": false,
+        "generate-aitoolkit": false,
+        "generate-ltx": false,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": true,
+        "trainer-aitoolkit": false,
+        "trainer-ltx": false,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "available": [
+        "cleanup-datasets",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "catalogSHA256": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+      "expectedAvailable": [
+        "cleanup-datasets",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "fakeModeAvailable": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "freshHFTokenContract": "four services override stale environment; public params and fake argv redact",
+      "image": "musubi-captioning",
+      "kreaPairing": "default musubi; AI Toolkit unverified; regularisation enabled weight 1; Turbo 8 steps no CFG",
+      "kreaPatchSHA256": null,
+      "modelTableVersion": 2,
+      "serviceCatalog": [
+        "cleanup-datasets",
+        "draw-regularization",
+        "generate-aitoolkit",
+        "generate-ltx",
+        "generate-musubi",
+        "pull-dataset",
+        "push-lora",
+        "tensorboard",
+        "trainer-aitoolkit",
+        "trainer-ltx",
+        "trainer-musubi",
+        "upscale-media",
+        "vllm"
+      ],
+      "storage": {
+        "datasets_bytes": 3,
+        "free_bytes": 79999999997,
+        "reclaimable_dataset_bytes": 0,
+        "regularization_cache_bytes": 0,
+        "total_bytes": 80000000000,
+        "used_bytes": 3,
+        "workspace_scoped": true
+      },
+      "supportsHFToken": {
+        "cleanup-datasets": false,
+        "draw-regularization": true,
+        "generate-aitoolkit": true,
+        "generate-ltx": true,
+        "generate-musubi": true,
+        "pull-dataset": true,
+        "push-lora": true,
+        "tensorboard": false,
+        "trainer-aitoolkit": true,
+        "trainer-ltx": true,
+        "trainer-musubi": true,
+        "upscale-media": true,
+        "vllm": true
+      },
+      "train_audio_contract": "default true; explicit false preserved",
+      "unavailableStartRefusals": {
+        "draw-regularization": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "draw-regularization"
+            },
+            "message": "This cloud GPU's image does not include draw-regularization. Rent one with the matching image."
+          }
+        },
+        "generate-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include generate-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "generate-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "generate-ltx"
+            },
+            "message": "This cloud GPU's image does not include generate-ltx. Rent one with the matching image."
+          }
+        },
+        "trainer-aitoolkit": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-aitoolkit"
+            },
+            "message": "This cloud GPU's image does not include trainer-aitoolkit. Rent one with the matching image."
+          }
+        },
+        "trainer-ltx": {
+          "error": {
+            "code": "unavailable",
+            "detail": {
+              "service": "trainer-ltx"
+            },
+            "message": "This cloud GPU's image does not include trainer-ltx. Rent one with the matching image."
+          }
+        }
+      },
+      "uniqueModelCount": 25
+    }
+  },
+  "priorPartialPublication": {
+    "release": "v0.3.15-20261025",
+    "sourceCommit": "924553eb7a48157fdceb69e5c6690b863192e01a",
+    "publicationComplete": false,
+    "reason": "Publication paused after independent review found runtime checkpoint-path ambiguity and app replacement-volume report-budget bypass; final repaired release uses a new tag",
+    "publishedTagsPreserved": [
+      {
+        "name": "base",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-base:v0.3.15-20261025",
+        "digest": "sha256:3c664cb838549355f83dd4f9b52777ed3031c41235bbc1ab317ac5b6c29e53c6",
+        "compressedBytes": 3569041527
+      },
+      {
+        "name": "aitoolkit",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.15-20261025",
+        "digest": "sha256:4746044ace170823c02878f62028b91f2d0cd72beb07e4735e72303a3a1d2cb0",
+        "compressedBytes": 7794318624
+      },
+      {
+        "name": "aitoolkit-captioning",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-aitoolkit:v0.3.15-20261025-captioning",
+        "digest": "sha256:d1eacc1fdefb79637aad08b0b49e094065f50e48df5fcb0ffab909e29576b64d",
+        "compressedBytes": 14734430404
+      },
+      {
+        "name": "ltx",
+        "image": "ghcr.io/rationallyprime/concept-captioner-pod-ltx:v0.3.15-20261025",
+        "digest": "sha256:d0c314128b95ffbd0e44b1fa0bdcde689e0baf90fc27e7bf1ae7c123580a820c",
+        "compressedBytes": 7541006189
+      }
+    ],
+    "remoteReceiptDirectory": "cx53:/home/hive/work-ariadne/conceptstudio-ari-brief-20261025-build",
+    "sshEvidenceCorrection": "Old substring check did not distinguish publickey from publickey,password; production source explicitly disabled password authentication. New release parses exact offered authentication methods and reruns all seven SSH/rsync checks."
+  },
+  "sshTransferScope": "cx53 host SSH/rsync clients to local CPU image containers on loopback ports; Mac-to-RunPod transfer acceptance is separate",
+  "sshTransferEvidence": {
+    "base": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "base",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "43d64db41f8913c785dad7a3b96e0f98db0d340e4280d602641c1b57bcc51366",
+        "826e3b70c6d03ca5a5a981d4490fe2b924f8f807d719da9128f1ff34dd3dee30"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    },
+    "aitoolkit": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "aitoolkit",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "b31b812bb4f672af615cfe645a76dad249e3a93b8c0839f5da8a092f15e3380c",
+        "0eb8ce920952a3fdbe5f0f3c8c10277b2964090590b454923054489d3a86f711"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    },
+    "ltx": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "ltx",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "7e3431d4d664ccb2b6ae0b26d73608344cc0a77e919b921c5ffac5f332755faa",
+        "baa7011b3220371da5d5f36432a0f5704898584e0da44744f121cab7b2582841"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    },
+    "musubi": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "musubi",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "78c038e1666acf75b07a5c185950784bf7d3c1046a41b806e84a571d8ad90411",
+        "89cd432619ae57ff73db9e579ff136da793c2c69d14f51d5cdaa62d534908b95"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    },
+    "aitoolkit-captioning": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "aitoolkit-captioning",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "788238552dde4a2b26414b5df96aba76887ac51e913f98fbc278cda547127650",
+        "a598ec49d6921b00063cba30e0a5efb6449d0c38fdeeeb28860339605acae819"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    },
+    "ltx-captioning": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "ltx-captioning",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "7671633edc323d0c624f94671a4c9d739a9997d1a39503e3e6ba618b242010ad",
+        "7e19c9d3e39eac0e34afa17e659d976108a247525dd0e383d0007c9ee9a55456"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    },
+    "musubi-captioning": {
+      "configuredKeyLogin": true,
+      "fileSHA256": {
+        "caption file.txt": "008cfe404efb002afb910c2185c73820b997ae6e3ae5631aa357d73a8afe78ae",
+        "empty.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "nested folder/sample.bin": "2b07811057df887086f06a67edc6ebf911de8b6741156e7a2eb1416a4b8b1b2e"
+      },
+      "gpuUsed": false,
+      "image": "musubi-captioning",
+      "noBakedPrivateHostKey": true,
+      "noKeyNoSSHListener": true,
+      "passwordOnlyRejected": true,
+      "realBidirectionalRsync": true,
+      "removedOwnContainerIDs": [
+        "98c0494acf17f023543f34718e20d23df01505b0f171ccb6e112bbbeb59a2042",
+        "7cb42e64bfb47107c25461249e4866171dcd2d31d4740c6565a30f1beaf0be34"
+      ],
+      "rsyncVersion": "rsync  version 3.2.7  protocol version 31",
+      "serverOfferedAuthenticationMethods": [
+        "publickey",
+        "publickey"
+      ],
+      "serverOfferedOnlyPublicKey": true,
+      "unchangedChecksumDryRun": true,
+      "wrongKeyRejected": true
+    }
+  },
+  "sourceFileSHA256": {
+    "pod/agent/src/podagent/catalog.py": "4671c527bb2fe8a767cc826236b9dca9d0bdb5057f2f48c79522cbda318ed337",
+    "pod/images/Dockerfile.base": "6e1b1a55034efdf1dd498c396516d0f1e9f21e8eb7adaac7507dff3daac6e34a",
+    "pod/images/Dockerfile.captioning": "786123c7a1319b751f3fbc5a896336d7370338f2ac9b8163c1eb46d5baf89e48",
+    "pod/images/entrypoint.sh": "7b6ccc4e5fa3cf17278b313318ac83dc6a22d77c5c6b1772e075044c3d6dc5a7",
+    "app/Sources/ConceptStudio/Resources/Training/model-table.json": "657b28ed9fccefb0b3185e078e5cf99548af6fe1a3fb0fa2f6fbec422508d743",
+    "pod/images/patches/ai-toolkit/0004-Krea-2-Turbo-samples.patch": "73e4675a0b02fae0fc8aa5db61be550b27a8c9934ba292b39f1586d1e5b0fa91",
+    "pod/scripts/model_table.py": "e007f6a480624d5216fd58e3d3325e2a62717989f09d077c593d07e0c97c3a6b",
+    "pod/scripts/generate_results.py": "f1437835445b869c791dee675b5cb1c00c3b173ec00cf41430c37f10691c6cdf",
+    "pod/scripts/launch_aitoolkit.py": "f89a901642e27be7584fc7407a10d736e06f651f6af3d4eb0da2f87d1c3618bd"
+  },
+  "localBuildCleanup": {
+    "registryTagsRetained": true,
+    "unrelatedImagesAndContainersPreserved": true
+  },
+  "publicationComplete": true,
+  "releaseBuildFileSHA256": {
+    "Dockerfile.refresh-agent": "9ee7ab0de3370b2a95b8d1cc220d3930f0a5d621ca283154d0e1f5cb102522ea",
+    "build.sh": "3eb64f3329a86ab03dfba7b914c2ea05d56b06f3a04943b3ee7fff0e7885d87a",
+    "registry.py": "630b3af44580e6fb4f78c9828d96d2feb53680c01bf9841924cbf4721d020e12",
+    "image-smoke.py": "fd135b2577d366f006b0febb2f56b63626ff2538ee919d4cd80941c82259d73c",
+    "ssh-smoke.py": "23d8b2f08f4984a7250b1574d300dc79545f0444effa9ff464a3418385301a03",
+    "validate-runtime.py": "09b68ecd94b95235549ebdb2028c671019126b8cd0b4ab52e27a4cca55f05600",
+    "runtime-parents.json": "251a0fdb98e60e36a7bb23dd140e19a358861fdba350cecf49aaff2024cf027c",
+    "runtime-reuse-proof.json": "35803e10d7208e7fba746187e187fa31b6a33d34f577abe0dbb0fabb6b60c9a9",
+    "finalize-release.py": "4a85c0ae848f6a3a127ec756b972d4cf3fe27414251d5252af53832c5a7850b3",
+    "release.txt": "1276177a237e2ebc3240ded277c457fc870a81d7c67d2b4d27dd5a08d51ebd49",
+    "prior-partial-publication.json": "4ac028920a7e4e6129a7c089b8110667974f93e8b4e8e68181b1007da73907ed"
+  },
+  "completion": {
+    "finishedAt": "2026-10-25T16:51:34.945854+00:00",
+    "elapsedSeconds": 649.945854,
+    "taskDockerLogout": "Removing login credentials for ghcr.io",
+    "taskRegistryAuthHostsAfterLogout": [],
+    "preexistingContainerCount": 5,
+    "currentContainerCount": 5,
+    "preexistingContainersPreserved": true,
+    "preexistingImageCount": 31,
+    "preexistingImagesPreserved": true,
+    "imageAndBuildCachePrunePerformed": false,
+    "disk": "Filesystem        1B-blocks         Used   Available Use% Mounted on\n/dev/sda1      322239832064 255108620288 53973409792  83% /",
+    "runPodResourcesChanged": false,
+    "gpuUsed": false
+  },
+  "publicationCollisionChecks": {
+    "base": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:41:12.584637+00:00"
+    },
+    "aitoolkit": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:41:37.287974+00:00"
+    },
+    "ltx": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:42:17.879265+00:00"
+    },
+    "musubi": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:44:07.563940+00:00"
+    },
+    "aitoolkit-captioning": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:41:57.446586+00:00"
+    },
+    "ltx-captioning": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:42:37.060807+00:00"
+    },
+    "musubi-captioning": {
+      "result": "absent immediately before publication",
+      "release": "v0.3.16-20261025",
+      "checkedAt": "2026-10-25T16:51:17.399168+00:00"
+    }
+  }
+}

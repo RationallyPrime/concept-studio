@@ -360,11 +360,18 @@ struct StudioProject {
     }
 
     mutating func applySavedCaption(id: String, text: String, final: Bool) {
-        guard let index = images.firstIndex(where: { $0.id == id }) else { return }
-        images[index].caption = text
-        images[index].isFinal = final
-        images[index].isImported = images[index].isImported && !final
-        images[index].status = .written
+        if let index = images.firstIndex(where: { $0.id == id }) {
+            Self.applyCaption(to: &images[index], text: text, final: final)
+        } else if let index = excludedImages.firstIndex(where: { $0.id == id }) {
+            Self.applyCaption(to: &excludedImages[index], text: text, final: final)
+        }
+    }
+
+    private static func applyCaption(to image: inout ProjectImage, text: String, final: Bool) {
+        image.caption = text
+        image.isFinal = final
+        image.isImported = image.isImported && !final
+        image.status = .written
     }
 }
 

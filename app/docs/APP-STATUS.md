@@ -6,10 +6,51 @@ The [Qwen-Image-2.1 run](#end-to-end-run-through-the-app-2026-10-14) trained for
 in 1 h 19 min at US$3.99 of GPU cost**. The signed, notarised app handled the full workflow,
 including regularisation, REPA, private publication and automatic idle stop.
 
-Updated 2026-10-24. The default GPU images include SeedVR2 restoration and report the services
-each image can run, with **seven verified recipes** and **18 additional recipes** under Advanced user.
+Updated 2026-10-25. The shared model table lists **25 models and 26 model/trainer pairings**,
+including **seven verified recipes**. Krea 2 offers musubi-tuner and an unverified AI Toolkit
+pairing; the other unverified models remain under Advanced user. The default GPU images
+include SeedVR2 restoration and report the services each image can run.
 [Get started](RUNNING.md), explore [captioning](CORE-STATUS.md) and
 [GPU services](../../pod/docs/POD-STATUS.md), or see [published images](../../pod/images/README.md).
+
+## Trainer choice, portable comparisons and full-size media, 2026-10-25
+
+**Choose a trainer for Krea 2, inspect images and clips at full size, and generate comparisons
+from a published or Mac-saved LoRA on a new GPU.** The app and pod read the same version 2
+model table. Each model appears once; a trainer choice appears when the model has several.
+Saved runs still resolve their recorded model and trainer, and the 25 earlier pairings retain
+their settings.
+
+Krea 2 keeps musubi-tuner as its default. Its second pairing uses AI Toolkit with regularisation
+on at weight 1.0, rank 32, AdamW at a constant 1e-4, 1024 px and no caption dropout. Class images
+come from Krea 2 Raw. Training samples and base/LoRA comparisons use Krea 2 Turbo at 8 steps
+without CFG. The AI Toolkit pairing remains **unverified** until the owner's in-app comparison;
+both trainers remain available.
+
+The media overlay opens from a thumbnail or Space, navigates with arrows and closes with Esc.
+It plays clips and shows resolution, size, recorded source, caption, mapping, face score,
+warnings and training inclusion. Captions can be edited there. Report renders use the same
+viewer. Newly imported media records its source; older items without that history say it was
+not recorded. New project repository names transliterate Unicode letters, and new projects
+start with a caption provider connected in Settings.
+
+Every new pod exposes `22/tcp`. To enable key-only SSH, turn on **Advanced user** in Settings,
+open **Advanced: custom servers and training images**, enter an **SSH public key**, then
+**Save preferences** before creating the pod. The images start SSH only when a key is supplied;
+without one, the agent starts as before. The server includes `rsync` and SFTP for file transfer.
+
+Verification: 493 app tests, 276 core tests, 823 agent tests and 406 script tests passed, along
+with the pinned formatting, lint and affected type checks. Independent review covered the
+implementation and repairs. A native synthetic-media walkthrough verified image and clip
+opening, playback, navigation, caption saving and the overlay layout. Real CPU containers
+verify key-only SSH and bidirectional `rsync`; the
+[image release receipts](../../pod/images/README.md) record the exact variants and checks.
+ConceptStudio 0.4.1 and its DMG are Developer ID signed, notarised and stapled.
+
+The owner will perform the live Krea training, publication/report, fresh-GPU comparison and
+RunPod-to-Mac checkpoint transfer. The preparatory acceptance check stopped before renting a
+GPU, and no existing pod was changed. The CPU and source checks above do not establish Krea
+training quality or completed GPU acceptance.
 
 ## Hugging Face browser sign-in, 2026-10-24
 

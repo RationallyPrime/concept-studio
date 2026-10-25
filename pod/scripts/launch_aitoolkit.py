@@ -839,6 +839,14 @@ def apply_row_recipe(process: dict[str, Any], row: dict[str, Any]) -> None:
     options = trainer_options.get("process")
     if options:
         process.update(deep_merge(process, options))
+    sample_model = trainer_options.get("sample_model")
+    if sample_model is not None:
+        process["model"].setdefault("model_kwargs", {})["sample_model"] = sample_model
+    generation = row["preview"].get("generation")
+    if generation is not None:
+        process["sample"].update(
+            sample_steps=generation["steps"], guidance_scale=generation["guidance_scale"]
+        )
 
 
 def apply_run_settings(process: dict[str, Any], cfg: dict[str, Any]) -> None:

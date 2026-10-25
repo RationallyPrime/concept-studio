@@ -26,6 +26,16 @@ SAMPLE = b"\x89PNG fake sample"
 SECRET = b"outside the output directory\n"
 
 
+def test_effective_native_recipe_travels_with_downloaded_weights(client, run_dir):
+    native = b'{"config":{"process":[{"model":{"arch":"qwen_image_2"}}]}}'
+    (run_dir / "native-config.json").write_bytes(native)
+    files = client.get(f"/runs/{RUN}/files").json()["files"]
+    recipe = next(file for file in files if file["path"] == "native-config.json")
+    assert recipe["sha256"] == hashlib.sha256(native).hexdigest()
+    response = client.get(f"/runs/{RUN}/files/native-config.json")
+    assert response.status_code == 200 and response.content == native
+
+
 def expect_error(response, status: int, code: str) -> dict:  # type: ignore[no-untyped-def]
     assert response.status_code == status, response.text
     error = response.json()["error"]

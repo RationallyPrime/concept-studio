@@ -716,13 +716,30 @@ class StyleReferences(BaseModel):
         return groups
 
 
+class PortableGenerationSource(BaseModel):
+    """A finished run brought from this Mac or its published model repository."""
+
+    config: dict[str, Any]
+    upload: str | None = Field(default=None, pattern=NAME_PATTERN)
+    repo: str | None = Field(default=None, pattern=REPO_ID_PATTERN)
+
+    @model_validator(mode="after")
+    def _one_location(self) -> PortableGenerationSource:
+        if (self.upload is None) == (self.repo is None):
+            raise ValueError("Choose an uploaded or published comparison source")
+        if any(key in self.config for key in SECRET_FIELDS):
+            raise ValueError("Saved comparison settings must not contain credentials")
+        return self
+
+
 class GenerationParams(ServiceParams):
-    """One matched base/LoRA batch, from a checkpoint already on this storage."""
+    """One matched base/LoRA batch, from retained, uploaded or published weights."""
 
     run_id: str = Field(pattern=RUN_ID_PATTERN)
     source_run_id: str = Field(pattern=RUN_ID_PATTERN)
     hf_token: Secret = None
     checkpoint: str = Field(min_length=1)
+    source: PortableGenerationSource | None = None
     prompts: list[str] = Field(min_length=1, max_length=6)
     seeds: list[Annotated[int, Field(ge=0, le=2**32 - 1)]] = Field(min_length=1, max_length=4)
     width: int = Field(default=512, ge=64, le=2048, multiple_of=32)
@@ -732,6 +749,15 @@ class GenerationParams(ServiceParams):
     num_frames: int = Field(default=1, ge=1, le=257)
     frame_rate: float = Field(default=24, gt=0, le=60)
     style_references: StyleReferences | None = None
+
+    @field_validator("checkpoint")
+    @classmethod
+    def _checkpoint(cls, value: str) -> str:
+        if any(part in {"", ".", ".."} for part in value.split("/")) or "\x00" in value:
+            raise ValueError("checkpoint must be a relative safetensors path")
+        if not value.endswith(".safetensors"):
+            raise ValueError("checkpoint must be a safetensors file")
+        return value
 
     @field_validator("prompts")
     @classmethod
@@ -965,9 +991,9 @@ def _model_table(paths: Paths) -> dict[str, Any]:
     return runpy.run_path(str(script))
 
 
-def _run_row(table: dict[str, Any], base_model: Any) -> dict[str, Any] | None:
-    """The row for a run.json's ``base_model``; ``model_ref`` is unique, so no trainer is needed."""
-    return table["exact_row"](base_model)
+def _run_row(table: dict[str, Any], base_model: Any, trainer: str) -> dict[str, Any] | None:
+    """Resolve the run's pairing, including its trainer-specific hooks."""
+    return table["exact_row"](base_model, trainer)
 
 
 def _row_hook(table: dict[str, Any], row: dict[str, Any] | None, concern: str) -> str | None:
@@ -1125,7 +1151,21 @@ def _validate_training_start(name: str, params: RunConfig, paths: Paths) -> None
         _invalid(params, f"Cannot restore Resume inputs: {error}")
 
 
-def _generation_source(params: GenerationParams, paths: Paths) -> tuple[dict[str, Any], Path]:
+def _generation_source(
+    params: GenerationParams, paths: Paths
+) -> tuple[dict[str, Any], Path | None]:
+    if params.source is not None:
+        cfg = params.source.config
+        if cfg.get("run_id") != params.source_run_id:
+            _invalid(params, "The saved comparison settings belong to another run")
+        if params.source.upload is None:
+            return cfg, None  # The stoppable generation child fetches the published files.
+        folder = upload_folder(paths, params.source.upload)
+        stage_bytes(folder)
+        checkpoint = folder / "comparison-lora.safetensors"
+        if checkpoint.is_symlink() or not checkpoint.is_file() or checkpoint.stat().st_size == 0:
+            _invalid(params, "Upload the saved LoRA before generating its comparison")
+        return cfg, checkpoint
     source = paths.run_dir(params.source_run_id)
     try:
         cfg = json.loads((source / RUN_JSON).read_text())
@@ -1138,7 +1178,13 @@ def _generation_source(params: GenerationParams, paths: Paths) -> tuple[dict[str
 def _require_native_config(
     params: GenerationParams, paths: Paths, subject: str = "H3 generation"
 ) -> None:
-    native = paths.run_dir(params.source_run_id) / "native-config.json"
+    if params.source is not None and params.source.repo is not None:
+        return  # Checked against the published native config by the generation child.
+    native = (
+        upload_folder(paths, params.source.upload) / "comparison-recipe.json"
+        if params.source is not None and params.source.upload is not None
+        else paths.run_dir(params.source_run_id) / "native-config.json"
+    )
     if native.is_symlink() or not native.is_file():
         _invalid(params, f"{subject} needs the saved effective native model/network recipe")
 
@@ -1463,7 +1509,7 @@ _TRAINER_CONFIG_HOOKS: dict[str, Callable[[RunConfig, Paths, Path, dict[str, Any
 }
 
 
-def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
+def _trainer_prepare(params: ServiceParams, paths: Paths, *, trainer: str) -> None:
     """Create ``<runs>/<id>/`` (with ``tensorboard/``) and write ``run.json``, secrets stripped."""
     cfg = _as(params, RunConfig)
     run_dir = paths.run_dir(cfg.run_id)
@@ -1473,7 +1519,7 @@ def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
         if payload.get(key) is None:
             payload.pop(key, None)
     table = _model_table(paths)
-    config_hook = _row_hook(table, _run_row(table, cfg.base_model), "trainer_config")
+    config_hook = _row_hook(table, _run_row(table, cfg.base_model, trainer), "trainer_config")
     if config_hook is not None:
         _TRAINER_CONFIG_HOOKS[config_hook](cfg, paths, run_dir, payload)
     _prestart_cleanup(cfg, paths)
@@ -1488,7 +1534,7 @@ def _trainer_prepare(params: ServiceParams, paths: Paths) -> None:
         (run_dir / "dataset-manifest.json").write_text(manifest.read_text(), encoding="utf-8")
 
 
-def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
+def _generation_prepare(params: ServiceParams, paths: Paths, *, trainer: str) -> None:
     cfg = _as(params, GenerationParams)
     source, checkpoint = _generation_source(cfg, paths)
     _prestart_cleanup(cfg, paths)
@@ -1500,18 +1546,25 @@ def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
     # both selected inputs before launching either inference variant, not after base sampling.
     (run_dir / "source-run.json").write_text(json.dumps(source, indent=2) + "\n", encoding="utf-8")
     table = _model_table(paths)
-    generator = _row_hook(table, _run_row(table, source.get("base_model")), "generator")
+    generator = _row_hook(table, _run_row(table, source.get("base_model"), trainer), "generator")
     capture = _GENERATOR_HOOKS[generator].capture if generator is not None else None
     if capture is not None:
-        capture(paths.run_dir(cfg.source_run_id), run_dir)
+        if cfg.source is None:
+            capture(paths.run_dir(cfg.source_run_id), run_dir)
+        elif cfg.source.upload is not None:
+            shutil.copyfile(
+                upload_folder(paths, cfg.source.upload) / "comparison-recipe.json",
+                run_dir / "source-native-config.json",
+            )
     digest = hashlib.sha256()
-    with (
-        checkpoint.open("rb") as src,
-        (run_dir / "selected-checkpoint.safetensors").open("wb") as out,
-    ):
-        while chunk := src.read(1024 * 1024):
-            out.write(chunk)
-            digest.update(chunk)
+    if checkpoint is not None:
+        with (
+            checkpoint.open("rb") as src,
+            (run_dir / "selected-checkpoint.safetensors").open("wb") as out,
+        ):
+            while chunk := src.read(1024 * 1024):
+                out.write(chunk)
+                digest.update(chunk)
     if cfg.style_references is not None:
         with STAGING_LOCK:
             folder = upload_folder(paths, cfg.style_references.upload)
@@ -1529,7 +1582,7 @@ def _generation_prepare(params: ServiceParams, paths: Paths) -> None:
         json.dumps(
             {
                 **cfg.model_dump(mode="json", exclude=set(SECRET_FIELDS)),
-                "checkpoint_sha256": digest.hexdigest(),
+                "checkpoint_sha256": digest.hexdigest() if checkpoint is not None else None,
             },
             indent=2,
         )
@@ -1701,7 +1754,7 @@ CATALOG: dict[str, ServiceSpec] = {
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_trainer_prepare,
+        prepare=lambda params, paths: _trainer_prepare(params, paths, trainer="aitoolkit"),
         run_id=_params_run_id,
         available=lambda paths: availability.trainer(paths, "aitoolkit"),
     ),
@@ -1714,7 +1767,7 @@ CATALOG: dict[str, ServiceSpec] = {
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_trainer_prepare,
+        prepare=lambda params, paths: _trainer_prepare(params, paths, trainer="ltx"),
         run_id=_params_run_id,
         available=lambda paths: availability.trainer(paths, "ltx"),
     ),
@@ -1728,7 +1781,7 @@ CATALOG: dict[str, ServiceSpec] = {
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_trainer_prepare,
+        prepare=lambda params, paths: _trainer_prepare(params, paths, trainer="musubi"),
         run_id=_params_run_id,
         available=lambda paths: availability.trainer(paths, "musubi"),
     ),
@@ -1811,7 +1864,9 @@ for _trainer in ("aitoolkit", "ltx", "musubi"):
         cwd=_run_dir,
         log_path=_trainer_log,
         env=_trainer_env,
-        prepare=_generation_prepare,
+        prepare=lambda params, paths, trainer=_trainer: _generation_prepare(
+            params, paths, trainer=trainer
+        ),
         run_id=_params_run_id,
         available=lambda paths, trainer=_trainer: availability.generation(paths, trainer),
     )

@@ -4,6 +4,9 @@ import SwiftUI
 struct StudioRootView: View {
     @Bindable var session: StudioSession
     @State private var showingDefinitions = false
+    @State private var mediaViewer: MediaViewerSelection?
+    @State private var lastMediaViewer: MediaViewerSelection?
+    @FocusState private var viewerKeyboardFocus: Bool
     var body: some View {
         Group {
             if session.project == nil {
@@ -11,6 +14,30 @@ struct StudioRootView: View {
             } else {
                 journey
             }
+        }
+        .focusable().focused($viewerKeyboardFocus)
+        .onKeyPress(.space) {
+            guard let lastMediaViewer else { return .ignored }
+            mediaViewer = lastMediaViewer
+            return .handled
+        }
+        .environment(\.openMediaViewer, OpenMediaViewer { item, items in
+            mediaViewer = MediaViewerSelection(item: item, items: items)
+        })
+        .overlay {
+            if let presented = mediaViewer {
+                MediaViewer(session: session, selection: Binding(
+                    get: { mediaViewer ?? presented }, set: { mediaViewer = $0 }
+                )) {
+                    lastMediaViewer = mediaViewer
+                    mediaViewer = nil
+                    viewerKeyboardFocus = true
+                }
+            }
+        }
+        .onChange(of: session.project?.directory) { _, _ in
+            mediaViewer = nil
+            lastMediaViewer = nil
         }
         .tint(StudioStyle.accent)
         .frame(minWidth: 980, minHeight: 680)

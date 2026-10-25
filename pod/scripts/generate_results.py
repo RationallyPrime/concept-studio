@@ -25,6 +25,7 @@ import json
 import os
 import re
 import runpy
+import shutil
 import signal
 import subprocess
 import sys
@@ -73,6 +74,8 @@ def source_config(request: dict[str, Any], workspace: Path) -> tuple[dict[str, A
     if Path(relative).suffix != ".safetensors":
         raise ValueError("checkpoint must be a safetensors file")
     source = workspace / "runs" / request["run_id"]
+    if (request.get("source") or {}).get("repo"):
+        fetch_published_source(request, source)
     cfg = json.loads((source / "source-run.json").read_text(encoding="utf-8"))
     checkpoint = source / "selected-checkpoint.safetensors"
     if checkpoint.is_symlink() or not checkpoint.is_file():
@@ -82,6 +85,100 @@ def source_config(request: dict[str, Any], workspace: Path) -> tuple[dict[str, A
     if actual != request["checkpoint_sha256"]:
         raise ValueError("selected checkpoint snapshot checksum changed")
     return cfg, checkpoint
+
+
+def fetch_published_source(request: dict[str, Any], destination: Path) -> None:
+    """Fetch one published run at a fixed commit, in this stoppable generation process."""
+    from huggingface_hub import HfApi, hf_hub_download
+
+    repo = request["source"]["repo"]
+    try:
+        info = HfApi().model_info(repo)
+        names = {entry.rfilename for entry in info.siblings or []}
+
+        def downloaded(name: str) -> Path:
+            return Path(hf_hub_download(repo, name, revision=info.sha))
+
+        published = json.loads(downloaded("run.json").read_text(encoding="utf-8"))
+        if published.get("run_id") != request["source_run_id"] or published.get(
+            "base_model"
+        ) != request["source"]["config"].get("base_model"):
+            raise ValueError("The model repository now holds a different training run")
+        run_id = request["source_run_id"]
+        if "README.md" in names:
+            # push_lora.model_card declares this commit's uploaded weights oldest first,
+            # exactly as select_weights selected them. Older runs' files can remain in the repo.
+            card = downloaded("README.md").read_text(encoding="utf-8")
+            title = re.search(r"^# (.+)$", card, re.MULTILINE)
+            sections = card.split("\n## Files\n\n")
+            candidates = (
+                re.findall(
+                    r"^- `([^`\r\n]+)` — LoRA weights$",
+                    sections[1].split("\n## ", 1)[0],
+                    re.MULTILINE,
+                )
+                if title is not None and title[1] == run_id and len(sections) == 2
+                else []
+            )
+            if (
+                not candidates
+                or len(set(candidates)) != len(candidates)
+                or any(
+                    name not in names or not name.endswith(".safetensors") for name in candidates
+                )
+            ):
+                raise ValueError(
+                    "The model card has no unambiguous weight list for this run. "
+                    "Publish this run again"
+                )
+        else:
+            # Older publications without a card can still identify the final AI Toolkit or
+            # musubi weight by this run's exact output name; never guess from other runs' files.
+            candidates = [
+                name
+                for name in (
+                    f"output/{run_id}/{run_id}.safetensors",
+                    f"output/{run_id}.safetensors",
+                )
+                if name in names
+            ]
+            if len(candidates) != 1:
+                raise ValueError(
+                    "The published weight cannot be identified. Publish this run again"
+                )
+        wanted = request["checkpoint"]
+        if wanted == "published.safetensors":
+            wanted = candidates[-1]
+        else:
+            wanted = next((name for name in ("output/" + wanted, wanted) if name in candidates), "")
+            if not wanted:
+                raise ValueError(
+                    "This checkpoint was not published for this run; choose the published LoRA"
+                )
+        shutil.copyfile(downloaded(wanted), destination / "selected-checkpoint.safetensors")
+        if "native-config.json" in names:
+            shutil.copyfile(
+                downloaded("native-config.json"), destination / "source-native-config.json"
+            )
+        elif "config.yaml" in names:
+            import yaml
+
+            native = yaml.safe_load(downloaded("config.yaml").read_text(encoding="utf-8"))
+            (destination / "source-native-config.json").write_text(
+                json.dumps(native), encoding="utf-8"
+            )
+        checkpoint = destination / "selected-checkpoint.safetensors"
+        with checkpoint.open("rb") as file:
+            request["checkpoint_sha256"] = hashlib.file_digest(file, "sha256").hexdigest()
+        request["source_revision"] = info.sha
+        (destination / "generation.json").write_text(
+            json.dumps(request, indent=2) + "\n", encoding="utf-8"
+        )
+    except Exception as error:
+        raise ValueError(
+            f"Cannot fetch this run's published LoRA from {repo}: {error}. "
+            "Check Hugging Face access or use the copy saved on this Mac."
+        ) from error
 
 
 def pairs(request: dict[str, Any], trainer: str) -> list[dict[str, Any]]:
@@ -435,7 +532,16 @@ def arch_generate(
     process = native["config"]["process"][0]
     if process["network"].get("type") != "lora":
         raise ValueError("Comparison requires a trained LoRA network")
-    model = ModelConfig(**process["model"])
+    model_values = dict(process["model"])
+    model_kwargs = dict(model_values.get("model_kwargs") or {})
+    sample_model = model_kwargs.pop("sample_model", None)
+    model_values["model_kwargs"] = model_kwargs
+    if sample_model is not None:
+        # The captured recipe declares inference weights separately from its training base.
+        # Krea 2 comparisons use Turbo, including its fixed schedule, with the trained network.
+        model_values.update(sample_model)
+        model_values["model_kwargs"] = {**model_kwargs, **sample_model.get("model_kwargs", {})}
+    model = ModelConfig(**model_values)
     cls = get_model_class(model)
     sd = cls(
         device="cuda:0",

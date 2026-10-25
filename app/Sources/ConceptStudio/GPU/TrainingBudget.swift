@@ -31,7 +31,7 @@ extension GPUWorkspace {
     var activeBudgetedRun: TrainingRun? {
         guard hasRunningPod else { return nil }
         if let activeReportRunID,
-           let run = runHistory.first(where: { $0.runID == activeReportRunID }), run.volumeID == currentVolumeID {
+           let run = runHistory.first(where: { $0.runID == activeReportRunID }) {
             return run
         }
         guard trainingState != "stopped", let result, result.state == .training else { return nil }

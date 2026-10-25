@@ -9,6 +9,7 @@ actor HistoryAgent: PodAgent {
     private(set) var starts: [Start] = []
     private(set) var listedRunIDs: [String] = []
     private(set) var downloadedRunIDs: [String] = []
+    private(set) var uploads: [String: Data] = [:]
     var files: [RunFile] = []
     var bodies: [String: Data] = [:]
     var logBodies: [String: Data] = [:]
@@ -66,6 +67,12 @@ actor HistoryAgent: PodAgent {
 
     func gpus() -> [AgentGPU] {
         (0 ... 1).map { .init(index: $0, name: "Synthetic 80 GB GPU", memoryTotalMiB: 81920) }
+    }
+
+    func upload(name: String, fileName: String, from file: URL, size: Int64) throws {
+        let data = try Data(contentsOf: file)
+        guard data.count == size else { throw StudioError.message("Synthetic upload changed") }
+        uploads[fileName] = data
     }
 
     func plan() async -> TrainingPlan {
