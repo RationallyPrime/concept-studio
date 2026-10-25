@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -17,6 +18,70 @@ spec = importlib.util.spec_from_file_location(
 )
 generation = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generation)
+
+
+def test_published_source_fetches_exact_commit_without_original_storage(tmp_path, monkeypatch):
+    destination = tmp_path / "runs/comparison"
+    destination.mkdir(parents=True)
+    repo_files = tmp_path / "published"
+    repo_files.mkdir()
+    files = {
+        "run.json": json.dumps({"run_id": "source", "base_model": "krea/Krea-2-Raw"}).encode(),
+        "output/final.safetensors": b"published synthetic LoRA",
+        "config.yaml": b"job: extension\nconfig:\n  process: []\n",
+    }
+    for name, contents in files.items():
+        file = repo_files / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(contents)
+    calls = []
+
+    def download(repo, name, *, revision):
+        calls.append((repo, name, revision))
+        return str(repo_files / name)
+
+    info = SimpleNamespace(
+        sha="fixed-commit", siblings=[SimpleNamespace(rfilename=name) for name in files]
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "huggingface_hub",
+        SimpleNamespace(
+            HfApi=lambda: SimpleNamespace(model_info=lambda repo: info), hf_hub_download=download
+        ),
+    )
+    request = {
+        "source_run_id": "source",
+        "checkpoint": "published.safetensors",
+        "source": {"repo": "fixture/lora", "config": {"base_model": "krea/Krea-2-Raw"}},
+    }
+    generation.fetch_published_source(request, destination)
+    assert (destination / "selected-checkpoint.safetensors").read_bytes() == files[
+        "output/final.safetensors"
+    ]
+    assert json.loads((destination / "source-native-config.json").read_text())["job"] == "extension"
+    assert request["source_revision"] == "fixed-commit"
+    assert all(revision == "fixed-commit" for _, _, revision in calls)
+    request["source_run_id"] = "different-run"
+    with pytest.raises(ValueError, match="different training run"):
+        generation.fetch_published_source(request, destination)
+
+
+def test_inaccessible_published_source_has_actionable_error(tmp_path, monkeypatch):
+    def unavailable(repo):
+        raise OSError("403 unavailable")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "huggingface_hub",
+        SimpleNamespace(
+            HfApi=lambda: SimpleNamespace(model_info=unavailable), hf_hub_download=None
+        ),
+    )
+    with pytest.raises(
+        ValueError, match="Check Hugging Face access or use the copy saved on this Mac"
+    ):
+        generation.fetch_published_source({"source": {"repo": "fixture/private"}}, tmp_path)
 
 
 def setup(tmp_path, monkeypatch):

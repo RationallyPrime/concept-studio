@@ -23,9 +23,9 @@ extension GPUWorkspace {
                   let group = self.reportGroups.first(where: { $0.id == report.groupID }),
                   let run = self.runHistory.first(where: { $0.runID == runID }),
                   let agent = self.agent, self.hasRunningPod,
-                  run.volumeID == self.currentVolumeID, run.trainer == self.trainer,
+                  run.trainer == self.trainer,
                   group.settings.baseModel == run.baseModel, let projectFolder = self.projectFolder else {
-                throw StudioError.message("Connect this run's project and saved storage before making its report.")
+                throw StudioError.message("Open this run's project and connect its trainer before making its report.")
             }
             try await self.requireServices(["generate-\(run.trainer)", "vllm"], from: agent)
             self.beginReportBudget(runID)
@@ -89,10 +89,7 @@ extension GPUWorkspace {
             }
         }
         guard !unfinishedReportPrompts(run.runID, group: group).isEmpty else { return }
-        let files = try await agent.runFiles(runID: run.runID)
-        guard let checkpoint = RunArtifacts.newest(files.filter { $0.path.hasSuffix(".safetensors") }) else {
-            throw StudioError.message("This run has no checkpoint available on its saved storage.")
-        }
+        let checkpoint = try await comparisonCheckpoint(for: run, agent: agent)
         let references = try await uploadReportStyleReferences(group, agent: agent)
         while true {
             let prompts = Array(unfinishedReportPrompts(run.runID, group: group).prefix(6))

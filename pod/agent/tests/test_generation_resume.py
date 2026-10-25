@@ -303,3 +303,62 @@ def test_musubi_generation_runs_in_the_musubi_venv(settings):
     assert argv[2:4] == ["--trainer", "musubi"]
     with pytest.raises(ValidationError, match="num_frames must be 1"):
         parse_params("generate-musubi", {**raw, "run_id": "other", "num_frames": 49}, paths)
+
+
+def test_generation_can_snapshot_uploaded_lora_without_original_run(settings):
+    paths = settings.paths
+    folder = paths.uploads / "comparison-assets"
+    folder.mkdir(parents=True)
+    (folder / "comparison-lora.safetensors").write_bytes(CHECKPOINT)
+    raw = {
+        **request(),
+        "source": {
+            "upload": folder.name,
+            "config": {"run_id": "source-run", "base_model": "black-forest-labs/FLUX.1-dev"},
+        },
+    }
+    params = parse_params("generate-aitoolkit", raw, paths)
+    CATALOG["generate-aitoolkit"].prepare(params, paths)
+    target = paths.run_dir(params.run_id)
+    assert not paths.run_dir("source-run").exists()
+    assert (target / "selected-checkpoint.safetensors").read_bytes() == CHECKPOINT
+    assert json.loads((target / "source-run.json").read_text())["base_model"].endswith("FLUX.1-dev")
+
+
+def test_generation_defers_hub_download_to_stoppable_child(settings):
+    paths = settings.paths
+    params = parse_params(
+        "generate-aitoolkit",
+        {
+            **request(),
+            "checkpoint": "published.safetensors",
+            "source": {
+                "repo": "fixture/trained-model",
+                "config": {"run_id": "source-run", "base_model": "black-forest-labs/FLUX.1-dev"},
+            },
+        },
+        paths,
+    )
+    CATALOG["generate-aitoolkit"].prepare(params, paths)
+    target = paths.run_dir(params.run_id)
+    assert not (target / "selected-checkpoint.safetensors").exists()
+    saved = json.loads((target / "generation.json").read_text())
+    assert saved["source"]["repo"] == "fixture/trained-model"
+    assert saved["checkpoint_sha256"] is None
+
+
+def test_portable_source_cannot_claim_a_different_run_or_carry_credentials(settings):
+    for config in (
+        {"run_id": "another-run", "base_model": "black-forest-labs/FLUX.1-dev"},
+        {
+            "run_id": "source-run",
+            "base_model": "black-forest-labs/FLUX.1-dev",
+            "hf_token": "secret",
+        },
+    ):
+        with pytest.raises(ValidationError):
+            parse_params(
+                "generate-aitoolkit",
+                {**request(), "source": {"repo": "fixture/model", "config": config}},
+                settings.paths,
+            )

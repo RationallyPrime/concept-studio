@@ -48,7 +48,7 @@ from typing import Any
 # Training inputs and their caches, never weights: LTX's preprocessed latents, the regularisation
 # set, and H3's per-run input groups, whose latent and text caches decode back to the photos.
 SKIPPED_DIRS = frozenset({"preprocessed", "regularization", "h3-inputs"})
-SIDE_FILES = ("run.json", "config.yaml")
+SIDE_FILES = ("run.json", "config.yaml", "native-config.json")
 LOG_FILE = "trainer.log"
 EVENTS_DIR = "tensorboard"
 LOGS_IN_REPO = "logs"  # the repo folder that holds LOG_FILE and EVENTS_DIR

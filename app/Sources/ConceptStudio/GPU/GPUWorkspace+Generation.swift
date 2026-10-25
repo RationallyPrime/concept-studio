@@ -27,9 +27,8 @@ extension GPUWorkspace {
         guard !demoMode else {
             throw StudioError.message("The demo has no trained weights. Generation uses a real checkpoint.")
         }
-        guard let agent, hasRunningPod, projectFolder != nil,
-              currentVolumeID == run.volumeID, trainer == run.trainer else {
-            throw StudioError.message("Connect the matching trainer to this run's saved storage before generating.")
+        guard let agent, hasRunningPod, projectFolder != nil, projectOwnsRun(run.runID) else {
+            throw StudioError.message("Open this run's project and connect a suitable cloud GPU before generating.")
         }
         guard run.supportsGeneration(in: modelTable) else {
             throw StudioError.message("Generation supports \(modelTable.generationModelList) checkpoints.")
@@ -52,7 +51,7 @@ extension GPUWorkspace {
             throw StudioError.message("Finish the active training or generation action first.")
         }
         let plan = try await agent.plan()
-        if let row = run.modelRow(in: modelTable), row.gpu.verifyOnPod {
+        if let row = run.modelRow(in: modelTable) {
             try await verifyGPUMemory(agent, gpus: plan.train?.gpus ?? [], row: row)
         }
         try await prepareCaptionServerForTraining(agent, plan: plan)
@@ -69,11 +68,14 @@ extension GPUWorkspace {
             "num_frames": .int(run.generatesVideo(in: modelTable) ? frames : 1),
             "frame_rate": .double(Double(report?.group.settings.frameRate ?? run.generationFrameRate(in: modelTable))),
         ]
+        if let source = try await portableComparisonSource(run, checkpoint: checkpoint, agent: agent, uploadID: id) {
+            params["source"] = .object(source)
+        }
         if let references = report?.styleReferences { params["style_references"] = .object(references) }
         let startParams = try await paramsWithFreshHubToken(params, service: "generate-\(run.trainer)", agent: agent)
         generation = GeneratedComparison(
             runID: id, sourceRunID: run.runID, checkpoint: checkpoint.path, trainer: run.trainer,
-            volumeID: run.volumeID, startedAt: Date(), state: .generating,
+            volumeID: currentVolumeID, startedAt: Date(), state: .generating,
             reportGroupID: report?.group.id, reportPromptIDs: report?.promptIDs,
             paramsJSON: JSONValue.object(params).pythonDumpsData()
         )

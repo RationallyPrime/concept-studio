@@ -25,6 +25,7 @@ import json
 import os
 import re
 import runpy
+import shutil
 import signal
 import subprocess
 import sys
@@ -73,6 +74,8 @@ def source_config(request: dict[str, Any], workspace: Path) -> tuple[dict[str, A
     if Path(relative).suffix != ".safetensors":
         raise ValueError("checkpoint must be a safetensors file")
     source = workspace / "runs" / request["run_id"]
+    if (request.get("source") or {}).get("repo"):
+        fetch_published_source(request, source)
     cfg = json.loads((source / "source-run.json").read_text(encoding="utf-8"))
     checkpoint = source / "selected-checkpoint.safetensors"
     if checkpoint.is_symlink() or not checkpoint.is_file():
@@ -82,6 +85,61 @@ def source_config(request: dict[str, Any], workspace: Path) -> tuple[dict[str, A
     if actual != request["checkpoint_sha256"]:
         raise ValueError("selected checkpoint snapshot checksum changed")
     return cfg, checkpoint
+
+
+def fetch_published_source(request: dict[str, Any], destination: Path) -> None:
+    """Fetch one published run at a fixed commit, in this stoppable generation process."""
+    from huggingface_hub import HfApi, hf_hub_download
+
+    repo = request["source"]["repo"]
+    try:
+        info = HfApi().model_info(repo)
+        names = {entry.rfilename for entry in info.siblings or []}
+
+        def downloaded(name: str) -> Path:
+            return Path(hf_hub_download(repo, name, revision=info.sha))
+
+        published = json.loads(downloaded("run.json").read_text(encoding="utf-8"))
+        if published.get("run_id") != request["source_run_id"] or published.get(
+            "base_model"
+        ) != request["source"]["config"].get("base_model"):
+            raise ValueError("The model repository now holds a different training run")
+        wanted = request["checkpoint"]
+        if wanted == "published.safetensors":
+            candidates = [name for name in names if name.endswith(".safetensors")]
+            if len(candidates) != 1:
+                raise ValueError(
+                    "Choose a specific published checkpoint; the repository has several"
+                )
+            wanted = candidates[0]
+        else:
+            wanted = next((name for name in ("output/" + wanted, wanted) if name in names), "")
+            if not wanted:
+                raise ValueError("This checkpoint was not published; choose the published LoRA")
+        shutil.copyfile(downloaded(wanted), destination / "selected-checkpoint.safetensors")
+        if "native-config.json" in names:
+            shutil.copyfile(
+                downloaded("native-config.json"), destination / "source-native-config.json"
+            )
+        elif "config.yaml" in names:
+            import yaml
+
+            native = yaml.safe_load(downloaded("config.yaml").read_text(encoding="utf-8"))
+            (destination / "source-native-config.json").write_text(
+                json.dumps(native), encoding="utf-8"
+            )
+        checkpoint = destination / "selected-checkpoint.safetensors"
+        with checkpoint.open("rb") as file:
+            request["checkpoint_sha256"] = hashlib.file_digest(file, "sha256").hexdigest()
+        request["source_revision"] = info.sha
+        (destination / "generation.json").write_text(
+            json.dumps(request, indent=2) + "\n", encoding="utf-8"
+        )
+    except Exception as error:
+        raise ValueError(
+            f"Cannot fetch this run's published LoRA from {repo}: {error}. "
+            "Check Hugging Face access or use the copy saved on this Mac."
+        ) from error
 
 
 def pairs(request: dict[str, Any], trainer: str) -> list[dict[str, Any]]:

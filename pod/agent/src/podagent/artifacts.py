@@ -33,6 +33,7 @@ from .errors import NotFound, Validation
 OUTPUT_DIR = "output"
 LOG_FILE = "trainer.log"
 EVENTS_DIR = "tensorboard"
+RUN_CONFIG_FILES = frozenset({"native-config.json"})
 _CHUNK = 1 << 20
 
 
@@ -119,6 +120,10 @@ def _walk(directory: Path, root: Path) -> list[RunFile]:
 def list_run_files(run_id: str, run_dir: Path) -> RunFiles:
     root = output_root(run_dir)
     files = _walk(root, root) if root is not None else []
+    for name in RUN_CONFIG_FILES:
+        path = run_dir / name
+        if path.is_file() and not path.is_symlink():
+            files.append(_run_file(path, path.stat(), run_dir))
     files.sort(key=lambda item: item.path)
     return RunFiles(run_id=run_id, root=str(run_dir / OUTPUT_DIR), files=files)
 
@@ -171,7 +176,8 @@ def resolve_run_file(run_id: str, run_dir: Path, relative: str) -> Path:
     """The real path of output file ``relative``; ``Validation`` or ``NotFound`` otherwise."""
     parts = _check_relative(relative, "output directory")
     missing = NotFound(f"no file {relative!r} in the output of run {run_id!r}")
-    return _real_file(output_root(run_dir), parts, missing)
+    root = _plain_dir(run_dir) if relative in RUN_CONFIG_FILES else output_root(run_dir)
+    return _real_file(root, parts, missing)
 
 
 def resolve_log_file(run_id: str, run_dir: Path, relative: str) -> Path:

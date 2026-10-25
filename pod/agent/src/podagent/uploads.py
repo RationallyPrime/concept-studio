@@ -23,6 +23,7 @@ MAX_STAGED_BYTES = _rules["MAX_STAGED_BYTES"]
 INSTALLING = _rules["INSTALLING"]
 STAGING_LOCK = threading.RLock()
 INITIAL_FILES = frozenset({"initial-lora.safetensors", "initial-recipe.json"})
+COMPARISON_FILES = frozenset({"comparison-lora.safetensors", "comparison-recipe.json"})
 
 
 def upload_folder(paths: Paths, name: str) -> Path:
@@ -41,9 +42,9 @@ def upload_name(paths: Paths, file_name: str) -> None:
     if not script.is_file():
         script = Path(__file__).resolve().parents[3] / "scripts/pull_dataset.py"
     suffixes = runpy.run_path(str(script))["IMAGE_SUFFIXES"]
-    if file_name not in ({"metadata.jsonl", "job.yaml"} | INITIAL_FILES) and Path(
-        file_name
-    ).suffix.lower() not in (suffixes | {".txt", ".json"}):
+    if file_name not in (
+        {"metadata.jsonl", "job.yaml"} | INITIAL_FILES | COMPARISON_FILES
+    ) and Path(file_name).suffix.lower() not in (suffixes | {".txt", ".json"}):
         raise Validation(
             "Upload accepts supported media, caption/response sidecars, metadata.jsonl and job.yaml"
         )

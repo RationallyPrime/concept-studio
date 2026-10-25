@@ -65,7 +65,10 @@ struct GenerationView: View {
                 }
                 Picker("LoRA checkpoint", selection: $checkpointPath) {
                     Text("Refresh checkpoints to choose").tag("")
-                    ForEach(selectedRun?.checkpoints ?? [], id: \.path) { Text($0.path).tag($0.path) }
+                    ForEach(selectedRun.map { workspace.comparisonCheckpoints(for: $0) } ?? [], id: \.path) {
+                        Text($0.path == "published.safetensors" ? "Published LoRA on Hugging Face" : $0.path)
+                            .tag($0.path)
+                    }
                 }
                 TextField("Seeds (comma separated)", text: $seedText)
                 Stepper("Generation steps: \(inferenceSteps)", value: $inferenceSteps, in: 1 ... 100)
@@ -127,14 +130,18 @@ struct GenerationView: View {
     }
 
     private func chooseCheckpoint() {
-        checkpointPath = RunArtifacts.newest(selectedRun?.checkpoints ?? [])?.path ?? ""
+        let files = selectedRun.map { workspace.comparisonCheckpoints(for: $0) } ?? []
+        checkpointPath = RunArtifacts.newest(files.filter { $0.path != "published.safetensors" })?.path
+            ?? files.first(where: { $0.path == "published.safetensors" })?.path ?? ""
         if let run = selectedRun, run.generatesVideo, !run.generationFrameChoices.contains(videoFrames) {
             videoFrames = run.defaultGenerationFrames
         }
     }
 
     private func generate() {
-        guard let run = selectedRun, let checkpoint = run.checkpoints.first(where: { $0.path == checkpointPath }) else {
+        guard let run = selectedRun,
+              let checkpoint = workspace.comparisonCheckpoints(for: run).first(where: { $0.path == checkpointPath })
+        else {
             return
         }
         let parts = seedText.split(separator: ",", omittingEmptySubsequences: false)
@@ -175,8 +182,8 @@ struct GenerationView: View {
                     Text(pair.prompt).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     Text("Seed \(pair.seed)").font(.caption).monospacedDigit()
                     HStack(alignment: .top, spacing: 16) {
-                        generatedMedia(pair.basePath, comparison: comparison, label: "Base model")
-                        generatedMedia(pair.loraPath, comparison: comparison, label: "With LoRA")
+                        generatedMedia(pair.basePath, comparison: comparison, label: "Base model", prompt: pair.prompt)
+                        generatedMedia(pair.loraPath, comparison: comparison, label: "With LoRA", prompt: pair.prompt)
                     }
                 }.padding(.vertical, 8)
             }
@@ -189,15 +196,23 @@ struct GenerationView: View {
     }
 
     /// A generated output as a print, labelled in its margin, so base and trained read as a pair.
-    private func generatedMedia(_ path: String, comparison: GeneratedComparison, label: String) -> some View {
+    private func generatedMedia(
+        _ path: String, comparison: GeneratedComparison, label: String, prompt: String
+    ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Group {
                 if let url = workspace.comparisonFile(path, in: comparison) {
-                    if url.pathExtension == "mp4" {
-                        GeneratedVideo(url: url)
-                    } else {
-                        PhotoView(url: url)
+                    Group {
+                        if url.pathExtension == "mp4" {
+                            GeneratedVideo(url: url)
+                        } else {
+                            PhotoView(url: url)
+                        }
                     }
+                    .mediaViewerPreview(
+                        .render(url: url, title: label, prompt: prompt, source: comparison.sourceRunID),
+                        among: MediaViewerItem.comparison(comparison, workspace: workspace)
+                    )
                 } else {
                     Text("This output is not downloaded.").foregroundStyle(InstantPrint.inkSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
