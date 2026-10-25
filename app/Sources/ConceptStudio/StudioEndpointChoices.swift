@@ -130,7 +130,8 @@ extension StudioSession {
         }
         let changedProvider = selected != endpointKind
         endpointKind = selected
-        if selected == "openai", planReady, changedProvider || openAIUsesChatGPT {
+        if selected == "openai", planReady,
+           changedProvider || openAIUsesChatGPT || !configured.contains("openai") {
             openAIUsesChatGPT = true
             if chatGPT.availableModels.isEmpty { await chatGPT.refreshModels() }
             guard !Task.isCancelled else { return }

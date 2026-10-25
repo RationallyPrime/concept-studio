@@ -28,10 +28,11 @@ struct NewProjectDefaultsTests {
         #expect(GPUWorkspace.repoName(project: project) == expected)
     }
 
-    @Test func newProjectUsesConnectedChatGPTInsteadOfPreviousCloudGPU() async throws {
+    @Test(arguments: ["vllm", "openai"])
+    func newProjectUsesConnectedChatGPTInsteadOfDisconnectedProvider(savedKind: String) async throws {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
-        preferences.defaults.set("vllm", forKey: "endpointKind")
+        preferences.defaults.set(savedKind, forKey: "endpointKind")
         preferences.defaults.set("previous-pod-model", forKey: "modelName")
         preferences.defaults.set("https://old-server.example/v1", forKey: "vllmBaseURL")
         let manager = try chatGPT(preferences: preferences.defaults)
@@ -68,14 +69,15 @@ struct NewProjectDefaultsTests {
         await session.closeProject()
     }
 
-    @Test func newProjectKeepsRememberedConnectedAPIProvider() async throws {
+    @Test(arguments: ["anthropic", "openai"])
+    func newProjectKeepsRememberedConnectedAPIProvider(kind: String) async throws {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
-        preferences.defaults.set("anthropic", forKey: "endpointKind")
+        preferences.defaults.set(kind, forKey: "endpointKind")
         preferences.defaults.set("chosen-model", forKey: "modelName")
         let manager = try chatGPT(preferences: preferences.defaults)
         let session = makeTestSession(
-            preferences: preferences.defaults, secrets: MemorySecretStore(["anthropic": "fixture-key"]),
+            preferences: preferences.defaults, secrets: MemorySecretStore([kind: "fixture-key"]),
             chatGPT: manager
         )
         let folder = temporaryTestDirectory("new-project-api")
@@ -83,8 +85,9 @@ struct NewProjectDefaultsTests {
         session.createProject(at: folder)
         await session.task?.value
         #expect(session.errorMessage == nil)
-        #expect(session.endpointKind == "anthropic")
+        #expect(session.endpointKind == kind)
         #expect(session.modelName == "chosen-model")
+        #expect(!session.openAIUsesChatGPT)
         #expect(manager.availableModels.isEmpty)
         await session.closeProject()
     }
