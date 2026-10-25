@@ -196,8 +196,8 @@ struct TrainingReportResultsView: View {
                             Text(report.runID).font(.caption)
                             if let sample = report.samples
                                 .first(where: { $0.promptID == prompt.id && $0.seed == seed }),
-                                let comparison = workspace.generations
-                                .first(where: { $0.runID == sample.comparisonID }) {
+                               let comparison = workspace.generations
+                                   .first(where: { $0.runID == sample.comparisonID }) {
                                 HStack(alignment: .top, spacing: 12) {
                                     reportRender(
                                         sample.basePath,

@@ -77,7 +77,10 @@ struct ModelTable: Sendable {
     let defaultModelID: String
     let trainers: [Trainer]
     /// In table order: the picker order, the order of video formats and of names in messages.
-    var models: [ModelRow] { pairings.filter { $0.trainer == $0.defaultTrainer } }
+    var models: [ModelRow] {
+        pairings.filter { $0.trainer == $0.defaultTrainer }
+    }
+
     /// Derived model/trainer views. Model identity is declared once in the source table.
     let pairings: [ModelRow]
 

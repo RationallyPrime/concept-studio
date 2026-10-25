@@ -304,10 +304,6 @@ struct CaptioningView: View {
         }
     }
 
-    private var triggers: [String] {
-        session.project?.job.concepts.map(\.trigger) ?? []
-    }
-
     private func developingPrint(_ image: ProjectImage) -> some View {
         let partial = session.partialCaptions[image.id] ?? ""
         let state = image.captionState
@@ -423,6 +419,10 @@ struct CaptioningView: View {
 }
 
 private extension CaptioningView {
+    var triggers: [String] {
+        session.project?.job.concepts.map(\.trigger) ?? []
+    }
+
     var clipCaptioningNote: String? {
         guard !session.demoMode, session.usesChatGPTForThisRun,
               session.project?.images.contains(where: { Sources.isVideo(Sources.suffix(of: $0.id)) }) == true

@@ -101,8 +101,10 @@ extension StudioSession {
                 suggested: picked.suggestedName, captured: nil, hash: hash,
                 suffix: file.pathExtension.lowercased()
             )
-            guard project?.images.contains(where: { $0.id == name }) != true else { return false }
-            guard let id = try project?.importVideo(file, name: name) else { return false }
+            guard project?.images.contains(where: { $0.id == name }) != true, let id = try project?.importVideo(
+                file,
+                name: name
+            ) else { return false }
             project?.mediaState.origins[id] = "Apple Photos"
             try project?.save()
             return true

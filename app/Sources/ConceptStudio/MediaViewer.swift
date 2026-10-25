@@ -228,8 +228,9 @@ private struct MediaViewerVideo: View {
     }
 }
 
+@MainActor
 extension MediaViewerItem {
-    @MainActor static func comparison(_ comparison: GeneratedComparison, workspace: GPUWorkspace) -> [Self] {
+    static func comparison(_ comparison: GeneratedComparison, workspace: GPUWorkspace) -> [Self] {
         guard let manifest = workspace.comparisonManifest(comparison) else { return [] }
         return manifest.pairs.flatMap { pair in
             [(pair.basePath, "Base model"), (pair.loraPath, "With LoRA")].compactMap { path, label in

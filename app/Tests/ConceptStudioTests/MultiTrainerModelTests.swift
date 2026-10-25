@@ -25,7 +25,7 @@ struct MultiTrainerModelTests {
         #expect(added.recipe.captionDropout == 0)
     }
 
-    @Test func trainerChoiceChangesPlanAndPreservesExplicitEdits() throws {
+    @Test func trainerChoiceChangesPlanAndPreservesExplicitEdits() {
         let preferences = IsolatedDefaults()
         defer { preferences.remove() }
         let workspace = GPUWorkspace(demoMode: false, preferences: preferences.defaults)
