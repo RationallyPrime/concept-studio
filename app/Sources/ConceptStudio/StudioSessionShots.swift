@@ -2,6 +2,16 @@ import Foundation
 import PrevisCore
 
 extension StudioSession {
+    func showShots() {
+        guard project != nil, shots != nil else { return }
+        workspace = .shots
+    }
+
+    func showTraining(_ destination: StudioStep? = nil) {
+        if let destination { step = destination }
+        workspace = .training
+    }
+
     func loadShots(for project: StudioProject) {
         do {
             let catalog = try ContentCatalog.bundled()

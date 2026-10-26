@@ -119,13 +119,17 @@ struct JourneyCommands: Commands {
             // The actions read the step when pressed, not when the menu body was last evaluated.
             Button("Back") { session.goBack() }
                 .keyboardShortcut("[", modifiers: .command)
-                .disabled(session.project == nil || session.previousStep == nil)
+                .disabled(session.project == nil || session.workspace != .training || session.previousStep == nil)
             Button("Next") { session.goForward() }
                 .keyboardShortcut("]", modifiers: .command)
-                .disabled(session.project == nil || session.nextStep == nil)
+                .disabled(session.project == nil || session.workspace != .training || session.nextStep == nil)
+            Divider()
+            Button("Training workspace") { session.showTraining() }.disabled(session.project == nil)
+            Button("Shots") { session.showShots() }.keyboardShortcut("0", modifiers: .command)
+                .disabled(session.project == nil || session.shots == nil)
             Divider()
             ForEach(session.journeySteps) { step in
-                let button = Button(step.title) { session.step = step }
+                let button = Button(step.title) { session.showTraining(step) }
                     .disabled(session.project == nil && step != .pods)
                 button.keyboardShortcut(KeyEquivalent(Character("\(step.rawValue + 1)")), modifiers: .command)
             }
