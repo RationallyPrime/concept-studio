@@ -1,131 +1,82 @@
 # Lane C status
 
-Owner: Ari (Codex). Branch: `shots/c-shell`.
+Owner: Ari (Codex). Canonical branch: `shots/c-shell`.
 
 ## Checkpoints
 
-| Checkpoint | State | Remaining dependency or work |
+| Checkpoint | State | Remaining work |
 | --- | --- | --- |
-| C0: API skeleton | In preparation | A0 core declarations and B0 media declarations must land first. |
-| C1: workspace entry | Pending | C0 and D0; host both viewport views. |
-| C2: commands, persistence and undo | Pending | C0; implement command application and lifecycle saves. |
-| C3: lists, import and export | Pending | C2, A1 import, B3 export; IT3. |
-| C4: timeline | Pending | C2; keyboard ownership follows the focused region. |
-| C5: inspectors, library and prompt | Pending | A1 catalog, A4 generators, A5 corrections, B5 prompt. |
-| C6: polish | Pending | Integrated C/D workspace, previews and keyboard walkthrough. |
+| C0: API skeleton | Partial, compiled and tested | B0 supplies `ShotsSelfTest`; wire and verify `--shots-self-test` before C0 is complete. |
+| C1: workspace entry | Pending | C0 and D0; sidebar/menu entry and hosting both viewport views. |
+| C2: commands, persistence and undo | Partial | Remaining command implementations, focused menu undo, tolerant decoding from A1, full acceptance. |
+| C3: lists, import and export | Pending | A1 importer and B3 exporter; IT3. |
+| C4: timeline | Pending | Timeline UI, playback timer, focus and keyboard handling. |
+| C5: inspectors, library and prompt | Pending | A1 catalog, A4 generators, A5 corrections and B5 prompt. |
+| C6: polish | Pending | Integrated C/D workspace, glossary/credits, previews and keyboard walkthrough. |
 
-The execution README and contracts now agree on startup: B's W0, A's A0, B0, C0, D0, then C1.
-No upstream declarations or build wiring are duplicated here.
+## Delivered in this branch
 
-## Available preparation
+- Independent `StudioWorkspace` state defaults to training and preserves the training step.
+- Contract command, selection and tool types; the observable store starts at the first scene/shot.
+- Evaluator caching and frame access, preview-then-commit behavior, error routing and read-only mode.
+- Scene/entity/shot/mark edits, revision changes, snapshot undo/redo (200 entries), explicit slider
+  coalescing and debounced atomic saving. Unsupported commands report `ShotsError.notImplemented`.
+- Project/demo opening creates or loads the store. The demo starts with the sample.
+- Project release flushes before access ends and releases the store. A failed flush keeps the project
+  and edits open. App termination receives a flush hook; signed quit behavior is not yet verified.
+- Corrupt files are renamed aside with their bytes preserved; newer versions remain untouched/read-only.
+- Prompt writes do not bump the blocking revision or immediately make their own prompt stale.
 
-`StudioWorkspace` and the session's default `.training` workspace are implemented. Workspace state
-is separate from `StudioSession.step`. There is no Shots UI or store yet; C0 is not complete.
+No Shots UI, export action, prompt-writing action or self-test launch flag is claimed yet.
 
-Run the focused navigation regression from the repository root:
+## Dependencies and coordination
+
+The branch is stacked on published A0 draft PR #52 (`0f9d68f`), which is stacked on W0 PR #51
+(`f1c3d51`). Those are actual owner artifacts, not replacement implementations. Neither dependency is
+assumed merged. Rebase onto main and rerun the affected checks after the dependency stack lands.
+
+- Gnomon is the single A owner. His existing native session acknowledged the handoff, replaced his
+  temporary scaffold with W0's real files, reran four Linux package tests and pushed draft PR #52.
+- W0's latest head has green CI. The owner reports an inherited local Keychain hang separately; that
+  partial local run is not a full-suite pass. Current-head review and preview evidence remain gates.
+- A0's macOS CI ran 769 app tests and four core tests successfully, then failed on six core lint
+  violations. Those belong to Lane A and have been identified for its owner; C does not alter them.
+- The B owner will prepare B0 after A0's dependency is resolved. C needs its real self-test API.
+- Metis's project/conversation target remains with the parent/user. C has not sent to an ambiguous target.
+
+## Verification
+
+From the repository root:
 
 ```sh
-swift test --package-path app --build-system native --filter ShotsWorkspaceTests
+.github/scripts/swift-test-watchdog.sh --package-path app --build-system native \
+  --filter 'ShotsWorkspaceTests|ShotsStoreTests|ShotsDocumentFileTests'
 ```
 
-It uses a temporary concept-free project, isolated preferences and in-memory secrets. For each legal
-training step in that project, switching to Shots and back must preserve the step and `job.yaml` bytes.
+Passed on local Swift 6.4 against the actual W0/A0 sources: **11 tests in three suites**. The navigation
+case covers all three legal steps of a concept-free project. Coverage includes:
 
-Verification:
-- Passed: the focused test, with all three parameter cases, using SwiftPM's native build system.
-  The app and test targets compiled successfully with local Swift 6.4. CI's Swift 6.3 is not verified.
-- Passed: SwiftFormat and SwiftLint on the three changed Swift files, plus `git diff --check`.
-- Failed before testing: the first attempt lacked compiler-cache sandbox access. With cache access,
-  the default Swift Build engine then failed signing a generated test bundle because of Finder metadata.
-  The native build system completed the same focused test.
-- Not run: the full suite, CI, core/media integration, preview renders and signed sandbox self-test.
+- opening an empty project, switching workspace, accessing frame 61, saving, releasing and reopening;
+- refusing project release when a Shots save fails, retaining edits, then saving successfully on retry;
+- preview, commit, undo and redo, including observable undo availability;
+- explicit coalescing versus ordinary separate undo steps;
+- prompt/blocking revision behavior;
+- corruption preservation, future versions and sample round trips; no writes to training files.
 
-## Integration points inspected
+The earlier isolated consumer harness passed eight tests against Gnomon's initial `876dfae` draft.
+Those harness results are superseded by the real-app focused run above. An initial store draft crashed
+because an observable playhead observer called itself; clamping now uses a separate backing value and
+all tests passed on rerun.
 
-- `StudioSession.swift`: own `workspace` and `shots`; preserve existing `project` and `step` observers.
-- `StudioSessionProjectLifecycle.swift`: initialise/load the Shots store for demo, create and open;
-  flush and release it at the start of `releaseProject`, before demo removal or security-scope release.
-- `ConceptStudioApp.swift`: add the self-test launch path, workspace menu and focused undo commands;
-  add a termination save without changing training shortcuts.
-- `StudioRootView.swift`: choose the workspace without overloading the existing training step.
-- `DemoProject.swift`: seed the sample document when the core sample is available.
-- `PreviewRenderTests.swift`: add empty/sample Shots states at both supported window sizes.
-
-## Next verification cases
-
-These are acceptance cases to implement alongside their functionality, not tests already run.
-
-| Checkpoint | Case |
-| --- | --- |
-| C0 | Open a concept-free project through the session, require its empty store, switch workspaces without changing step. |
-| C0 | Sample store at playhead 61 returns an evaluator frame; `run` routes a refused command to the session alert. |
-| C2 | Edit scene, actors, marks and camera; undo twice, redo once, close/reopen; compare the full document. |
-| C2 | Preserve corrupt bytes under a renamed file and report them; refuse newer versions without any write. |
-| C2 | Explicit slider coalescing groups ten placements; ordinary commands remain ten distinct undo steps. |
-| C2 | Flush pending edits before project access ends; stale project tasks cannot write into the next project. |
-| C3 | IT3: session edits, save, reopen, export, then an empty package-validator problem list. |
-| C4 | Frame snapping, one commit per hold drag, and focused timeline keyboard stepping. |
-| C5 | Inspector-bound commands undo separately; prompt facts and stored prompt have the intended scene revision. |
-| C6 | Preview render matrix and the documented keyboard-only editing/export path. |
-
-## Open dependencies
-
-- W0, A0 and B0 are absent from the inspected main branch; the remaining C0 integration cannot build
-  before those owners supply their declarations.
-- The coordinator owns confirmation of the named peer routes and upstream checkpoint integration.
-- Plan commit `f348682` contains the settled W0-first startup. C0 must use the final store initializer
-  `init(catalog:document:saveURL:readOnly:)`; a newer document version must remain read-only.
-
-## Coordination
-
-- Delivered a project-specific message to the local plan author with C's isolated preparation, test
-  evidence and W0/A0/B0 dependencies, requesting W0 status and the unique Lane A owner.
-- Gnomon is the intended single Lane A owner. This was delivered to the verified local plan author,
-  who recorded it in Lane B's working coordination notes. No competing Lane A branch was found.
-- The author's `shots/b-media` worktree contains W0 wiring changes and is running verification.
-  W0 has no checkpoint commit yet; its status prose is not proof that the checks have completed.
-- A bounded read-only host probe verified cx53's public SSH route with the existing key, an active
-  Hive edge, Ubuntu 24.04/x86_64 and Bun 1.3.14. No native Claude/tmux session or existing Lane A work
-  was present before dispatch.
-- The environment-approved toolchain operation is complete: official Swift 6.3.3 is installed for
-  the cx53 `hive` user. The archive passed GPG verification against Swift's published release-key
-  fingerprint. Both the installed-path version check and a Foundation compile/run check passed.
-  Ubuntu added 16 prerequisite/dependency packages, with no upgrades or removals. Credentials, shell
-  profiles and service configuration were not changed; the Hive edge retained its active process.
-- The local author received the verified compiler-ready update. The coordinator then explicitly
-  authorized dispatch through Gnomon's existing native CLI profile. A single named background
-  session launched, acknowledged the task and verified a fresh clone of the correct repository at
-  `f348682`, with no competing Lane A branch or PR. Gnomon is preparing A0 in his own worktree;
-  W0 must land before A0 is published. No Lane A test pass is claimed here.
-- Supported Gemini conversation searches for Shots, Concept and Metis found no matching target.
-  No message was sent to an ambiguous conversation.
-- The native delivery, acknowledgment and active preparation are independently recorded; there was
-  no duplicate Hive wake and no change to credentials or account access.
-- W0's original test processes exceeded 98 minutes. Their working directories were verified as the
-  W0 worktree. The owner received those PIDs and the repository's existing 300-second watchdog
-  procedure; C did not interrupt the run or claim it passed.
+Passed: changed-file SwiftFormat and SwiftLint with the repository's pinned versions, plus whitespace
+checks. The combined lint gate is still red on the six upstream A0 violations described above.
+Not run for this branch: complete app suite, CI, preview renders, media export and signed sandbox checks.
 
 ## Merge boundary
 
 CONTRACTS section 1 requires one checkpoint PR, green CI on the current main base, and rebase/merge
-commits rather than squash. The local Lane B owner reports standing owner authorization to land its
-own checkpoint PRs and is documenting that seat-specific boundary. It does not transfer to Lane C.
-This delegation prohibits C from merging. A/C checkpoint integration needs an explicitly authorized
-integrator or a new owner grant before landing; passing tests alone is not that grant.
-
-## Consumer drafts waiting for A0
-
-The command/selection/tool declarations and a document-file loader are drafted outside the buildable
-checkout. The loader preserves corrupt bytes under the required backup name, refuses newer versions
-in read-only mode, and uses `AtomicFile` for saves. Three integration tests are drafted for corrupt
-bytes, future versions and sample-document round trips.
-
-The drafts pass syntax parsing and formatting/lint checks. An isolated consumer harness then compiled
-them against Gnomon's actual A0 draft commit `876dfae`, his temporary package scaffold, and the existing
-ConceptCore implementation. All three file-preservation tests passed on macOS with Swift 6.4 and the
-native build system. This proves the consumer draft against that unmerged API; it is not full app
-integration, CI, C0 or C2 completion. Move the files into the owned Model and test folders after the
-upstream prerequisites land, then run the required app-level acceptance cases.
+commits rather than squash. Lane B reports standing owner authorization for its own PRs; it does not
+transfer to C. Parent is seeking explicit checkpoint integration permission. C has merged nothing.
 
 ## Product paragraph proposal
 
@@ -137,5 +88,3 @@ For owner review before editing PRODUCT.md:
 > the user carries into their ComfyUI graph.
 
 This proposal does not change PRODUCT.md or claim approval.
-
-No merge, release, deployment or paid operation has been performed.

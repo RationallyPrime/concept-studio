@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -12,6 +13,9 @@ struct ConceptStudioApp: App {
         Window("ConceptStudio", id: "studio") {
             StudioRootView(session: session).disclosureGroupStyle(StudioDisclosureStyle()).onAppear {
                 delegate.attach(session)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                _ = session.flushShots()
             }
             .sheet(isPresented: $showNewHub) { NewHubProjectSheet(session: session) }
         }
