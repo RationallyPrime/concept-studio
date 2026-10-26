@@ -6,98 +6,66 @@ Owner: Ari (Codex). Canonical branch: `shots/c-shell`.
 
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
-| C0: API skeleton | Implemented; acceptance pending | Current-head CI and independent review closure on the B0 stack; no merge yet. |
-| C1: workspace entry | Pending | C0 and D0; sidebar/menu entry and hosting both viewport views. |
-| C2: commands, persistence and undo | Partial | Remaining command implementations, focused menu undo, tolerant decoding from A1, full acceptance. |
-| C3: lists, import and export | Pending | A1 importer and B3 exporter; IT3. |
-| C4: timeline | Pending | Timeline UI, playback timer, focus and keyboard handling. |
-| C5: inspectors, library and prompt | Pending | A1 catalog, A4 generators, A5 corrections and B5 prompt. |
-| C6: polish | Pending | Integrated C/D workspace, glossary/credits, previews and keyboard walkthrough. |
+| C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
+| C1: workspace entry | Implemented preparation; acceptance pending | D0 PR #61 landing, current-main CI and independent review. |
+| C2: commands, persistence and undo | Isolated preparation | Full command/focus/menu coverage and C1 acceptance. |
+| C3: lists, import and export | Pending | B3 exporter and real A3 bodies/keypoints; IT3. |
+| C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
+| C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
+| C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
 
-## Delivered in this branch
+## C0 delivered
 
-- Independent `StudioWorkspace` state defaults to training and preserves the training step.
-- Contract command, selection and tool types; the observable store starts at the first scene/shot.
-- Evaluator caching and frame access, preview-then-commit behavior, error routing and read-only mode.
-- Scene/entity/shot/mark edits, revision changes, snapshot undo/redo (200 entries), explicit slider
-  coalescing and debounced atomic saving. Unsupported commands report `ShotsError.notImplemented`.
-- Project/demo opening creates or loads the store. The demo starts with the sample.
-- Project release flushes before access ends and releases the store. A failed flush keeps the project
-  and edits open. Quit/window-close approval also flushes first and vetoes saving failures; signed quit behavior is not yet verified.
-- Corrupt files are renamed aside with their bytes preserved; newer versions remain untouched/read-only.
-- Prompt writes do not bump the blocking revision or immediately make their own prompt stale.
+The store, evaluator/frame access, selection/tool/command seams, preview/commit, snapshot undo/redo,
+coalescing, debounced atomic saving and corruption/future-version handling are integrated. Project
+release, quit and window close flush first and veto saving failures. Prompt writes preserve blocking
+revision semantics. The real B2 self-test is integrated. W0, A0, B0, C0, B1, B2, A1 and A2 are merged.
+C0 independent closure and all seven checks passed before merge; 14 focused local tests passed.
 
-`--shots-self-test` calls the real B0 API before constructing a session, prints its JSON and exits with its code.
-B0 honestly returns 1 until B2; this is launch-path verification, not rendering acceptance.
-No Shots UI, export action or prompt-writing action is claimed yet.
+## C1 preparation
 
-## Dependencies and coordination
+- Shots entry beside Cloud GPU, plus Go > Shots (Command-0); existing nine training shortcuts and order
+  retained. Returning to Training restores the previous step; explicit training destinations select it.
+- Four regions: scene/shot list with starter asset names below, actual `ShotsViewport(store:)` and
+  `ShotCameraView(store:)` switched by a picker, read-only shot inspector, and a playhead slider.
+- Native scene creation goes through `store.run`. Selection clears preview and entity selection.
+- Training viewer/definitions and training navigation remain scoped to the training workspace.
+- Actual root previews gain shots-empty and shots-sample in both appearances and sizes.
 
-The branch is stacked on B0 draft PR #54 (`41199e5`), then A0 PR #52 (`8c7815f`), then W0
-PR #51 (`f1c3d51`). These are actual owner artifacts, not replacement implementations. None is assumed
-merged. Rebase onto main and rerun the affected checks after the dependency stack lands.
-
-- Gnomon is the single A owner. His existing native session acknowledged the handoff, replaced his
-  temporary scaffold with W0's real files, reran four Linux package tests and pushed draft PR #52.
-- W0's latest head has green CI. The owner reports an inherited local Keychain hang separately; that
-  partial local run is not a full-suite pass. Current-head review and preview evidence remain gates.
-- A0's first macOS CI ran 769 app tests and four core tests successfully, then failed six core lint
-  violations. Gnomon repaired those at `8c7815f`; C rebased onto that head and reran its focused tests
-  (11 passed) and the complete app strict lint gate (passed). A0 macOS CI on the repair passed all seven jobs.
-- B0 is published and its actual self-test API is integrated. Its current-head CI is pending.
-- Independent C review at `3a645d5` found one P1: quit could lose edits after a failed save. The repair
-  flushes before app/window approval, vetoes failures, and propagates a refused release through the
-  shared close path. The plan maintainer explicitly assigned AppLifetime.swift to C in B0's contract
-  update. Focused quit/window/confirmed-close failure and retry tests pass; independent closure is pending.
-- Metis's project/conversation target remains with the parent/user. C has not sent to an ambiguous target.
+These are C1 surfaces only. Library placement, full inspectors, timeline playback, export and prompt
+writing are later checkpoints. D0 remains an unmerged owner artifact; no C1 acceptance is claimed.
 
 ## Verification
 
-From the repository root:
+An isolated validation composition used main `93dbb764`, published D0 code from PR #61 (`2755bef`),
+and the six owned C1 source/test files. No replacement viewport implementation was used.
 
-```sh
-.github/scripts/swift-test-watchdog.sh --package-path app --build-system native \
-  --filter 'ShotsCloseTests|ShotsWorkspaceTests|ShotsStoreTests|ShotsDocumentFileTests'
-```
+- **Run and passed:** native SwiftPM `--filter 'Shots|Viewport'`: 31 tests in nine suites. Includes
+  workspace entry/return and explicit training destination coverage, close/save, store and viewport math.
+- **Run and passed:** changed-file strict SwiftLint and pinned SwiftFormat, plus whitespace checks.
+- **Run and passed:** `CONCEPTSTUDIO_PREVIEW_SCREENS=shots-empty,shots-sample scripts/render-app-preview.sh`
+  wrote eight PNGs: empty/sample × light/dark × 980×680/1240×820. One preview test passed.
+- **Inspected:** both layouts fit the minimum size. Dark-mode D0 placeholder text has poor contrast;
+  finding routed to Metis in PR #61 comment 6415450470. Owner cure and independent closure are required.
+- **Not run locally:** complete app suite, signed/live interaction and keyboard/VoiceOver walkthrough.
+  Offscreen captures do not prove pointer, focus, accessibility or RealityKit live behavior.
+- **Pending:** verification repeated against landed D0/current main, C1 independent review and CI.
 
-Passed on local Swift 6.4 against the actual W0/A0/B0 sources: **14 tests in four suites**. The navigation
-case covers all three legal steps of a concept-free project. Coverage includes:
+Isolated C2 command preparation and timeline geometry tests remain outside this checkpoint. They are
+not evidence that C2/C4 acceptance is complete.
 
-- opening an empty project, switching workspace, accessing frame 61, saving, releasing and reopening;
-- refusing project release, app quit (including keep-running), window close and confirmed close when a
-  Shots save fails, retaining edits, then saving successfully on retry;
-- preview, commit, undo and redo, including observable undo availability;
-- explicit coalescing versus ordinary separate undo steps;
-- prompt/blocking revision behavior;
-- corruption preservation, future versions and sample round trips; no writes to training files.
+## Coordination and integration
 
-The earlier isolated consumer harness passed eight tests against Gnomon's initial `876dfae` draft.
-Those harness results are superseded by the real-app focused run above. An initial store draft crashed
-because an observable playhead observer called itself; clamping now uses a separate backing value and
-all tests passed on rerun.
+Gnomon owns A, local Claude owns B, Ari owns C/integration, Metis owns D. Metis's dedicated Antigravity
+conversation is active on `shots/d-viewport`; D1 preparation is separate. A2 is merged; A3 remains the
+core dependency for B3/D2. Preserve owner branches and worktrees.
 
-Passed: changed-file SwiftFormat and SwiftLint with the repository's pinned versions, plus whitespace
-checks. The combined app strict lint gate also passed after rebasing onto Gnomon's A0 repair.
-All seven CI jobs passed at the earlier `3a645d5` head; the repair and B0 integration need new CI.
-Not run locally: complete app suite, preview renders, media export and signed sandbox checks.
-Independent C2 preparation (duplicate/import, camera commands, mark deletion) passed 14 tests locally
-but is preserved outside this C0 PR until the next checkpoint.
+The user explicitly approved Shots checkpoint merges after required review/green CI and repeated
+verification after rebasing. Use non-squash merges per CONTRACTS and verify authoritative live main,
+not stale PR base metadata. This excludes release/deployment and paid infrastructure.
 
-Draft PR: https://github.com/RationallyPrime/concept-studio/pull/53 (C0 acceptance pending, stacked on B0).
+## Product proposal
 
-## Merge boundary
-
-CONTRACTS section 1 requires one checkpoint PR, green CI on the current main base, and rebase/merge
-commits rather than squash. Lane B reports standing owner authorization for its own PRs; it does not
-transfer to C. Parent is seeking explicit checkpoint integration permission. C has merged nothing.
-
-## Product paragraph proposal
-
-For owner review before editing PRODUCT.md:
-
-> ConceptStudio also prepares assets for video shots made in ComfyUI. In the Shots workspace, the user
-> places people and simple set pieces, marks their movement, and frames a virtual camera. It exports
-> guide images, pose and layout control videos, actor masks, shot details and an H3 prompt as a folder
-> the user carries into their ComfyUI graph.
-
-This proposal does not change PRODUCT.md or claim approval.
+The existing proposal remains for owner review before editing PRODUCT.md: Shots prepares scene,
+motion, virtual camera, guide images/control videos/masks/shot details and an H3 prompt for ComfyUI.
+No PRODUCT.md change or C6 acceptance is claimed.

@@ -17,7 +17,7 @@ struct StudioRootView: View {
         }
         .focusable().focused($viewerKeyboardFocus)
         .onKeyPress(.space) {
-            guard let lastMediaViewer else { return .ignored }
+            guard session.workspace == .training, let lastMediaViewer else { return .ignored }
             mediaViewer = lastMediaViewer
             return .handled
         }
@@ -56,7 +56,7 @@ struct StudioRootView: View {
                 VStack(spacing: 0) {
                     titleStrip
                     Group {
-                        if session.step == .review {
+                        if session.workspace == .shots || session.step == .review {
                             screen
                         } else {
                             screen.padding(24)
@@ -70,7 +70,12 @@ struct StudioRootView: View {
         }
         .ignoresSafeArea(.container, edges: .top)
         .onChange(of: session.step, initial: true) { _, step in
-            if let step, step.usesRentedComputer { session.prepareGPUStep() }
+            if session.workspace == .training, let step, step.usesRentedComputer { session.prepareGPUStep() }
+        }
+        .onChange(of: session.workspace) { _, workspace in
+            mediaViewer = nil
+            showingDefinitions = false
+            if workspace == .training, session.step?.usesRentedComputer == true { session.prepareGPUStep() }
         }
     }
 
@@ -90,6 +95,13 @@ struct StudioRootView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             Rectangle().fill(InstantPrint.frameRule).frame(height: 1).padding(.trailing, 1)
             VStack(alignment: .leading, spacing: 2) {
+                Button { session.showShots() } label: {
+                    sidebarAction("Shots", symbol: "film", selected: session.workspace == .shots)
+                        .background(session.workspace == .shots ? InstantPrint.selectedStep : Color.clear)
+                }
+                .buttonStyle(.plain).disabled(session.shots == nil)
+                .accessibilityAddTraits(session.workspace == .shots ? .isSelected : [])
+                .help("Open the Shots workspace (⌘0)")
                 stepRow(.pods, height: 44)
                 SettingsLink { sidebarAction("Settings", symbol: "gearshape") }
                     .buttonStyle(.plain)
@@ -110,12 +122,12 @@ struct StudioRootView: View {
         .background(InstantPrint.frame)
     }
 
-    private func sidebarAction(_ title: String, symbol: String) -> some View {
+    private func sidebarAction(_ title: String, symbol: String, selected: Bool = false) -> some View {
         HStack(spacing: 14) {
             Image(systemName: symbol).font(.system(size: 16, weight: .light)).frame(width: 26)
             Text(title).font(.system(size: 14))
         }
-        .foregroundStyle(InstantPrint.frameItem)
+        .foregroundStyle(selected ? Color.white : InstantPrint.frameItem)
         .padding(.leading, 24)
         .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
         .contentShape(Rectangle())
@@ -158,8 +170,8 @@ struct StudioRootView: View {
     }
 
     private func stepRow(_ step: StudioStep, height: CGFloat) -> some View {
-        let selected = (session.step ?? .images) == step
-        return Button { session.step = step } label: {
+        let selected = session.workspace == .training && (session.step ?? .images) == step
+        return Button { session.showTraining(step) } label: {
             HStack(spacing: 14) {
                 Image(systemName: step.symbol).font(.system(size: 18, weight: .light)).frame(width: 26)
                 Text(step.title).font(.system(size: 15))
@@ -186,12 +198,14 @@ struct StudioRootView: View {
     private var titleStrip: some View {
         let step = session.step ?? .images
         return HStack(spacing: 10) {
-            Text(step.title).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(InstantPrint.frameText)
+            Text(session.workspace == .shots ? "Shots" : step.title).font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(InstantPrint.frameText)
                 .accessibilityAddTraits(.isHeader)
-            Text(step.explanation).font(.system(size: 13.5)).foregroundStyle(InstantPrint.frameMuted)
+            Text(session.workspace == .shots ? "Plan the scene and frame its shot." : step.explanation)
+                .font(.system(size: 13.5)).foregroundStyle(InstantPrint.frameMuted)
                 .lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 0)
-            if !step.definitionTerms.isEmpty {
+            if session.workspace == .training, !step.definitionTerms.isEmpty {
                 Button("Definitions", systemImage: "questionmark.circle") { showingDefinitions = true }
                     .buttonStyle(.plain).font(.system(size: 13)).foregroundStyle(InstantPrint.frameItem)
                     .help("Definitions of the terms on this screen")
@@ -211,6 +225,10 @@ struct StudioRootView: View {
     /// What the footer reports for the open step, beside the project name.
     private var progress: String? {
         guard let project = session.project else { return nil }
+        if session.workspace == .shots {
+            let count = session.shots?.document.scenes.count ?? 0
+            return count == 1 ? "1 scene" : "\(count) scenes"
+        }
         let count = project.images.count
         switch session.step ?? .images {
         case .images:
@@ -269,7 +287,7 @@ struct StudioRootView: View {
                     .help("Cancel work and stop the cloud GPU.")
                     .padding(.trailing, 12)
             }
-            if session.step != .concepts, let following = session.nextStep {
+            if session.workspace == .training, session.step != .concepts, let following = session.nextStep {
                 Button { session.goForward() } label: {
                     HStack(spacing: 10) {
                         Text("Next: \(following.title)")
@@ -286,6 +304,14 @@ struct StudioRootView: View {
     }
 
     @ViewBuilder private var screen: some View {
+        if session.workspace == .shots {
+            ShotsWorkspaceView(session: session)
+        } else {
+            trainingScreen
+        }
+    }
+
+    @ViewBuilder private var trainingScreen: some View {
         switch session.step ?? .images {
         case .images: ImagesView(session: session)
         case .concepts: ConceptsView(session: session)

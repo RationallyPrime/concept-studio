@@ -1,6 +1,7 @@
 import AppKit
 import ConceptCore
 @testable import ConceptStudio
+import PrevisCore
 import SwiftUI
 import Testing
 
@@ -51,10 +52,7 @@ struct PreviewRenderTests {
         let originalAppearance = NSApplication.shared.appearance
         defer { NSApplication.shared.appearance = originalAppearance }
         var captures: [[String: String]] = []
-        if let garden = Bundle.module.url(forResource: "Demo", withExtension: nil)?
-            .appendingPathComponent("images/window.jpg") {
-            await prewarmThumbnails([garden])
-        }
+        await prewarmPreviewGarden()
         try await captureWelcome(session: session, output: output, filter: filter, captures: &captures)
         session.useDemo()
         await session.task?.value
@@ -92,6 +90,7 @@ struct PreviewRenderTests {
             )
             try await captureStates(of: step, session: session, output: output, filter: filter, captures: &captures)
         }
+        try await captureShots(session: session, output: output, filter: filter, captures: &captures)
         try await captureAdvancedModes(session: session, output: output, filter: filter, captures: &captures)
         try await captureAuxiliaryScreens(session: session, output: output, filter: filter, captures: &captures)
         try await captureUpscale(session: session, output: output, filter: filter, captures: &captures)
@@ -110,6 +109,31 @@ struct PreviewRenderTests {
         )
         try writeManifest(captures, to: output)
         print("OFFSCREEN PREVIEWS: \(output.path) (\(captures.count) PNGs)")
+    }
+
+    private func prewarmPreviewGarden() async {
+        if let garden = Bundle.module.url(forResource: "Demo", withExtension: nil)?
+            .appendingPathComponent("images/window.jpg") {
+            await prewarmThumbnails([garden])
+        }
+    }
+
+    private func captureShots(
+        session: StudioSession, output: URL, filter: Set<String>, captures: inout [[String: String]]
+    ) async throws {
+        let previousStore = session.shots, previousWorkspace = session.workspace
+        defer { session.shots = previousStore; session.workspace = previousWorkspace }
+        let catalog = try ContentCatalog.bundled()
+        session.workspace = .shots
+        for (name, document) in [
+            ("shots-empty", ShotsDocument(version: ShotsDocument.currentVersion, scenes: [])),
+            ("shots-sample", ShotsSamples.twoPersonWalk()),
+        ] {
+            session.shots = ShotsStore(catalog: catalog, document: document, saveURL: nil)
+            try await capture(
+                name, view: StudioRootView(session: session), output: output, filter: filter, captures: &captures
+            )
+        }
     }
 
     /// Extra states of a journey screen: a prefilled suggestion, a multi-selection, a running computer, tabs.
