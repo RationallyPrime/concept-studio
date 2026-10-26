@@ -201,6 +201,7 @@ def test_comparisons_load_captured_turbo_weights_instead_of_training_raw(tmp_pat
         assert values["name_or_path"] == "krea/Krea-2-Turbo"
         assert values["arch"] == "krea2"
         assert values["model_kwargs"] == {"schedule_mu": 1.15}
+        assert values["dtype"] == "bf16"  # the train dtype, as the trainer builds the model
         raise RuntimeError("captured inference boundary")
 
     config.ModelConfig = inspect_model
