@@ -27,9 +27,6 @@ struct ConceptStudioApp: App {
             StudioRootView(session: session).disclosureGroupStyle(StudioDisclosureStyle()).onAppear {
                 delegate.attach(session)
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                _ = session.flushShots()
-            }
             .sheet(isPresented: $showNewHub) { NewHubProjectSheet(session: session) }
         }
         .defaultSize(width: 1240, height: 820)

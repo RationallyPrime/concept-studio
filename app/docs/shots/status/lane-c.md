@@ -6,7 +6,7 @@ Owner: Ari (Codex). Canonical branch: `shots/c-shell`.
 
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
-| C0: API skeleton | Partial, compiled and tested | B0 supplies `ShotsSelfTest`; wire and verify `--shots-self-test` before C0 is complete. |
+| C0: API skeleton | Implemented; acceptance pending | Current-head CI and independent review closure on the B0 stack; no merge yet. |
 | C1: workspace entry | Pending | C0 and D0; sidebar/menu entry and hosting both viewport views. |
 | C2: commands, persistence and undo | Partial | Remaining command implementations, focused menu undo, tolerant decoding from A1, full acceptance. |
 | C3: lists, import and export | Pending | A1 importer and B3 exporter; IT3. |
@@ -23,17 +23,19 @@ Owner: Ari (Codex). Canonical branch: `shots/c-shell`.
   coalescing and debounced atomic saving. Unsupported commands report `ShotsError.notImplemented`.
 - Project/demo opening creates or loads the store. The demo starts with the sample.
 - Project release flushes before access ends and releases the store. A failed flush keeps the project
-  and edits open. App termination receives a flush hook; signed quit behavior is not yet verified.
+  and edits open. Quit/window-close approval also flushes first and vetoes saving failures; signed quit behavior is not yet verified.
 - Corrupt files are renamed aside with their bytes preserved; newer versions remain untouched/read-only.
 - Prompt writes do not bump the blocking revision or immediately make their own prompt stale.
 
-No Shots UI, export action, prompt-writing action or self-test launch flag is claimed yet.
+`--shots-self-test` calls the real B0 API before constructing a session, prints its JSON and exits with its code.
+B0 honestly returns 1 until B2; this is launch-path verification, not rendering acceptance.
+No Shots UI, export action or prompt-writing action is claimed yet.
 
 ## Dependencies and coordination
 
-The branch is stacked on published A0 draft PR #52 (`8c7815f`), which is stacked on W0 PR #51
-(`f1c3d51`). Those are actual owner artifacts, not replacement implementations. Neither dependency is
-assumed merged. Rebase onto main and rerun the affected checks after the dependency stack lands.
+The branch is stacked on B0 draft PR #54 (`41199e5`), then A0 PR #52 (`8c7815f`), then W0
+PR #51 (`f1c3d51`). These are actual owner artifacts, not replacement implementations. None is assumed
+merged. Rebase onto main and rerun the affected checks after the dependency stack lands.
 
 - Gnomon is the single A owner. His existing native session acknowledged the handoff, replaced his
   temporary scaffold with W0's real files, reran four Linux package tests and pushed draft PR #52.
@@ -41,8 +43,12 @@ assumed merged. Rebase onto main and rerun the affected checks after the depende
   partial local run is not a full-suite pass. Current-head review and preview evidence remain gates.
 - A0's first macOS CI ran 769 app tests and four core tests successfully, then failed six core lint
   violations. Gnomon repaired those at `8c7815f`; C rebased onto that head and reran its focused tests
-  (11 passed) and the complete app strict lint gate (passed). A0 macOS CI on the repair is pending.
-- The B owner will prepare B0 after A0's dependency is resolved. C needs its real self-test API.
+  (11 passed) and the complete app strict lint gate (passed). A0 macOS CI on the repair passed all seven jobs.
+- B0 is published and its actual self-test API is integrated. Its current-head CI is pending.
+- Independent C review at `3a645d5` found one P1: quit could lose edits after a failed save. The repair
+  flushes before app/window approval, vetoes failures, and propagates a refused release through the
+  shared close path. The plan maintainer explicitly assigned AppLifetime.swift to C in B0's contract
+  update. Focused quit/window/confirmed-close failure and retry tests pass; independent closure is pending.
 - Metis's project/conversation target remains with the parent/user. C has not sent to an ambiguous target.
 
 ## Verification
@@ -51,14 +57,15 @@ From the repository root:
 
 ```sh
 .github/scripts/swift-test-watchdog.sh --package-path app --build-system native \
-  --filter 'ShotsWorkspaceTests|ShotsStoreTests|ShotsDocumentFileTests'
+  --filter 'ShotsCloseTests|ShotsWorkspaceTests|ShotsStoreTests|ShotsDocumentFileTests'
 ```
 
-Passed on local Swift 6.4 against the actual W0/A0 sources: **11 tests in three suites**. The navigation
+Passed on local Swift 6.4 against the actual W0/A0/B0 sources: **14 tests in four suites**. The navigation
 case covers all three legal steps of a concept-free project. Coverage includes:
 
 - opening an empty project, switching workspace, accessing frame 61, saving, releasing and reopening;
-- refusing project release when a Shots save fails, retaining edits, then saving successfully on retry;
+- refusing project release, app quit (including keep-running), window close and confirmed close when a
+  Shots save fails, retaining edits, then saving successfully on retry;
 - preview, commit, undo and redo, including observable undo availability;
 - explicit coalescing versus ordinary separate undo steps;
 - prompt/blocking revision behavior;
@@ -71,9 +78,12 @@ all tests passed on rerun.
 
 Passed: changed-file SwiftFormat and SwiftLint with the repository's pinned versions, plus whitespace
 checks. The combined app strict lint gate also passed after rebasing onto Gnomon's A0 repair.
-Not run for this branch: complete app suite, CI, preview renders, media export and signed sandbox checks.
+All seven CI jobs passed at the earlier `3a645d5` head; the repair and B0 integration need new CI.
+Not run locally: complete app suite, preview renders, media export and signed sandbox checks.
+Independent C2 preparation (duplicate/import, camera commands, mark deletion) passed 14 tests locally
+but is preserved outside this C0 PR until the next checkpoint.
 
-Draft PR: https://github.com/RationallyPrime/concept-studio/pull/53 (incomplete C0, stacked on A0).
+Draft PR: https://github.com/RationallyPrime/concept-studio/pull/53 (C0 acceptance pending, stacked on B0).
 
 ## Merge boundary
 
