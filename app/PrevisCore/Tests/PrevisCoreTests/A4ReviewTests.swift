@@ -57,11 +57,9 @@ struct A4ReviewTests {
         #expect(abs(after - 1.2) < 1e-9, "facing after the motion: \(after)")
     }
 
-    /// While a motion plays in place, the evaluator reads a stationary leg's facing from the placement: Blockout's
-    /// `evaluateTrack` has no heading for a leg that goes nowhere, and A2's parity scene
-    /// `actors-paths-ease-hold` pins that behaviour. Authored turns, which is what this is, are A5's (defect 1);
-    /// this records the end-to-end expectation so that A5 turns it into a plain assertion.
-    @Test func whileAMotionPlaysTheFacingHoldsOnceAuthoredTurnsAreResolved() throws {
+    /// While a motion plays in place the actor keeps his facing. The evaluator used to read a stationary leg's facing
+    /// from the placement; A5's authored-turn rule holds it (PR 67 r4377817829).
+    @Test func whileAMotionPlaysTheFacingHolds() throws {
         func stand(_ id: String, _ time: Double) -> ActorMark {
             ActorMark(
                 id: id, time: time, hold: 0, easeIn: 0, easeOut: 0,
@@ -72,9 +70,7 @@ struct A4ReviewTests {
         let result = try Motions.apply("nod-yes", to: man, track: track, at: 1.5, catalog: catalog)
         let evaluator = try evaluator(staged(result.marks))
         let during = try entity(man.id, in: evaluator.frame(at: 1.9)).heading
-        withKnownIssue("a stationary leg's facing comes from the placement until A5 resolves authored turns") {
-            #expect(abs(during - 1.2) < 1e-9, "facing during the motion: \(during)")
-        }
+        #expect(abs(during - 1.2) < 1e-9, "facing during the motion: \(during)")
     }
 
     // MARK: r4377817859: negative vertical root displacement is kept

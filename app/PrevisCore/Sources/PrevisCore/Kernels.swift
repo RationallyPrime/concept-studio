@@ -115,7 +115,16 @@ struct PathCurve: Sendable {
         return samples[i - 1] + (samples[i] - samples[i - 1]) * u
     }
 
-    /// A central difference; 0 when the path is not moving horizontally there.
+    /// The heading of the path at `distance`, or nil where it does not move horizontally (a vertical rise or fall).
+    func headingIfMoving(at distance: Double) -> Double? {
+        let eps = max(length * 0.001, 0.01)
+        let a = point(at: max(0, distance - eps)), b = point(at: min(length, distance + eps))
+        let dx = b.x - a.x, dz = b.z - a.z
+        if abs(dx) < 1e-9, abs(dz) < 1e-9 { return nil }
+        return headingOf(dx: dx, dz: dz)
+    }
+
+    /// A central difference; 0 when the path is not moving horizontally there (Blockout's behaviour).
     func heading(at distance: Double) -> Double {
         let eps = max(length * 0.001, 0.01)
         let a = point(at: max(0, distance - eps)), b = point(at: min(length, distance + eps))

@@ -116,7 +116,8 @@ public enum Motions {
     ) -> (position: Vec3, heading: Double) {
         let placement = entity.placement
         guard let marks = track?.marks, !marks.isEmpty else { return (placement.position, placement.heading) }
-        let state = ActorPlan(marks: marks).pose(at: time, fallbackHeading: placement.heading)
+        let plan = ActorPlan(marks: marks, placementHeading: placement.heading, corrections: .all)
+        let state = plan.pose(at: time, fallbackHeading: placement.heading)
         return (state.position, state.heading)
     }
 

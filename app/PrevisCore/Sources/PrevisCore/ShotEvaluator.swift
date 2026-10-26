@@ -8,13 +8,38 @@ import Foundation
 // four passes (A5 replaces them with one dependency-ordered graph); the camera with lens, aim lock, mount and rig
 // noise. Bodies, keypoints and validation arrive in A3 and A5.
 
+/// Where this evaluator departs from Blockout's. Blockout's behaviour is kept reachable, as `[]`, so the parity
+/// tests can prove the port against its oracle; the public initialiser uses `.all`.
+struct Corrections: OptionSet, Sendable {
+    let rawValue: Int
+
+    /// An authored turn (`arriveHeading`) finishes on arrival: it blends over the leg that arrives at the mark, from
+    /// the
+    /// departure facing, and the mark's hold keeps the arrived facing, instead of snapping when the leg ends (defect
+    /// 1).
+    static let authoredTurns = Corrections(rawValue: 1)
+    /// A leg with no horizontal motion keeps its heading instead of facing −Z (defect 2).
+    static let verticalHeading = Corrections(rawValue: 2)
+    /// One easing for position and orientation: the camera's pan, tilt, roll and lens no longer apply a smoothstep on
+    /// top of the position easing (defect 6).
+    static let singleEasing = Corrections(rawValue: 4)
+    /// Attachments and boardings are one graph, resolved parents first with full transforms, a boarded vehicle's own
+    /// attachment included; Blockout runs four fixed passes in a fixed order (defects 3 and 4).
+    static let attachmentGraph = Corrections(rawValue: 8)
+
+    static let all: Corrections = [.authoredTurns, .verticalHeading, .singleEasing, .attachmentGraph]
+}
+
 public struct ShotEvaluator: Sendable {
-    private let shot: Shot
-    private let aspect: Double
-    private let entities: [Resolved]
-    private let tracks: [EntityID: ActorPlan]
+    let corrections: Corrections
+    let sceneID: SceneID
+    let shot: Shot
+    let aspect: Double
+    let entities: [Resolved]
+    let tracks: [EntityID: ActorPlan]
     private let boardings: [Boarding]
-    private let camera: TrackPlan
+    private let graph: AttachmentGraph?
+    let camera: TrackPlan
 
     struct Resolved: Sendable {
         var entity: PrevisEntity
@@ -25,12 +50,19 @@ public struct ShotEvaluator: Sendable {
     }
 
     public init(scene: PrevisScene, shotID: ShotID, catalog: ContentCatalog) throws {
-        try self.init(scene: scene, shotID: shotID, catalog: catalog, aspect: nil)
+        try self.init(scene: scene, shotID: shotID, catalog: catalog, aspect: nil, corrections: .all)
     }
 
     /// `aspect` replaces the canvas aspect for the field of view: parity tests construct with Blockout's exact
-    /// aspect, because the importer maps aspects onto 32-multiple canvases.
-    init(scene: PrevisScene, shotID: ShotID, catalog: ContentCatalog, aspect: Double?) throws {
+    /// aspect, because the importer maps aspects onto 32-multiple canvases. `corrections` selects which of this
+    /// evaluator's departures from Blockout apply; the parity tests pass `[]`.
+    init(
+        scene: PrevisScene,
+        shotID: ShotID,
+        catalog: ContentCatalog,
+        aspect: Double?,
+        corrections: Corrections = .all
+    ) throws {
         guard let shot = scene.shots.first(where: { $0.id == shotID }) else {
             throw ShotsError.invalid([
                 ShotsProblem(
@@ -41,6 +73,27 @@ public struct ShotEvaluator: Sendable {
                 ),
             ])
         }
+        let resolved = try Self.resolve(scene, shot: shot, catalog: catalog, corrections: corrections)
+        let plans = Self.plans(scene, shot: shot, resolved: resolved, corrections: corrections)
+
+        self.corrections = corrections
+        graph = corrections.contains(.attachmentGraph) ? Self.graph(resolved, plans) : nil
+        sceneID = scene.id
+        self.shot = shot
+        self.aspect = aspect ?? shot.canvas.aspect
+        entities = resolved
+        tracks = plans
+        camera = TrackPlan(waypoints: shot.camera.marks.map(Waypoint.init))
+        boardings = Self.boardings(resolved, plans)
+    }
+
+    /// Every entity with its asset, or an error naming each unknown asset and each attachment cycle.
+    private static func resolve(
+        _ scene: PrevisScene,
+        shot: Shot,
+        catalog: ContentCatalog,
+        corrections: Corrections
+    ) throws -> [Resolved] {
         var problems: [ShotsProblem] = []
         var resolved: [Resolved] = []
         for entity in scene.entities {
@@ -53,52 +106,78 @@ public struct ShotEvaluator: Sendable {
                         message: "\"\(entity.name)\" uses the unknown asset \(entity.assetID); "
                             + "choose an asset from the catalog.",
                         sceneID: scene.id,
-                        shotID: shotID,
+                        shotID: shot.id,
                         entityID: entity.id
                     )
                 )
             }
         }
         if !problems.isEmpty { throw ShotsError.invalid(problems) }
-
-        let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
-        var plans: [EntityID: ActorPlan] = [:]
-        var boardingOrder: [EntityID] = []
-        var boardingMarks: [EntityID: [ActorMark]] = [:]
-        let known = Set(resolved.map(\.entity.id))
-        for track in take?.tracks ?? [] where known.contains(track.entityID) && !track.marks.isEmpty {
-            let plan = ActorPlan(marks: track.marks)
-            plans[track.entityID] = plan
-            for mark in plan.marks where mark.boardID != nil {
-                if boardingMarks[track.entityID] == nil { boardingOrder.append(track.entityID) }
-                boardingMarks[track.entityID, default: []].append(mark)
+        if corrections.contains(.attachmentGraph) {
+            let cycles = AttachmentCycles.find(in: scene.entities)
+            if !cycles.isEmpty {
+                throw ShotsError.invalid(cycles.map { cycle in
+                    let names = cycle.map { id in "\"\(scene.entities.first { $0.id == id }?.name ?? id)\"" }
+                    return ShotsProblem(
+                        severity: .error,
+                        message: "\(names.joined(separator: " and ")) are attached to each other in a cycle; "
+                            + "detach one of them.",
+                        sceneID: scene.id,
+                        shotID: shot.id,
+                        entityID: cycle[0]
+                    )
+                })
             }
         }
+        return resolved
+    }
 
-        self.shot = shot
-        self.aspect = aspect ?? shot.canvas.aspect
-        entities = resolved
-        tracks = plans
-        camera = TrackPlan(waypoints: shot.camera.marks.map(Waypoint.init))
-        boardings = boardingOrder.map { id in
-            let marks = boardingMarks[id] ?? []
+    private static func plans(
+        _ scene: PrevisScene,
+        shot: Shot,
+        resolved: [Resolved],
+        corrections: Corrections
+    ) -> [EntityID: ActorPlan] {
+        let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
+        var plans: [EntityID: ActorPlan] = [:]
+        for track in take?.tracks ?? [] where !track.marks.isEmpty {
+            guard let entity = resolved.first(where: { $0.entity.id == track.entityID })?.entity else { continue }
+            plans[track.entityID] = ActorPlan(
+                marks: track.marks,
+                placementHeading: entity.placement.heading,
+                corrections: corrections
+            )
+        }
+        return plans
+    }
+
+    private static func graph(_ resolved: [Resolved], _ plans: [EntityID: ActorPlan]) -> AttachmentGraph {
+        var graph = AttachmentGraph(entities: resolved.map(\.entity), tracks: plans)
+        graph.capture { time in
+            resolved.map { item in
+                let placement = item.entity.placement
+                return plans[item.entity.id]?.pose(at: time, fallbackHeading: placement.heading)
+                    ?? EntityPose(position: placement.position, heading: placement.heading)
+            }
+        }
+        return graph
+    }
+
+    /// Blockout's boardings, each with the offset captured from the vehicle's own track pose at the boarding mark.
+    private static func boardings(_ resolved: [Resolved], _ plans: [EntityID: ActorPlan]) -> [Boarding] {
+        resolved.compactMap { item -> Boarding? in
+            guard let plan = plans[item.entity.id] else { return nil }
+            let marks = plan.marks.filter { $0.boardID != nil }
+            guard !marks.isEmpty else { return nil }
+            let offsets = marks.compactMap { mark -> (MarkID, Offset)? in
+                guard let target = mark.boardID else { return nil }
+                let (position, heading) = Self.pose(of: target, at: mark.time, entities: resolved, tracks: plans)
+                return (mark.id, Boarding.offset(of: mark, from: position, heading: heading))
+            }
             return Boarding(
-                entityID: id,
+                entityID: item.entity.id,
                 marks: marks,
-                offsets: Dictionary(
-                    marks.compactMap { mark in
-                        mark.boardID.map { target in
-                            let (position, heading) = Self.pose(
-                                of: target,
-                                at: mark.time,
-                                entities: resolved,
-                                tracks: plans
-                            )
-                            return (mark.id, Boarding.offset(of: mark, from: position, heading: heading))
-                        }
-                    },
-                    uniquingKeysWith: { first, _ in first }
-                )
+                offsets: Dictionary(offsets, uniquingKeysWith: { first, _ in first })
             )
         }
     }
@@ -116,9 +195,12 @@ public struct ShotEvaluator: Sendable {
         sceneFrame(index: nil, time: min(max(time.isFinite ? time : 0, 0), shot.duration))
     }
 
-    /// Speed, 180° line, trained range and marks past the end. None are checked yet (A5).
+    /// Things the shot allows but the user should look at: a leg faster or slower than its gait, the camera crossing
+    /// the
+    /// line between two people, a frame count outside the trained range, marks past the end of the shot, and the two
+    /// Blockout behaviours that are kept (marks at the same time teleport; a pan turns the short way round).
     public func warnings() -> [ShotsProblem] {
-        []
+        computeWarnings()
     }
 
     /// Each moving entity's path with its marks, then the camera's.
@@ -136,8 +218,12 @@ public struct ShotEvaluator: Sendable {
 
     private func sceneFrame(index: Int?, time: Double) -> SceneFrame {
         var poses = entities.map { pose(of: $0, at: time) }
-        resolveBoardings(&poses, at: time)
-        resolveAttachments(&poses, at: time)
+        if let graph {
+            graph.resolve(&poses, at: time)
+        } else {
+            resolveBoardings(&poses, at: time)
+            resolveAttachments(&poses, at: time)
+        }
         for index in poses.indices {
             poses[index].time = time
         }
@@ -173,7 +259,7 @@ public struct ShotEvaluator: Sendable {
         return (pose.position, pose.heading)
     }
 
-    // MARK: Boarding and attachment (Blockout's passes 2 and 3)
+    // MARK: Blockout's boarding and attachment passes (used when `.attachmentGraph` is off)
 
     private func resolveBoardings(_ poses: inout [EntityPose], at time: Double) {
         for boarding in boardings {
@@ -250,7 +336,9 @@ public struct ShotEvaluator: Sendable {
             if let legIndex = s.leg {
                 let leg = camera.legs[legIndex]
                 let from = sorted[leg.from], to = sorted[leg.to]
-                let u = smoothstep(easedProgress(s.legProgress, easeOut: from.easeOut, easeIn: to.easeIn))
+                let eased = easedProgress(s.legProgress, easeOut: from.easeOut, easeIn: to.easeIn)
+                // Blockout eases orientation and lens twice, once as position and again with a smoothstep.
+                let u = corrections.contains(.singleEasing) ? eased : smoothstep(eased)
                 pan = lerpAngle(from.pan, to.pan, u)
                 tilt = lerpAngle(from.tilt, to.tilt, u)
                 roll = lerpAngle(from.roll, to.roll, u)
@@ -296,245 +384,5 @@ public struct ShotEvaluator: Sendable {
             sensor: setup.sensor,
             aspect: aspect
         ).focused(at: focus)
-    }
-}
-
-// MARK: - Plans
-
-/// A mark's timing and route, the part shared by actor and camera marks.
-struct Waypoint: Sendable {
-    var id: MarkID
-    var time: Double
-    var hold: Double
-    var easeIn: Double
-    var easeOut: Double
-    var position: Vec3
-    var via: [Vec3]
-
-    init(_ mark: ActorMark) {
-        (id, time, hold, easeIn, easeOut, position, via) =
-            (mark.id, mark.time, mark.hold, mark.easeIn, mark.easeOut, mark.position, mark.via)
-    }
-
-    init(_ mark: CameraMark) {
-        (id, time, hold, easeIn, easeOut, position, via) =
-            (mark.id, mark.time, mark.hold, mark.easeIn, mark.easeOut, mark.position, mark.via)
-    }
-}
-
-struct Leg: Sendable {
-    var from: Int
-    var to: Int
-    var depart: Double
-    var arrive: Double
-    var path: PathCurve
-    var distanceBefore: Double
-}
-
-struct TrackSample {
-    var position: Vec3
-    var travelHeading: Double?
-    var distance: Double
-    var speed: Double
-    var leg: Int?
-    var atMark: Int?
-    var legProgress: Double
-
-    init(
-        position: Vec3,
-        travelHeading: Double? = nil,
-        distance: Double,
-        speed: Double,
-        leg: Int? = nil,
-        atMark: Int? = nil,
-        legProgress: Double
-    ) {
-        self.position = position
-        self.travelHeading = travelHeading
-        self.distance = distance
-        self.speed = speed
-        self.leg = leg
-        self.atMark = atMark
-        self.legProgress = legProgress
-    }
-}
-
-/// Marks sorted stably by `(time, index)` and the legs between them.
-struct TrackPlan: Sendable {
-    let waypoints: [Waypoint]
-    let order: [Int]
-    let legs: [Leg]
-
-    init(waypoints unsorted: [Waypoint]) {
-        let ordered = unsorted.enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }
-        order = ordered.map(\.offset)
-        waypoints = ordered.map(\.element)
-        var built: [Leg] = []
-        var before = 0.0
-        for i in 0 ..< max(waypoints.count - 1, 0) {
-            let from = waypoints[i], to = waypoints[i + 1]
-            let depart = min(from.time + from.hold, max(from.time, to.time - 0.1))
-            let arrive = max(to.time, depart + 0.001)
-            let path = PathCurve([from.position] + to.via + [to.position])
-            built.append(Leg(from: i, to: i + 1, depart: depart, arrive: arrive, path: path, distanceBefore: before))
-            before += path.length
-        }
-        legs = built
-    }
-
-    /// `marks` in the order they were given, sorted the way this plan sorted its waypoints.
-    func sortedMarks<Mark>(of marks: [Mark]) -> [Mark] {
-        order.map { marks[$0] }
-    }
-
-    func sample(at t: Double) -> TrackSample {
-        guard let firstMark = waypoints.first else {
-            return TrackSample(position: .zero, distance: 0, speed: 0, legProgress: 0)
-        }
-        if legs.isEmpty || t <= firstMark.time {
-            return TrackSample(position: firstMark.position, distance: 0, speed: 0, atMark: 0, legProgress: 0)
-        }
-        for (index, leg) in legs.enumerated() {
-            let from = waypoints[leg.from], to = waypoints[leg.to]
-            if t < leg.depart {
-                return TrackSample(
-                    position: from.position,
-                    distance: leg.distanceBefore,
-                    speed: 0,
-                    atMark: leg.from,
-                    legProgress: 0
-                )
-            }
-            if t <= leg.arrive {
-                let span = leg.arrive - leg.depart
-                let u = (t - leg.depart) / span
-                let progress = easedProgress(u, easeOut: from.easeOut, easeIn: to.easeIn)
-                let d = progress * leg.path.length
-                let du = 0.001
-                let next = easedProgress(min(1, u + du), easeOut: from.easeOut, easeIn: to.easeIn)
-                return TrackSample(
-                    position: leg.path.point(at: d),
-                    travelHeading: leg.path.length > 0.001 ? leg.path.heading(at: d) : nil,
-                    distance: leg.distanceBefore + d,
-                    speed: ((next - progress) * leg.path.length) / (du * span),
-                    leg: index,
-                    legProgress: u
-                )
-            }
-        }
-        let last = legs[legs.count - 1]
-        return TrackSample(
-            position: waypoints[last.to].position,
-            distance: last.distanceBefore + last.path.length,
-            speed: 0,
-            atMark: last.to,
-            legProgress: 1
-        )
-    }
-
-    /// The end heading of the latest finished leg that moved.
-    func lastTravelHeading(at t: Double) -> Double? {
-        legs.last { t >= $0.arrive && $0.path.length > 0.001 }.map { $0.path.heading(at: $0.path.length) }
-    }
-
-    func motionPath(subject: MotionPath.Subject) -> MotionPath {
-        var points: [Vec3] = []
-        for (index, leg) in legs.enumerated() {
-            points += index == 0 ? leg.path.samples : Array(leg.path.samples.dropFirst())
-        }
-        if points.isEmpty, let only = waypoints.first { points = [only.position] }
-        return MotionPath(
-            subject: subject,
-            points: points,
-            marks: waypoints.map { PathMark(id: $0.id, time: $0.time, position: $0.position) }
-        )
-    }
-}
-
-/// An actor's track: its plan, marks in plan order, and the time of its first mark.
-struct ActorPlan: Sendable {
-    let track: TrackPlan
-    let marks: [ActorMark]
-
-    init(marks unsorted: [ActorMark]) {
-        track = TrackPlan(waypoints: unsorted.map(Waypoint.init))
-        marks = track.sortedMarks(of: unsorted)
-    }
-
-    var firstTime: Double {
-        track.waypoints.first?.time ?? 0
-    }
-
-    func pose(at time: Double, fallbackHeading: Double) -> EntityPose {
-        let r = track.sample(at: time)
-        let heading = r.travelHeading
-            ?? r.atMark.flatMap { marks[$0].arriveHeading }
-            ?? track.lastTravelHeading(at: time)
-            ?? fallbackHeading
-        var gait = r.atMark.map { marks[$0].gait } ?? .stand
-        var joints: [Joint: Double] = r.atMark.map { marks[$0].joints } ?? [:]
-        if let legIndex = r.leg {
-            let leg = track.legs[legIndex]
-            let from = marks[leg.from], to = marks[leg.to]
-            gait = to.gait.travels ? to.gait : .walk
-            let u = easedProgress(r.legProgress, easeOut: from.easeOut, easeIn: to.easeIn)
-            joints = Self.blend(from.joints, to.joints, u)
-        }
-        return EntityPose(
-            position: r.position,
-            heading: heading,
-            gait: gait,
-            speed: r.speed,
-            distanceTravelled: r.distance,
-            joints: joints
-        )
-    }
-
-    /// Joints missing from one side read as 0.
-    static func blend(_ from: [Joint: Double], _ to: [Joint: Double], _ u: Double) -> [Joint: Double] {
-        var out: [Joint: Double] = [:]
-        for joint in Set(from.keys).union(to.keys) {
-            let a = from[joint] ?? 0, b = to[joint] ?? 0
-            out[joint] = a + (b - a) * u
-        }
-        return out
-    }
-}
-
-extension Gait {
-    /// Whether travelling toward a mark in this gait keeps it; the others walk while moving.
-    var travels: Bool {
-        switch self {
-        case .walk, .jog, .run, .crouch: true
-        case .stand, .sit, .lie, .gesture, .fall: false
-        }
-    }
-}
-
-/// A position and yaw in a parent's frame.
-struct Offset: Sendable {
-    var x: Double, y: Double, z: Double, rotY: Double
-
-    func apply(toParent position: Vec3, heading: Double) -> Vec3 {
-        let c = cos(heading), s = sin(heading)
-        return Vec3(position.x + x * c + z * s, position.y + y, position.z - x * s + z * c)
-    }
-}
-
-/// A rider's boardings: the marks that board, and the offset captured at each from the vehicle's pose then.
-struct Boarding: Sendable {
-    var entityID: EntityID
-    var marks: [ActorMark]
-    var offsets: [MarkID: Offset]
-
-    static func offset(of mark: ActorMark, from vehicle: Vec3, heading: Double) -> Offset {
-        let dx = mark.position.x - vehicle.x, dz = mark.position.z - vehicle.z
-        let c = cos(heading), s = sin(heading)
-        return Offset(
-            x: dx * c - dz * s,
-            y: mark.position.y - vehicle.y,
-            z: dx * s + dz * c,
-            rotY: mark.arriveHeading.map { $0 - heading } ?? 0
-        )
     }
 }

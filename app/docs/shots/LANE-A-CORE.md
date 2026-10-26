@@ -167,8 +167,12 @@ it in your status file.
 ### A5: corrections (day 3)
 
 **Deliver:**
-- **Turn blending.** An authored turn blends over the hold before its mark, or over the whole leg when
-  there is no hold.
+- **Turn blending.** A mark's `arriveHeading` is the facing on arrival. The turn into it blends over the leg
+  that arrives at the mark: from the leg's departure (the end of the previous mark's hold) to the arrival,
+  starting from the facing the actor has at departure, with the leg's easing. The facing then holds through
+  the mark's own `hold`, as in Blockout. A leg between two marks on one spot is an in-place turn. Legs into
+  marks without `arriveHeading` keep facing along travel, as in Blockout. (Wording authorized by the plan
+  maintainer, PR 67 comment 6424533971.)
 - **Vertical moves** keep their heading.
 - **One attachment graph,** resolved in dependency order with full transforms. Boarding resolves after
   attachment.

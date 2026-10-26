@@ -201,6 +201,12 @@ struct EntityPose {
     var distanceTravelled = 0.0
     var joints: [Joint: Double] = [:]
     var time = 0.0
+    /// Set by the attachment graph for an entity riding something; otherwise the orientation is the heading's yaw.
+    var orientation: Quat?
+
+    var frame: Quat {
+        orientation ?? .yaw(heading)
+    }
 }
 
 public struct PosedPart: Sendable, Equatable {
