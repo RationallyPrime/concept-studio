@@ -270,6 +270,68 @@ struct PackageTests {
         #expect(await PackageValidator.problems(at: package) == ["control/layout.mp4 is listed but missing."])
     }
 
+    /// IT2: Blockout's project format through the import and the exporter, then the same through the command line,
+    /// both at 22 frames and 320 × 576.
+    @Test func aBlockoutProjectExportsThroughTheImportAndTheCommandLine() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        let project = input.appendingPathComponent("project.json")
+        try ShotsSamples.blockoutProjectJSON().write(to: project)
+        let catalog = try ContentCatalog.bundled()
+        let imported = try BlockoutImport.document(fromProjectJSON: Data(contentsOf: project), catalog: catalog)
+        var scene = try #require(imported.0.scenes.first)
+        scene.shots[0].frameCount = 22
+        scene.shots[0].canvas = ShotCanvas(width: 320, height: 576)
+        scene.shots[0].guideFrames = scene.shots[0].guideFrames.filter { $0 > 0 && $0 < 21 }
+        let direct = try await ShotExporter(catalog: catalog).export(
+            scene: scene, shotID: scene.shots[0].id, options: .standard,
+            to: FolderDestination(parent: parent.appendingPathComponent("direct")), progress: { _ in }
+        )
+        #expect(await PackageValidator.problems(at: direct.url) == [])
+        let out = parent.appendingPathComponent("command-line")
+        let arguments = ["--blockout", project.path, "--frames", "22", "--canvas", "320x576", "--out", out.path]
+        #expect(await ShotsCommandLine.run(arguments: arguments) == 0)
+        let package = try onlyPackage(in: out)
+        #expect(await PackageValidator.problems(at: package) == [])
+        let manifest = try JSONDecoder().decode(
+            PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+        )
+        for written in [direct.manifest, manifest] {
+            #expect(written.frameCount == 22 && written.canvas == ShotCanvas(width: 320, height: 576))
+            #expect(written.passes == PassKind.allCases)
+        }
+    }
+
+    /// `--shot` by name refuses a name two shots share instead of exporting the first of them.
+    @Test func aShotNameTwoShotsShareIsRefused() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        var project = try #require(
+            JSONSerialization.jsonObject(with: ShotsSamples.blockoutProjectJSON()) as? [String: Any]
+        )
+        var scenes = try #require(project["scenes"] as? [[String: Any]])
+        var shots = try #require(scenes[0]["shots"] as? [[String: Any]])
+        var twin = shots[0]
+        twin["id"] = "shot-twin"
+        shots.append(twin)
+        scenes[0]["shots"] = shots
+        project["scenes"] = scenes
+        let path = input.appendingPathComponent("project.json")
+        try JSONSerialization.data(withJSONObject: project).write(to: path)
+        let name = try #require(twin["name"] as? String)
+        let byName = ["--blockout", path.path, "--shot", name, "--out", parent.path]
+        #expect(await ShotsCommandLine.run(arguments: byName) == 1)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == [])
+        let byID = ["--blockout", path.path, "--shot", "shot-twin", "--frames", "5", "--passes", "layout"]
+        #expect(await ShotsCommandLine.run(arguments: byID + ["--out", parent.path]) == 0)
+    }
+
     @Test func theValidatorNamesAVideoListedWithoutTheFrameCount() async throws {
         let parent = try scratchFolder()
         defer { try? FileManager.default.removeItem(at: parent) }

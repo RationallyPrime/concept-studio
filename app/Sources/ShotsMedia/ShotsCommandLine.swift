@@ -131,7 +131,10 @@ struct Job {
             }
             return (scene, shot)
         case let .blockout(path, sceneKey, shotKey):
-            let (document, notes) = try BlockoutImport.document(fromProjectJSON: Self.read(path), catalog: catalog)
+            // The project's own ids, so --scene and --shot take the ids written in it.
+            let (document, notes) = try BlockoutImport.document(
+                fromProjectJSON: Self.read(path), catalog: catalog, keepIDs: true
+            )
             for note in notes {
                 FileHandle.standardError.write(Data("note: \(note)\n".utf8))
             }
@@ -164,12 +167,21 @@ struct Job {
         )
     }
 
+    /// Without a key, the first shot, as Blockout opens a scene. A name two shots share picks neither.
     private static func shotIndex(_ key: String?, in scene: PrevisScene) throws -> Int {
-        let index = key
-            .map { key in scene.shots.firstIndex { $0.id == key } ?? scene.shots.firstIndex { $0.name == key } }
-            ?? (scene.shots.isEmpty ? nil : 0)
-        guard let index else {
-            throw ShotsMediaError("Scene \"\(scene.name)\" has no shot \(key ?? "at all"): give a shot id or name.")
+        guard let key else {
+            guard !scene.shots.isEmpty else {
+                throw ShotsMediaError("Scene \"\(scene.name)\" has no shot at all: give a shot id or name.")
+            }
+            return 0
+        }
+        if let index = scene.shots.firstIndex(where: { $0.id == key }) { return index }
+        let named = scene.shots.indices.filter { scene.shots[$0].name == key }
+        guard named.count < 2 else {
+            throw ShotsMediaError("Scene \"\(scene.name)\" has \(named.count) shots named \(key): give a shot id.")
+        }
+        guard let index = named.first else {
+            throw ShotsMediaError("Scene \"\(scene.name)\" has no shot \(key): give a shot id or name.")
         }
         return index
     }
