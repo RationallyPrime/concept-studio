@@ -16,6 +16,9 @@ import RealityKit
     private var parts: [EntityID: [String: MappedPart]] = [:]
     private var meshes: [PartShape: MeshResource] = [:]
     private var materials: [RGB: SimpleMaterial] = [:]
+    private var matteActor: EntityID?
+    private let matteWhite = UnlitMaterial(color: .white)
+    private let matteBlack = UnlitMaterial(color: .black)
 
     private struct MappedPart {
         let entity: Entity
@@ -33,6 +36,18 @@ import RealityKit
     public func setLook(_ look: PrevisLook) {
         guard look != self.look else { return }
         self.look = look
+        buildEnvironment()
+    }
+
+    /// Draws `actor` white and everything else black, unlit, for its matte; nil draws the look again.
+    func setMatte(_ actor: EntityID?) {
+        guard actor != matteActor else { return }
+        matteActor = actor
+        for (id, mapped) in parts {
+            for part in mapped.values {
+                setMaterial(surface(part.color, of: id), on: part.entity)
+            }
+        }
         buildEnvironment()
     }
 
@@ -98,13 +113,13 @@ import RealityKit
         for part in frame.parts {
             if let existing = mapped[part.id], existing.shape == part.shape {
                 if existing.color != part.color {
-                    setMaterial(material(part.color), on: existing.entity)
+                    setMaterial(surface(part.color, of: frame.id), on: existing.entity)
                     mapped[part.id]?.color = part.color
                 }
                 existing.entity.transform = Transform(matrix: part.transform.simd)
             } else {
                 mapped[part.id]?.entity.removeFromParent()
-                let entity = makeModel(part.shape, color: part.color)
+                let entity = makeModel(part.shape, material: surface(part.color, of: frame.id))
                 entity.transform = Transform(matrix: part.transform.simd)
                 container.addChild(entity)
                 mapped[part.id] = MappedPart(entity: entity, shape: part.shape, color: part.color)
@@ -114,8 +129,7 @@ import RealityKit
     }
 
     /// A capsule has no RealityKit mesh generator, so it is a cylinder with two spheres under one entity.
-    private func makeModel(_ shape: PartShape, color: RGB) -> Entity {
-        let material = material(color)
+    private func makeModel(_ shape: PartShape, material: any RealityKit.Material) -> Entity {
         if case let .capsule(radius, length) = shape {
             let group = Entity()
             let body = ModelEntity(mesh: mesh(.cylinder(radius: radius, height: length)), materials: [material])
@@ -130,7 +144,7 @@ import RealityKit
         return ModelEntity(mesh: mesh(shape), materials: [material])
     }
 
-    private func setMaterial(_ material: SimpleMaterial, on entity: Entity) {
+    private func setMaterial(_ material: any RealityKit.Material, on entity: Entity) {
         if let model = entity as? ModelEntity { model.model?.materials = [material] }
         for child in entity.children {
             setMaterial(material, on: child)
@@ -161,6 +175,11 @@ import RealityKit
         return mesh
     }
 
+    private func surface(_ color: RGB, of id: EntityID) -> any RealityKit.Material {
+        guard let matteActor else { return material(color) }
+        return id == matteActor ? matteWhite : matteBlack
+    }
+
     private func material(_ color: RGB) -> SimpleMaterial {
         if let cached = materials[color] { return cached }
         let material = SimpleMaterial(
@@ -177,7 +196,8 @@ import RealityKit
             child.removeFromParent()
         }
         let palette = look.palette
-        let ground = ModelEntity(mesh: .generatePlane(width: 200, depth: 200), materials: [material(palette.ground)])
+        let groundSurface: any RealityKit.Material = matteActor == nil ? material(palette.ground) : matteBlack
+        let ground = ModelEntity(mesh: .generatePlane(width: 200, depth: 200), materials: [groundSurface])
         environment.addChild(ground)
         for light in palette.lights {
             let entity = Entity()

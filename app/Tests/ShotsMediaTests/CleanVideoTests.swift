@@ -98,7 +98,7 @@ struct VideoWriterTests {
     var task: Task<Void, any Error>?
 }
 
-private func scratchFolder() throws -> URL {
+func scratchFolder() throws -> URL {
     let folder = FileManager.default.temporaryDirectory
         .appendingPathComponent("shots-media-tests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
