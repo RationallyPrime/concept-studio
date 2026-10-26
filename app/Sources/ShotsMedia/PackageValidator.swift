@@ -21,6 +21,8 @@ public enum PackageValidator {
         if !FrameGrid.isValid(manifest.frameCount) {
             problems.append("The frame count \(manifest.frameCount) is off the 17k + 5 grid.")
         }
+        let repeated = Dictionary(grouping: manifest.files.map(\.path)) { $0 }.filter { $0.value.count > 1 }.keys
+        problems += repeated.sorted().map { "\($0) is listed more than once." }
         let size = manifest.canvas.pixelSize
         for file in manifest.files {
             let url = packageURL.appendingPathComponent(file.path)

@@ -5,6 +5,9 @@ import RealityKit
 /// part. The viewport and the offscreen renderer both draw through it, so they share meshes, materials and the
 /// look. Everything is set from the frame; nothing animates on its own.
 @MainActor public final class PrevisSceneMapper {
+    /// The camera's near clip in metres; projected bounds are cut at the same plane.
+    nonisolated static let nearClip = 0.05
+
     public let root = Entity()
     public private(set) var look: PrevisLook
 
@@ -84,7 +87,7 @@ import RealityKit
         )
         camera.components.set(
             PerspectiveCameraComponent(
-                near: 0.05,
+                near: Float(Self.nearClip),
                 far: 500,
                 fieldOfViewInDegrees: Float(frame.verticalFOV * 180 / .pi),
                 fieldOfViewOrientation: .vertical
