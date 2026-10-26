@@ -126,6 +126,30 @@ struct GPUWorkflowTests {
     }
 
     @MainActor @Test
+    func refreshingOffersForgetsKeptPodsRunPodNoLongerHas() async throws {
+        let (preferences, suite) = try temporaryPreferences()
+        defer { preferences.removePersistentDomain(forName: suite) }
+        let transport = UnreachableAgentTransport()
+        let workspace = makeWorkspace(transport, preferences)
+        try workspace.configure(runpodKey: "fixture", hubToken: "fixture", imageName: "fixture")
+        await workspace.refreshOffers()
+        await workspace.rent()
+        workspace.monitorTask?.cancel()
+        let id = try #require(workspace.pod?.id)
+        await workspace.stopEverything()
+        await workspace.keepStoppedPod()
+        await workspace.refreshOffers()
+        #expect(workspace.keptPods.map(\.pod.id) == [id])
+        await transport.removePodOutside()
+        await workspace.refreshOffers()
+        #expect(workspace.failure == nil)
+        #expect(workspace.keptPods.isEmpty)
+        let persisted = try #require(preferences.data(forKey: GPUWorkspace.keptPodsKey))
+        #expect(try JSONDecoder().decode([SavedPod].self, from: persisted).isEmpty)
+        #expect(workspace.message.contains("RunPod has no cloud GPU \(id)"))
+    }
+
+    @MainActor @Test
     func offersMustHaveStockBesideTheSelectedStorage() async {
         let workspace = GPUWorkspace(demoMode: true)
         await workspace.refreshOffers()
