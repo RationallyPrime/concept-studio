@@ -1,3 +1,4 @@
+import AppKit
 @testable import ConceptStudio
 import Foundation
 import PrevisCore
@@ -94,7 +95,7 @@ struct ViewportEditorCameraTests {
         #expect(distance(pointAtDistance, camera.target) < 1e-9)
     }
 
-    @Test @MainActor func viewportAndShotCameraShellsInitialiseWithStore() throws {
+    @Test @MainActor func viewportAndShotCameraShellsRenderReadablyInLightAndDarkAppearances() throws {
         let store = try ShotsStore(
             catalog: ContentCatalog.bundled(),
             document: ShotsSamples.twoPersonWalk(small: true),
@@ -104,6 +105,103 @@ struct ViewportEditorCameraTests {
         let shotCamera = ShotCameraView(store: store)
         #expect(viewport.store === store)
         #expect(shotCamera.store === store)
+
+        let captureDir = ProcessInfo.processInfo.environment["SHOTS_D0_PREVIEW_DIR"].map {
+            URL(fileURLWithPath: $0, isDirectory: true)
+        }
+        if let captureDir {
+            try FileManager.default.createDirectory(at: captureDir, withIntermediateDirectories: true)
+        }
+
+        let sizes = [
+            ("minimum", CGSize(width: 980, height: 680)),
+            ("default", CGSize(width: 1240, height: 820)),
+        ]
+        for (theme, scheme, appearanceName) in [
+            ("light", ColorScheme.light, NSAppearance.Name.aqua),
+            ("dark", ColorScheme.dark, NSAppearance.Name.darkAqua),
+        ] {
+            for (sizeLabel, size) in sizes {
+                let vpURL = captureDir?.appendingPathComponent("d0-viewport-\(theme)-\(sizeLabel).png")
+                let camURL = captureDir?.appendingPathComponent("d0-shot-camera-\(theme)-\(sizeLabel).png")
+                let vpSpan = try renderAndMeasureContrast(
+                    of: viewport.padding(24),
+                    size: size,
+                    scheme: scheme,
+                    appearanceName: appearanceName,
+                    outputURL: vpURL
+                )
+                let camSpan = try renderAndMeasureContrast(
+                    of: shotCamera.padding(24),
+                    size: size,
+                    scheme: scheme,
+                    appearanceName: appearanceName,
+                    outputURL: camURL
+                )
+                #expect(vpSpan > 0.45, "ShotsViewport contrast \(vpSpan) too low in \(theme) \(sizeLabel)")
+                #expect(camSpan > 0.45, "ShotCameraView contrast \(camSpan) too low in \(theme) \(sizeLabel)")
+            }
+        }
+    }
+
+    @MainActor
+    private func renderAndMeasureContrast(
+        of view: some View,
+        size: CGSize,
+        scheme: ColorScheme,
+        appearanceName: NSAppearance.Name,
+        outputURL: URL?
+    ) throws -> Double {
+        let originalAppearance = NSApplication.shared.appearance
+        defer { NSApplication.shared.appearance = originalAppearance }
+        let appearance = try #require(NSAppearance(named: appearanceName))
+        NSApplication.shared.appearance = appearance
+        let content = view
+            .environment(\.colorScheme, scheme)
+            .frame(width: size.width, height: size.height)
+            .background(InstantPrint.ground)
+        let host = NSHostingView(rootView: content)
+        host.appearance = appearance
+        host.frame = CGRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: size),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = appearance
+        window.contentView = host
+        defer {
+            window.contentView = nil
+            window.close()
+        }
+        var bitmap: NSBitmapImageRep?
+        appearance.performAsCurrentDrawingAppearance {
+            host.layoutSubtreeIfNeeded()
+            bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds)
+            if let bitmap { host.cacheDisplay(in: host.bounds, to: bitmap) }
+        }
+        let rep = try #require(bitmap)
+        if let outputURL, let png = rep.representation(using: .png, properties: [:]) {
+            try png.write(to: outputURL, options: .atomic)
+        }
+        guard let ptr = rep.bitmapData else { return 0 }
+        let bytesPerRow = rep.bytesPerRow
+        var minLuma = 1.0
+        var maxLuma = 0.0
+        for y in stride(from: 16, to: rep.pixelsHigh - 16, by: 4) {
+            for x in stride(from: 16, to: rep.pixelsWide - 16, by: 4) {
+                let offset = y * bytesPerRow + x * 4
+                let r = Double(ptr[offset]) / 255.0
+                let g = Double(ptr[offset + 1]) / 255.0
+                let b = Double(ptr[offset + 2]) / 255.0
+                let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                minLuma = min(minLuma, luma)
+                maxLuma = max(maxLuma, luma)
+            }
+        }
+        return maxLuma - minLuma
     }
 
     private func distance(_ a: Vec3, _ b: Vec3) -> Double {

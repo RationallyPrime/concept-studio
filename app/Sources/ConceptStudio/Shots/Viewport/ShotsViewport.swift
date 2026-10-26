@@ -16,29 +16,29 @@ struct ShotsViewport: View {
             HStack(spacing: 8) {
                 Image(systemName: "cube.transparent")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(InstantPrint.ink)
+                    .foregroundStyle(.primary)
                 Text("3D blocking viewport")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(InstantPrint.ink)
+                    .foregroundStyle(.primary)
                 Spacer()
                 if store.isReadOnly {
                     Text("Read-only")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(InstantPrint.chipText)
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(InstantPrint.chip, in: RoundedRectangle(cornerRadius: 5))
+                        .background(Color.primary.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
                 }
             }
 
             Text(summaryText)
                 .font(.system(size: 13))
-                .foregroundStyle(InstantPrint.inkSecondary)
+                .foregroundStyle(StudioStyle.supportingText)
                 .monospacedDigit()
 
             Text(cameraSummaryText)
                 .font(.system(size: 12))
-                .foregroundStyle(InstantPrint.inkSecondary)
+                .foregroundStyle(StudioStyle.supportingText)
                 .monospacedDigit()
         }
         .padding(18)
@@ -46,7 +46,7 @@ struct ShotsViewport: View {
         .background(InstantPrint.ground, in: RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(InstantPrint.rule, lineWidth: 1)
+                .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
