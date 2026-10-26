@@ -1,3 +1,4 @@
+import ConceptCore
 @testable import ConceptStudio
 import Foundation
 import PrevisCore
@@ -6,6 +7,48 @@ import Testing
 @Suite("Shots store boundary coverage")
 @MainActor
 struct ShotsStoreBoundaryTests {
+    @Test func sessionReopensTheEditedDocumentAfterUndoAndRedo() async throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let directory = temporaryTestDirectory("Shots-command-session")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try StudioProject.create(at: directory)
+        let session = makeTestSession(preferences: defaults.defaults)
+        session.openProject(url: directory)
+        await session.task?.value
+        let store = try #require(session.shots)
+        try store.perform(.addScene(
+            id: "scene_commands", name: "Practice", takeID: "take_commands",
+            shotID: "shot_commands", cameraMarkID: "camera_initial"
+        ))
+        var actor = ShotsSamples.twoPersonWalk().scenes[0].entities[0]
+        actor.id = "actor_first"
+        try store.perform(.addEntity("scene_commands", actor))
+        actor.id = "actor_second"
+        try store.perform(.addEntity("scene_commands", actor))
+        for index in 0 ..< 3 {
+            let mark = ActorMark(
+                id: "actor_mark_\(index)", time: Double(index), hold: 0, easeIn: 0,
+                easeOut: 0, position: .zero, gait: .walk
+            )
+            try store.perform(.addActorMark("shot_commands", "actor_first", mark))
+        }
+        var camera = try #require(store.currentShot?.camera.marks.first)
+        camera.id = "camera_later"
+        camera.time = 2
+        try store.perform(.addCameraMark("shot_commands", camera))
+        store.undo()
+        store.undo()
+        store.redo()
+        let expected = store.document
+        #expect(await session.releaseProject())
+        #expect(session.shots == nil)
+        session.openProject(url: directory)
+        await session.task?.value
+        #expect(session.shots?.document == expected)
+        #expect(await session.releaseProject())
+    }
+
     @Test func historyKeepsOnlyTheLastTwoHundredSteps() throws {
         let store = try sampleStore()
         let id = try #require(store.currentSceneID)
