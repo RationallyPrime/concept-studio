@@ -34,7 +34,7 @@ private struct ShotsWorkspaceContent: View {
     private var sceneColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Scenes and shots").font(.headline).padding(12)
-            List(selection: Binding(get: { store.currentShotID }, set: selectShot)) {
+            List(selection: Binding(get: { store.currentShotID }, set: { selectShot($0) })) {
                 ForEach(store.document.scenes, id: \.id) { scene in
                     Section(scene.name) {
                         ForEach(scene.shots, id: \.id) { shot in
