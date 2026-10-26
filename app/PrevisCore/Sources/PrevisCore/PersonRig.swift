@@ -18,8 +18,10 @@ enum PersonRig {
     // an elbow), but its geometry turns the other way: a negative shoulder X sends the arm backward, and its seated
     // figure sits thighs-back. This rig keeps one convention, in `Angles`: a positive X on a shoulder, elbow or hip
     // swings the limb forward (toward −Z), a negative X on the torso or head pitches it forward, and a negative X on
-    // a knee bends it. The data's signs are mapped to that in `angles(...)` only; nothing else flips a sign. The
-    // Y and Z overrides keep the signs of Blockout's table (LANE-A-CORE.md), which BodyTests does not exercise.
+    // a knee bends it. Z follows the same rule: a positive `shoulderLZ`, `shoulderRZ`, `hipLZ` or `hipRZ` abducts the
+    // limb outward on both sides (Blockout's table moves it toward the body), and a positive `torsoZ` or `headZ` tilts
+    // right, as the table gives. The data's signs are mapped to that in `angles(...)` only; nothing else flips a sign.
+    // LANE-A-CORE.md states the convention beside the override table.
 
     /// Rig angles in radians and metres, in the convention above.
     struct Angles {
@@ -141,14 +143,14 @@ enum PersonRig {
         }
         a.shoulderL.x -= joint(.shoulderLX)
         a.shoulderR.x -= joint(.shoulderRX)
-        a.shoulderL.z += joint(.shoulderLZ)
-        a.shoulderR.z -= joint(.shoulderRZ)
+        a.shoulderL.z -= joint(.shoulderLZ)
+        a.shoulderR.z += joint(.shoulderRZ)
         a.elbowL.x += joint(.elbowL)
         a.elbowR.x += joint(.elbowR)
         a.hipL.x -= joint(.hipLX)
         a.hipR.x -= joint(.hipRX)
-        a.hipL.z += joint(.hipLZ)
-        a.hipR.z -= joint(.hipRZ)
+        a.hipL.z -= joint(.hipLZ)
+        a.hipR.z += joint(.hipRZ)
         a.kneeL -= joint(.kneeL)
         a.kneeR -= joint(.kneeR)
         a.torso.x -= joint(.torsoX)

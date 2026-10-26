@@ -91,24 +91,36 @@ struct BodyTests {
         #expect(reach > 0.3, "ankle is \(reach) m ahead of the hip")
     }
 
-    /// Open question for the owner (lane-a.md): LANE-A-CORE.md's table adds `shoulderLZ` and `hipLZ` to the left
-    /// pivot's
-    /// Z and subtracts `shoulderRZ` and `hipRZ` from the right pivot's, exactly as Blockout's `animatePerson` does.
-    /// With
-    /// Euler XYZ a positive Z on a hanging limb moves its end toward +X, so that table moves both left limbs and both
-    /// right limbs toward the body, while Blockout's own header for these overrides says "positive = outward". This
-    /// test
-    /// states the header's expectation; it is a known issue until the owner decides whether the table or the header
-    /// governs. When the sign is changed it starts failing as an unexpected pass, which is the signal to remove it.
-    @Test func zOverridesMoveLimbsOutwardAsBlockoutsHeaderSays() throws {
+    /// A positive `shoulderLZ`, `shoulderRZ`, `hipLZ` or `hipRZ` abducts the limb outward, away from the midline, on
+    /// both
+    /// sides (plan maintainer's disposition, PR 65). Blockout's table moves them the other way; see the convention
+    /// paragraph in LANE-A-CORE.md.
+    @Test func zOverridesMoveLimbsOutwardOnBothSides() throws {
         let man = try body(joints: [.shoulderLZ: 0.5, .shoulderRZ: 0.5, .hipLZ: 0.5, .hipRZ: 0.5])
         let left = try keypoint(.leftWrist, in: man).x - keypoint(.leftShoulder, in: man).x
         let right = try keypoint(.rightWrist, in: man).x - keypoint(.rightShoulder, in: man).x
         let leftLeg = try keypoint(.leftAnkle, in: man).x - keypoint(.leftHip, in: man).x
         let rightLeg = try keypoint(.rightAnkle, in: man).x - keypoint(.rightHip, in: man).x
-        withKnownIssue("the lane table moves these limbs inward; Blockout's header says outward") {
-            #expect(left < -0.05 && right > 0.05 && leftLeg < -0.05 && rightLeg > 0.05)
+        #expect(left < -0.05 && right > 0.05 && leftLeg < -0.05 && rightLeg > 0.05)
+    }
+
+    @Test func atJumpingJacksOpenTheAnklesAndWristsAreOutsideTheHipsAndShoulders() throws {
+        let man = try body(joints: joints(of: "jumping-jacks", at: 0.5))
+        for (outer, inner, side) in [
+            (KeypointName.leftAnkle, KeypointName.leftHip, -1.0),
+            (.rightAnkle, .rightHip, 1.0),
+            (.leftWrist, .leftShoulder, -1.0),
+            (.rightWrist, .rightShoulder, 1.0),
+        ] {
+            let out = try (keypoint(outer, in: man).x - keypoint(inner, in: man).x) * side
+            #expect(out > 0.1, "\(outer) is \(out) m outside \(inner)")
         }
+    }
+
+    @Test func atTheExtensionOfASideKickTheKickingAnkleIsOutsideItsHip() throws {
+        let man = try body(joints: joints(of: "side-kick", at: 0.6))
+        let out = try keypoint(.rightAnkle, in: man).x - keypoint(.rightHip, in: man).x
+        #expect(out > 0.4, "ankle is \(out) m outside the hip")
     }
 
     @Test func keypointsFollowCocoOrderWithTheCharactersRightOnPlusX() throws {

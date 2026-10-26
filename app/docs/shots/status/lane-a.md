@@ -8,11 +8,13 @@
 | A3 bodies | **Draft PR, targeting `main`** (branch `shots/a-core-a3`, rebased onto A2's merge `89d9e7d`). The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
 | A4–A6 | Not started |
 
-**A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 37 run, 37 passed (one known issue, the Z-override question below), 0 failed (parity still 8 of 8 scenes). BodyTests: a
-standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross` extension the right
-wrist is ahead of the chest; in `sit` the knees are ahead of the hips; at the top of `wave` the hand is above the head; at the
-`front-kick` extension the ankle is ahead of the hips. Quadrupeds stand on the ground facing −Z. `parts.v1.json` equals a fresh
-`parts.ts` run (`cmp`). macOS CI: pending on the PR.
+**A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 40 run, 40 passed, 0 failed, no known issues; parity 8 of 8 scenes.
+BodyTests: a standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross`
+extension the right wrist is ahead of the chest; in `sit` the knees are ahead of the hips; at the top of `wave` the hand is above
+the head; at the `front-kick` extension the ankle is ahead of the hips; the Z overrides abduct outward on both sides; at the
+`jumping-jacks` open each ankle and wrist is more than 0.1 m outside its hip and shoulder; at the `side-kick` extension the kicking
+ankle is more than 0.4 m outside its hip. Quadrupeds stand on the ground facing −Z and cycle their legs at the scaled stride.
+`parts.v1.json` equals a fresh `parts.ts` run (`cmp`). macOS CI: pending on the PR.
 
 **The sign mapping (recorded as LANE-A-CORE.md asks).** Before any change, the rig as the lane document specifies it failed three
 of the five facts: the jab wrist was 0.47 m *behind* the chest, the seated knees 0.40 m behind the hips, and the kicking ankle
@@ -21,8 +23,9 @@ forward, but its geometry turns the other way. The fix is in one place, `PersonR
 (positive X on a shoulder, elbow or hip swings the limb forward, negative X on the torso or head pitches forward, negative X on a
 knee bends it) and maps the data to it there. The gait constants that contradicted the convention changed sign with it: sit (hips
 +π/2, knees −π/2), the arm raise in gesture and fall, the slight elbow bend in walk, and the forward lean in stand, run and crouch.
-The Y and Z overrides keep the signs of the lane document's table; no test exercises them, and Blockout's own header says "positive =
-outward" for the Z overrides where its table moves the limb inward. That is an open question below.
+Z follows the same rule: a positive shoulder or hip Z override abducts the limb outward on both sides (Blockout's table
+moves it toward the body; at Jumping Jacks' open each ankle ended 0.30 m and each wrist 0.31 m *inside* its hip and shoulder, and
+at Side Kick's extension the kicking ankle ended inside its hip). The Y overrides, `torsoZ` and `headZ` keep the table's signs.
 
 **Other A3 decisions.**
 - Blockout's standing figure is 0.14 × (H / 1.78) m taller than its catalog height, so the rig is built at H / 1.0787.
@@ -84,13 +87,9 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 
 - Closed by the integration owner: the store reads a version header before decoding, so no version-refusal API is added.
 - Lane C accepts C2 persistence on the A1 tolerant readers.
-- Z overrides (needs the owner or plan maintainer). The contract text is LANE-A-CORE.md, "Joint overrides": `shoulderLZ` adds to
-  shoulderL `.z`, `shoulderRZ` subtracts from shoulderR `.z`, `hipLZ` adds to hipL `.z` and `hipRZ` subtracts from hipR `.z`. A3
-  follows it exactly, as Blockout's `animatePerson` does. With Euler XYZ a positive Z on a hanging limb moves its end toward +X, so
-  the table moves the left limbs and the right limbs toward the body, while Blockout's header for these overrides says "positive =
-  outward" (`builders.ts`, `AnimInput.overrides`). Observed: with all four set to 0.5, each wrist ends 0.31 m and each ankle 0.37 m
-  *inside* its own shoulder or hip. `BodyTests.zOverridesMoveLimbsOutwardAsBlockoutsHeaderSays` asserts the header's expectation
-  under `withKnownIssue`: it passes today as a known issue and reports an unexpected pass once the sign is changed. Options: keep
-  the table (current), or flip the four signs in `PersonRig.angles` and amend the table in a `[contract]` PR. No data or test
-  depends on it today (`wave` swings `shoulderRZ` symmetrically).
+- Closed: the Z overrides (plan maintainer's disposition, PR 65 comment 6415969304). A positive `shoulderLZ`, `shoulderRZ`,
+  `hipLZ` or `hipRZ` abducts the limb outward on both sides; the lane table transcribed Blockout's renderer, which turns them the
+  other way. The four signs are flipped in the same place as the X mapping, and the convention is stated once beside the override
+  table in LANE-A-CORE.md. Open and separate: `torsoY` (the table keeps it; header and geometry agree, but most annotated
+  keyframes pair a positive value with "twist right").
 - `FrameGrid.frame(atTime:)` rounds to the nearest frame (contract does not say floor or nearest).
