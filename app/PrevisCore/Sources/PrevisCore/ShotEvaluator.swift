@@ -138,6 +138,9 @@ public struct ShotEvaluator: Sendable {
         var poses = entities.map { pose(of: $0, at: time) }
         resolveBoardings(&poses, at: time)
         resolveAttachments(&poses, at: time)
+        for index in poses.indices {
+            poses[index].time = time
+        }
         let frames = zip(entities, poses).map { EntityFrame.posed($0.entity, asset: $0.asset, state: $1) }
         return SceneFrame(
             index: index,

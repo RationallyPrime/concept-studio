@@ -32,9 +32,14 @@ public struct ContentCatalog: Sendable {
     /// resolve.
     public static func bundled() throws -> ContentCatalog {
         let starter: StarterSet = try load("starter.v1.json")
+        let parts = try load("parts.v1.json", as: PartsFile.self).assets
         let catalog = try ContentCatalog(
             motions: load("motions.v1.json", as: MotionsFile.self).motions,
-            assets: load("assets.v1.json", as: AssetsFile.self).assets,
+            assets: load("assets.v1.json", as: AssetsFile.self).assets.map { spec in
+                var spec = spec
+                spec.parts = parts[spec.id]
+                return spec
+            },
             cameraMoves: load("camera-moves.catalog.v1.json", as: MovesFile.self).moves,
             actionPaths: load("action-presets.catalog.v1.json", as: PathsFile.self).paths,
             starter: starter
@@ -71,6 +76,10 @@ public struct ContentCatalog: Sendable {
 
     private struct MotionsFile: Decodable {
         var motions: [MotionPreset]
+    }
+
+    private struct PartsFile: Decodable {
+        var assets: [String: [PartSpec]]
     }
 
     private struct MovesFile: Decodable {

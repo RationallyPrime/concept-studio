@@ -4,8 +4,35 @@
 |---|---|
 | A0 declarations | **Merged** (`de3947b`; guide frame 61 per CONTRACTS, repaired by the integration owner under a recorded two-line exception). |
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
-| A2 evaluator parity and paths | **Draft PR, targeting `main`** (branch `shots/a-core-a2`, one commit rebased onto `93dbb76`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
-| A3–A6 | Not started |
+| A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
+| A3 bodies | **Draft PR, targeting `main`** (branch `shots/a-core-a3`, rebased onto A2's merge `89d9e7d`). The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
+| A4–A6 | Not started |
+
+**A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 40 run, 40 passed, 0 failed, no known issues; parity 8 of 8 scenes.
+BodyTests: a standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross`
+extension the right wrist is ahead of the chest; in `sit` the knees are ahead of the hips; at the top of `wave` the hand is above
+the head; at the `front-kick` extension the ankle is ahead of the hips; the Z overrides abduct outward on both sides; at the
+`jumping-jacks` open each ankle and wrist is more than 0.1 m outside its hip and shoulder; at the `side-kick` extension the kicking
+ankle is more than 0.4 m outside its hip. Quadrupeds stand on the ground facing −Z and cycle their legs at the scaled stride.
+`parts.v1.json` equals a fresh `parts.ts` run (`cmp`). macOS CI: pending on the PR.
+
+**The sign mapping (recorded as LANE-A-CORE.md asks).** Before any change, the rig as the lane document specifies it failed three
+of the five facts: the jab wrist was 0.47 m *behind* the chest, the seated knees 0.40 m behind the hips, and the kicking ankle
+0.77 m behind the hip. Blockout's header says a negative shoulder or hip X raises or swings forward, and a positive torso X leans
+forward, but its geometry turns the other way. The fix is in one place, `PersonRig.angles(...)`: the rig keeps one convention
+(positive X on a shoulder, elbow or hip swings the limb forward, negative X on the torso or head pitches forward, negative X on a
+knee bends it) and maps the data to it there. The gait constants that contradicted the convention changed sign with it: sit (hips
++π/2, knees −π/2), the arm raise in gesture and fall, the slight elbow bend in walk, and the forward lean in stand, run and crouch.
+Z follows the same rule: a positive shoulder or hip Z override abducts the limb outward on both sides (Blockout's table
+moves it toward the body; at Jumping Jacks' open each ankle ended 0.30 m and each wrist 0.31 m *inside* its hip and shoulder, and
+at Side Kick's extension the kicking ankle ended inside its hip). The Y overrides, `torsoZ` and `headZ` keep the table's signs.
+
+**Other A3 decisions.**
+- Blockout's standing figure is 0.14 × (H / 1.78) m taller than its catalog height, so the rig is built at H / 1.0787.
+- Rigged parts are sized for scale 1 and the transform carries the entity scale, like static parts, so a renderer can cache one
+  mesh per shape. Bob and sway amplitudes are therefore proportional to the scale.
+- `prop.tree`'s tapered trunk (radius 0.18 to 0.25) is a cylinder of the mean radius, because `PartShape` has no frustum.
+- The bird has no rig (out of scope), so it draws as a grey box; `bounds` come from the parts' world extents.
 
 **A2 tests** (Linux, Swift 6.3.3, debug): `PREVIS_GOLDENS=<goldens.json> swift test --package-path app/PrevisCore --filter Parity`
 passes all 8 Blockout scenes, 24 360 scalars compared, worst difference 2.8e-14 (limit 1e-9). Without `PREVIS_GOLDENS` the
@@ -60,4 +87,9 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 
 - Closed by the integration owner: the store reads a version header before decoding, so no version-refusal API is added.
 - Lane C accepts C2 persistence on the A1 tolerant readers.
+- Closed: the Z overrides (plan maintainer's disposition, PR 65 comment 6415969304). A positive `shoulderLZ`, `shoulderRZ`,
+  `hipLZ` or `hipRZ` abducts the limb outward on both sides; the lane table transcribed Blockout's renderer, which turns them the
+  other way. The four signs are flipped in the same place as the X mapping, and the convention is stated once beside the override
+  table in LANE-A-CORE.md. Open and separate: `torsoY` (the table keeps it; header and geometry agree, but most annotated
+  keyframes pair a positive value with "twist right").
 - `FrameGrid.frame(atTime:)` rounds to the nearest frame (contract does not say floor or nearest).
