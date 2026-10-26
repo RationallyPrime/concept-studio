@@ -58,12 +58,14 @@ import RealityKit
         return try Self.image(from: buffer)
     }
 
-    /// Renders into an IOSurface-backed BGRA buffer, the shape `AVAssetWriter` takes directly (B2).
+    /// Renders into an IOSurface-backed BGRA buffer, the shape `AVAssetWriter` takes directly (B2). With `matte`,
+    /// that actor is white and everything else black, unlit, on black: its visible silhouette.
     func render(
         _ frame: SceneFrame,
         look: PrevisLook,
         camera: CameraFrame? = nil,
         overlay: Entity? = nil,
+        matte: EntityID? = nil,
         into buffer: CVPixelBuffer
     ) async throws {
         await beginRender()
@@ -71,13 +73,22 @@ import RealityKit
         // A render cancelled while it waited gives up its turn without touching the scene.
         try Task.checkCancellation()
         mapper.setLook(look)
+        mapper.setMatte(matte)
         mapper.apply(frame)
         let cameraEntity = mapper.cameraEntity(for: camera ?? frame.camera)
         if cameraEntity.parent == nil, !renderer.entities.contains(where: { $0 === cameraEntity }) {
             renderer.entities.append(cameraEntity)
         }
         renderer.activeCamera = cameraEntity
-        renderer.cameraSettings.colorBackground = .color(look.palette.background.cgColor)
+        let background = matte == nil ? look.palette.background.cgColor : CGColor(
+            srgbRed: 0,
+            green: 0,
+            blue: 0,
+            alpha: 1
+        )
+        renderer.cameraSettings.colorBackground = .color(background)
+        // 4× multisampling for the clean look; none for a matte, so it holds only black and white.
+        renderer.cameraSettings.antialiasing = matte == nil ? .multisample4X : .none
         if let overlay { overlays.addChild(overlay) }
         defer { overlay?.removeFromParent() }
 
