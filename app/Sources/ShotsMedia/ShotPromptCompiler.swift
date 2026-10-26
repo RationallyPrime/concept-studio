@@ -2,17 +2,6 @@ import ConceptCore
 import Foundation
 import PrevisCore
 
-/// How the camera moves over one leg, named as H3 prompts name moves.
-public enum CameraMove: String, Codable, Sendable, CaseIterable {
-    case push, pull, truckLeft, truckRight, orbitLeft, orbitRight, craneUp, craneDown
-    case panLeft, panRight, tiltUp, tiltDown, zoomIn, zoomOut
-    case `static`
-}
-
-public enum MoveSpeed: String, Codable, Sendable { case slow, medium, fast }
-
-public enum MoveAmplitude: String, Codable, Sendable { case small, medium, large }
-
 /// The facts a shot's H3 prompt is written from: only what the shot itself states.
 public struct PromptFacts: Codable, Sendable, Equatable {
     public struct CameraLeg: Codable, Sendable, Equatable {
@@ -21,6 +10,7 @@ public struct PromptFacts: Codable, Sendable, Equatable {
         public var move: CameraMove
         public var speed: MoveSpeed
         public var amplitude: MoveAmplitude
+        public var also: [CameraMove] // a zoom or a roll that rides on the move
         public var focalLength: [Double] // millimetres at the start and the end
 
         public init(
@@ -29,6 +19,7 @@ public struct PromptFacts: Codable, Sendable, Equatable {
             move: CameraMove,
             speed: MoveSpeed,
             amplitude: MoveAmplitude,
+            also: [CameraMove] = [],
             focalLength: [Double]
         ) {
             self.fromFrame = fromFrame
@@ -36,20 +27,20 @@ public struct PromptFacts: Codable, Sendable, Equatable {
             self.move = move
             self.speed = speed
             self.amplitude = amplitude
+            self.also = also
             self.focalLength = focalLength
         }
     }
 
+    /// Named by its catalog noun only: entity names and labels are editor text and stay out of prompts.
     public struct Subject: Codable, Sendable, Equatable {
         public var entityID: EntityID
-        public var name: String
         public var noun: String
         public var appearance: String?
         public var marks: [Mark]
 
-        public init(entityID: EntityID, name: String, noun: String, appearance: String? = nil, marks: [Mark] = []) {
+        public init(entityID: EntityID, noun: String, appearance: String? = nil, marks: [Mark] = []) {
             self.entityID = entityID
-            self.name = name
             self.noun = noun
             self.appearance = appearance
             self.marks = marks
@@ -75,9 +66,11 @@ public struct PromptFacts: Codable, Sendable, Equatable {
     public var middleGuides: [Int]
     public var sensor: Sensor
     public var cameraLegs: [CameraLeg]
+    public var cameraSubjects: [EntityID] // what the camera aims at or rides with; empty for a free camera
+    public var shake: CameraShake?
     public var subjects: [Subject]
     public var props: [String]
-    public var lighting: LightingPreset
+    public var lighting: String // Blockout's words for the scene's lighting preset
     public var setting: String
     public var sound: String
     public var music: String
@@ -91,9 +84,11 @@ public struct PromptFacts: Codable, Sendable, Equatable {
         middleGuides: [Int] = [],
         sensor: Sensor,
         cameraLegs: [CameraLeg] = [],
+        cameraSubjects: [EntityID] = [],
+        shake: CameraShake? = nil,
         subjects: [Subject] = [],
         props: [String] = [],
-        lighting: LightingPreset,
+        lighting: String,
         setting: String = "",
         sound: String = "",
         music: String = ""
@@ -106,6 +101,8 @@ public struct PromptFacts: Codable, Sendable, Equatable {
         self.middleGuides = middleGuides
         self.sensor = sensor
         self.cameraLegs = cameraLegs
+        self.cameraSubjects = cameraSubjects
+        self.shake = shake
         self.subjects = subjects
         self.props = props
         self.lighting = lighting
@@ -120,28 +117,40 @@ public struct PromptFacts: Codable, Sendable, Equatable {
 public enum ShotPromptCompiler {
     static let sectionKeys = ["integrated_multimodal_description", "overall_soundscape", "non_diegetic_music"]
 
+    /// About 512 Qwen3 text tokens of English at 3.5 characters a token, erring short. ai-toolkit trains H3 with
+    /// captions capped at 512 text tokens; ComfyUI's H3 encoder sets no limit of its own.
+    static let maximumCharacters = 1800
+
+    /// Blockout's notable subjects (`src/engine/prompt.ts`): whatever moves or carries a label, and every person,
+    /// vehicle and animal. One step past Blockout, whatever the camera aims at or rides with is a subject too, so the
+    /// prompt can name it. Everything else is a prop.
+    static let subjectCategories: Set = ["people", "vehicles", "animals"]
+
     public static func facts(scene: PrevisScene, shotID: ShotID, catalog: ContentCatalog) throws -> PromptFacts {
         guard let shot = scene.shots.first(where: { $0.id == shotID }) else {
             throw ShotsMediaError("Scene \"\(scene.name)\" has no shot \(shotID).")
         }
+        let camera = try CameraLegs.read(scene: scene, shotID: shotID, catalog: catalog)
         let take = scene.blocking.first { $0.id == shot.blockingTakeID }
         let marks = Dictionary(
             take?.tracks.map { ($0.entityID, $0.marks) } ?? [],
             uniquingKeysWith: { first, _ in first }
         )
         var subjects: [PromptFacts.Subject] = [], props: [String] = []
+        // Reading the camera evaluated the scene, which refuses unknown assets, so every entity has one.
         for entity in scene.entities {
-            let asset = catalog.asset(entity.assetID)
-            let noun = asset?.promptNoun ?? entity.name.lowercased()
+            guard let asset = catalog.asset(entity.assetID) else { continue }
             let entityMarks = marks[entity.id] ?? []
-            guard asset.map({ $0.rig != .none }) ?? false || entity.label != nil || !entityMarks.isEmpty else {
-                props.append(noun)
+            guard !entityMarks.isEmpty || entity.label != nil || subjectCategories.contains(asset.category)
+                || camera.subjects.contains(entity.id)
+            else {
+                // Blockout lists each noun once.
+                if !props.contains(asset.promptNoun) { props.append(asset.promptNoun) }
                 continue
             }
             subjects.append(PromptFacts.Subject(
                 entityID: entity.id,
-                name: entity.name,
-                noun: noun,
+                noun: asset.promptNoun,
                 appearance: shot.notes.characters.first { $0.entityID == entity.id }?.appearance,
                 marks: entityMarks.filter { $0.time <= shot.duration }.map {
                     PromptFacts.Mark(frame: FrameGrid.frame(atTime: $0.time), gait: $0.gait)
@@ -156,14 +165,46 @@ public enum ShotPromptCompiler {
             pictureTimes: [0, shot.duration],
             middleGuides: shot.guideFrames,
             sensor: shot.camera.sensor,
-            cameraLegs: CameraLegs.classify(shot.camera.marks, frameCount: shot.frameCount),
+            cameraLegs: camera.legs,
+            cameraSubjects: camera.subjects,
+            shake: camera.shake,
             subjects: subjects,
             props: props,
-            lighting: scene.lighting,
+            lighting: words(for: scene.lighting),
             setting: shot.notes.description,
             sound: shot.notes.sound,
             music: shot.notes.music
         )
+    }
+
+    /// Blockout's words for each lighting preset (`LIGHTING_WORDS` in `src/engine/prompt.ts`).
+    static func words(for lighting: LightingPreset) -> String {
+        switch lighting {
+        case .day: "soft daylight"
+        case .goldenHour: "warm golden-hour light"
+        case .night: "night, cool moonlit ambience"
+        case .interiorWarm: "warm interior lighting"
+        case .interiorCool: "cool interior lighting"
+        }
+    }
+
+    /// What stands between a stored prompt and a package, as sentences for the user: empty when the prompt was
+    /// written from the scene as it now is and fits the length H3 adapters are trained on.
+    static func problems(_ prompt: ShotPrompt, scene: PrevisScene) -> [String] {
+        var problems: [String] = []
+        if prompt.sceneRevision < scene.revision {
+            problems.append(
+                "The prompt was written from revision \(prompt.sceneRevision) of the scene, which is now at "
+                    + "revision \(scene.revision), so it may not match the blocking; write it again."
+            )
+        }
+        if prompt.text.count > maximumCharacters {
+            problems.append(
+                "The prompt is \(prompt.text.count) characters, over the \(maximumCharacters) that keep it within "
+                    + "the 512 text tokens H3 adapters are trained on; shorten it."
+            )
+        }
+        return problems
     }
 
     /// Deterministic and offline: every section is written from the facts, with a plain default when the shot
@@ -188,9 +229,14 @@ public enum ShotPromptCompiler {
             name: "shot prompt", endpoint: endpoint, schemaName: WrittenSections.schemaName,
             schema: WrittenSections.jsonSchema
         )
+        // The header and the section keys share the budget with the sections.
+        let budget = maximumCharacters - header(facts).count - sectionKeys.map { $0.count + 4 }.reduce(0, +)
         let run = try await stage.run(
             instructions: Skills.load(directory).instructions(),
-            messages: [.user("Write the three sections for this shot. Its facts:\n\n" + factsJSON)],
+            messages: [.user(
+                "Write the three sections for this shot, under \(budget) characters together. Its facts:\n\n"
+                    + factsJSON
+            )],
             validate: { $0.problems }
         )
         return assemble(facts, sections: run.output.texts, writtenBy: endpoint.requested)
@@ -229,7 +275,7 @@ struct WrittenSections: Decodable, Sendable {
             ]),
             "non_diegetic_music": .object([
                 "type": .string("string"),
-                "description": .string("Music only the audience hears, or None."),
+                "description": .string("Music only the audience hears, or N/A."),
             ]),
         ]),
         "required": .array([
@@ -263,102 +309,22 @@ struct WrittenSections: Decodable, Sendable {
     }
 }
 
-/// Camera legs classified from a shot's camera marks.
-enum CameraLegs {
-    private static let minimumTravel = 0.15 // metres
-    private static let minimumTurn = 5.0 * .pi / 180
-    private static let minimumZoom = log(1.1)
-
-    static func classify(_ marks: [CameraMark], frameCount: Int) -> [PromptFacts.CameraLeg] {
-        let marks = marks.sorted { $0.time < $1.time }
-        let last = max(frameCount - 1, 0)
-        func frame(_ time: Double) -> Int {
-            min(FrameGrid.frame(atTime: time), last)
-        }
-        guard let first = marks.first else { return [] }
-        var legs: [PromptFacts.CameraLeg] = []
-        func hold(_ mark: CameraMark, from start: Int, to end: Int) {
-            if end > start {
-                legs.append(.init(
-                    fromFrame: start, toFrame: end, move: .static, speed: .medium, amplitude: .medium,
-                    focalLength: [mark.focalLength, mark.focalLength]
-                ))
-            }
-        }
-        hold(first, from: 0, to: frame(first.time))
-        for (from, to) in zip(marks, marks.dropFirst()) {
-            hold(from, from: frame(from.time), to: frame(from.time + from.hold))
-            let start = frame(from.time + from.hold), end = frame(to.time)
-            if end > start {
-                legs.append(leg(from: from, to: to, frames: (start, end)))
-            }
-        }
-        if let final = marks.last {
-            hold(final, from: frame(final.time), to: last)
-        }
-        return legs
-    }
-
-    /// The dominant change between two marks, judged in the first mark's camera frame.
-    private static func leg(from a: CameraMark, to b: CameraMark, frames: (Int, Int)) -> PromptFacts.CameraLeg {
-        let seconds = Double(frames.1 - frames.0) / Double(FrameGrid.fps)
-        let (dx, dy, dz) = (b.position.x - a.position.x, b.position.y - a.position.y, b.position.z - a.position.z)
-        // Positive pan turns left and positive tilt looks up; the camera looks down its local −Z.
-        let along = -dx * sin(a.pan) * cos(a.tilt) + dy * sin(a.tilt) - dz * cos(a.pan) * cos(a.tilt)
-        let lateral = dx * cos(a.pan) - dz * sin(a.pan)
-        let travel = (dx * dx + dy * dy + dz * dz).squareRoot()
-        let pan = remainder(b.pan - a.pan, 2 * .pi), tilt = b.tilt - a.tilt
-        let zoom = log(b.focalLength / a.focalLength), turn = max(abs(pan), abs(tilt))
-        let move: CameraMove, speed: MoveSpeed, amplitude: MoveAmplitude
-        if travel >= minimumTravel {
-            if abs(dy) >= abs(along), abs(dy) >= abs(lateral) {
-                move = dy > 0 ? .craneUp : .craneDown
-            } else if abs(lateral) > abs(along) {
-                // Turning against the sideways travel keeps the subject framed: that is an orbit.
-                let orbits = abs(pan) >= minimumTurn && (lateral > 0) == (pan > 0)
-                move = orbits ? (lateral > 0 ? .orbitRight : .orbitLeft) : (lateral > 0 ? .truckRight : .truckLeft)
-            } else {
-                move = along > 0 ? .push : .pull
-            }
-            (speed, amplitude) = (grade(travel / seconds, 0.4, 1.2), size(travel, 0.75, 3))
-        } else if abs(zoom) >= minimumZoom {
-            move = zoom > 0 ? .zoomIn : .zoomOut
-            (speed, amplitude) = (grade(abs(zoom) / seconds, 0.15, 0.5), size(abs(zoom), log(1.3), log(2)))
-        } else if turn >= minimumTurn {
-            move = abs(pan) >= abs(tilt) ? (pan > 0 ? .panLeft : .panRight) : (tilt > 0 ? .tiltUp : .tiltDown)
-            (speed, amplitude) = (grade(turn / seconds, 0.25, 0.8), size(turn, .pi / 12, .pi / 3))
-        } else {
-            (move, speed, amplitude) = (.static, .medium, .medium)
-        }
-        return .init(
-            fromFrame: frames.0, toFrame: frames.1, move: move, speed: speed, amplitude: amplitude,
-            focalLength: [a.focalLength, b.focalLength]
-        )
-    }
-
-    private static func grade(_ rate: Double, _ slow: Double, _ fast: Double) -> MoveSpeed {
-        rate < slow ? .slow : rate >= fast ? .fast : .medium
-    }
-
-    private static func size(_ amount: Double, _ small: Double, _ large: Double) -> MoveAmplitude {
-        amount < small ? .small : amount >= large ? .large : .medium
-    }
-}
-
 /// The offline template's prose.
 enum PromptTemplate {
     static func description(_ facts: PromptFacts) -> String {
         var sentences = ["[Shot 1] The shot opens on the composition, subjects and places established by Picture 1."]
+        if let light = sentence(facts.lighting) { sentences.append(light.prefix(1).uppercased() + light.dropFirst()) }
         if let setting = sentence(facts.setting) { sentences.append(setting) }
-        for subject in facts.subjects {
-            let who = "The \(bare(subject.noun))"
-                + (subject.appearance.flatMap { sentence($0, ending: "") }.map { " (\($0))" } ?? "")
+        for (subject, who) in zip(facts.subjects, references(facts.subjects)) {
             sentences.append("\(who) \(actions(subject.marks)).")
         }
         if !facts.props.isEmpty {
             sentences.append("The scene also holds \(list(facts.props.map { article($0) })).")
         }
-        sentences.append(camera(facts.cameraLegs))
+        sentences.append(camera(facts.cameraLegs, around: target(facts)))
+        if let shake = facts.shake {
+            sentences.append("The camera shakes \(shake == .strong ? "strongly" : "slightly").")
+        }
         sentences.append("The shot ends settling into the poses, spacing and composition established by Picture 2.")
         return sentences.joined(separator: " ")
     }
@@ -370,8 +336,46 @@ enum PromptTemplate {
         return footsteps ? "Footsteps on the floor over quiet room tone." : "Quiet room tone."
     }
 
+    /// H3 writes `N/A` when there is no music only the audience hears.
     static func music(_ facts: PromptFacts) -> String {
-        sentence(facts.music) ?? "None."
+        sentence(facts.music) ?? "N/A"
+    }
+
+    /// "The man (in a grey coat)" for each subject.
+    private static func references(_ subjects: [PromptFacts.Subject]) -> [String] {
+        zip(subjects, names(subjects)).map { subject, name in
+            "The" + name.dropFirst(3)
+                + (subject.appearance.flatMap { sentence($0, ending: "") }.map { " (\($0))" } ?? "")
+        }
+    }
+
+    /// "the man" for each subject. Where Blockout lists each noun once, the template narrates every subject, so
+    /// subjects that share both noun and appearance are told apart by order instead: "the first man".
+    private static func names(_ subjects: [PromptFacts.Subject]) -> [String] {
+        let keys = subjects.map { subject in
+            "\(bare(subject.noun).lowercased())\u{0}\(subject.appearance.flatMap { sentence($0, ending: "") } ?? "")"
+        }
+        var seen: [String: Int] = [:]
+        return zip(subjects, keys).map { subject, key in
+            seen[key, default: 0] += 1
+            let order = keys.filter { $0 == key }.count > 1 ? ordinal(seen[key, default: 1]) + " " : ""
+            return "the \(order)\(bare(subject.noun))"
+        }
+    }
+
+    /// Whom the camera's moves are about: the subjects it aims at or rides with, as the subject sentences name them,
+    /// or else all of them.
+    private static func target(_ facts: PromptFacts) -> (name: String, plural: Bool) {
+        let named = zip(facts.subjects, references(facts.subjects).map { "the" + $0.dropFirst(3) })
+        let aimed = facts.cameraSubjects.compactMap { id in named.first { $0.0.entityID == id }?.1 }
+        if !aimed.isEmpty { return (list(aimed), aimed.count > 1) }
+        let count = facts.subjects.count
+        return (count == 0 ? "the scene" : count == 1 ? "the subject" : "the subjects", count > 1)
+    }
+
+    private static func ordinal(_ number: Int) -> String {
+        let words = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"]
+        return number <= words.count ? words[number - 1] : "next"
     }
 
     private static func actions(_ marks: [PromptFacts.Mark]) -> String {
@@ -385,28 +389,58 @@ enum PromptTemplate {
         return gaits.compactMap { verbs[$0] }.joined(separator: ", then ")
     }
 
-    private static func camera(_ legs: [PromptFacts.CameraLeg]) -> String {
+    /// One sentence in H3's camera vocabulary: motion type, then amplitude and speed when they aren't medium.
+    private static func camera(_ legs: [PromptFacts.CameraLeg], around target: (name: String, plural: Bool)) -> String {
         guard let first = legs.first else { return "The camera holds a static shot." }
         let phrases = legs.map { leg -> String in
-            var phrase = moves[leg.move] ?? "holds a static shot"
-            guard leg.move != .static else { return phrase }
+            guard leg.move != .static else { return "holds a static shot" }
+            var phrase = verb(leg.move, around: target.name)
             if leg.amplitude != .medium { phrase += " with \(leg.amplitude.rawValue) amplitude" }
             if leg.speed != .medium { phrase += " at \(leg.speed.rawValue) speed" }
-            if leg.move == .zoomIn || leg.move == .zoomOut, let end = leg.focalLength.last {
+            if [.zoomIn, .zoomOut].contains(leg.move), let end = leg.focalLength.last {
                 phrase += " to a \(millimetres(end)) lens"
             }
-            return phrase
+            let riding = leg.also.map { riding($0, on: leg, around: target) }
+            return riding.isEmpty ? phrase : phrase + " while " + riding.joined(separator: " and ")
         }
-        let lens = first.focalLength.first.map { " on a \(millimetres($0)) lens" } ?? ""
-        return "The camera " + phrases.joined(separator: ", then ") + lens + "."
+        let opening = first.focalLength.first.map { "On a \(millimetres($0)) lens, the camera " } ?? "The camera "
+        return opening + phrases.joined(separator: ", then ") + "."
     }
 
-    private static let moves: [CameraMove: String] = [
+    /// What happens during a move: following a travelling subject, a zoom to the leg's end lens, or a roll.
+    private static func riding(
+        _ extra: CameraMove,
+        on leg: PromptFacts.CameraLeg,
+        around target: (name: String, plural: Bool)
+    ) -> String {
+        switch extra {
+        // An orbit has already named whom it goes round.
+        case .track where [.orbitLeft, .orbitRight].contains(leg.move):
+            target.plural ? "following them" : "following it"
+        case .track: "following \(target.name)"
+        case .zoomIn, .zoomOut:
+            "zooming \(extra == .zoomIn ? "in" : "out")"
+                + (leg.focalLength.last.map { " to a \(millimetres($0)) lens" } ?? "")
+        case .rollClockwise: "rolling clockwise"
+        default: "rolling counter-clockwise"
+        }
+    }
+
+    private static func verb(_ move: CameraMove, around target: String) -> String {
+        switch move {
+        // Blockout's own words for its orbits: "a quarter circle counter-clockwise around the subject".
+        case .orbitLeft: "arcs counter-clockwise around \(target)"
+        case .orbitRight: "arcs clockwise around \(target)"
+        case .track: "follows \(target) in a tracking shot"
+        default: verbs[move] ?? "holds a static shot"
+        }
+    }
+
+    private static let verbs: [CameraMove: String] = [
         .push: "pushes in", .pull: "pulls out", .truckLeft: "trucks left", .truckRight: "trucks right",
-        .orbitLeft: "arcs left around the subjects", .orbitRight: "arcs right around the subjects",
         .craneUp: "pedestals up", .craneDown: "pedestals down", .panLeft: "pans left", .panRight: "pans right",
         .tiltUp: "tilts up", .tiltDown: "tilts down", .zoomIn: "zooms in", .zoomOut: "zooms out",
-        .static: "holds a static shot",
+        .rollClockwise: "rolls clockwise", .rollCounterclockwise: "rolls counter-clockwise",
     ]
 
     private static func millimetres(_ value: Double) -> String {

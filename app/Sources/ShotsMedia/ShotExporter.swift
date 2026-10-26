@@ -257,10 +257,17 @@ import PrevisCore
         files.append(PackageFile(role: .description, path: "shot.json"))
     }
 
-    /// `prompt.txt` holds the prompt exactly as it goes into the graph; `prompt.json` adds its sections and facts.
+    /// `prompt.txt` holds the prompt exactly as it goes into the graph; `prompt.json` adds its sections, the facts as
+    /// the scene now stands, the revision the prompt was written from, and anything wrong with it (stale or long).
     private func writePrompt(_ prompt: ShotPrompt, facts: PromptFacts) throws {
         try Data(prompt.text.utf8).write(to: prepare("prompt.txt"), options: .atomic)
-        try writeJSON(PromptFile(sections: prompt.sections, text: prompt.text, facts: facts), to: "prompt.json")
+        try writeJSON(
+            PromptFile(
+                sections: prompt.sections, text: prompt.text, facts: facts, sceneRevision: prompt.sceneRevision,
+                problems: ShotPromptCompiler.problems(prompt, scene: scene)
+            ),
+            to: "prompt.json"
+        )
         files += [
             PackageFile(role: .prompt, path: "prompt.txt"),
             PackageFile(role: .promptSections, path: "prompt.json"),
@@ -289,6 +296,8 @@ struct PromptFile: Encodable {
     var sections: [PromptSection]
     var text: String
     var facts: PromptFacts
+    var sceneRevision: Int // the revision the prompt was written from
+    var problems: [String]
 }
 
 /// `shot.json`: the shot, its guides, the camera per frame and each subject, with the scene as stored.

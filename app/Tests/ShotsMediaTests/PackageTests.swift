@@ -268,6 +268,8 @@ struct PackageTests {
         )
         let prompt = ShotPromptCompiler.template(facts)
         document.scenes[0].shots[0].prompt = prompt
+        // The blocking changed after the prompt was written, so the package says the prompt is stale.
+        document.scenes[0].revision += 1
         let path = input.appendingPathComponent("shots.json")
         try JSONEncoder().encode(document).write(to: path)
         let arguments = ["--document", path.path, "--shot", shot.id, "--out", parent.path]
@@ -281,6 +283,11 @@ struct PackageTests {
         )
         #expect(manifest.files.filter { $0.role == .prompt || $0.role == .promptSections }.map(\.path)
             == ["prompt.txt", "prompt.json"])
+        let promptFile = try #require(JSONSerialization.jsonObject(
+            with: Data(contentsOf: package.appendingPathComponent("prompt.json"))
+        ) as? [String: Any])
+        #expect(promptFile["sceneRevision"] as? Int == 0)
+        #expect((promptFile["problems"] as? [String])?.map { $0.contains("now at revision 1") } == [true])
         try FileManager.default.removeItem(at: package.appendingPathComponent("control/layout.mp4"))
         #expect(await PackageValidator.problems(at: package) == ["control/layout.mp4 is listed but missing."])
     }
