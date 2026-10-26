@@ -44,8 +44,10 @@ jobs:
       - run: swift build
       - name: swift test (sampled and killed if it hangs for 5 minutes)
         run: ../.github/scripts/swift-test-watchdog.sh
+      - name: swift test PrevisCore (standalone package, same watchdog)
+        run: ../.github/scripts/swift-test-watchdog.sh --package-path PrevisCore
       - run: swiftlint lint --strict --quiet
-      - run: swiftformat Sources Tests --lint
+      - run: swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint
 
   pod:
     name: pod (${{ matrix.tree }})

@@ -1,6 +1,6 @@
 # Lane A: PrevisCore
 
-**Seat:** Gnomon or Theo, one at a time. **Package:** `app/PrevisCore/` (library `PrevisCore`, tests
+**Seat:** Gnomon. **Package:** `app/PrevisCore/` (library `PrevisCore`, tests
 `PrevisCoreTests`), plus `scripts/blockout/`.
 
 **Mission.** Build the pure Swift engine every other lane builds on. Translate Blockout's engine, extract

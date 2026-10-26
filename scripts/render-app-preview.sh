@@ -28,8 +28,15 @@ if original_manifest.count(remote) != 1:
 (snapshot / "Package.swift").write_text(
     original_manifest.replace(remote, f".package(path: {json.dumps(str(yams))})")
 )
+# PrevisCore is a local package dependency: copy its manifest and sources, never its .build folder.
 source_files = sorted(
-    path for folder in ("Sources", "Tests") for path in (app / folder).rglob("*") if path.is_file()
+    [
+        path
+        for folder in ("Sources", "Tests", "PrevisCore/Sources", "PrevisCore/Tests")
+        for path in (app / folder).rglob("*")
+        if path.is_file()
+    ]
+    + [app / "PrevisCore" / "Package.swift"]
 )
 hashes = {}
 for source in source_files:
