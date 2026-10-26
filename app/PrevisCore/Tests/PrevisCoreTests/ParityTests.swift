@@ -2,7 +2,10 @@ import Foundation
 @testable import PrevisCore
 import Testing
 
-/// Porting scaffolding: compares the evaluator with Blockout's own `evaluate(t)` output. Runs only when
+/// LEGACY BASELINE ONLY. Porting scaffolding: compares the evaluator, with A5's corrections switched off
+/// (`corrections: []`), with Blockout's own `evaluate(t)` output, to prove the port. It says nothing about the default
+/// evaluator, which has the corrections on; `FeatureParityTests` and `CorrectionTests` cover that.
+/// It compares the evaluator with Blockout's own `evaluate(t)` output. Runs only when
 /// `PREVIS_GOLDENS` points at the output of `scripts/blockout/goldens.ts`.
 struct ParityTests {
     private static let goldensPath = ProcessInfo.processInfo.environment["PREVIS_GOLDENS"]
@@ -42,7 +45,9 @@ struct ParityTests {
         let aspectName = try #require(blockoutShot["aspect"] as? String)
         let aspect = try #require(Self.aspects[aspectName])
         let duration = try #require(blockoutShot["duration"] as? Double)
-        let evaluator = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog, aspect: aspect)
+        let evaluator = try ShotEvaluator(
+            scene: scene, shotID: shotID, catalog: catalog, aspect: aspect, corrections: []
+        )
 
         var worst = 0.0
         var compared = 0
@@ -83,7 +88,7 @@ struct ParityTests {
                 )
             }
         }
-        print("PARITY \(name): compared \(compared) scalars, worst difference \(worst)")
+        print("LEGACY-BASELINE PARITY \(name): compared \(compared) scalars, worst difference \(worst)")
     }
 
     private func compareCamera(
