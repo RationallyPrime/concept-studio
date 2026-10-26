@@ -2,15 +2,19 @@
 
 | Checkpoint | State |
 |---|---|
-| W0 wiring | **Done** when this PR merges: the standalone `app/PrevisCore` package (placeholder source, LICENSE and NOTICE bundled), the app targets `ShotsMedia`, `ShotsExportTool` and `ShotsMediaTests` with placeholders, a CI step for PrevisCore's tests, lint and format paths, the preview script copying PrevisCore, and the bun pin |
+| W0 wiring | **Draft PR: [RationallyPrime/concept-studio#51](https://github.com/RationallyPrime/concept-studio/pull/51).** It adds the standalone `app/PrevisCore` package (placeholder source, LICENSE and NOTICE bundled), the app targets `ShotsMedia`, `ShotsExportTool` and `ShotsMediaTests` with placeholders, a CI step for PrevisCore's tests, lint and format paths, the preview script copying PrevisCore, and the bun pin. Still open: CI's complete suite green, the preview-script check, and checkpoint integration approval. |
 | B0 API skeleton | Next, as soon as A0 is on `main` |
 | B1–B7 | Not started |
 
 ## W0 verification (2026-10-26, Apple silicon, Swift 6.4 locally; CI runs Swift 6.3)
 
 - `swift build` passes, with both the default and the native build system.
-- **App suite:** run under `.github/scripts/swift-test-watchdog.sh` with `--build-system native`. 759 tests
-  passed and none failed. The run then stalled, and the watchdog sampled it and stopped it at 900 s.
+- **App suite:** run under `.github/scripts/swift-test-watchdog.sh` with
+  `--build-system native --skip CloseDecisionTests`. **759 passed, 0 failed, then a 900 s watchdog
+  timeout.** That is not a full-suite pass.
+  - The run stopped inside the suites "project contract and app-only state" and "studio offline actions".
+  - `CloseDecisionTests` was skipped, because an earlier unbounded run hung there for over 90 minutes.
+  - The logs and samples are kept on the Lane B machine.
   - **Cause:** existing tests read the real login Keychain. Default `ChatGPTAccounts` credential loading,
     and `closeProject` reaching the stored Hugging Face token through `KeychainStore.read`, both do this.
   - For a test binary built from a new worktree path, macOS blocks that read behind an access prompt. The
