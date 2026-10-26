@@ -158,6 +158,18 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 
 **See it:** `swift test --package-path app/PrevisCore`.
 
+## Blockout reference (for independent review)
+
+Every checkpoint is translated from, and tested against, https://github.com/wassermanproductions/blockout at
+`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9` (a source checkout of that commit; verified identical to a fresh download). Sources and fixtures
+used: `src/engine/{evaluate,path,easing,camera,camera-moves,action-presets,motions,gaits,random,sequences}.ts`,
+`src/renderer/viewport/{builders,SceneManager}.ts` and `src/renderer/store.ts`; oracle output from `scripts/blockout/{goldens,extract,parts}.ts`;
+and Blockout's own tests, ported in `ReferenceFixtureTests` and `ReferenceGeneratorTests` from `tests/unit/{evaluate,tracking,round3,audit-fixes,
+camera,action-presets,camera-moves}.test.ts`. Intentional deviations, each recorded where it is made: the person rig's X and Z sign mapping,
+a shot-size tilt and canvas-aware distances in `Framing`, signed root moves in `Motions`, authored-turn blending, vertical heading, one easing and
+the attachment graph (A5), and the two extra warnings in the implausible-speed case. Blockout has no turn blending (`evaluate.ts` lines 215-219
+and 282-285), so the reference does not decide the turn timing above.
+
 ## Notes for other lanes
 
 - Sample camera: the sample shot uses a 20 mm lens at z = 6 pushing in to z = 4.5, because a 35 mm lens on a 640 × 1152
