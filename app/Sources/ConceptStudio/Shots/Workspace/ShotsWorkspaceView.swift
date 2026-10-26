@@ -109,7 +109,7 @@ private struct ShotsWorkspaceContent: View {
                 Text("Timeline").font(.headline)
                 Spacer()
                 if let shot = store.currentShot {
-                    Text("Frame \(store.playhead + 1) of \(shot.frameCount)")
+                    Text("Frame \(store.playhead) of \(shot.frameCount)")
                         .monospacedDigit().foregroundStyle(.secondary)
                 }
             }
@@ -119,7 +119,7 @@ private struct ShotsWorkspaceContent: View {
             )
             .disabled(store.currentShot == nil)
             .accessibilityLabel("Playhead")
-            .accessibilityValue("Frame \(store.playhead + 1)")
+            .accessibilityValue("Frame \(store.playhead)")
         }
         .padding(12)
     }
