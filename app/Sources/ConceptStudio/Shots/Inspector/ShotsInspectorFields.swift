@@ -49,6 +49,28 @@ struct ShotsInspectorGesture {
         defer { self = Self() }
         return cancelled ? nil : command
     }
+
+    @MainActor mutating func preview(_ edit: ShotsCommand, in store: ShotsStore) {
+        invalidateIfNeeded(in: store)
+        if let preview = update(edit) { store.preview = preview }
+    }
+
+    @MainActor mutating func invalidateIfNeeded(in store: ShotsStore) {
+        if let command, store.preview != command { cancel() }
+    }
+
+    @MainActor mutating func commit(in store: ShotsStore) {
+        let ownsPreview = command != nil && store.preview == command
+        let edit = finish()
+        guard ownsPreview else { return }
+        store.preview = nil
+        if let edit { store.run(edit, coalescing: true) }
+    }
+
+    @MainActor mutating func cancel(in store: ShotsStore) {
+        if let command, store.preview == command { store.preview = nil }
+        cancel()
+    }
 }
 
 struct ShotsInspectorSlider: View {
@@ -63,26 +85,26 @@ struct ShotsInspectorSlider: View {
     var body: some View {
         Slider(value: Binding(get: { staged ?? value }, set: { value in
             staged = value
-            if let preview = gesture.update(command(value)) { store.preview = preview }
+            gesture.preview(command(value), in: store)
         }), in: range, onEditingChanged: { editing in
             if !editing { commit() }
         }, label: { Text(title) })
             .onAppear { gesture = ShotsInspectorGesture() }
+            .onChange(of: store.preview) { _, _ in
+                gesture.invalidateIfNeeded(in: store)
+                if gesture.command == nil { staged = nil }
+            }
             .onExitCommand { cancel() }
             .onDisappear { cancel() }
     }
 
     private func commit() {
-        let pending = gesture.command
-        let edit = gesture.finish()
-        if store.preview == pending { store.preview = nil }
+        gesture.commit(in: store)
         staged = nil
-        if let edit { store.run(edit, coalescing: true) }
     }
 
     private func cancel() {
-        if store.preview == gesture.command { store.preview = nil }
-        gesture.cancel()
+        gesture.cancel(in: store)
         staged = nil
     }
 }

@@ -387,3 +387,21 @@ frozen source. No sync/security settings or apps/helpers were changed.
 Remaining C5 gates: B5 merged; actual compiler/fake ModelClient integration test; fresh full CI and
 independent exact-head review; refreshed final offscreen captures after the last read-only/idle-Escape
 safeguards; native interaction acceptance later. C5 and M2 are not complete.
+
+### C5 independent review R1 repairs (PR76)
+
+Initial review at5c88b0e found two P2s, preserved as r4383158847 (entity-name typing lacks a
+coalescing key) and r4383158863 (Undo/Redo clears a preview but stale slider release still commits).
+The additive repair gives entity-name and rig edits their command-kind/target coalescing keys.
+The slider now uses the shared store-facing gesture lifecycle for preview, invalidation, cancel
+and commit: every update notices lost preview ownership, cancellation latches through release,
+and commit requires the exact owned preview. Observing a foreign/history-cleared preview cancels
+without clearing another owner's preview. The view uses these same methods, rather than a test-only path.
+
+Five new store-level regression tests cover 240 typed characters without evicting an earlier edit,
+separate targets/non-coalescing controls, Undo with/without subsequent movement, Redo, replacement
+preview custody, normal one-step commit, Escape and the next drag. All12focused tests pass.
+Restoring the old mechanisms in the isolated snapshot makes the review regressions fail with13issues;
+fixed bytes were restored in finally. Fresh full app verification and closure/CI are tracked in PR76.
+Old-head green CI40411243246 and its20captures are not treated as acceptance of this repair.
+B5 real prompt integration and native acceptance remain outstanding as above.
