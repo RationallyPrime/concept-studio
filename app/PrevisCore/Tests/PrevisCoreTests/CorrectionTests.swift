@@ -103,6 +103,36 @@ struct CorrectionTests {
         #expect(abs(turn(holding.first ?? 0, -.pi / 2)) < 1e-6, "starts from the arrival heading")
     }
 
+    /// LANE-A-CORE says an authored turn blends "over the hold before its mark". This implementation turns the actor
+    /// during
+    /// the hold AT the mark, after arriving (reading 1). Pending the plan maintainer's disposition (PR 67 comment
+    /// 6418243985) this pins reading 1 with an example whose intervals do not overlap, so monotonic motion alone cannot
+    /// stand in for the timing. The man faces +x (placement −π/2); A waits 1 s, then he walks 3 m to B, arriving at t =
+    /// 3
+    /// with a 1 s hold and an authored facing of π; the next mark C is at t = 6.
+    ///
+    ///     time        0.5      2.5      3.5      (heading in radians, π ≡ −π)
+    ///     reading 1   −π/2     −π/2     −3π/4    turn during B's hold, [3, 4]            (implemented)
+    ///     reading 2   −π/2     −3π/4    π        turn during the hold before B, [2, 3]   (not implemented)
+    ///     reading 3   −3π/4    −π/2     π        turn during A's hold, [0, 1]            (not implemented)
+    @Test func theTurnTimingExampleDiscriminatesTheReadingsOfTheHoldBeforeItsMark() throws {
+        let a = ActorMark(
+            id: "a", time: 0, hold: 1, easeIn: 0, easeOut: 0, position: .zero, gait: .walk
+        )
+        let marks = [
+            a, mark("b", 3, Vec3(3, 0, 0), hold: 1, heading: .pi),
+            mark("c", 6, Vec3(3, 0, 3)),
+        ]
+        let evaluator = try evaluator(staged(marks, heading: -.pi / 2), .all)
+        func heading(_ t: Double) throws -> Double {
+            try #require(evaluator.frame(at: t).entities.first { $0.id == man.id }).heading
+        }
+        #expect(try abs(turn(heading(0.5), -.pi / 2)) < 1e-9, "readings 1 and 2 agree before the walk")
+        #expect(try abs(turn(heading(2.5), -.pi / 2)) < 1e-9, "reading 1: still walking toward B at 2.5 s")
+        #expect(try abs(turn(heading(3.5), -3 * .pi / 4)) < 1e-9, "reading 1: halfway through B's hold at 3.5 s")
+        #expect(try abs(turn(heading(4), .pi)) < 1e-9, "and facing π when the hold ends")
+    }
+
     // MARK: Vertical moves
 
     @Test func aVerticalRiseKeepsItsHeadingWhereBlockoutFacesMinusZ() throws {

@@ -31,16 +31,31 @@ them), and pins the exact inventory of intentional deltas:
 Every other channel, 17 295 of them in the 8 scenes, agrees within 1e-9. A delta that disappears or a new one that appears fails the test.
 
 **A5 decisions.**
-- *Authored turns (defect 1).* LANE-A-CORE says a turn blends "over the hold before its mark, or over the whole leg when there is no hold". I read
-  it as: a mark with a hold turns the actor during that hold, after arriving; a mark with no hold turns the actor over the whole leg that arrives
-  at it. A leg whose marks coincide keeps the facing it started with (this is what lets a motion play in place; PR 67 r4377817829 now holds as a plain
-  assertion). Easing is the same `easedProgress` as position.
+- *Authored turns (defect 1) — timing is an open interpretation, not a rewrite of the contract.* LANE-A-CORE says a turn blends "over the
+  hold before its mark, or over the whole leg when there is no hold". This implementation turns the actor during the hold **at** the mark, after
+  it arrives (reading 1), and over the whole arriving leg when the mark has no hold. Other readings of "the hold before its mark" put the turn
+  elsewhere: during a hold of the same length that ends at the mark (reading 2), or during the previous mark's hold (reading 3). The text does
+  not decide between them and the intended timing has not been confirmed (PR 67 comment 6418243985; Lane B has not acknowledged and no maintainer
+  approval has been received). Example that tells them apart: the man faces +x; A (t = 0) holds 1 s; he walks 3 m to B (t = 3, hold 1 s, authored
+  facing π); C is at t = 6.
+
+  | time | 0.5 | 2.5 | 3.5 | turn happens during |
+  |---|---|---|---|---|
+  | reading 1 (implemented) | −π/2 | −π/2 | −3π/4 | B's hold, [3, 4] |
+  | reading 2 (not implemented) | −π/2 | −3π/4 | π | the hold before B, [2, 3] |
+  | reading 3 (not implemented) | −3π/4 | −π/2 | π | A's hold, [0, 1] |
+
+  `CorrectionTests.theTurnTimingExampleDiscriminatesTheReadingsOfTheHoldBeforeItsMark` pins reading 1 with these numbers; if the intended
+  timing differs it fails and the change is one rule in `ActorPlan`. A monotonic turn after arrival is not evidence for a turn before it.
+  Easing is the same `easedProgress` as position.
 - *Vertical moves (defect 2).* A leg with no horizontal motion keeps the heading it had.
 - *Attachment graph (defects 3 and 4).* One graph, parents first, full quaternion transforms: a child's offset is in its parent's full orientation
   and its orientation is the parent's times the attachment's rotation. Boarding is an edge in the same graph, captured from the vehicle's resolved
   pose, so a cart attached to a moving bus carries its rider (Blockout's fixed order left the rider 0.5 m or more behind). A cycle is an
-  error at evaluator construction and in `ShotsValidation`. `EntityFrame` still exposes only a heading, so pitch and roll of an attachment affect
-  positions of children but not the drawn orientation.
+  error at evaluator construction and in `ShotsValidation`. `EntityFrame.heading` is still a yaw, but the drawn geometry carries the whole orientation: `PosedPart.transform`, the world
+  keypoints and the bounds are built from the entity's full orientation, so an attachment's pitch or roll tips the body, not just its position
+  (`AttachmentGraphTests`: a man attached with a quarter-turn pitch lies along +z with his nose at the feet's height, and his torso part's up
+  axis points along +z; a roll tips him to the side). Before this the parts, keypoints and bounds stayed upright whatever the attachment said.
 - *Warnings and validation.* Speed, the 180-degree rule, the trained range, marks past the end, and the two kept Blockout behaviours (marks at one
   time teleport; a pan always takes the short way). A gait name the reader does not know is a decode error naming it.
 

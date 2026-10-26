@@ -88,6 +88,60 @@ struct AttachmentGraphTests {
         #expect(abs(got.heading - (.pi / 2 + 0.5)) < 1e-9)
     }
 
+    // MARK: Full transforms reach the drawn geometry
+
+    /// A man riding a platform at the origin through an attachment with `rotation`. `EntityFrame.heading` is a yaw
+    /// only;
+    /// the drawn geometry is the parts' matrices, the world keypoints and the bounds, which carry the whole
+    /// orientation.
+    private func rider(rotation: Quat) throws -> EntityFrame {
+        var scene = base
+        var man = entity("man", "person.man")
+        man.attachment = EntityAttachment(parentID: "platform", offset: .zero, rotation: rotation)
+        scene.entities = [man, entity("platform", "prim.cube")]
+        return try pose("man", evaluator(scene).frame(0))
+    }
+
+    private func keypoint(_ name: KeypointName, _ frame: EntityFrame) throws -> Vec3 {
+        try #require(frame.keypoints.first { $0.name == name }).position
+    }
+
+    @Test func aPitchedAttachmentTipsTheDrawnBodyNotJustItsPosition() throws {
+        let upright = try rider(rotation: .identity)
+        let lying = try rider(rotation: .pitch(.pi / 2))
+        // upright: the head is about 1.7 m above the feet and over them
+        let uprightHead = try keypoint(.nose, upright)
+        #expect(uprightHead.y > 1.5 && abs(uprightHead.z) < 0.3)
+        // pitched a quarter turn: the head is level with the feet and 1.7 m away along +z
+        let head = try keypoint(.nose, lying), neck = try keypoint(.neck, lying)
+        #expect(head.y < 0.4 && head.z > 1.4, "nose at \(head)")
+        #expect(neck.z > 1.2 && neck.y < 0.4, "neck at \(neck)")
+        #expect(lying.bounds.max.y < 0.8 && lying.bounds.max.z > 1.5, "bounds \(lying.bounds)")
+        // the torso part's own up axis (the second matrix column) points along +z instead of +y
+        let torso = try #require(lying.parts.first { $0.id == "torso" }).transform.m
+        #expect(abs(torso[4]) < 1e-9 && abs(torso[5]) < 1e-9 && torso[6] > 0.9, "torso up axis \(torso[4 ... 6])")
+        let torsoUpright = try #require(upright.parts.first { $0.id == "torso" }).transform.m
+        #expect(torsoUpright[5] > 0.9)
+    }
+
+    @Test func aRolledAttachmentTipsTheBodyToTheSide() throws {
+        let rolled = try rider(rotation: .roll(.pi / 2))
+        let head = try keypoint(.nose, rolled)
+        #expect(head.y < 0.4 && head.x < -1.4, "nose at \(head)")
+    }
+
+    @Test func aPitchedStaticAssetTurnsItsParts() throws {
+        var scene = base
+        var chair = entity("chair", "furniture.chair")
+        chair.attachment = EntityAttachment(parentID: "platform", offset: .zero, rotation: .pitch(.pi / 2))
+        scene.entities = [chair, entity("platform", "prim.cube", heading: 0.4)]
+        let frame = try pose("chair", evaluator(scene).frame(0))
+        #expect(frame.heading.isFinite)
+        // the chair's tallest part is its back: standing it spans about 0.9 m in y, on its back about 0.9 m in z
+        #expect(frame.bounds.max.y < 0.6, "a chair on its back is low: \(frame.bounds)")
+        #expect(frame.bounds.max.z - frame.bounds.min.z > 0.7, "and long: \(frame.bounds)")
+    }
+
     @Test func anAttachmentCycleIsAnErrorThatNamesBothEntities() throws {
         var scene = base
         var a = entity("a", "prim.cube"), b = entity("b", "prim.cube")
