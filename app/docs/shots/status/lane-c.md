@@ -217,3 +217,25 @@ unchanged by the rebase/B3 export-only delta and IT3 addition; minimum light/dar
 
 **Not run/claimed:** complete local app suite, live native menu/picker/keyboard/VoiceOver, ComfyUI graph
 handoff, signed app walkthrough, M1/M2. Current-head CI and independent C3 review remain required.
+
+### C4 source-aligned preparation; C3 acceptance still blocked
+
+C3 PR70 head`972060e` has terminal independent clean review6425635875. CI40388637232
+built successfully, then its full app test hit the300s watchdog. The process sample shows C3 IT3
+and two B3 package tests concurrently blocked at `VideoInspector.swift:49` in AVAssetReader sample
+reading. Six other jobs passed; standalone core/full lint/full format were skipped. This is not a
+complete suite pass or a presumed flake. Media-owner evidence/handoff:6425833845. No CI rerun or
+merge requested without diagnosis. Focused63tests/17suites previously passed remains separate evidence.
+
+C4 is isolated on `shots/c-timeline`, based on the frozen C3 draft head. Read pinned Blockout
+`src/renderer/panels/Timeline.tsx` first: ruler/scrub mapping, retime clamp preserving hold, hold
+stretch clamp preserving mark time, camera-first lanes and local drag preview/single release commit.
+Only the pure geometry preparation is implemented: time-to-position, clamped position-to-frame,
+retime and hold stretch. Intentional Shots adaptation:24fps snapping and explicit frame-count end;
+shared blocking beyond a short shot remains in the document. Source pin3f2d0564 is recorded in code.
+
+Run/passed:3geometry tests/1suite cover every124frame round trip, edges, rounding, zero width,
+retime/hold endpoints and a shared mark beyond the shot. Strict lint passed; formatter initially
+reported declaration-comment/property-layout style, automatically formatted, then pinned format passed.
+No production timeline UI, focus routing, playback, drag gesture, visual/accessibility acceptance or
+C4 checkpoint completion is claimed. No desktop UI automation used.
