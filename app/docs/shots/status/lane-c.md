@@ -9,7 +9,7 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `s
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
 | C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
-| C3: lists, import and export | Implementation preparation on `shots/c-scenes` | B3 current-main exporter, IT3 and independent review/CI. |
+| C3: lists, import and export | Implemented on accepted B3/main, `shots/c-scenes` | Independent current-head review and CI. |
 | C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
 | C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
 | C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
@@ -195,3 +195,25 @@ Independent bounded acceptance6425352368 covers the audit repairs; all7CI4038251
 including826app/40core and actual matte/manifest/package regressions. B3 export is unblocked for C3.
 Next: refresh C3 onto accepted main, run real IT3, independent C3 review and exact-head CI.
 No M1/M2, live keyboard/VoiceOver or ComfyUI handoff claim.
+
+
+### C3 integration candidate on accepted B3
+
+Rebased our three C3 commits onto accepted main`f13b41b7`. Every row of
+`git range-diff bf9ab74..shots/c-scenes-pre-b3 origin/main..HEAD` is identical (`=`).
+The pre-refresh branch is retained; no owner branch or worktree was discarded.
+
+**IT3 run and passed:** a real temporary concept-free StudioProject opens a ShotsStore, imports the
+actual Blockout sample, commits shot edits ending in22frames/320×576/guide11, saves and releases,
+reopens with equal document, exports the committed store snapshot via actual ShotExporter into
+`<project>/Shots`, and gets zero PackageValidator problems. It also checks output metadata and terminal
+progress. The first build caught a missing `try` in the new assertion; that test-only compile error was
+corrected before execution. No acceptance condition or production save/export path was weakened.
+
+**Post-rebase run and passed:** native `--filter 'Shots|Viewport'`:63tests/17suites, including real IT3,
+B3's full sample package and pixel tests, store/history/save and viewport coverage. Changed8Swift files
+pass strict lint and pinned format. Existing8C3PNGs remain applicable: all visible C3 view sources are
+unchanged by the rebase/B3 export-only delta and IT3 addition; minimum light/dark sample already inspected.
+
+**Not run/claimed:** complete local app suite, live native menu/picker/keyboard/VoiceOver, ComfyUI graph
+handoff, signed app walkthrough, M1/M2. Current-head CI and independent C3 review remain required.
