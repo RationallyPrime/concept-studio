@@ -105,7 +105,14 @@ responder cleanup. These are headless in-process tests, not a live Cmd-Z/VoiceOv
 
 **CI:** first Swift 6.3 run `40337781017` failed during build: identifier collection was too complex
 for that compiler to type-check. The repair uses explicit collection steps with unchanged ordering.
-Post-repair native 45 tests/12 suites and changed-file strict style/format passed; fresh CI pending.
+The compiler repair built successfully in CI `40338602319`, but its 816-test app run failed
+the debounce persistence test. Under main-actor contention the test's three-second wall-clock
+deadline expired before the saver could resume. A controlled 3.2-second actor stall reproduced
+the missing-file/empty-document failure; polling opportunities instead of wall time passed
+under the same stall. The injected stall is not committed, production debounce/save code and
+CI watchdog are unchanged, and file existence plus full document equality remain required.
+Post-repair: 45 focused tests/12 suites passed; core run passed with oracle parity explicitly
+skipped; full strict lint and pinned formatting passed. Fresh full CI/review remain pending.
 
 **Not run:** complete local app suite, live menu/keyboard/VoiceOver and signed integration.
 The foreground walkthrough is deferred while the user works on a time-sensitive grant form.

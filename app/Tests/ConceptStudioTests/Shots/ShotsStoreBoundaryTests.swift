@@ -93,10 +93,13 @@ struct ShotsStoreBoundaryTests {
         let id = try #require(store.currentSceneID)
         try store.perform(.renameScene(id, name: "First"))
         try store.perform(.renameScene(id, name: "Last"))
-        let deadline = ContinuousClock.now + .seconds(3)
-        while !FileManager.default.fileExists(atPath: url.path), ContinuousClock.now < deadline {
+        // Other main-actor tests can delay both this test and the save task.
+        // Bound polling opportunities rather than expiring before the saver can resume.
+        for _ in 0 ..< 60 {
+            if FileManager.default.fileExists(atPath: url.path) { break }
             try await Task.sleep(for: .milliseconds(50))
         }
+        try #require(FileManager.default.fileExists(atPath: url.path))
         #expect(try ShotsDocumentFile.load(from: url).document == store.document)
         #expect(store.currentScene?.name == "Last")
     }
