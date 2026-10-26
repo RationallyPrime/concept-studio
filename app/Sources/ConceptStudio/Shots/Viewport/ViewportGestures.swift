@@ -7,7 +7,7 @@ import SwiftUI
 /// Reference: Blockout `src/renderer/viewport/SceneManager.ts:194-198` (`THREE.OrbitControls` on `freeCam`).
 /// Intentional Swift/RealityKit deviation: instead of imperative `OrbitControls` with frame-rate-dependent damping
 /// (`dampingFactor = 0.12`), gestures mutate the pure value `EditorCamera` directly so camera state and CPU picking
-/// rays remain deterministic and testable without a live window (`LANE-D-VIEWPORT.md` lines 28-34).
+/// rays remain deterministic and testable without a live window (`LANE-D-VIEWPORT.md` lines 28-34, 77-80).
 enum ViewportCameraGestures {
     static let orbitRadiansPerPoint: Double = 0.0075
     static let scrollDollyMetersPerPoint: Double = 0.04
@@ -60,15 +60,19 @@ enum ViewportCameraGestures {
         camera.pan(deltaRight: deltaRight, deltaUp: deltaUp)
     }
 
+    /// Routes trackpad two-finger scroll (`hasPreciseScrollingDeltas == true`) to pan in both axes (including
+    /// vertical-only and near-vertical drags), and discrete mouse-wheel scroll (`hasPreciseScrollingDeltas == false`)
+    /// to dolly along the view axis.
     static func applyScrollOrTrackpad(
         to camera: inout EditorCamera,
         scrollingDeltaX: CGFloat,
         scrollingDeltaY: CGFloat,
         hasPreciseScrollingDeltas: Bool,
-        optionPressed: Bool,
+        optionPressed: Bool = false,
         viewportSize: PixelSize
     ) {
-        if hasPreciseScrollingDeltas, optionPressed || abs(scrollingDeltaX) > 0.01 {
+        _ = optionPressed
+        if hasPreciseScrollingDeltas {
             let delta = CGSize(
                 width: scrollingDeltaX * twoFingerPanPointsFactor,
                 height: scrollingDeltaY * twoFingerPanPointsFactor
@@ -78,31 +82,103 @@ enum ViewportCameraGestures {
             camera.dolly(delta: -Double(scrollingDeltaY) * scrollDollyMetersPerPoint)
         }
     }
+
+    /// Applies an incremental trackpad pinch magnification delta (`NSEvent.magnification`).
+    static func applyMagnify(
+        to camera: inout EditorCamera,
+        magnification: CGFloat
+    ) {
+        let stepFactor = max(1.0 + Double(magnification), 0.05)
+        camera.dolly(scale: 1.0 / stepFactor)
+    }
 }
 
-/// Captures scroll-wheel / trackpad two-finger pan events over the viewport without stealing normal clicks.
+/// Hit-testable AppKit input surface over `ShotsViewport` that receives wheel dolly, trackpad two-finger pan,
+/// trackpad pinch magnify, and click/drag orbit or `⌥`-pan events.
 struct ViewportScrollWheelOverlay: NSViewRepresentable {
+    var session: ViewportLiveSession?
+    var onSync: (() -> Void)?
     var onScroll: (NSEvent) -> Void
+    var onDrag: ((CGSize, Bool) -> Void)?
+    var onDragEnded: (() -> Void)?
+    var onMagnify: ((CGFloat) -> Void)?
 
     func makeNSView(context: Context) -> ScrollCapturingView {
         let view = ScrollCapturingView()
-        view.onScroll = onScroll
+        configure(view)
+        onSync?()
         return view
     }
 
     func updateNSView(_ nsView: ScrollCapturingView, context: Context) {
-        nsView.onScroll = onScroll
+        configure(nsView)
+        onSync?()
+    }
+
+    private func configure(_ view: ScrollCapturingView) {
+        view.session = session
+        view.onScroll = onScroll
+        view.onDrag = onDrag
+        view.onDragEnded = onDragEnded
+        view.onMagnify = onMagnify
     }
 
     final class ScrollCapturingView: NSView {
+        weak var session: ViewportLiveSession?
         var onScroll: ((NSEvent) -> Void)?
+        var onDrag: ((CGSize, Bool) -> Void)?
+        var onDragEnded: (() -> Void)?
+        var onMagnify: ((CGFloat) -> Void)?
+        private var lastMouseLocation: NSPoint?
+
+        override var isFlipped: Bool {
+            true
+        }
+
+        override var acceptsFirstResponder: Bool {
+            true
+        }
+
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+            true
+        }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            nil
+            let localPoint = superview.map { convert(point, from: $0) } ?? point
+            return bounds.contains(localPoint) ? self : nil
         }
 
         override func scrollWheel(with event: NSEvent) {
             onScroll?(event)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            lastMouseLocation = convert(event.locationInWindow, from: nil)
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            let currentLocation = convert(event.locationInWindow, from: nil)
+            let delta = if let previousLocation = lastMouseLocation,
+                           abs(currentLocation.x - previousLocation.x) > 1e-6
+                           || abs(currentLocation.y - previousLocation.y) > 1e-6 {
+                CGSize(
+                    width: currentLocation.x - previousLocation.x,
+                    height: currentLocation.y - previousLocation.y
+                )
+            } else {
+                CGSize(width: event.deltaX, height: event.deltaY)
+            }
+            lastMouseLocation = currentLocation
+            onDrag?(delta, event.modifierFlags.contains(.option))
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            lastMouseLocation = nil
+            onDragEnded?()
+        }
+
+        override func magnify(with event: NSEvent) {
+            onMagnify?(event.magnification)
         }
     }
 }

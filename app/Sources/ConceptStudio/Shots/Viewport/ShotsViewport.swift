@@ -1,8 +1,64 @@
 import AppKit
+import Observation
 import PrevisCore
 import RealityKit
 import ShotsMedia
 import SwiftUI
+
+/// Live viewport scene state shared between `ShotsViewport`'s `RealityView` and `ViewportScrollWheelOverlay`.
+/// Synchronizing through this object ensures that stage updates (`store.frame`, `store.currentScene?.lighting`)
+/// and input gestures (`EditorCamera`) apply deterministically both inside live `RealityView` rendering
+/// and during headless AppKit hosting layout/event routing.
+@MainActor
+@Observable
+final class ViewportLiveSession {
+    var editorCamera = EditorCamera.defaultView
+    let mapper = PrevisSceneMapper(look: PrevisLook(lighting: .day))
+    let overlayRoot = ViewportGrid.makeOverlayRoot()
+    let skyDome = ViewportGrid.makeSkyDomeEntity(for: .day)
+    var viewportSize = PixelSize(width: 640, height: 480)
+    private(set) var activeLighting: LightingPreset = .day
+
+    func sync(with store: ShotsStore, frame: SceneFrame?, size: PixelSize) {
+        viewportSize = size
+        let lighting = store.currentScene?.lighting ?? .day
+        activeLighting = lighting
+        mapper.setLook(PrevisLook(lighting: lighting))
+        ViewportGrid.updateSkyDome(skyDome, for: lighting)
+
+        if let frame {
+            mapper.apply(frame)
+        } else {
+            let emptyFrame = SceneFrame(
+                index: 0,
+                time: 0,
+                canvas: store.currentShot?.canvas ?? .portrait,
+                camera: editorCamera.cameraFrame(for: size),
+                entities: []
+            )
+            mapper.apply(emptyFrame)
+        }
+        syncCamera()
+    }
+
+    func syncCamera() {
+        _ = mapper.cameraEntity(for: editorCamera.cameraFrame(for: viewportSize))
+    }
+
+    var mappedEntityContainerNames: [String] {
+        var names: [String] = []
+        func collect(from entity: Entity) {
+            if entity.name.hasPrefix("previs:") {
+                names.append(entity.name)
+            }
+            for child in entity.children {
+                collect(from: child)
+            }
+        }
+        collect(from: mapper.root)
+        return names.sorted()
+    }
+}
 
 /// Free editor camera viewport for 3D shot blocking (CONTRACTS section 7).
 /// D1 renders `store.frame` through `PrevisSceneMapper` alongside a separate `overlayRoot` holding the ground grid,
@@ -11,60 +67,76 @@ import SwiftUI
 /// Reference: Blockout `src/renderer/viewport/Viewport.tsx:19-99, 329-604` and
 /// `src/renderer/viewport/SceneManager.ts:178-255, 370-403, 764-796, 1994-2113`.
 /// Intentional Swift/RealityKit deviations:
-/// - `RealityView` mounts two separate root entities (`mapper.root` and `overlayRoot`) so editor chrome never
+/// - `RealityView` mounts separate root entities (`mapper.root`, `overlayRoot`, and `skyDome`) so editor chrome never
 ///   leaks into exported passes (`LANE-D-VIEWPORT.md` lines 38-44; `SHOTS-PLAN.md` section 4).
 /// - Post effects (`motionBlur`, `depthOfField`, `cameraGrain`, HDR) are disabled on `RealityView` content.
 struct ShotsViewport: View {
     let store: ShotsStore
 
-    @State private var editorCamera = EditorCamera.defaultView
-    @State private var mapper = PrevisSceneMapper(look: PrevisLook(lighting: .day))
-    @State private var overlayRoot = ViewportGrid.makeOverlayRoot()
-    @State private var viewportSize = PixelSize(width: 640, height: 480)
-    @State private var lastDragTranslation: CGSize?
-    @State private var pinchStartDistance: Double?
-
-    init(store: ShotsStore) {
-        self.store = store
-    }
+    @State var session = ViewportLiveSession()
 
     var body: some View {
+        let activeLighting = store.currentScene?.lighting ?? .day
+        let currentFrame = store.frame
+
         GeometryReader { geometry in
             let currentSize = PixelSize(
                 width: max(Int(geometry.size.width.rounded()), 1),
                 height: max(Int(geometry.size.height.rounded()), 1)
             )
             ZStack(alignment: .topLeading) {
-                InstantPrint.ground
+                ViewportGrid.backgroundColor(for: activeLighting)
 
                 RealityView { content in
                     content.renderingEffects.motionBlur = .disabled
                     content.renderingEffects.depthOfField = .disabled
                     content.renderingEffects.cameraGrain = .disabled
                     content.renderingEffects.dynamicRange = .standard
-                    ViewportGrid.disableOcclusionCulling(on: mapper.root)
-                    ViewportGrid.disableOcclusionCulling(on: overlayRoot)
-                    content.add(mapper.root)
-                    content.add(overlayRoot)
-                    syncScene(in: content, size: currentSize)
+                    ViewportGrid.disableOcclusionCulling(on: session.mapper.root)
+                    ViewportGrid.disableOcclusionCulling(on: session.overlayRoot)
+                    ViewportGrid.disableOcclusionCulling(on: session.skyDome)
+                    content.add(session.skyDome)
+                    content.add(session.mapper.root)
+                    content.add(session.overlayRoot)
+                    syncScene(in: content, frame: currentFrame, size: currentSize)
                 } update: { content in
-                    syncScene(in: content, size: currentSize)
+                    syncScene(in: content, frame: currentFrame, size: currentSize)
                 }
-                .gesture(dragGesture(for: currentSize))
-                .gesture(magnifyGesture)
 
-                ViewportScrollWheelOverlay { event in
-                    let optionPressed = event.modifierFlags.contains(.option)
-                    ViewportCameraGestures.applyScrollOrTrackpad(
-                        to: &editorCamera,
-                        scrollingDeltaX: event.scrollingDeltaX,
-                        scrollingDeltaY: event.scrollingDeltaY,
-                        hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
-                        optionPressed: optionPressed,
-                        viewportSize: currentSize
-                    )
-                }
-                .allowsHitTesting(false)
+                ViewportScrollWheelOverlay(
+                    session: session,
+                    onSync: {
+                        session.sync(with: store, frame: currentFrame, size: currentSize)
+                    },
+                    onScroll: { event in
+                        let optionPressed = event.modifierFlags.contains(.option)
+                        ViewportCameraGestures.applyScrollOrTrackpad(
+                            to: &session.editorCamera,
+                            scrollingDeltaX: event.scrollingDeltaX,
+                            scrollingDeltaY: event.scrollingDeltaY,
+                            hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+                            optionPressed: optionPressed,
+                            viewportSize: currentSize
+                        )
+                        session.syncCamera()
+                    },
+                    onDrag: { delta, optionPressed in
+                        ViewportCameraGestures.applyDrag(
+                            to: &session.editorCamera,
+                            deltaPoints: delta,
+                            viewportSize: currentSize,
+                            optionPressed: optionPressed
+                        )
+                        session.syncCamera()
+                    },
+                    onMagnify: { magnification in
+                        ViewportCameraGestures.applyMagnify(
+                            to: &session.editorCamera,
+                            magnification: magnification
+                        )
+                        session.syncCamera()
+                    }
+                )
 
                 if hasEmptyStage {
                     emptyStagePrompt
@@ -73,65 +145,31 @@ struct ShotsViewport: View {
                 }
 
                 viewportHUD
+                    .allowsHitTesting(false)
             }
-            .onAppear { viewportSize = currentSize }
-            .onChange(of: currentSize) { _, updated in viewportSize = updated }
+            .onAppear {
+                session.sync(with: store, frame: currentFrame, size: currentSize)
+            }
+            .onChange(of: currentSize) { _, updated in
+                session.sync(with: store, frame: currentFrame, size: updated)
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
     }
 
-    private func syncScene(in content: RealityViewCameraContent, size: PixelSize) {
-        if let scene = store.currentScene {
-            mapper.setLook(PrevisLook(scene: scene))
-        }
-        if let frame = store.frame {
-            mapper.apply(frame)
-        }
-        let cameraEntity = mapper.cameraEntity(for: editorCamera.cameraFrame(for: size))
+    private func syncScene(in content: RealityViewCameraContent, frame: SceneFrame?, size: PixelSize) {
+        session.sync(with: store, frame: frame, size: size)
+        let cameraEntity = session.mapper.cameraEntity(for: session.editorCamera.cameraFrame(for: size))
         if cameraEntity.parent == nil, !content.entities.contains(where: { $0 === cameraEntity }) {
             content.add(cameraEntity)
         }
-    }
-
-    private func dragGesture(for size: PixelSize) -> some Gesture {
-        DragGesture(minimumDistance: 1)
-            .onChanged { value in
-                let previous = lastDragTranslation ?? .zero
-                let delta = CGSize(
-                    width: value.translation.width - previous.width,
-                    height: value.translation.height - previous.height
-                )
-                lastDragTranslation = value.translation
-                let optionPressed = NSEvent.modifierFlags.contains(.option)
-                ViewportCameraGestures.applyDrag(
-                    to: &editorCamera,
-                    deltaPoints: delta,
-                    viewportSize: size,
-                    optionPressed: optionPressed
-                )
-            }
-            .onEnded { _ in
-                lastDragTranslation = nil
-            }
-    }
-
-    private var magnifyGesture: some Gesture {
-        MagnifyGesture()
-            .onChanged { value in
-                let start = pinchStartDistance ?? editorCamera.distance
-                pinchStartDistance = start
-                let magnification = max(Double(value.magnification), 0.05)
-                editorCamera.distance = start / magnification
-            }
-            .onEnded { _ in
-                pinchStartDistance = nil
-            }
     }
 
     private var viewportHUD: some View {
