@@ -46,13 +46,6 @@ public enum ShotsError: Error, LocalizedError, Sendable {
     }
 }
 
-public enum ShotsValidation {
-    /// Skeleton: reports nothing until A5.
-    public static func problems(in document: ShotsDocument, catalog: ContentCatalog) -> [ShotsProblem] {
-        []
-    }
-}
-
 public enum ShotsSamples {
     /// A man and a woman walk toward each other and turn, with a chair and a wall behind them; two camera marks
     /// make a push-in, and one middle guide. Fixed ids. Full: 124 frames, 640 × 1152, guide frame 61. Small: the

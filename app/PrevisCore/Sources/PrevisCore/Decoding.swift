@@ -39,6 +39,21 @@ extension KeyedDecodingContainer where K == AnyKey {
         try decodeIfPresent(T.self, forKey: AnyKey(name)) ?? fallback()
     }
 
+    /// A gait name. One this reader does not know is an error that names it and lists the ones it does.
+    func gait(_ name: String) throws -> Gait {
+        guard let text = try decodeIfPresent(String.self, forKey: AnyKey(name)) else { return .stand }
+        guard let gait = Gait(rawValue: text) else {
+            let known = Gait.allCases.map(\.rawValue).joined(separator: ", ")
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: codingPath + [AnyKey(name)],
+                    debugDescription: "The gait \"\(text)\" is not one of \(known); change the mark's gait."
+                )
+            )
+        }
+        return gait
+    }
+
     /// Pose overrides keyed by joint name. A name this reader does not know is skipped, not an error.
     func joints(_ name: String) throws -> [Joint: Double] {
         let raw = try decodeIfPresent([String: Double].self, forKey: AnyKey(name)) ?? [:]
@@ -162,7 +177,7 @@ public extension ActorMark {
             easeOut: c.value("easeOut", 0),
             position: c.value("position", .zero),
             via: c.value("via", []),
-            gait: c.value("gait", .stand),
+            gait: c.gait("gait"),
             arriveHeading: c.optional("arriveHeading"),
             joints: c.joints("joints"),
             boardID: c.optional("boardID")
