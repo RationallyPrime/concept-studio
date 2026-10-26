@@ -1,6 +1,8 @@
 included:
   - Sources
   - Tests
+  - PrevisCore/Sources
+  - PrevisCore/Tests
 excluded:
   - .build
   - Sources/ConceptCore/Resources

@@ -7,10 +7,12 @@ let package = Package(
     products: [
         .library(name: "ConceptCore", targets: ["ConceptCore"]),
         .executable(name: "ConceptStudio", targets: ["ConceptStudio"]),
+        .executable(name: "shots-export", targets: ["ShotsExportTool"]),
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.0.2"),
         .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", exact: "1.24.2"),
+        .package(path: "PrevisCore"),
     ],
     targets: [
         .target(
@@ -19,11 +21,23 @@ let package = Package(
             resources: [.copy("Resources/Skills")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .target(
+            name: "ShotsMedia",
+            dependencies: [.product(name: "PrevisCore", package: "PrevisCore"), "ConceptCore"],
+            resources: [.copy("Resources")],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "ShotsExportTool",
+            dependencies: ["ShotsMedia"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .executableTarget(
             name: "ConceptStudio",
             dependencies: [
                 "ConceptCore", .product(name: "Yams", package: "Yams"),
                 .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
+                .product(name: "PrevisCore", package: "PrevisCore"), "ShotsMedia",
             ],
             resources: [
                 .copy("Resources/Demo"), .process("Resources/OpenAI"), .copy("Resources/Training"),
@@ -40,6 +54,11 @@ let package = Package(
         .testTarget(
             name: "ConceptStudioTests",
             dependencies: ["ConceptStudio"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "ShotsMediaTests",
+            dependencies: ["ShotsMedia", .product(name: "PrevisCore", package: "PrevisCore")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

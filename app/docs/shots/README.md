@@ -18,7 +18,7 @@ be added later ([SHOTS-PLAN.md](../SHOTS-PLAN.md) section 7).
 
 | Lane | Seat | Machine | Builds | Difficulty |
 |---|---|---|---|---|
-| A | Gnomon or Theo | Linux with a Swift 6 toolchain, or a Mac | `PrevisCore`, a standalone package | Easiest: Blockout's output is the oracle, and the seed already matches it |
+| A | Gnomon | Linux with a Swift 6 toolchain, or a Mac | `PrevisCore`, a standalone package | Easiest: Blockout's output is the oracle, and the seed already matches it |
 | B | Claude | Mac | W0 wiring, `ShotsMedia`, `shots-export` | Medium |
 | C | Ari | Mac | The Shots workspace in the app | Medium-high: the most surface area |
 | D | Metis | Mac | The viewport | Hardest: carries the interaction feel |
@@ -113,6 +113,9 @@ overlap.
 5. Each lane keeps `app/docs/shots/status/lane-<a|b|c|d>.md` current at every checkpoint.
 6. **Git:** one worktree and branch per lane, one PR per checkpoint, rebase or merge commits (not squash),
    files staged by name (CONTRACTS section 1).
+7. **Who merges:** a seat whose own delegation allows merging lands its lane's PRs; otherwise the parent
+   integrator does. Lane B lands its own PRs under the owner's standing authorization to merge green PRs,
+   which applies to that seat only. Lane B merges another lane's PR only when asked.
 
 ## First content set
 
