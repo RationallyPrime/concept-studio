@@ -9,12 +9,13 @@ import Foundation
 // noise. Bodies, keypoints and validation arrive in A3 and A5.
 
 public struct ShotEvaluator: Sendable {
-    private let shot: Shot
-    private let aspect: Double
-    private let entities: [Resolved]
-    private let tracks: [EntityID: ActorPlan]
+    let sceneID: SceneID
+    let shot: Shot
+    let aspect: Double
+    let entities: [Resolved]
+    let tracks: [EntityID: ActorPlan]
     private let boardings: [Boarding]
-    private let camera: TrackPlan
+    let camera: TrackPlan
 
     struct Resolved: Sendable {
         var entity: PrevisEntity
@@ -75,6 +76,7 @@ public struct ShotEvaluator: Sendable {
             }
         }
 
+        sceneID = scene.id
         self.shot = shot
         self.aspect = aspect ?? shot.canvas.aspect
         entities = resolved
@@ -116,9 +118,12 @@ public struct ShotEvaluator: Sendable {
         sceneFrame(index: nil, time: min(max(time.isFinite ? time : 0, 0), shot.duration))
     }
 
-    /// Speed, 180° line, trained range and marks past the end. None are checked yet (A5).
+    /// Things the shot allows but the user should look at: a leg faster or slower than its gait, the camera crossing
+    /// the
+    /// line between two people, a frame count outside the trained range, marks past the end of the shot, and the two
+    /// Blockout behaviours that are kept (marks at the same time teleport; a pan turns the short way round).
     public func warnings() -> [ShotsProblem] {
-        []
+        computeWarnings()
     }
 
     /// Each moving entity's path with its marks, then the camera's.
