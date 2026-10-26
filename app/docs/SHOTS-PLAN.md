@@ -9,6 +9,10 @@ ConceptStudio does not run ComfyUI or H3, and does not generate video. The user 
 package into their own ComfyUI graphs. Shots is nevertheless designed so that generation could be added
 later as a new consumer of the same package, without changing what is built here (section 7).
 
+**Execution.** The build runs as four parallel lanes over five days: see [shots/README.md](shots/README.md),
+with every cross-lane interface in [shots/CONTRACTS.md](shots/CONTRACTS.md). That plan supersedes the
+phase order and the engineer-day sizes in section 8 below. This document remains the reasoning behind it.
+
 **Reference code.** [Blockout](https://github.com/wassermanproductions/blockout) at `3f2d056`, an
 Electron/TypeScript/three.js previs tool by Sam Wasserman, licensed Apache-2.0. ConceptStudio at
 `6a24082`.
@@ -336,8 +340,8 @@ for every frame. From those, the script writes four things:
 - the reference skeleton used for measurement.
 
 This script is also the first version of the exporter's logic. Shots are blocked in Blockout's app or
-written as scene files, and installing Blockout locally is the owner's call. Generation runs in the
-owner's existing ComfyUI setup on one rented 80–96 GB GPU.
+written as scene files, and installing Blockout locally is the owner's call. Generation runs in ComfyUI
+on one rented 80–96 GB GPU.
 
 - **Shot choice.** One existing shot with approved endpoints, using subjects and set pieces that
   Blockout's catalog can represent. Where it can't, boxes stand in, and that is recorded.

@@ -1,0 +1,10 @@
+The files in seed/ are translations of Blockout's engine, and extract.ts writes data derived from it.
+
+Blockout — a previs tool for AI-native filmmaking
+Copyright 2026 Sam Wasserman
+https://wassermanproductions.com · https://wasserman.ai
+Licensed under the Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0
+
+Credit "Sam Wasserman (wassermanproductions.com)" in documentation and in any about or credits surface,
+per Section 4(d) of the Apache License 2.0 and Blockout's NOTICE file.
+Translated from https://github.com/wassermanproductions/blockout at 3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9.
