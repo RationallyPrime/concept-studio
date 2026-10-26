@@ -34,8 +34,13 @@ extension ShotsStore {
         isPlaying.toggle()
     }
 
+    var canAddGuideAtPlayhead: Bool {
+        guard let shot = currentShot, !isReadOnly else { return false }
+        return playhead > 0 && playhead < shot.frameCount - 1 && !shot.guideFrames.contains(playhead)
+    }
+
     func addGuideAtPlayhead() {
-        guard let shot = currentShot else { return }
+        guard canAddGuideAtPlayhead, let shot = currentShot else { return }
         run(.setGuideFrames(shot.id, Array(Set(shot.guideFrames + [playhead])).sorted()))
     }
 }

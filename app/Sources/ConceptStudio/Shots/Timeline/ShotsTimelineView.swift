@@ -8,7 +8,8 @@ import SwiftUI
 struct ShotsTimelineView: View {
     @Bindable var store: ShotsStore
     @FocusState private var focused: Bool
-    @State private var drag: ShotsTimelineDrag?
+    @State private var drag = ShotsTimelineDragTransaction()
+    @GestureState private var pointerDragging = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -67,7 +68,7 @@ struct ShotsTimelineView: View {
             ) ? .handled : .ignored
         }
         .onKeyPress(.escape) {
-            guard drag != nil else { return .ignored }
+            guard drag.isActive else { return .ignored }
             cancelDrag()
             return .handled
         }
@@ -75,6 +76,12 @@ struct ShotsTimelineView: View {
             await play()
         }
         .onChange(of: store.currentShotID) { cancelDrag() }
+        .onChange(of: pointerDragging) {
+            if !pointerDragging {
+                cancelDrag()
+                drag.reset()
+            }
+        }
         .onDisappear {
             cancelDrag()
             store.isPlaying = false
@@ -94,7 +101,7 @@ struct ShotsTimelineView: View {
                 .monospacedDigit().font(.callout)
             Spacer(minLength: 4)
             Button("Add guide frame here", systemImage: "bookmark") { store.addGuideAtPlayhead() }
-                .disabled(store.currentShot == nil || store.isReadOnly)
+                .disabled(!store.canAddGuideAtPlayhead)
         }
     }
 
@@ -181,16 +188,16 @@ struct ShotsTimelineView: View {
         geometry: ShotsTimelineGeometry
     ) -> some Gesture {
         DragGesture(minimumDistance: 3)
+            .updating($pointerDragging) { _, active, _ in active = true }
             .onChanged { value in
-                guard !store.isReadOnly else { return }
+                guard !store.isReadOnly, let command = drag.update(
+                    mark: mark, mode: mode, geometry: geometry, delta: value.translation.width
+                ) else { return }
                 focused = true
                 store.isPlaying = false
                 store.selection = mark.selection
-                if drag == nil { drag = ShotsTimelineDrag(mark: mark, mode: mode, geometry: geometry) }
-                guard let drag else { return }
-                let command = drag.command(delta: value.translation.width)
                 store.preview = command
-                if drag.mode == .move {
+                if mode == .move {
                     switch command {
                     case let .updateActorMark(_, _, mark): store.playhead = FrameGrid.frame(atTime: mark.time)
                     case let .updateCameraMark(_, mark): store.playhead = FrameGrid.frame(atTime: mark.time)
@@ -199,9 +206,7 @@ struct ShotsTimelineView: View {
                 }
             }
             .onEnded { value in
-                guard let drag else { return }
-                store.run(drag.command(delta: value.translation.width))
-                self.drag = nil
+                if let command = drag.finish(delta: value.translation.width) { store.run(command) }
             }
     }
 
@@ -211,7 +216,7 @@ struct ShotsTimelineView: View {
     }
 
     private func cancelDrag() {
-        if drag != nil { store.preview = nil; drag = nil }
+        if drag.isActive { store.preview = nil; drag.cancel() }
     }
 
     @MainActor private func play() async {

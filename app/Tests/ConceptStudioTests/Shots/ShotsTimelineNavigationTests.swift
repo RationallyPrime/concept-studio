@@ -5,6 +5,27 @@ import Testing
 @Suite("Shots timeline navigation boundaries")
 @MainActor
 struct ShotsTimelineNavigationTests {
+    @Test func automaticEndpointGuidesCannotBePersistedAsExtraGuides() throws {
+        let store = try makeStore()
+        let shot = try #require(store.currentShot)
+        let before = store.document
+        for endpoint in [0, shot.frameCount - 1] {
+            store.playhead = endpoint
+            #expect(!store.canAddGuideAtPlayhead)
+            store.addGuideAtPlayhead()
+            #expect(store.document == before)
+            #expect(!store.canUndo)
+        }
+        store.playhead = 1
+        #expect(store.canAddGuideAtPlayhead)
+        store.addGuideAtPlayhead()
+        #expect(!store.canAddGuideAtPlayhead)
+        store.addGuideAtPlayhead()
+        store.undo()
+        #expect(store.document == before)
+        #expect(!store.canUndo)
+    }
+
     @Test func viewportFocusAndTextEditingLeavePlayheadSelectionAndHistoryAlone() throws {
         let store = try makeStore()
         let scene = try #require(store.currentScene)
