@@ -6,7 +6,26 @@
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
 | A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
 | A3 bodies | **Draft PR, targeting `main`** (branch `shots/a-core-a3`, rebased onto A2's merge `89d9e7d`). The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
-| A4–A6 | Not started |
+| A4 generators | **Prepared, not published** (local branch `a4-wip`, on A3's repair `8c2c6c7`; no PR until A3 lands). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
+| A5–A6 | Not started |
+
+**A4 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS=<golden-vectors.v1.json> PREVIS_GOLDENS=<goldens.json>`): 64 run, 64 passed, 0 failed.
+- Vectors: all 14 action paths and all 20 camera moves match Blockout within 1e-9 (camera moves for a still, a walking and a flying subject, at two
+  durations), through the internal entry points that take a subject function.
+- Framing, with a mutation check: every `Framing.Kind` keeps its subjects in the canvas on the sample; a wide shot now tilts toward the middle of the
+  figure (Blockout's was always 0); a two-shot backs off further on a portrait canvas than a landscape one (reverting to Blockout's full-sensor
+  horizontal field of view fails that test).
+- Overlaying `wave` on a walk leaves positions, timing, gaits and leg joints unchanged while the arm follows the wave at the marks' times.
+- Attachments: an attachment keeps the child where it stands, then it rides the parent; detaching keeps it where it stands; a cycle is an error naming both.
+
+**A4 decisions.**
+- `ActionPaths.marks` starts from the entity's placement. With a `speed`, times are scaled so the average speed along the marks is that speed.
+- `CameraMoves.marks` runs over the whole shot from its first camera mark; several subjects act as one at their midpoint, as tall as the tallest,
+  facing the average of their headings.
+- `Motions.apply` plays a motion once at the pose the entity has at `time`, keeping earlier marks; looping is the caller's. `overlay` samples at the
+  track's own mark times, so a track needs marks about as often as the gesture changes.
+- `Framing` sizes frame the first subject; `overShoulder` frames the far one of the first two. Distances that fit things in the frame use the canvas aspect.
+- `Attachments.attachment` yields a yaw-only rotation until A5 resolves attachments with full transforms.
 
 **A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 40 run, 40 passed, 0 failed, no known issues; parity 8 of 8 scenes.
 BodyTests: a standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross`
