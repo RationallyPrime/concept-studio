@@ -71,33 +71,6 @@ public struct FolderDestination: PackageDestination {
     }
 }
 
-/// Builds, validates and delivers shot packages. Passes land in B1–B3.
-@MainActor public final class ShotExporter {
-    public let catalog: ContentCatalog
-
-    public init(catalog: ContentCatalog) throws {
-        self.catalog = catalog
-    }
-
-    /// Validates before delivering. Cancelling the Task leaves no staged or partial package.
-    public func export(
-        scene: PrevisScene,
-        shotID: ShotID,
-        options: ExportOptions,
-        to destination: any PackageDestination,
-        progress: @escaping @MainActor (ExportProgress) -> Void
-    ) async throws -> ExportedPackage {
-        throw ShotsError.notImplemented("Shot package export")
-    }
-}
-
-/// Checks a package against its own manifest. An empty result means valid.
-public enum PackageValidator {
-    public static func problems(at packageURL: URL) async -> [String] {
-        ["The package validator is not implemented yet, so this package can't be confirmed valid."]
-    }
-}
-
 /// File and folder names inside packages.
 enum PackageNames {
     /// Lowercase ASCII with dashes; "shot" when nothing usable is left.
@@ -105,6 +78,17 @@ enum PackageNames {
         let folded = name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en"))
         let words = folded.lowercased().split { !($0.isASCII && ($0.isLetter || $0.isNumber)) }
         return words.isEmpty ? "shot" : words.joined(separator: "-")
+    }
+
+    /// Entity slugs in entity order; repeats get -2, -3, ….
+    static func entitySlugs(_ names: [String]) -> [String] {
+        var seen: [String: Int] = [:]
+        return names.map { name in
+            let base = slug(name)
+            let count = (seen[base] ?? 0) + 1
+            seen[base] = count
+            return count == 1 ? base : "\(base)-\(count)"
+        }
     }
 
     static func stamp(_ date: Date) -> String {
