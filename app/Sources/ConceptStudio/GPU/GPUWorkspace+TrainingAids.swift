@@ -111,6 +111,24 @@ extension GPUWorkspace {
         return triggerClassNouns.compactMap(\.noun).filter { seen.insert($0.lowercased()).inserted }
     }
 
+    /// Whether the chosen model and trainer can draw samples during training (the row's `preview.training_samples`).
+    var samplesOffered: Bool {
+        exactModelRow?.preview.trainingSamples == true
+    }
+
+    /// Whether the next run draws samples: the pairing offers them and the person turned them on.
+    var usesSamples: Bool {
+        samplesOffered && samplesEnabled
+    }
+
+    /// "A picture of HAKON, a man.": each trigger with its concept's class noun when it has one.
+    var defaultSamplePrompt: String {
+        let subjects = triggerClassNouns.map { pair in
+            pair.noun.map { "\(pair.trigger), \(ClassNounPhrase.withArticle($0))" } ?? pair.trigger
+        }
+        return subjects.isEmpty ? "" : "A picture of " + ModelTable.sentenceList(subjects, conjunction: "and") + "."
+    }
+
     /// "a woman and a man": what the regularisation images show.
     var regularizationSubjects: String {
         ClassNounPhrase.list(triggerClassNouns.compactMap(\.noun))
