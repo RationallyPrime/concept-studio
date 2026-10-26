@@ -120,9 +120,12 @@ checkout. The loader preserves corrupt bytes under the required backup name, ref
 in read-only mode, and uses `AtomicFile` for saves. Three integration tests are drafted for corrupt
 bytes, future versions and sample-document round trips.
 
-These drafts pass Swift syntax parsing and formatting/lint checks. They have not been type-checked
-against PrevisCore and their tests have not run. Move them into the owned Model and test folders once
-A0 provides the actual declarations; do not count them as C0 or C2 completion.
+The drafts pass syntax parsing and formatting/lint checks. An isolated consumer harness then compiled
+them against Gnomon's actual A0 draft commit `876dfae`, his temporary package scaffold, and the existing
+ConceptCore implementation. All three file-preservation tests passed on macOS with Swift 6.4 and the
+native build system. This proves the consumer draft against that unmerged API; it is not full app
+integration, CI, C0 or C2 completion. Move the files into the owned Model and test folders after the
+upstream prerequisites land, then run the required app-level acceptance cases.
 
 ## Product paragraph proposal
 
