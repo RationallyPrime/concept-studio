@@ -73,7 +73,7 @@ tests on macOS, and on Linux with a Swift 6 toolchain. The app package uses it a
 | W0 only: `app/Package.swift`, `app/.swiftlint.yml`, `scripts/render-app-preview.sh`, `mise.toml`; `.github/workflows/ci.yml` (W0, and B1 for `SHOTS_SKIP_RENDER` only) | B |
 | `app/Sources/ConceptStudio/Shots/{Model,Workspace,Timeline,Inspector,Library}/**` | C |
 | `app/Tests/ConceptStudioTests/Shots/**` except files named `Viewport*.swift` | C |
-| Edits to existing files: `StudioSession*.swift`, `StudioRootView.swift`, `ConceptStudioApp.swift`, `StudioHelpView.swift`, `DemoProject.swift`, `Resources/Glossary/conceptstudio-operations.json`, `PreviewRenderTests.swift` | C |
+| Edits to existing files: `StudioSession*.swift`, `StudioRootView.swift`, `ConceptStudioApp.swift`, `StudioHelpView.swift`, `DemoProject.swift`, `AppLifetime.swift` (the Shots save seam at quit and window close), `Resources/Glossary/conceptstudio-operations.json`, `PreviewRenderTests.swift` | C |
 | `app/Sources/ConceptStudio/Shots/Viewport/**`, `app/Tests/ConceptStudioTests/Shots/Viewport*.swift` | D |
 | `app/docs/shots/status/lane-x.md` | each lane its own |
 
@@ -790,7 +790,11 @@ The store never touches `job.yaml` or `images/`.
 **Saving.**
 - 0.5 s after the last edit.
 - At the **start** of `releaseProject`, before folder access stops and before the demo folder is removed.
-- On `NSApplication.willTerminateNotification`.
+  A failed save there makes the release fail, and that failure reaches whoever asked for it.
+- **Before** the app approves quitting or closing its window (`applicationShouldTerminate`,
+  `windowShouldClose` and the shared path in `AppLifetime.swift`). A failed save vetoes the quit or close and
+  is reported, and the existing GPU and caption confirmations stay as they are.
+  `willTerminateNotification` arrives too late to veto, so it isn't the save point.
 
 **Reading.**
 - A `shots.json` that won't decode is renamed to `shots.json.unreadable-<timestamp>`, and the user is told.

@@ -84,8 +84,9 @@ frame at playhead 61.
   - ⌘Z and ⇧⌘Z drive it while Shots is frontmost and no text field is editing.
 - **Saving** (CONTRACTS 8.1):
   - `AtomicFile` 0.5 s after the last edit;
-  - at the **start** of `releaseProject`;
-  - on `NSApplication.willTerminateNotification`.
+  - at the **start** of `releaseProject`, where a failed save fails the release;
+  - before quit or window close is approved in `AppLifetime.swift`, where a failed save vetoes it, keeping
+    the existing GPU and caption confirmations.
 - **Reading:** an unreadable file is renamed aside with a message. A newer version opens the store with
   `readOnly: true`; `perform` then throws a plain sentence, and nothing is written.
 - **Problems:** shown in `problems`.
