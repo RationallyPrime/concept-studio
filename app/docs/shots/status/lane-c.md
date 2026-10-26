@@ -85,18 +85,33 @@ These are acceptance cases to implement alongside their functionality, not tests
 - The author's `shots/b-media` worktree contains W0 wiring changes and is running verification.
   W0 has no checkpoint commit yet; its status prose is not proof that the checks have completed.
 - A bounded read-only host probe verified cx53's public SSH route with the existing key, an active
-  Hive edge, Ubuntu 24.04/x86_64 and Bun 1.3.14. Swift is absent. No native Claude/tmux session was
-  available to address; no wake has been sent by C.
+  Hive edge, Ubuntu 24.04/x86_64 and Bun 1.3.14. No native Claude/tmux session or existing Lane A work
+  was present before dispatch.
 - The environment-approved toolchain operation is complete: official Swift 6.3.3 is installed for
   the cx53 `hive` user. The archive passed GPG verification against Swift's published release-key
   fingerprint. Both the installed-path version check and a Foundation compile/run check passed.
   Ubuntu added 16 prerequisite/dependency packages, with no upgrades or removals. Credentials, shell
   profiles and service configuration were not changed; the Hive edge retained its active process.
-- The local author received the verified compiler-ready update. Gnomon's staged handoff has the
-  exact compiler path, but staged files are not proof of delivery, claim or task execution.
+- The local author received the verified compiler-ready update. The coordinator then explicitly
+  authorized dispatch through Gnomon's existing native CLI profile. A single named background
+  session launched, acknowledged the task and verified a fresh clone of the correct repository at
+  `f348682`, with no competing Lane A branch or PR. Gnomon is preparing A0 in his own worktree;
+  W0 must land before A0 is published. No Lane A test pass is claimed here.
 - Supported Gemini conversation searches for Shots, Concept and Metis found no matching target.
   No message was sent to an ambiguous conversation.
-- The coordinator handles the external seat route; C has not duplicated a wake.
+- The native delivery, acknowledgment and active preparation are independently recorded; there was
+  no duplicate Hive wake and no change to credentials or account access.
+- W0's original test processes exceeded 98 minutes. Their working directories were verified as the
+  W0 worktree. The owner received those PIDs and the repository's existing 300-second watchdog
+  procedure; C did not interrupt the run or claim it passed.
+
+## Merge boundary
+
+CONTRACTS section 1 requires one checkpoint PR, green CI on the current main base, and rebase/merge
+commits rather than squash. The local Lane B owner reports standing owner authorization to land its
+own checkpoint PRs and is documenting that seat-specific boundary. It does not transfer to Lane C.
+This delegation prohibits C from merging. A/C checkpoint integration needs an explicitly authorized
+integrator or a new owner grant before landing; passing tests alone is not that grant.
 
 ## Consumer drafts waiting for A0
 
