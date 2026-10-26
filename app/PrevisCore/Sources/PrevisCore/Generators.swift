@@ -14,19 +14,6 @@ public enum CameraMoves { // several subjects act as one virtual subject at thei
     }
 }
 
-public enum ActionPaths { // speed nil keeps Blockout's timing; otherwise metres per second
-    public static func marks(
-        _ pathID: String,
-        entity: PrevisEntity,
-        startTime: Double,
-        duration: Double,
-        speed: Double?,
-        catalog: ContentCatalog
-    ) throws -> [ActorMark] {
-        throw ShotsError.notImplemented("ActionPaths.marks")
-    }
-}
-
 public enum Motions {
     public static func apply(
         _ motionID: String,
