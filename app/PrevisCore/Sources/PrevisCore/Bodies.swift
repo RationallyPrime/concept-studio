@@ -26,8 +26,8 @@ struct BodyBuilder {
     let world: Mat4
     private(set) var parts: [PosedPart] = []
 
-    init(position: Vec3, heading: Double, scale: Double) {
-        world = Mat4.translation(position) * Mat4.rotation(.yaw(heading)) * Mat4.scale(scale)
+    init(position: Vec3, orientation: Quat, scale: Double) {
+        world = Mat4.translation(position) * Mat4.rotation(orientation) * Mat4.scale(scale)
     }
 
     mutating func add(_ id: String, _ shape: PartShape, at local: Mat4, color: UInt32) {
@@ -49,7 +49,7 @@ enum Bodies {
     static func build(_ entity: PrevisEntity, asset: AssetSpec, state: EntityPose) -> (
         parts: [PosedPart], keypoints: [Keypoint], bounds: Box3
     ) {
-        var builder = BodyBuilder(position: state.position, heading: state.heading, scale: entity.placement.scale)
+        var builder = BodyBuilder(position: state.position, orientation: state.frame, scale: entity.placement.scale)
         var keypoints: [Keypoint] = []
         switch asset.rig {
         case .person:
