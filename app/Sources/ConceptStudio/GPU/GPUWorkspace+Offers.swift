@@ -145,14 +145,19 @@ extension GPUWorkspace {
                 self.selectedVolume = self.volumes.first?.id ?? ""
             }
             self.hasLoadedVolumes = true
+            let forgotten = try await self.forgetMissingKeptPods(provider)
             self.selectAvailableOffer()
-            self.message = if self.pod != nil, !self.hasRunningPod {
+            let state = if self.pod != nil, !self.hasRunningPod {
                 "Your cloud GPU is stopped. Start it or rent another and keep its files."
             } else if self.availableOffers.isEmpty {
                 "No cloud GPUs are available beside this storage. Choose other storage, fewer GPUs, or refresh later."
             } else {
                 "Choose a cloud GPU and storage, then check the price before renting."
             }
+            self.message = forgotten.isEmpty ? state
+                : "RunPod has no cloud GPU \(forgotten.joined(separator: ", ")) under the current key, so this app "
+                + "no longer tracks it. If you changed RunPod accounts, it may still exist, and bill storage, in the "
+                + "other account. " + state
         }
     }
 }

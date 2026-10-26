@@ -27,7 +27,8 @@ public struct RegularizationCaptioner: Sendable {
     }
 
     /// The caption of each sample by its id, at most `concurrency` requests at a time; `onCaption` hears how many
-    /// samples have settled. A sample the captioner finds unusable has no entry. A failed request throws.
+    /// samples have settled. A sample the captioner finds unusable has no entry. A request that still fails after
+    /// `attempts` tries, or fails in any other way, throws.
     public func captions(
         of samples: [Sample], onCaption: (@Sendable (Int) async -> Void)? = nil
     ) async throws -> [String: String] {
@@ -57,13 +58,24 @@ public struct RegularizationCaptioner: Sendable {
         return captions
     }
 
+    /// Requests per image. A connection that times out or drops is tried again: the pictures are already drawn,
+    /// and one image's failed request would otherwise end the run before training starts.
+    public static let attempts = 3
+
     private func caption(_ sample: Sample) async throws -> String? {
         let image = try MediaInput.content(data: sample.data, suffix: sample.suffix)
-        let run = try await stage.run(
-            instructions: instructions,
-            messages: [.user([.text(Prompt.userTurn), image])]
-        )
-        let text = run.output.caption.trimmingCharacters(in: .whitespacesAndNewlines)
-        return run.output.usable && !text.isEmpty ? text : nil
+        var attempt = 1
+        while true {
+            do {
+                let run = try await stage.run(
+                    instructions: instructions,
+                    messages: [.user([.text(Prompt.userTurn), image])]
+                )
+                let text = run.output.caption.trimmingCharacters(in: .whitespacesAndNewlines)
+                return run.output.usable && !text.isEmpty ? text : nil
+            } catch ModelError.transport where attempt < Self.attempts {
+                attempt += 1
+            }
+        }
     }
 }
