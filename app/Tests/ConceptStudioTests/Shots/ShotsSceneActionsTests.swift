@@ -6,6 +6,19 @@ import Testing
 @Suite("Shots scene and import actions")
 @MainActor
 struct ShotsSceneActionsTests {
+    @Test func selectingAShotReturnsToItsStartLikeBlockout() throws {
+        let store = try makeStore(ShotsSamples.twoPersonWalk())
+        let shot = try #require(store.currentShot)
+        let scene = try #require(store.currentScene)
+        store.playhead = 61
+        store.preview = .renameScene(scene.id, name: "Preview")
+        store.selection = .entities([scene.entities[0].id])
+        store.selectShot(shot.id)
+        #expect(store.playhead == 0)
+        #expect(store.preview == nil)
+        #expect(store.selection == .none)
+    }
+
     @Test func exportCapturesCommittedShotRatherThanTransientPreviewOrLaterEdits() throws {
         let store = try makeStore(ShotsSamples.twoPersonWalk())
         let shot = try #require(store.currentShot)

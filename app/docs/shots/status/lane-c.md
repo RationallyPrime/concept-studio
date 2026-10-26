@@ -166,3 +166,32 @@ blank by design; these captures do not prove live keyboard/VoiceOver or native p
 **Pending:** B3 refresh and acceptance, real export/validator IT3, independent C3 review and exact-head
 CI. C2's original provider summary 6418233026 subsequently completed cleanly at `1c46f19` at 17:28 UTC;
 the supplemental independent record is retained.
+
+
+### Reference-first audit and C3 export unblock
+
+Applied Hákon's direction to inspect the original source/tests before further implementation.
+Reference remote and full pin verified: `wassermanproductions/blockout` at
+`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`, checkout `/tmp/shots-blockout-reference-3f2d056`.
+Read `src/renderer/panels/ProjectRail.tsx` (shot cloning, rename/delete),
+`src/renderer/store.ts` (selection, creation), `src/renderer/panels/Inspector.tsx` (shot settings),
+`src/renderer/export/exporter.ts`, and existing interaction/cancellation tests.
+
+- Shot cloning follows ProjectRail's fresh shot/camera-mark IDs, shared blocking and selection of the copy.
+- Found a reachable mismatch: selecting a shot retained frame61; `store.ts:330-341` resets time to0.
+  The added regression failed on our preimage, the store helper now resets the playhead, and the full
+  focused run passes **52 tests/13 suites**. Strict lint and pinned formatting pass on both changed files.
+- Intentional plan/architecture adaptations: native menus/alert/file picker instead of React controls;
+  empty scenes/projects remain allowed by C0/CONTRACTS instead of Blockout's last-scene/shot refusal;
+  scene/shot names use the Shots schema (which has no Blockout scene-number field);
+  full scene graph duplication remaps IDs because C3 requires scene duplication;
+  H3's explicit frame-grid/canvas rules replace Blockout's duration/aspect controls;
+  package rendering stays entirely in Lane B, not an extra export implementation in C.
+- Blockout export snapshots and locks its mutable renderer state; C3 captures committed scene/shot
+  values for the immutable native export pipeline. Independent later edits cannot change the snapshot.
+
+B3 PR58 is now accepted/merged as `f13b41b7bfefd7ac701923507adf347e180079df` at head`a386dd7`.
+Independent bounded acceptance6425352368 covers the audit repairs; all7CI40382518501passed,
+including826app/40core and actual matte/manifest/package regressions. B3 export is unblocked for C3.
+Next: refresh C3 onto accepted main, run real IT3, independent C3 review and exact-head CI.
+No M1/M2, live keyboard/VoiceOver or ComfyUI handoff claim.

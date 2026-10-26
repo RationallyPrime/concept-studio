@@ -18,6 +18,8 @@ extension ShotsStore {
         selection = .none
         currentSceneID = scene.id
         currentShotID = id
+        // Blockout src/renderer/store.ts selectShot, pinned at 3f2d0564, starts a selected shot at time zero.
+        playhead = 0
     }
 
     @discardableResult
