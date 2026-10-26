@@ -78,6 +78,10 @@ import PrevisCore
     /// Appends `buffer` as frame `frame`, presented at frame/24 s.
     func append(_ buffer: CVPixelBuffer, frame: Int) async throws {
         while !input.isReadyForMoreMediaData {
+            // A writer that failed or was cancelled never becomes ready again.
+            guard writer.status == .writing else {
+                throw ShotsMediaError("Writing frame \(frame) failed: \(Self.reason(writer.error)).")
+            }
             try Task.checkCancellation()
             try await Task.sleep(for: .milliseconds(1))
         }
@@ -94,6 +98,8 @@ import PrevisCore
         guard writer.status == .completed else {
             throw ShotsMediaError("Finishing the video failed: \(Self.reason(writer.error)).")
         }
+        // Finalization runs to the end even when the task is cancelled; honour it now, so the file is removed.
+        try Task.checkCancellation()
     }
 
     /// Abandons the file and removes whatever was written.
@@ -104,6 +110,31 @@ import PrevisCore
 
     private static func reason(_ error: (any Error)?) -> String {
         error?.localizedDescription ?? "no reason given"
+    }
+
+    /// Writes `frameCount` frames, each drawn by `draw` into a buffer from the writer's pool, and finishes the file.
+    /// An error or cancellation removes the partial file.
+    static func write(
+        to url: URL,
+        size: PixelSize,
+        frameCount: Int,
+        progress: ((Int) -> Void)? = nil,
+        draw: @MainActor (CVPixelBuffer, Int) async throws -> Void
+    ) async throws {
+        let writer = try VideoWriter(url: url, size: size, frameCount: frameCount)
+        do {
+            for index in 0 ..< frameCount {
+                try Task.checkCancellation()
+                let buffer = try writer.makeBuffer()
+                try await draw(buffer, index)
+                try await writer.append(buffer, frame: index)
+                progress?(index)
+            }
+            try await writer.finish()
+        } catch {
+            writer.cancel()
+            throw error
+        }
     }
 }
 
@@ -116,20 +147,9 @@ extension ShotFrameRenderer {
         to url: URL,
         progress: ((Int) -> Void)? = nil
     ) async throws {
-        let first = evaluator.frame(0)
-        let writer = try VideoWriter(url: url, size: first.canvas.pixelSize, frameCount: evaluator.frameCount)
-        do {
-            for index in 0 ..< evaluator.frameCount {
-                try Task.checkCancellation()
-                let buffer = try writer.makeBuffer()
-                try await render(evaluator.frame(index), look: look, into: buffer)
-                try await writer.append(buffer, frame: index)
-                progress?(index)
-            }
-            try await writer.finish()
-        } catch {
-            writer.cancel()
-            throw error
+        let size = evaluator.frame(0).canvas.pixelSize, frames = evaluator.frameCount
+        try await VideoWriter.write(to: url, size: size, frameCount: frames, progress: progress) { buffer, index in
+            try await render(evaluator.frame(index), look: look, into: buffer)
         }
     }
 }

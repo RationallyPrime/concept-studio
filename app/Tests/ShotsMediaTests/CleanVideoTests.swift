@@ -13,7 +13,7 @@ struct CleanVideoTests {
         let scene = try #require(ShotsSamples.twoPersonWalk(small: true).scenes.first)
         let shot = try #require(scene.shots.first)
         let evaluator = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: ContentCatalog.bundled())
-        let folder = try Self.scratchFolder()
+        let folder = try scratchFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appendingPathComponent("clean.mp4")
         let renderer = try ShotFrameRenderer()
@@ -32,13 +32,6 @@ struct CleanVideoTests {
         let decoded = try await Pixels(Self.decodedFrame(url, at: 11))
         let rendered = try await Pixels(renderer.image(of: evaluator.frame(11), look: look))
         #expect(decoded.meanDifference(from: rendered) < 6)
-    }
-
-    private static func scratchFolder() throws -> URL {
-        let folder = FileManager.default.temporaryDirectory
-            .appendingPathComponent("shots-media-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder
     }
 
     /// Frame `index` of `url`, decoded to BGRA with no colour management: a plain YCbCr-to-RGB conversion.
@@ -63,6 +56,53 @@ struct CleanVideoTests {
         }
         throw ShotsMediaError("Frame \(index) of \(url.lastPathComponent) didn't decode.")
     }
+}
+
+/// The writer's failure and cancellation paths, with blank frames: no rendering, so these run everywhere.
+@Suite("video writer")
+@MainActor
+struct VideoWriterTests {
+    @Test(.timeLimit(.minutes(1))) func appendingToAStoppedWriterFailsInsteadOfWaiting() async throws {
+        let folder = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let writer = try VideoWriter(
+            url: folder.appendingPathComponent("stopped.mp4"), size: PixelSize(width: 64, height: 64), frameCount: 3
+        )
+        let buffers = try (0 ..< 2).map { _ in try writer.makeBuffer() }
+        try await writer.append(buffers[0], frame: 0)
+        // A stopped writer never becomes ready for more media again.
+        writer.cancel()
+        await #expect(throws: ShotsMediaError.self) { try await writer.append(buffers[1], frame: 1) }
+    }
+
+    @Test func cancellingWhileTheVideoFinishesRemovesIt() async throws {
+        let folder = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("cancelled.mp4")
+        let box = TaskBox()
+        box.task = Task {
+            try await VideoWriter.write(
+                to: url, size: PixelSize(width: 64, height: 64), frameCount: 3,
+                // Queued after the last frame, the cancel runs while the writer awaits finalization.
+                progress: { index in if index == 2 { Task { box.task?.cancel() } } },
+                draw: { _, _ in }
+            )
+        }
+        let task = try #require(box.task)
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(!FileManager.default.fileExists(atPath: url.path), "the cancelled video was left behind")
+    }
+}
+
+@MainActor private final class TaskBox {
+    var task: Task<Void, any Error>?
+}
+
+private func scratchFolder() throws -> URL {
+    let folder = FileManager.default.temporaryDirectory
+        .appendingPathComponent("shots-media-tests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder
 }
 
 extension Pixels {
