@@ -6,6 +6,20 @@ import Testing
 @Suite("Shots scene and import actions")
 @MainActor
 struct ShotsSceneActionsTests {
+    @Test func exportCapturesCommittedShotRatherThanTransientPreviewOrLaterEdits() throws {
+        let store = try makeStore(ShotsSamples.twoPersonWalk())
+        let shot = try #require(store.currentShot)
+        let committed = try #require(store.currentScene)
+        store.preview = .setFrameCount(shot.id, 22)
+        #expect(store.currentShot?.frameCount == 22)
+        let snapshot = try store.exportSnapshot()
+        #expect(snapshot.scene == committed)
+        #expect(snapshot.shotID == shot.id)
+        try store.perform(.renameShot(shot.id, name: "A later edit"))
+        #expect(snapshot.scene == committed)
+        #expect(snapshot.scene != store.currentScene)
+    }
+
     @Test func newAndCopiedShotsSelectTheirSceneAndUndoAsWholeEdits() throws {
         let store = try makeStore(ShotsDocument(version: 1))
         let sceneID = try store.createScene()

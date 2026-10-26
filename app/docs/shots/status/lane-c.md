@@ -9,7 +9,7 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `s
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
 | C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
-| C3: lists, import and export | Model preparation on `shots/c-scenes` | Visible controls, settings, import picker, B3 exporter and IT3. |
+| C3: lists, import and export | Implementation preparation on `shots/c-scenes` | B3 current-main exporter, IT3 and independent review/CI. |
 | C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
 | C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
 | C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
@@ -143,3 +143,26 @@ entity's actual index. The corrected test passes. No production behavior was cha
 **Not yet delivered/verified:** complete scene/shot controls and settings, file picker, export progress,
 Cancel/reveal, and IT3. B3 must be refreshed and accepted on current main before real export acceptance.
 The existing B3 owner request 6417151440 remains unacknowledged; no Lane B exporter is duplicated.
+
+
+### C3 visible controls and export preparation
+
+Scene menus and shot context menus now offer add, rename, copy and delete. The JSON file picker calls
+real Blockout import, scopes file access for the read, and displays import counts and notes. Shot
+settings offer frame-grid stepping and seconds/trained-range guidance, canvas presets or custom
+32-pixel steps, and lighting. All edits use existing commands. Read-only documents remain navigable.
+
+The export control captures committed scene/shot values (not transient previews or subsequent edits),
+flushes pending saves and calls Lane B's declared exporter with `<project>/Shots`, progress, Cancel,
+and Finder reveal. The exporter on main is still B0's stub: **working export and IT3 are not claimed**.
+No Lane B implementation or contract was replaced.
+
+**Run and passed:** native focused run: 51 tests in 13 suites, including the committed export-snapshot
+regression; strict lint on six changed Swift files; pinned formatting. Offscreen preview script passed
+one test and produced eight PNGs: empty/sample × light/dark × minimum/default sizes. Minimum-size
+light/dark sample captures inspected: the four regions and settings fit. Offscreen RealityKit remains
+blank by design; these captures do not prove live keyboard/VoiceOver or native picker interaction.
+
+**Pending:** B3 refresh and acceptance, real export/validator IT3, independent C3 review and exact-head
+CI. C2's original provider summary 6418233026 subsequently completed cleanly at `1c46f19` at 17:28 UTC;
+the supplemental independent record is retained.

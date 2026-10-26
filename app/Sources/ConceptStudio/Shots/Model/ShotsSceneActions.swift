@@ -2,6 +2,15 @@ import Foundation
 import PrevisCore
 
 extension ShotsStore {
+    /// An export uses committed values even while a drag has a transient preview.
+    func exportSnapshot() throws -> (scene: PrevisScene, shotID: ShotID) {
+        guard let currentShotID,
+              let scene = document.scenes.first(where: { $0.shots.contains { $0.id == currentShotID } }) else {
+            throw ShotsEditingError.missing("shot")
+        }
+        return (scene, currentShotID)
+    }
+
     func selectShot(_ id: ShotID?) {
         guard let id,
               let scene = document.scenes.first(where: { $0.shots.contains { $0.id == id } }) else { return }
