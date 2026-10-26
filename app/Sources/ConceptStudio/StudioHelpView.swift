@@ -63,8 +63,10 @@ struct StudioHelpView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Shots").font(.headline).accessibilityAddTraits(.isHeader)
                 Text("Shots is derived from Blockout by Sam Wasserman (wassermanproductions.com), Apache-2.0.")
-                Link("Sam Wasserman’s website", destination: URL(string: "https://wassermanproductions.com")!)
-                    .tint(.primary)
+                Link(destination: URL(string: "https://wassermanproductions.com")!) {
+                    Text("Sam Wasserman’s website").foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
                 Divider()
                 Text(PrevisCoreAttribution.notice()).font(.callout).textSelection(.enabled)
             }
