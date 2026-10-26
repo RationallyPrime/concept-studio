@@ -37,10 +37,12 @@ writing are later checkpoints. D0 remains an unmerged owner artifact; no C1 acce
 
 ## Verification
 
-An isolated validation composition used main `93dbb764`, published D0 code from PR #61 (`2755bef`),
-and the six owned C1 source/test files. No replacement viewport implementation was used.
+Initial isolated validation used main `93dbb764` plus published D0 and C1 sources. The current C1
+branch is stacked on published D0 PR #61 (`4547289`) over main `89d9e7d`; its two original C1 patches
+rebased cleanly. No replacement viewport implementation was used. D0 remains an explicit dependency.
 
-- **Run and passed:** native SwiftPM `--filter 'Shots|Viewport'`: 31 tests in nine suites. Includes
+- **Run and passed:** native SwiftPM `--filter 'Shots|Viewport'` on the actual published D0 base:
+  31 tests in nine suites. Includes
   workspace entry/return and explicit training destination coverage, close/save, store and viewport math.
 - **Run and passed:** changed-file strict SwiftLint and pinned SwiftFormat, plus whitespace checks.
 - **Run and passed:** `CONCEPTSTUDIO_PREVIEW_SCREENS=shots-empty,shots-sample scripts/render-app-preview.sh`
