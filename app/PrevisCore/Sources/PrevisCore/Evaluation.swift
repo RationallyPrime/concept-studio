@@ -1,7 +1,6 @@
 import Foundation
 
-// Evaluation values, CONTRACTS section 5.4. The evaluator itself is in ShotEvaluator.swift. Until A3 each entity is
-// one grey box (footprint × height) at its evaluated pose.
+// Evaluation values, CONTRACTS section 5.4. The evaluator itself is in ShotEvaluator.swift; bodies are in Bodies.swift.
 
 public struct SceneFrame: Sendable, Equatable {
     public var index: Int? // set when evaluated on the grid
@@ -171,12 +170,9 @@ public struct EntityFrame: Sendable, Equatable {
         self.bounds = bounds
     }
 
-    /// One grey box (footprint × height) at the evaluated pose; bodies replace it from A3.
+    /// The entity's body at the evaluated pose: a rig, static parts or a grey box (see Bodies.swift).
     static func posed(_ entity: PrevisEntity, asset: AssetSpec, state: EntityPose) -> EntityFrame {
-        let scale = entity.placement.scale
-        let size = Vec3(asset.footprint, asset.height, asset.footprint)
-        let centre = state.position + Vec3(0, asset.height * scale / 2, 0)
-        let half = Vec3(asset.footprint * scale / 2, 0, asset.footprint * scale / 2)
+        let body = Bodies.build(entity, asset: asset, state: state)
         return EntityFrame(
             id: entity.id,
             assetID: entity.assetID,
@@ -189,23 +185,14 @@ public struct EntityFrame: Sendable, Equatable {
             speed: state.speed,
             distanceTravelled: state.distanceTravelled,
             joints: state.joints,
-            parts: [
-                PosedPart(
-                    id: "body",
-                    shape: .box(size: size),
-                    transform: Mat4.translation(centre) * Mat4.rotation(.yaw(state.heading)) * Mat4.scale(scale),
-                    color: RGB(hex: "#808080")
-                ),
-            ],
-            bounds: Box3(
-                min: state.position - half,
-                max: state.position + half + Vec3(0, asset.height * scale, 0)
-            )
+            parts: body.parts,
+            keypoints: body.keypoints,
+            bounds: body.bounds
         )
     }
 }
 
-/// An entity's evaluated pose before bodies are attached.
+/// An entity's evaluated pose before its body is built.
 struct EntityPose {
     var position: Vec3
     var heading: Double
@@ -213,6 +200,7 @@ struct EntityPose {
     var speed = 0.0
     var distanceTravelled = 0.0
     var joints: [Joint: Double] = [:]
+    var time = 0.0
 }
 
 public struct PosedPart: Sendable, Equatable {
