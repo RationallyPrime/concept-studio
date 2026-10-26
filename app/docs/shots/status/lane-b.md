@@ -27,7 +27,15 @@ This file travels at the top of Lane B's stack (now `shots/b-media-b3`), so chec
 - **Inverse checks:** three deliberate breaks each fail their test: joints drawn under limbs, white non-actors in a matte, and no staging cleanup.
 - **CLI run:** `shots-export --sample --out <dir>` exits 0 in 3 s and prints the package path.
 
-**Waiting on Lane A:** A0's evaluator gives one grey box per entity and no keypoints. Until A3, pose videos are black and mattes are boxes. IT1's keypoint-pixel check joins then.
+**Independent review:** Codex reviewed `1568c38`, at the coordinator's request, and raised two P2 findings. Both are fixed in `448a371`:
+- **Matte slugs:** they could collide, so one actor's matte overwrote another's. The validator now also reports a repeated path.
+- **Boxes crossing the camera plane:** they were underestimated. Box edges are now cut at the near plane.
+- **Regressions:** three new tests, none needing a GPU, fail before the fix.
+- **Still open:** one bounded closure review.
+
+**CI** at `949e41f` and `1568c38`: all seven jobs pass, and IT1 executed, taking 99 s and 134 s of wall clock. The `swift test` step took 224 s and 244 s of the 300 s watchdog.
+
+**Acceptance gate, A3 → B3:** pose is verified with constructed keypoints, and the sample's pose video is black under A0. That doesn't establish integrated M1. B3's acceptance with real bodies waits on A3, when IT1's keypoint-pixel check joins.
 
 **Not yet built:** prompt files, which arrive with B5. |
 | B4–B7 | Not started |
@@ -93,11 +101,16 @@ integrator or the owner asks.
 
 ## Open questions
 
-- **IT1's CI cost (Lane B, B3): a correction.** Earlier this file read B2's 89 s clean-video test as about 4 s per frame on CI.
-  - That was wrong. Per-test times in the CI log include waiting for the main actor behind other suites: B2's writer test, which
-    renders nothing, also showed 25.7 s.
-  - At `2286487`, the whole app test run, every render test included, took 67 s, and the `swift test` step took 127 s of the
-    300 s watchdog.
-  - B3's first CI run is the first with IT1 (a full 124-frame export, kept as specified) and gives its real cost.
+- **CI budget (for the integrator).**
+  - **The correction:** earlier this file read B2's 89 s clean-video test as about 4 s per frame on CI. That was wrong. Per-test
+    times include waiting for the main actor: B2's writer test, which renders nothing, also showed 25.7 s.
+  - **Measured with IT1 (B3, two runs):** the app's `swift test` step took 224 s and 244 s of its 300 s watchdog, about 70 s of
+    that building tests.
+  - **What's still coming:** about a minute of headroom remains, and Lane A's real evaluator, IT2 and other lanes' tests are
+    ahead.
+  - **Options:**
+    - run `ShotsMediaTests` as its own CI step, with its own watchdog, skipped from the app step;
+    - raise the app step's limit.
+    Both change shared CI configuration, so Lane B proposes and doesn't pick.
 
 - Where does Lane D run? It needs macOS with Xcode and RealityKit.
