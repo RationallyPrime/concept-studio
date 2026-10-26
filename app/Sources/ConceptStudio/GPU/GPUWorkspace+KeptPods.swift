@@ -13,6 +13,24 @@ extension GPUWorkspace {
             keptPods.append(saved)
             persistKeptPods()
         }
+        releaseActivePod()
+    }
+
+    /// Stops tracking a cloud GPU RunPod refused to stop, so another can be rented. Called only after the view has
+    /// warned that it may still be running and billing on RunPod.
+    func forgetActivePod() async {
+        guard pod != nil, stopRefused, !isStopping else { return }
+        monitorTask?.cancel()
+        refreshTask?.cancel()
+        await refreshTask?.value
+        let id = pod?.id ?? ""
+        releaseActivePod()
+        message = "ConceptStudio no longer tracks cloud GPU \(id). Stop or delete it in your RunPod account; "
+            + "until then it may keep billing."
+    }
+
+    private func releaseActivePod() {
+        stopRefused = false
         self.pod = nil
         saved = nil
         agent = nil
