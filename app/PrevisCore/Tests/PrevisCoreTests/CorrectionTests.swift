@@ -87,50 +87,76 @@ struct CorrectionTests {
         #expect(abs(turn(during.first ?? 0, -.pi / 2)) < 0.05 && abs(turn(during.last ?? 0, .pi)) < 1e-9)
     }
 
-    @Test func aTurnAtAMarkWithAHoldBlendsOverThatHold() throws {
-        let marks = [
-            mark("a", 0, Vec3(0, 0, 0)), mark("b", 2, Vec3(3, 0, 0), hold: 1, heading: .pi),
-            mark("c", 5, Vec3(3, 0, 3)),
-        ]
-        let evaluator = try evaluator(staged(marks), .all)
-        // walking: the travel heading, no early turn
-        let walking = try headings(evaluator, from: 0.5, to: 1.9)
-        #expect(walking.allSatisfy { abs(turn($0, -.pi / 2)) < 1e-6 })
-        // arrived, holding: turns monotonically to π by the time it leaves
-        let holding = try headings(evaluator, from: 2, to: 3)
-        let steps = zip(holding, holding.dropFirst()).map { turn($0, $1) }
-        #expect(steps.allSatisfy { $0 * (steps.first ?? 1) >= -1e-12 } && abs(turn(holding.last ?? 0, .pi)) < 1e-6)
-        #expect(abs(turn(holding.first ?? 0, -.pi / 2)) < 1e-6, "starts from the arrival heading")
-    }
-
-    /// LANE-A-CORE says an authored turn blends "over the hold before its mark". This implementation turns the actor
-    /// during
-    /// the hold AT the mark, after arriving (reading 1). Pending the plan maintainer's disposition (PR 67 comment
-    /// 6418243985) this pins reading 1 with an example whose intervals do not overlap, so monotonic motion alone cannot
-    /// stand in for the timing. The man faces +x (placement −π/2); A waits 1 s, then he walks 3 m to B, arriving at t =
-    /// 3
-    /// with a 1 s hold and an authored facing of π; the next mark C is at t = 6.
+    /// The plan maintainer's rule (PR 67 comment 6424533971): an authored turn finishes on arrival, blending over the
+    /// leg
+    /// that arrives at the mark from the facing at departure, with that leg's easing. The mark's own hold then keeps
+    /// the
+    /// facing it arrived with, as Blockout does. Legs into marks without an authored facing keep facing along travel.
     ///
-    ///     time        0.5      2.5      3.5      (heading in radians, π ≡ −π)
-    ///     reading 1   −π/2     −π/2     −3π/4    turn during B's hold, [3, 4]            (implemented)
-    ///     reading 2   −π/2     −3π/4    π        turn during the hold before B, [2, 3]   (not implemented)
-    ///     reading 3   −3π/4    −π/2     π        turn during A's hold, [0, 1]            (not implemented)
-    @Test func theTurnTimingExampleDiscriminatesTheReadingsOfTheHoldBeforeItsMark() throws {
-        let a = ActorMark(
-            id: "a", time: 0, hold: 1, easeIn: 0, easeOut: 0, position: .zero, gait: .walk
-        )
+    /// One spot, placement heading 0, every ease 0 so progress is linear. P: t = 1 s, hold 2, facing 0. M: t = 5 s,
+    /// hold 3,
+    /// facing π/2. N: t = 10 s, hold 0, facing 0. P→M departs at 3 and arrives at 5; M→N departs at 8 and arrives at
+    /// 10.
+    ///
+    ///     t (s)                      2   3   4       5       6.5     8       9       10
+    ///     intended (implemented)     0   0   0.7854  1.5708  1.5708  1.5708  0.7854  0
+    ///     turn after arrival         0   0   0       0       0.7854  1.5708  0.7854  0     not accepted
+    ///     turn in previous hold      0.7854 1.5708 1.5708 1.5708 0.7854 0   0   0      not accepted
+    ///     Blockout (legacy)          0   0   0       0       1.5708  0       0       0     snaps just after arrival
+    @Test func theMaintainersTableForTheTurnIntoAMarkHoldsEverywhere() throws {
+        func stand(_ id: String, _ time: Double, hold: Double, _ heading: Double) -> ActorMark {
+            ActorMark(
+                id: id, time: time, hold: hold, easeIn: 0, easeOut: 0,
+                position: .zero, gait: .stand, arriveHeading: heading
+            )
+        }
         let marks = [
-            a, mark("b", 3, Vec3(3, 0, 0), hold: 1, heading: .pi),
-            mark("c", 6, Vec3(3, 0, 3)),
+            stand("p", 1, hold: 2, 0), stand("m", 5, hold: 3, .pi / 2), stand("n", 10, hold: 0, 0),
         ]
-        let evaluator = try evaluator(staged(marks, heading: -.pi / 2), .all)
-        func heading(_ t: Double) throws -> Double {
+        var scene = staged(marks, heading: 0)
+        scene.shots[0].frameCount = 244 // 10.125 s, so the table's times up to 10 s are inside the shot
+        let corrected = try evaluator(scene, .all), legacy = try evaluator(scene, [])
+        func heading(_ evaluator: ShotEvaluator, _ t: Double) throws -> Double {
             try #require(evaluator.frame(at: t).entities.first { $0.id == man.id }).heading
         }
-        #expect(try abs(turn(heading(0.5), -.pi / 2)) < 1e-9, "readings 1 and 2 agree before the walk")
-        #expect(try abs(turn(heading(2.5), -.pi / 2)) < 1e-9, "reading 1: still walking toward B at 2.5 s")
-        #expect(try abs(turn(heading(3.5), -3 * .pi / 4)) < 1e-9, "reading 1: halfway through B's hold at 3.5 s")
-        #expect(try abs(turn(heading(4), .pi)) < 1e-9, "and facing π when the hold ends")
+        let intended: [(Double, Double)] = [
+            (2, 0), (3, 0), (4, .pi / 4), (5, .pi / 2), (6.5, .pi / 2), (8, .pi / 2), (9, .pi / 4), (10, 0),
+        ]
+        for (t, expected) in intended {
+            let got = try heading(corrected, t)
+            #expect(abs(turn(got, expected)) < 1e-9, "t = \(t): \(got) vs \(expected)")
+        }
+        // Blockout's column: it shows the arrived facing only while standing at the mark (6.5 s) and falls back to the
+        // placement on every leg, snapping just after arrival. So the default evaluator matches it in every hold and
+        // differs only on the legs that arrive at an authored facing.
+        let blockout: [(Double, Double)] = [(2, 0), (3, 0), (4, 0), (5, 0), (6.5, .pi / 2), (8, 0), (9, 0), (10, 0)]
+        for (t, expected) in blockout {
+            let got = try heading(legacy, t)
+            #expect(abs(turn(got, expected)) < 1e-9, "Blockout at t = \(t): \(got) vs \(expected)")
+        }
+        for t in [2.0, 6.5] {
+            #expect(
+                try abs(turn(heading(corrected, t), heading(legacy, t))) < 1e-9,
+                "a hold at t = \(t) matches Blockout"
+            )
+        }
+    }
+
+    @Test func aTravellingLegIntoAnAuthoredFacingTurnsFromTheDepartureFacingNotTheTravelDirection() throws {
+        // A defender is pushed back along +x while keeping the facing it had; the arriving mark authors the same
+        // facing.
+        let marks = [
+            mark("a", 0, Vec3(0, 0, 0), heading: .pi), mark("b", 4, Vec3(6, 0, 0), heading: .pi),
+        ]
+        let evaluator = try evaluator(staged(marks), .all)
+        for t in [0.5, 1.5, 2.5, 3.5] {
+            let got = try #require(evaluator.frame(at: t).entities.first { $0.id == man.id }).heading
+            #expect(abs(turn(got, .pi)) < 1e-9, "facing the attacker while pushed back at \(t): \(got)")
+        }
+        // without an authored facing the same leg faces along travel, as in Blockout
+        let plain = try self.evaluator(staged([mark("a", 0, Vec3(0, 0, 0)), mark("b", 4, Vec3(6, 0, 0))]), .all)
+        let travelling = try #require(plain.frame(at: 2).entities.first { $0.id == man.id }).heading
+        #expect(abs(turn(travelling, -.pi / 2)) < 1e-9)
     }
 
     // MARK: Vertical moves

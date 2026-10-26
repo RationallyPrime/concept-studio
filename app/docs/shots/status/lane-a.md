@@ -31,23 +31,22 @@ them), and pins the exact inventory of intentional deltas:
 Every other channel, 17 295 of them in the 8 scenes, agrees within 1e-9. A delta that disappears or a new one that appears fails the test.
 
 **A5 decisions.**
-- *Authored turns (defect 1) — timing is an open interpretation, not a rewrite of the contract.* LANE-A-CORE says a turn blends "over the
-  hold before its mark, or over the whole leg when there is no hold". This implementation turns the actor during the hold **at** the mark, after
-  it arrives (reading 1), and over the whole arriving leg when the mark has no hold. Other readings of "the hold before its mark" put the turn
-  elsewhere: during a hold of the same length that ends at the mark (reading 2), or during the previous mark's hold (reading 3). The text does
-  not decide between them and the intended timing has not been confirmed (PR 67 comment 6418243985; Lane B has not acknowledged and no maintainer
-  approval has been received). Example that tells them apart: the man faces +x; A (t = 0) holds 1 s; he walks 3 m to B (t = 3, hold 1 s, authored
-  facing π); C is at t = 6.
+- *Authored turns (defect 1) — the plan maintainer's ruling, PR 67 comment 6424533971.* An authored turn **finishes on arrival**: it blends
+  over the leg that arrives at the mark, from the facing the actor has at departure (the end of the previous mark's hold), with that leg's easing.
+  The mark's own `hold` keeps the arrived facing, as in Blockout. A leg between two marks on one spot is an in-place turn, a travelling leg into an
+  authored facing turns while it travels (from the departure facing, not the travel direction), and a leg into a mark with no authored facing keeps
+  facing along travel. "The hold before its mark" meant the actor standing still before reaching the mark, i.e. a leg between marks on one spot;
+  it does not mean `Mark.hold`. A turn after arrival is not accepted. The `LANE-A-CORE.md` A5 bullet carries the authorized wording. Example
+  (one spot, placement 0, all eases 0): P at t = 1, hold 2, facing 0; M at t = 5, hold 3, facing π/2; N at t = 10, hold 0, facing 0.
 
-  | time | 0.5 | 2.5 | 3.5 | turn happens during |
-  |---|---|---|---|---|
-  | reading 1 (implemented) | −π/2 | −π/2 | −3π/4 | B's hold, [3, 4] |
-  | reading 2 (not implemented) | −π/2 | −3π/4 | π | the hold before B, [2, 3] |
-  | reading 3 (not implemented) | −3π/4 | −π/2 | π | A's hold, [0, 1] |
+  | t (s) | 2 | 3 | 4 | 5 | 6.5 | 8 | 9 | 10 |
+  |---|---|---|---|---|---|---|---|---|
+  | implemented (the ruling) | 0 | 0 | 0.7854 | 1.5708 | 1.5708 | 1.5708 | 0.7854 | 0 |
+  | Blockout, legacy | 0 | 0 | 0 | 0 | 1.5708 | 0 | 0 | 0 |
 
-  `CorrectionTests.theTurnTimingExampleDiscriminatesTheReadingsOfTheHoldBeforeItsMark` pins reading 1 with these numbers; if the intended
-  timing differs it fails and the change is one rule in `ActorPlan`. A monotonic turn after arrival is not evidence for a turn before it.
-  Easing is the same `easedProgress` as position.
+  `CorrectionTests.theMaintainersTableForTheTurnIntoAMarkHoldsEverywhere` pins both rows. The default evaluator equals Blockout in every hold and
+  differs only on the legs that arrive at an authored facing (and vertical legs); `FeatureParityTests` now scopes the heading delta to those legs'
+  time intervals and requires an exact match everywhere else (in `actors-paths-ease-hold`, 61 corrected samples where there were 145).
 - *Vertical moves (defect 2).* A leg with no horizontal motion keeps the heading it had.
 - *Attachment graph (defects 3 and 4).* One graph, parents first, full quaternion transforms: a child's offset is in its parent's full orientation
   and its orientation is the parent's times the attachment's rotation. Boarding is an edge in the same graph, captured from the vehicle's resolved

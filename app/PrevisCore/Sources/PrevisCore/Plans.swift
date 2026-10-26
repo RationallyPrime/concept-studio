@@ -184,7 +184,7 @@ struct ActorPlan: Sendable {
         for index in sorted.indices {
             if index > 0 {
                 let leg = plan.legs[index - 1], mark = sorted[index]
-                if turns, let heading = mark.arriveHeading, mark.hold <= 0 {
+                if turns, let heading = mark.arriveHeading {
                     arrive[index] = heading
                 } else if leg.path.length > 0.001 {
                     arrive[index] = vertical
@@ -243,8 +243,10 @@ struct ActorPlan: Sendable {
             let leg = track.legs[index]
             let from = marks[leg.from], to = marks[leg.to]
             let start = departure[leg.from]
-            // An authored turn at a mark with no hold blends over the whole leg that arrives at it.
-            if turns, let heading = to.arriveHeading, to.hold <= 0 {
+            // An authored facing is reached on arrival: the turn blends over the leg that arrives at the mark, from the
+            // facing the actor has at departure, with the leg's easing. A leg between marks on one spot is an in-place
+            // turn, and a travelling leg turns while it travels.
+            if turns, let heading = to.arriveHeading {
                 return lerpAngle(start, heading, easedProgress(r.legProgress, easeOut: from.easeOut, easeIn: to.easeIn))
             }
             if let travel = r.travelHeading {
@@ -255,13 +257,8 @@ struct ActorPlan: Sendable {
         }
         guard let mark = r.atMark else { return fallback }
         guard turns else { return blockoutHeading(r, at: time, fallback: fallback) }
-        let m = marks[mark]
-        guard let heading = m.arriveHeading else { return arrival[mark] }
-        // An authored turn at a mark with a hold blends over that hold; one with none is already done.
-        let window = track.legs.first { $0.from == mark }.map { $0.depart - m.time } ?? m.hold
-        guard m.hold > 0, window > 0, time < m.time + window else { return heading }
-        let u = easedProgress((time - m.time) / window, easeOut: m.easeIn, easeIn: m.easeOut)
-        return lerpAngle(arrival[mark], heading, u)
+        // Standing at a mark, whatever its hold: the facing it was reached with, as in Blockout.
+        return marks[mark].arriveHeading ?? arrival[mark]
     }
 
     /// Joints missing from one side read as 0.

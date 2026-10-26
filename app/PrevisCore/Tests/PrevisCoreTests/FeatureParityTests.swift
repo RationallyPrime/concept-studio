@@ -63,31 +63,16 @@ struct FeatureParityTests {
         #expect(inventory == expected, "\(inventory)")
     }
 
-    /// The entities with an authored turn or a vertical leg, and those that ride or are attached to one of them.
-    private static func turningEntities(
-        in scene: PrevisScene,
-        shot: Shot
-    ) -> (turning: Set<String>, moved: Set<String>) {
-        let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
-        var turning = Set<String>()
-        for track in take?.tracks ?? [] {
-            let marks = track.marks.sorted { $0.time < $1.time }
-            let vertical = zip(marks, marks.dropFirst()).contains {
-                abs($1.position.x - $0.position.x) < 1e-9 && abs($1.position.z - $0.position.z) < 1e-9
-                    && $1.position.y != $0.position.y
-            }
-            if marks.contains(where: { $0.arriveHeading != nil }) || vertical { turning.insert(track.entityID) }
+    /// Where the corrected heading may differ from Blockout's: the legs that arrive at an authored facing, and vertical
+    /// legs, never a hold. An entity that rides or is attached to such an entity differs while its parent does.
+    private struct Affected {
+        var legs: [String: [ClosedRange<Double>]]
+        var parents: [String: Set<String>]
+
+        func turning(_ id: String, at t: Double) -> Bool {
+            legs[id, default: []].contains { ($0.lowerBound - 1e-9 ... $0.upperBound + 1e-9).contains(t) }
         }
-        // An entity that rides or is attached to a turning one turns and moves with it.
-        var parents: [String: Set<String>] = [:]
-        for entity in scene.entities {
-            if let parent = entity.attachment?.parentID { parents[entity.id, default: []].insert(parent) }
-        }
-        for track in take?.tracks ?? [] {
-            for board in track.marks.compactMap(\.boardID) {
-                parents[track.entityID, default: []].insert(board)
-            }
-        }
+
         func ancestors(of id: String) -> Set<String> {
             var found = Set<String>()
             var frontier = Array(parents[id] ?? [])
@@ -97,8 +82,39 @@ struct FeatureParityTests {
             }
             return found
         }
-        let moved = Set(scene.entities.map(\.id).filter { !ancestors(of: $0).isDisjoint(with: turning) })
-        return (turning, moved)
+
+        func moved(_ id: String, at t: Double) -> Bool {
+            ancestors(of: id).contains { turning($0, at: t) }
+        }
+
+        func headingDiffers(_ id: String, at t: Double) -> Bool {
+            turning(id, at: t) || moved(id, at: t)
+        }
+    }
+
+    private static func affected(in scene: PrevisScene, shot: Shot) -> Affected {
+        let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
+        var legs: [String: [ClosedRange<Double>]] = [:]
+        var parents: [String: Set<String>] = [:]
+        for track in take?.tracks ?? [] {
+            let marks = track.marks.enumerated()
+                .sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }.map(\.element)
+            for (from, to) in zip(marks, marks.dropFirst()) {
+                let vertical = abs(to.position.x - from.position.x) < 1e-9 && abs(to.position.z - from.position.z) <
+                    1e-9
+                    && to.position.y != from.position.y
+                guard to.arriveHeading != nil || vertical else { continue }
+                let depart = min(from.time + from.hold, max(from.time, to.time - 0.1))
+                legs[track.entityID, default: []].append(depart ... max(to.time, depart + 0.001))
+            }
+            for board in track.marks.compactMap(\.boardID) {
+                parents[track.entityID, default: []].insert(board)
+            }
+        }
+        for entity in scene.entities {
+            if let parent = entity.attachment?.parentID { parents[entity.id, default: []].insert(parent) }
+        }
+        return Affected(legs: legs, parents: parents)
     }
 
     /// Whether the camera's orientation or lens differs between any two consecutive marks.
@@ -141,8 +157,7 @@ struct FeatureParityTests {
     private func check(_ golden: [String: Any], named name: String, catalog: ContentCatalog) throws -> Tally {
         let loaded = try load(golden, named: name, catalog: catalog)
         let (scene, shot, evaluator, duration) = (loaded.scene, loaded.shot, loaded.evaluator, loaded.duration)
-        let (turning, moved) = Self.turningEntities(in: scene, shot: shot)
-        let turned = turning.union(moved)
+        let affected = Self.affected(in: scene, shot: shot)
         let cameraAnimates = Self.cameraAnimates(shot)
 
         var tally = Tally()
@@ -194,9 +209,9 @@ struct FeatureParityTests {
                 let id = try #require(entityRef["entityId"] as? String)
                 let mine = try #require(frame.entities.first { $0.id == id })
                 let pos = try #require(entityRef["position"] as? [String: Double])
-                try compare("\(id).x", mine.position.x, #require(pos["x"]), t, corrected: moved.contains(id))
+                try compare("\(id).x", mine.position.x, #require(pos["x"]), t, corrected: affected.moved(id, at: t))
                 try compare("\(id).y", mine.position.y, #require(pos["y"]), t, corrected: false)
-                try compare("\(id).z", mine.position.z, #require(pos["z"]), t, corrected: moved.contains(id))
+                try compare("\(id).z", mine.position.z, #require(pos["z"]), t, corrected: affected.moved(id, at: t))
                 try compare(
                     "\(id).distance",
                     mine.distanceTravelled,
@@ -207,7 +222,7 @@ struct FeatureParityTests {
                 try compare("\(id).speed", mine.speed, #require(entityRef["speed"] as? Double), t, corrected: false)
                 try compare(
                     "\(id).heading", mine.heading, #require(entityRef["heading"] as? Double), t,
-                    corrected: turned.contains(id), angle: true
+                    corrected: affected.headingDiffers(id, at: t), angle: true
                 )
                 #expect(mine.gait.rawValue == entityRef["gait"] as? String, "\(name) \(id) gait at t=\(t)")
             }
