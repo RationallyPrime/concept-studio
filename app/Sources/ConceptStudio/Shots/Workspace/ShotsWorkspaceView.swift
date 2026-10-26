@@ -6,7 +6,7 @@ struct ShotsWorkspaceView: View {
 
     var body: some View {
         if let store = session.shots {
-            ShotsWorkspaceContent(store: store)
+            ShotsWorkspaceContent(store: store, projectDirectory: session.project?.directory)
         } else {
             ContentUnavailableView(
                 "Shots is unavailable", systemImage: "film",
@@ -18,6 +18,7 @@ struct ShotsWorkspaceView: View {
 
 private struct ShotsWorkspaceContent: View {
     @Bindable var store: ShotsStore
+    let projectDirectory: URL?
     @State private var showsShotCamera = false
 
     var body: some View {
@@ -34,26 +35,7 @@ private struct ShotsWorkspaceContent: View {
 
     private var sceneColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Scenes and shots").font(.headline).padding(12)
-            List(selection: Binding(get: { store.currentShotID }, set: { selectShot($0) })) {
-                ForEach(store.document.scenes, id: \.id) { scene in
-                    Section(scene.name) {
-                        ForEach(scene.shots, id: \.id) { shot in
-                            Label(shot.name, systemImage: "film").foregroundStyle(.primary).tag(shot.id)
-                        }
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-            .accessibilityLabel("Scenes and shots")
-            .overlay {
-                if store.document.scenes.isEmpty {
-                    Text("Start with a scene, then frame its shot.")
-                        .font(.callout).foregroundStyle(.secondary).padding()
-                }
-            }
-            Button("New scene", systemImage: "plus", action: addScene)
-                .disabled(store.isReadOnly).padding(12)
+            ShotsSceneList(store: store)
             Divider()
             Text("Library").font(.headline).padding(12)
             ScrollView {
@@ -88,13 +70,9 @@ private struct ShotsWorkspaceContent: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Inspector").font(.headline)
                 Divider()
-                if let shot = store.currentShot {
-                    Text(shot.name).font(.title3)
-                    LabeledContent("Frames", value: "\(shot.frameCount)")
-                    LabeledContent("Canvas", value: "\(shot.canvas.width) × \(shot.canvas.height)")
-                } else {
-                    Text("Choose a shot to see its settings.").foregroundStyle(.secondary)
-                }
+                ShotsShotSettings(store: store)
+                Divider()
+                ShotsExportView(store: store, projectDirectory: projectDirectory)
                 if store.isReadOnly {
                     Label("Read only", systemImage: "lock").foregroundStyle(.secondary)
                 }
@@ -123,23 +101,5 @@ private struct ShotsWorkspaceContent: View {
             .accessibilityValue("Frame \(store.playhead)")
         }
         .padding(12)
-    }
-
-    private func selectShot(_ id: ShotID?) {
-        guard let id,
-              let scene = store.document.scenes.first(where: { $0.shots.contains { $0.id == id } }) else { return }
-        store.preview = nil
-        store.selection = .none
-        store.currentSceneID = scene.id
-        store.currentShotID = id
-    }
-
-    private func addScene() {
-        let sceneID = store.newID("scene"), shotID = store.newID("shot")
-        store.run(.addScene(
-            id: sceneID, name: "New scene", takeID: store.newID("take"), shotID: shotID,
-            cameraMarkID: store.newID("camera")
-        ))
-        if store.document.scenes.contains(where: { $0.id == sceneID }) { selectShot(shotID) }
     }
 }

@@ -1,6 +1,6 @@
 # Lane C status
 
-Owner: Ari (Codex). Current checkpoint branch: `shots/c-commands` (C0/C1 branch `shots/c-shell` retained).
+Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `shots/c-shell` retained).
 
 ## Checkpoints
 
@@ -8,8 +8,8 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-commands` (C0/C1 branch 
 | --- | --- | --- |
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
-| C2: commands, persistence and undo | Implemented review preparation on `shots/c-commands` | Independent review, exact-head CI and live menu/keyboard verification. |
-| C3: lists, import and export | Pending | B3 exporter and real A3 bodies/keypoints; IT3. |
+| C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
+| C3: lists, import and export | Implemented on accepted B3/main, `shots/c-scenes` | Independent current-head review and CI. |
 | C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
 | C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
 | C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
@@ -84,7 +84,7 @@ No PRODUCT.md change or C6 acceptance is claimed.
 ## C2 review preparation (`shots/c-commands`)
 
 Based on actually merged C1 PR #66, main `08cfd92d432492a048b75c39f14ea46675b9d5d5`.
-Both C2 preparation commits replay unchanged (`=` range-diff). C2 acceptance remains pending.
+Both C2 preparation commits replay unchanged (`=` range-diff). C2 subsequently passed independent acceptance and exact-head CI and merged; see the landing record below.
 
 - Extends the single document command entry with duplicate/import, camera settings, mark deletion and
   entity-reference cleanup. Duplicate camera-mark identifiers derive deterministically from the supplied
@@ -112,9 +112,108 @@ the missing-file/empty-document failure; polling opportunities instead of wall t
 under the same stall. The injected stall is not committed, production debounce/save code and
 CI watchdog are unchanged, and file existence plus full document equality remain required.
 Post-repair: 45 focused tests/12 suites passed; core run passed with oracle parity explicitly
-skipped; full strict lint and pinned formatting passed. Fresh full CI/review remain pending.
+skipped; full strict lint and pinned formatting passed. Fresh CI `40367485595` passed all seven jobs, including the complete app/core, lint and formatting gates.
 
 **Not run:** complete local app suite, live menu/keyboard/VoiceOver and signed integration.
 The foreground walkthrough is deferred while the user works on a time-sensitive grant form.
-C2 acceptance requires independent review, exact-head CI and native live focus verification;
-no M1/M2 claim is made.
+The live walkthrough remains manual integration coverage; the actual C2 Verify section does not
+make it a separate checkpoint gate. No live keyboard/VoiceOver or M1/M2 claim is made.
+
+
+## C2 accepted and C3 preparation
+
+C2 PR #68 head `1c46f1932b22051cf6f05196ae1a14f40ed181d1` merged with a merge commit as
+`bf9ab743e61bf8bdae19f2c58b619e0b73879701`. All seven CI jobs passed in run `40367485595`;
+separate independent acceptance is recorded at
+[6422841587](https://github.com/RationallyPrime/concept-studio/pull/68#issuecomment-6422841587),
+with landing receipt 6423024829. The original slow provider job remains untouched.
+
+C3 preparation starts from that accepted main in the existing owned worktree, with the C2 branch
+preserved. Scene copies allocate new identifiers and remap internal attachment, blocking, camera and
+character-note references. Shot/scene creation, copying and actual Blockout import use the existing
+command boundary, select the created content and preserve undo. Invalid imports leave the document,
+preview and selection intact. These are model actions, not completed C3 surfaces.
+
+**Run and passed:** native SwiftPM `--filter 'Shots|Viewport'`: 50 tests in 13 suites. Five new scene
+and import tests cover graph identity/references, source preservation, selection, undo, real sample
+import notes and failed-import atomicity. Four changed Swift files pass strict lint and pinned format.
+An initial test fixture assumed the wrong sample entity index; the fixture now records the appended
+entity's actual index. The corrected test passes. No production behavior was changed for that fixture.
+
+**Not yet delivered/verified:** complete scene/shot controls and settings, file picker, export progress,
+Cancel/reveal, and IT3. B3 must be refreshed and accepted on current main before real export acceptance.
+The existing B3 owner request 6417151440 remains unacknowledged; no Lane B exporter is duplicated.
+
+
+### C3 visible controls and export preparation
+
+Scene menus and shot context menus now offer add, rename, copy and delete. The JSON file picker calls
+real Blockout import, scopes file access for the read, and displays import counts and notes. Shot
+settings offer frame-grid stepping and seconds/trained-range guidance, canvas presets or custom
+32-pixel steps, and lighting. All edits use existing commands. Read-only documents remain navigable.
+
+The export control captures committed scene/shot values (not transient previews or subsequent edits),
+flushes pending saves and calls Lane B's declared exporter with `<project>/Shots`, progress, Cancel,
+and Finder reveal. The exporter on main is still B0's stub: **working export and IT3 are not claimed**.
+No Lane B implementation or contract was replaced.
+
+**Run and passed:** native focused run: 51 tests in 13 suites, including the committed export-snapshot
+regression; strict lint on six changed Swift files; pinned formatting. Offscreen preview script passed
+one test and produced eight PNGs: empty/sample × light/dark × minimum/default sizes. Minimum-size
+light/dark sample captures inspected: the four regions and settings fit. Offscreen RealityKit remains
+blank by design; these captures do not prove live keyboard/VoiceOver or native picker interaction.
+
+**Pending:** B3 refresh and acceptance, real export/validator IT3, independent C3 review and exact-head
+CI. C2's original provider summary 6418233026 subsequently completed cleanly at `1c46f19` at 17:28 UTC;
+the supplemental independent record is retained.
+
+
+### Reference-first audit and C3 export unblock
+
+Applied Hákon's direction to inspect the original source/tests before further implementation.
+Reference remote and full pin verified: `wassermanproductions/blockout` at
+`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`, checkout `/tmp/shots-blockout-reference-3f2d056`.
+Read `src/renderer/panels/ProjectRail.tsx` (shot cloning, rename/delete),
+`src/renderer/store.ts` (selection, creation), `src/renderer/panels/Inspector.tsx` (shot settings),
+`src/renderer/export/exporter.ts`, and existing interaction/cancellation tests.
+
+- Shot cloning follows ProjectRail's fresh shot/camera-mark IDs, shared blocking and selection of the copy.
+- Found a reachable mismatch: selecting a shot retained frame61; `store.ts:330-341` resets time to0.
+  The added regression failed on our preimage, the store helper now resets the playhead, and the full
+  focused run passes **52 tests/13 suites**. Strict lint and pinned formatting pass on both changed files.
+- Intentional plan/architecture adaptations: native menus/alert/file picker instead of React controls;
+  empty scenes/projects remain allowed by C0/CONTRACTS instead of Blockout's last-scene/shot refusal;
+  scene/shot names use the Shots schema (which has no Blockout scene-number field);
+  full scene graph duplication remaps IDs because C3 requires scene duplication;
+  H3's explicit frame-grid/canvas rules replace Blockout's duration/aspect controls;
+  package rendering stays entirely in Lane B, not an extra export implementation in C.
+- Blockout export snapshots and locks its mutable renderer state; C3 captures committed scene/shot
+  values for the immutable native export pipeline. Independent later edits cannot change the snapshot.
+
+B3 PR58 is now accepted/merged as `f13b41b7bfefd7ac701923507adf347e180079df` at head`a386dd7`.
+Independent bounded acceptance6425352368 covers the audit repairs; all7CI40382518501passed,
+including826app/40core and actual matte/manifest/package regressions. B3 export is unblocked for C3.
+Next: refresh C3 onto accepted main, run real IT3, independent C3 review and exact-head CI.
+No M1/M2, live keyboard/VoiceOver or ComfyUI handoff claim.
+
+
+### C3 integration candidate on accepted B3
+
+Rebased our three C3 commits onto accepted main`f13b41b7`. Every row of
+`git range-diff bf9ab74..shots/c-scenes-pre-b3 origin/main..HEAD` is identical (`=`).
+The pre-refresh branch is retained; no owner branch or worktree was discarded.
+
+**IT3 run and passed:** a real temporary concept-free StudioProject opens a ShotsStore, imports the
+actual Blockout sample, commits shot edits ending in22frames/320×576/guide11, saves and releases,
+reopens with equal document, exports the committed store snapshot via actual ShotExporter into
+`<project>/Shots`, and gets zero PackageValidator problems. It also checks output metadata and terminal
+progress. The first build caught a missing `try` in the new assertion; that test-only compile error was
+corrected before execution. No acceptance condition or production save/export path was weakened.
+
+**Post-rebase run and passed:** native `--filter 'Shots|Viewport'`:63tests/17suites, including real IT3,
+B3's full sample package and pixel tests, store/history/save and viewport coverage. Changed8Swift files
+pass strict lint and pinned format. Existing8C3PNGs remain applicable: all visible C3 view sources are
+unchanged by the rebase/B3 export-only delta and IT3 addition; minimum light/dark sample already inspected.
+
+**Not run/claimed:** complete local app suite, live native menu/picker/keyboard/VoiceOver, ComfyUI graph
+handoff, signed app walkthrough, M1/M2. Current-head CI and independent C3 review remain required.
