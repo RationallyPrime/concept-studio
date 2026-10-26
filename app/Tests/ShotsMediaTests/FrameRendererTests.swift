@@ -90,15 +90,7 @@ struct FrameRendererTests {
         let renderer = try ShotFrameRenderer()
         let look = PrevisLook(scene: scene)
         let clean = try await Pixels(renderer.image(of: frame, look: look))
-        let size = frame.canvas.pixelSize
-        let ray = frame.camera.ray(through: Point2(x: Double(size.width) / 2, y: Double(size.height) / 2), size: size)
-        let marker = ModelEntity(mesh: .generateSphere(radius: 0.5), materials: [UnlitMaterial(color: .white)])
-        marker.position = SIMD3<Float>(
-            Float(ray.origin.x + ray.direction.x * 3), Float(ray.origin.y + ray.direction.y * 3),
-            Float(ray.origin.z + ray.direction.z * 3)
-        )
-        let overlay = Entity()
-        overlay.addChild(marker)
+        let overlay = Self.marker(in: frame)
         // Started in this order on the main actor, the second call arrives while the first waits for the GPU.
         let chromed = Task { try await renderer.image(of: frame, look: look, overlay: overlay) }
         let plain = Task { try await renderer.image(of: frame, look: look) }
@@ -106,6 +98,26 @@ struct FrameRendererTests {
         let withoutOverlay = try await Pixels(plain.value)
         #expect(withOverlay.bytes != clean.bytes, "the overlay call didn't draw its overlay")
         #expect(withoutOverlay.bytes == clean.bytes, "a render without an overlay showed another call's overlay")
+    }
+
+    @Test func cancelledRendersThrowAndLaterRendersStillRun() async throws {
+        let (scene, frame) = try smallSample()
+        let renderer = try ShotFrameRenderer()
+        let look = PrevisLook(scene: scene)
+        let clean = try await Pixels(renderer.image(of: frame, look: look))
+        let overlay = Self.marker(in: frame)
+        // These start in order on the main actor. The first render holds the scene and waits for the GPU, and the
+        // next task cancels it there. The queued render is cancelled before it starts. The last one is still wanted.
+        let holding = Task { try await renderer.image(of: frame, look: look, overlay: overlay) }
+        let canceller = Task { holding.cancel() }
+        let queued = Task { try await renderer.image(of: frame, look: PrevisLook(lighting: .night)) }
+        queued.cancel()
+        let wanted = Task { try await renderer.image(of: frame, look: look) }
+        await canceller.value
+        await #expect(throws: CancellationError.self) { try await holding.value }
+        await #expect(throws: CancellationError.self) { try await queued.value }
+        let after = try await Pixels(wanted.value)
+        #expect(after.bytes == clean.bytes, "a render after cancelled ones didn't match a clean render")
     }
 
     @Test func aWedgeShowsItsOutsideFaces() async throws {
@@ -149,6 +161,20 @@ struct FrameRendererTests {
         let image = try await ShotFrameRenderer().image(of: frame, look: PrevisLook(scene: scene))
         let png = try #require(NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]))
         try png.write(to: URL(fileURLWithPath: folder).appendingPathComponent("b1-sample-guide-frame.png"))
+    }
+
+    /// A large unlit sphere 3 m in front of the camera, as stand-in editor chrome.
+    private static func marker(in frame: SceneFrame) -> Entity {
+        let size = frame.canvas.pixelSize
+        let ray = frame.camera.ray(through: Point2(x: Double(size.width) / 2, y: Double(size.height) / 2), size: size)
+        let marker = ModelEntity(mesh: .generateSphere(radius: 0.5), materials: [UnlitMaterial(color: .white)])
+        marker.position = SIMD3<Float>(
+            Float(ray.origin.x + ray.direction.x * 3), Float(ray.origin.y + ray.direction.y * 3),
+            Float(ray.origin.z + ray.direction.z * 3)
+        )
+        let overlay = Entity()
+        overlay.addChild(marker)
+        return overlay
     }
 
     private static func translation(_ offset: Vec3) -> Mat4 {

@@ -7,7 +7,7 @@ import RealityKit
 /// Renders evaluated frames offscreen. Export and the look-through view both use it, so they agree pixel for
 /// pixel. Transforms come from the frame alone and the renderer is driven with a zero time step, so a frame
 /// renders the same bytes however often and in whatever order it is drawn. Overlapping calls render one at a time,
-/// so each render sees only its own frame, look, camera and overlay.
+/// so each render sees only its own frame, look, camera and overlay. A cancelled call throws `CancellationError`.
 @MainActor public final class ShotFrameRenderer {
     /// False without a Metal device; render tests skip on false.
     public nonisolated static var isAvailable: Bool {
@@ -68,6 +68,8 @@ import RealityKit
     ) async throws {
         await beginRender()
         defer { endRender() }
+        // A render cancelled while it waited gives up its turn without touching the scene.
+        try Task.checkCancellation()
         mapper.setLook(look)
         mapper.apply(frame)
         let cameraEntity = mapper.cameraEntity(for: camera ?? frame.camera)
@@ -98,6 +100,8 @@ import RealityKit
             }
         }
         withExtendedLifetime(textureRef) {}
+        // Cancellation during GPU work is reported only now, after completion; the overlay comes off on the way out.
+        try Task.checkCancellation()
     }
 
     /// RealityKit on macOS 27 skips entities that an earlier render found hidden, so right after a camera cut an
