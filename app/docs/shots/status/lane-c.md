@@ -8,7 +8,7 @@ Owner: Ari (Codex). Canonical branch: `shots/c-shell`.
 | --- | --- | --- |
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Implemented; acceptance pending | Current-main CI and independent review closure. |
-| C2: commands, persistence and undo | Isolated preparation | Full command/focus/menu coverage and C1 acceptance. |
+| C2: commands, persistence and undo | Implemented local preparation on `shots/c-commands` | C1 acceptance, independent review, CI and live menu/keyboard verification. |
 | C3: lists, import and export | Pending | B3 exporter and real A3 bodies/keypoints; IT3. |
 | C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
 | C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
@@ -74,3 +74,27 @@ not stale PR base metadata. This excludes release/deployment and paid infrastruc
 The existing proposal remains for owner review before editing PRODUCT.md: Shots prepares scene,
 motion, virtual camera, guide images/control videos/masks/shot details and an H3 prompt for ComfyUI.
 No PRODUCT.md change or C6 acceptance is claimed.
+
+## C2 local preparation (`shots/c-commands`)
+
+Based on C1 PR #66 (`4ce1ab9`), which is still stacked on unmerged D0 PR #61 (`4547289`).
+This branch is not a published checkpoint or accepted milestone. The C1 branch stays frozen.
+
+- Extends the single document command entry with duplicate/import, camera settings, mark deletion and
+  entity-reference cleanup. Duplicate camera-mark identifiers derive deterministically from the supplied
+  new shot identifier; duplicates are refused before mutation.
+- Generator commands call actual PrevisCore declarations. Until A4 lands, their errors propagate without
+  committing document/history changes; no Lane A math is reimplemented.
+- Adds a removable native responder for standard Edit-menu Undo/Redo while the workspace is mounted.
+  Text editing uses its own UndoManager; the bridge restores the previous chain when dismantled and
+  handles overlapping SwiftUI view replacement. It does not replace the app's Edit commands.
+- Adds command, history-cap, debounced-save, invalid-preview and native routing tests.
+
+**Run and passed:** native SwiftPM `--filter 'Shots|Viewport'`: 44 tests in 12 suites on the actual C1/D0
+sources; pinned formatting and strict lint passed on all seven changed Swift files. The four native
+routing tests include real SwiftUI background mounting, document actions, text-editing priority and
+responder cleanup. These are headless in-process tests, not a live Cmd-Z/VoiceOver walkthrough.
+
+**Not run:** complete app suite, Swift 6.3 CI, live menu/keyboard/VoiceOver and signed integration.
+The foreground walkthrough is deferred while the user works on a time-sensitive grant form.
+C2 acceptance requires C1/D0 landing and refreshed verification/review/CI; no M1/M2 claim is made.

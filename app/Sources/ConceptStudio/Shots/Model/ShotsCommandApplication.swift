@@ -3,7 +3,9 @@ import PrevisCore
 enum ShotsCommandApplication {
     static func apply(_ command: ShotsCommand, to document: inout ShotsDocument, catalog: ContentCatalog) throws {
         if try applyScene(command, to: &document) || applyEntity(command, to: &document, catalog: catalog)
-            || applyShot(command, to: &document) || applyMarks(command, to: &document) { return }
+            || applyShot(command, to: &document) || applyMarks(command, to: &document)
+            || applyCamera(command, to: &document)
+            || ShotsGeneratedEdits.apply(command, to: &document, catalog: catalog) { return }
         throw ShotsError.notImplemented("This Shots edit")
     }
 
@@ -22,6 +24,9 @@ enum ShotsCommandApplication {
             try document.scenes[sceneIndex(id, in: document)].name = name
         case let .deleteScene(id):
             try document.scenes.remove(at: sceneIndex(id, in: document))
+        case let .importScenes(scenes):
+            try requireNew(allIDs(in: ShotsDocument(version: document.version, scenes: scenes)), in: document)
+            document.scenes.append(contentsOf: scenes)
         case let .setLighting(id, lighting):
             try document.scenes[sceneIndex(id, in: document)].lighting = lighting
         default: return false
@@ -37,6 +42,8 @@ enum ShotsCommandApplication {
             try requireNew([entity.id], in: document)
             guard catalog.asset(entity.assetID) != nil else { throw ShotsError.unknownContent(entity.assetID) }
             try document.scenes[sceneIndex(sceneID, in: document)].entities.append(entity)
+        case let .deleteEntities(ids):
+            deleteEntities(Set(ids), from: &document)
         case let .setPlacement(id, placement):
             let index = try entityIndex(id, in: document)
             document.scenes[index.scene].entities[index.entity].placement = placement
@@ -59,6 +66,17 @@ enum ShotsCommandApplication {
             guard let takeID = document.scenes[index].blocking.first?.id
             else { throw ShotsEditingError.missing("take") }
             document.scenes[index].shots.append(.make(id: id, name: name, takeID: takeID, cameraMarkID: cameraMarkID))
+        case let .duplicateShot(id, newID):
+            let index = try shotIndex(id, in: document)
+            var copy = document.scenes[index.scene].shots[index.shot]
+            copy.id = newID
+            copy.camera.marks = copy.camera.marks.enumerated().map { index, source in
+                var mark = source
+                mark.id = "\(newID)_camera_\(index)"
+                return mark
+            }
+            try requireNew([newID] + copy.camera.marks.map(\.id), in: document)
+            document.scenes[index.scene].shots.insert(copy, at: index.shot + 1)
         case let .renameShot(id, name):
             try editShot(id, in: &document) { $0.name = name }
         case let .deleteShot(id):
@@ -94,6 +112,19 @@ enum ShotsCommandApplication {
                     throw ShotsEditingError.missing("actor mark")
                 }
                 $0.marks[index] = mark
+            }
+        case let .deleteMarks(shotID, markIDs):
+            let index = try shotIndex(shotID, in: document)
+            let takeID = document.scenes[index.scene].shots[index.shot].blockingTakeID
+            try editShot(shotID, in: &document) { shot in
+                shot.camera.marks.removeAll { markIDs.contains($0.id) }
+            }
+            for take in document.scenes[index.scene].blocking.indices
+                where document.scenes[index.scene].blocking[take].id == takeID {
+                for track in document.scenes[index.scene].blocking[take].tracks.indices {
+                    document.scenes[index.scene].blocking[take].tracks[track].marks
+                        .removeAll { markIDs.contains($0.id) }
+                }
             }
         case let .addCameraMark(shotID, mark):
             try requireNew([mark.id], in: document)
@@ -161,18 +192,62 @@ enum ShotsCommandApplication {
         throw ShotsEditingError.missing("entity")
     }
 
-    private static func requireNew(_ ids: [String], in document: ShotsDocument) throws {
-        var existing = Set<String>()
-        for scene in document.scenes {
-            existing.formUnion([scene.id] + scene.entities.map(\.id))
-            for take in scene.blocking {
-                existing.insert(take.id)
-                existing.formUnion(take.tracks.flatMap { $0.marks.map(\.id) })
+    private static func applyCamera(_ command: ShotsCommand, to document: inout ShotsDocument) throws -> Bool {
+        switch command {
+        case let .setCameraRig(id, sensor, rig, intensity):
+            try editShot(id, in: &document) {
+                $0.camera.sensor = sensor
+                $0.camera.rig = rig
+                $0.camera.rigIntensity = intensity
             }
-            for shot in scene.shots {
-                existing.formUnion([shot.id] + shot.camera.marks.map(\.id))
+        case let .setTracking(id, subjects):
+            try editShot(id, in: &document) { $0.camera.trackIDs = subjects }
+        case let .setMount(id, parent):
+            try editShot(id, in: &document) { $0.camera.mountID = parent }
+        default: return false
+        }
+        return true
+    }
+
+    private static func deleteEntities(_ ids: Set<EntityID>, from document: inout ShotsDocument) {
+        for scene in document.scenes.indices {
+            document.scenes[scene].entities.removeAll { ids.contains($0.id) }
+            for entity in document.scenes[scene].entities.indices {
+                if let parent = document.scenes[scene].entities[entity].attachment?.parentID, ids.contains(parent) {
+                    document.scenes[scene].entities[entity].attachment = nil
+                }
+            }
+            for take in document.scenes[scene].blocking.indices {
+                document.scenes[scene].blocking[take].tracks.removeAll { ids.contains($0.entityID) }
+                for track in document.scenes[scene].blocking[take].tracks.indices {
+                    for mark in document.scenes[scene].blocking[take].tracks[track].marks.indices {
+                        if let board = document.scenes[scene].blocking[take].tracks[track].marks[mark].boardID,
+                           ids.contains(board) {
+                            document.scenes[scene].blocking[take].tracks[track].marks[mark].boardID = nil
+                        }
+                    }
+                }
+            }
+            for shot in document.scenes[scene].shots.indices {
+                document.scenes[scene].shots[shot].camera.trackIDs.removeAll { ids.contains($0) }
+                if let mount = document.scenes[scene].shots[shot].camera.mountID, ids.contains(mount) {
+                    document.scenes[scene].shots[shot].camera.mountID = nil
+                }
+                document.scenes[scene].shots[shot].notes.characters.removeAll { ids.contains($0.entityID) }
             }
         }
+    }
+
+    private static func allIDs(in document: ShotsDocument) -> [String] {
+        document.scenes.flatMap { scene in
+            [scene.id] + scene.entities.map(\.id) + scene.blocking.flatMap { take in
+                [take.id] + take.tracks.flatMap { $0.marks.map(\.id) }
+            } + scene.shots.flatMap { [$0.id] + $0.camera.marks.map(\.id) }
+        }
+    }
+
+    private static func requireNew(_ ids: [String], in document: ShotsDocument) throws {
+        var existing = Set(allIDs(in: document))
         for id in ids {
             guard existing.insert(id).inserted else { throw ShotsEditingError.duplicate(id) }
         }
