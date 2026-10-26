@@ -6,7 +6,8 @@ import RealityKit
 
 /// Renders evaluated frames offscreen. Export and the look-through view both use it, so they agree pixel for
 /// pixel. Transforms come from the frame alone and the renderer is driven with a zero time step, so a frame
-/// renders the same bytes however often and in whatever order it is drawn.
+/// renders the same bytes however often and in whatever order it is drawn. Overlapping calls render one at a time,
+/// so each render sees only its own frame, look, camera and overlay.
 @MainActor public final class ShotFrameRenderer {
     /// False without a Metal device; render tests skip on false.
     public nonisolated static var isAvailable: Bool {
@@ -15,8 +16,11 @@ import RealityKit
 
     private let renderer: RealityRenderer
     private let mapper: PrevisSceneMapper
+    private let overlays = Entity()
     private let textureCache: CVMetalTextureCache
     private var pools: [PixelSize: CVPixelBufferPool] = [:]
+    private var rendering = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
 
     public init() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -30,6 +34,8 @@ import RealityKit
         renderer = try RealityRenderer()
         mapper = PrevisSceneMapper(look: PrevisLook(lighting: .day))
         renderer.entities.append(mapper.root)
+        renderer.entities.append(overlays)
+        Self.disableOcclusionCulling(below: [mapper.root, overlays])
         renderer.cameraSettings.antialiasing = .multisample4X
         renderer.cameraSettings.isToneMappingEnabled = false
     }
@@ -60,6 +66,8 @@ import RealityKit
         overlay: Entity? = nil,
         into buffer: CVPixelBuffer
     ) async throws {
+        await beginRender()
+        defer { endRender() }
         mapper.setLook(look)
         mapper.apply(frame)
         let cameraEntity = mapper.cameraEntity(for: camera ?? frame.camera)
@@ -68,8 +76,8 @@ import RealityKit
         }
         renderer.activeCamera = cameraEntity
         renderer.cameraSettings.colorBackground = .color(look.palette.background.cgColor)
-        if let overlay { renderer.entities.append(overlay) }
-        defer { if let overlay { renderer.entities.remove(overlay) } }
+        if let overlay { overlays.addChild(overlay) }
+        defer { overlay?.removeFromParent() }
 
         let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
         var textureRef: CVMetalTexture?
@@ -90,6 +98,37 @@ import RealityKit
             }
         }
         withExtendedLifetime(textureRef) {}
+    }
+
+    /// RealityKit on macOS 27 skips entities that an earlier render found hidden, so right after a camera cut an
+    /// entity can be missing from the frame. A frame must not depend on what was drawn before it.
+    private static func disableOcclusionCulling(below entities: [Entity]) {
+        #if compiler(>=6.4) // Swift 6.4 ships with the macOS 27 SDK, the first to declare the component.
+            if #available(macOS 27.0, *) {
+                for entity in entities {
+                    entity.components.set(OcclusionCullingComponent(isEnabled: false))
+                }
+            }
+        #endif
+    }
+
+    /// A render suspends while the GPU works, and the main actor would let another call change the shared scene,
+    /// or draw this call's overlay, in the meantime. So a render waits for the one before it to finish cleaning up.
+    private func beginRender() async {
+        guard rendering else {
+            rendering = true
+            return
+        }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    /// Hands the scene to the next waiting render, in arrival order, or frees it.
+    private func endRender() {
+        if waiting.isEmpty {
+            rendering = false
+        } else {
+            waiting.removeFirst().resume()
+        }
     }
 
     func pixelBuffer(_ size: PixelSize) throws -> CVPixelBuffer {
