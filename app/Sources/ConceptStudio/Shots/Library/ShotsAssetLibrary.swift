@@ -15,24 +15,37 @@ struct ShotsAssetLibrary: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
                     ForEach(store.libraryAssets(matching: query)) { asset in
-                        Button {
-                            store.chooseAssetForPlacement(asset.id)
-                        } label: {
-                            HStack {
-                                Text(asset.name)
-                                Spacer()
-                                if store.tool == .place(assetID: asset.id) {
-                                    Image(systemName: "checkmark")
+                        HStack {
+                            Button {
+                                store.chooseAssetForPlacement(asset.id)
+                            } label: {
+                                HStack {
+                                    Text(asset.name)
+                                    Spacer()
+                                    if store.tool == .place(assetID: asset.id) {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(store.isReadOnly || store.currentShot == nil)
+                            .padding(.vertical, 3)
+                            .help("Choose \(asset.name), then click the ground in the scene view to place it.")
+                            .accessibilityLabel("Place \(asset.name)")
+                            .accessibilityValue(store.tool == .place(assetID: asset.id) ? "Selected" : "")
+                            Button("Add to scene", systemImage: "plus") {
+                                do { try store.addLibraryAsset(asset.id) } catch {
+                                    store.onError?(error.localizedDescription)
                                 }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .labelStyle(.iconOnly)
+                            .disabled(store.isReadOnly || store.currentShot == nil)
+                            .accessibilityLabel("Add \(asset.name) at stage centre")
+                            .help(
+                                "Add \(asset.name) at the centre of the stage, then move it with the inspector fields."
+                            )
                         }
-                        .buttonStyle(.plain)
-                        .disabled(store.isReadOnly || store.currentShot == nil)
-                        .padding(.vertical, 3)
-                        .help("Choose \(asset.name), then click the ground in the scene view to place it.")
-                        .accessibilityLabel("Place \(asset.name)")
-                        .accessibilityValue(store.tool == .place(assetID: asset.id) ? "Selected" : "")
                     }
                 }
             }

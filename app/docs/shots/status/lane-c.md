@@ -1,6 +1,6 @@
 # Lane C status
 
-Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `shots/c-shell` retained).
+Owner: Ari (Codex). Current preparation branch: `shots/c-polish-prep`, stacked on C5 PR76; earlier checkpoint branches are retained.
 
 ## Checkpoints
 
@@ -9,10 +9,10 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `s
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
 | C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
-| C3: lists, import and export | Implemented on accepted B3/main, `shots/c-scenes` | Independent current-head review and CI. |
-| C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
-| C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
-| C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
+| C3: lists, import and export | Accepted and merged, PR #70 (`427d185`) | Native interaction remains manual integration coverage. |
+| C4: timeline | Accepted and merged, PR #71 (`ec2cb5a`) | Native keyboard/pointer/VoiceOver walkthrough. |
+| C5: inspectors, library and prompt | Draft PR #76 at `4fda2b5`; independent repaired-finding closure and all seven CI jobs pass | B5 actual compiler/fake-endpoint integration, refreshed composition and native acceptance. A4/A5 merged. |
+| C6: polish | Stacked preparation, not accepted: glossary, credits, keyboard action model | C5 acceptance, full previews/review/CI and actual keyboard/VoiceOver walkthrough. |
 
 ## C0 delivered
 
@@ -405,3 +405,35 @@ Restoring the old mechanisms in the isolated snapshot makes the review regressio
 fixed bytes were restored in finally. Fresh full app verification and closure/CI are tracked in PR76.
 Old-head green CI40411243246 and its20captures are not treated as acceptance of this repair.
 B5 real prompt integration and native acceptance remain outstanding as above.
+
+## C6 preparation: glossary, credits and keyboard action model
+
+Stacked on C5 PR76 at4fda2b5; C5 is not accepted until B5's actual compiler integration is verified.
+Thirteen required Shots terms now live under using-conceptstudio, with plain/technical readings and
+related links. The Help window gains Credits containing the required Blockout acknowledgment and
+PrevisCoreAttribution.notice(). PRODUCT.md is unchanged; its proposed paragraph is in this PR description
+for owner approval.
+
+The source accessibility audit found no non-pointer route to add a library asset or its first mark.
+Separate Add-to-scene buttons now create a selected entity at the stage centre, leaving the existing
+arm-click-place behavior intact. Add mark here in the entity inspector captures its committed evaluated
+position/facing at the playhead. Both use existing ShotsCommand edits and reject read-only or transient
+preview states; they do not edit Lane D picking/placement code.
+
+References at Blockout3f2d0564: types.ts (scene/shot/mark/gait semantics), store.ts:498–558
+(asset naming/selection and mark construction), and NOTICE. Destination-mark gait semantics are retained.
+Intentional adaptation: keyboard insertion at stage origin and exact playhead timing from the settled
+D3 plan, instead of Blockout's first-at-zero/next-at-least-two-second pointer spacing.
+
+Verification:8focused tests pass (including existing glossary invariants), and the full app suite reports
+863registered tests/150suites passed;5optional preview/model functions skipped, not counted as executed.
+The new headless action integration adds a person, moves it, adds a mark, undoes/redoes and exports a
+valid22frame320×576package. Lint and full format checks pass. Preview/independent review/CI results are
+tracked on this draft; old C5 captures are not presented as C6 output.
+
+Planned native walkthrough (NOT RUN): open Shots and a scene; keyboard-focus the library's Add person
+button; select the entity inspector; edit X/Y/Z; activate Add mark here; undo/redo; export and inspect the
+package. Verify focus traversal, field editing vs playback shortcuts, Escape, and VoiceOver labels for
+library actions, Inspect menu, mark pills, fields and export progress/error. No native input was injected.
+C6 completion still needs that actual keyboard/VoiceOver pass, final full preview set and C5 acceptance;
+M1/M2 and D-lane integration remain separate. No release, deployment or owner PRODUCT approval claimed.

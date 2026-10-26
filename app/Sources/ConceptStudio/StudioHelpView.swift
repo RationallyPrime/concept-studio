@@ -1,10 +1,17 @@
+import PrevisCore
 import SwiftUI
 
 struct StudioHelpView: View {
+    enum Page: Int { case glossary, training, credits }
+
     @State private var query = ""
     @State private var selectedTerm: StudioTerm? = .train
     @State private var sectionID = ""
-    @State private var page = 0
+    @State private var page = Page.glossary
+
+    init(page: Page = .glossary) {
+        _page = State(initialValue: page)
+    }
 
     private var matchingTerms: [StudioTerm] {
         StudioTerm.search(query).filter { sectionID.isEmpty || $0.entry.sectionId == sectionID }
@@ -20,17 +27,20 @@ struct StudioHelpView: View {
                 Text("ConceptStudio help").font(.title2.bold()).accessibilityAddTraits(.isHeader)
                 Spacer()
                 Picker("Help topic", selection: $page) {
-                    Text("Glossary").tag(0)
-                    Text("Training explained").tag(1)
-                }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("Help topic").frame(width: 280)
+                    Text("Glossary").tag(Page.glossary)
+                    Text("Training explained").tag(Page.training)
+                    Text("Credits").tag(Page.credits)
+                }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("Help topic").frame(width: 350)
             }
-            if page == 0 {
+            if page == .glossary {
                 glossary
-            } else {
+            } else if page == .training {
                 ScrollView {
                     StudioExplanationContent().padding(.trailing, 12)
                         .frame(maxWidth: 760, alignment: .leading)
                 }
+            } else {
+                credits
             }
         }
         .padding(24)
@@ -44,6 +54,21 @@ struct StudioHelpView: View {
         .onChange(of: sectionID) { _, _ in
             if !matchingTerms.contains(where: { $0 == selectedTerm }) { selectedTerm = matchingTerms.first }
         }
+    }
+
+    private var credits: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Shots").font(.headline).accessibilityAddTraits(.isHeader)
+                Text("Shots is derived from Blockout by Sam Wasserman (wassermanproductions.com), Apache-2.0.")
+                Link("Sam Wasserman’s website", destination: URL(string: "https://wassermanproductions.com")!)
+                Divider()
+                Text(PrevisCoreAttribution.notice()).font(.callout).textSelection(.enabled)
+            }
+            .frame(maxWidth: 760, alignment: .leading)
+            .padding(.trailing, 12)
+        }
+        .accessibilityLabel("Shots credits and Blockout notice")
     }
 
     private var glossary: some View {
