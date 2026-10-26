@@ -19,9 +19,9 @@ enum H3TrainingAdapter: Hashable {
 
     static let policy: Policy = {
         guard let url = Bundle.module.url(
-            forResource: "h3-recipe-fields", withExtension: "json", subdirectory: "Training"
-        ), let data = try? Data(contentsOf: url),
-        let fields = try? JSONDecoder().decode([String: [String]].self, from: data) else { return Policy() }
+                  forResource: "h3-recipe-fields", withExtension: "json", subdirectory: "Training"
+              ), let data = try? Data(contentsOf: url),
+              let fields = try? JSONDecoder().decode([String: [String]].self, from: data) else { return Policy() }
         let prefix = "training_adapter."
         return Policy(
             files: fields.keys.filter { $0.hasPrefix(prefix) }.sorted().compactMap { key in
