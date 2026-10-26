@@ -1,6 +1,6 @@
 # Lane C status
 
-Owner: Ari (Codex). Current checkpoint branch: `shots/c-commands` (C0/C1 branch `shots/c-shell` retained).
+Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `shots/c-shell` retained).
 
 ## Checkpoints
 
@@ -8,8 +8,8 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-commands` (C0/C1 branch 
 | --- | --- | --- |
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
-| C2: commands, persistence and undo | Implemented review preparation on `shots/c-commands` | Independent review, exact-head CI and live menu/keyboard verification. |
-| C3: lists, import and export | Pending | B3 exporter and real A3 bodies/keypoints; IT3. |
+| C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
+| C3: lists, import and export | Model preparation on `shots/c-scenes` | Visible controls, settings, import picker, B3 exporter and IT3. |
 | C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
 | C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
 | C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
@@ -84,7 +84,7 @@ No PRODUCT.md change or C6 acceptance is claimed.
 ## C2 review preparation (`shots/c-commands`)
 
 Based on actually merged C1 PR #66, main `08cfd92d432492a048b75c39f14ea46675b9d5d5`.
-Both C2 preparation commits replay unchanged (`=` range-diff). C2 acceptance remains pending.
+Both C2 preparation commits replay unchanged (`=` range-diff). C2 subsequently passed independent acceptance and exact-head CI and merged; see the landing record below.
 
 - Extends the single document command entry with duplicate/import, camera settings, mark deletion and
   entity-reference cleanup. Duplicate camera-mark identifiers derive deterministically from the supplied
@@ -112,9 +112,34 @@ the missing-file/empty-document failure; polling opportunities instead of wall t
 under the same stall. The injected stall is not committed, production debounce/save code and
 CI watchdog are unchanged, and file existence plus full document equality remain required.
 Post-repair: 45 focused tests/12 suites passed; core run passed with oracle parity explicitly
-skipped; full strict lint and pinned formatting passed. Fresh full CI/review remain pending.
+skipped; full strict lint and pinned formatting passed. Fresh CI `40367485595` passed all seven jobs, including the complete app/core, lint and formatting gates.
 
 **Not run:** complete local app suite, live menu/keyboard/VoiceOver and signed integration.
 The foreground walkthrough is deferred while the user works on a time-sensitive grant form.
-C2 acceptance requires independent review, exact-head CI and native live focus verification;
-no M1/M2 claim is made.
+The live walkthrough remains manual integration coverage; the actual C2 Verify section does not
+make it a separate checkpoint gate. No live keyboard/VoiceOver or M1/M2 claim is made.
+
+
+## C2 accepted and C3 preparation
+
+C2 PR #68 head `1c46f1932b22051cf6f05196ae1a14f40ed181d1` merged with a merge commit as
+`bf9ab743e61bf8bdae19f2c58b619e0b73879701`. All seven CI jobs passed in run `40367485595`;
+separate independent acceptance is recorded at
+[6422841587](https://github.com/RationallyPrime/concept-studio/pull/68#issuecomment-6422841587),
+with landing receipt 6423024829. The original slow provider job remains untouched.
+
+C3 preparation starts from that accepted main in the existing owned worktree, with the C2 branch
+preserved. Scene copies allocate new identifiers and remap internal attachment, blocking, camera and
+character-note references. Shot/scene creation, copying and actual Blockout import use the existing
+command boundary, select the created content and preserve undo. Invalid imports leave the document,
+preview and selection intact. These are model actions, not completed C3 surfaces.
+
+**Run and passed:** native SwiftPM `--filter 'Shots|Viewport'`: 50 tests in 13 suites. Five new scene
+and import tests cover graph identity/references, source preservation, selection, undo, real sample
+import notes and failed-import atomicity. Four changed Swift files pass strict lint and pinned format.
+An initial test fixture assumed the wrong sample entity index; the fixture now records the appended
+entity's actual index. The corrected test passes. No production behavior was changed for that fixture.
+
+**Not yet delivered/verified:** complete scene/shot controls and settings, file picker, export progress,
+Cancel/reveal, and IT3. B3 must be refreshed and accepted on current main before real export acceptance.
+The existing B3 owner request 6417151440 remains unacknowledged; no Lane B exporter is duplicated.

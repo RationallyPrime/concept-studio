@@ -126,20 +126,10 @@ private struct ShotsWorkspaceContent: View {
     }
 
     private func selectShot(_ id: ShotID?) {
-        guard let id,
-              let scene = store.document.scenes.first(where: { $0.shots.contains { $0.id == id } }) else { return }
-        store.preview = nil
-        store.selection = .none
-        store.currentSceneID = scene.id
-        store.currentShotID = id
+        store.selectShot(id)
     }
 
     private func addScene() {
-        let sceneID = store.newID("scene"), shotID = store.newID("shot")
-        store.run(.addScene(
-            id: sceneID, name: "New scene", takeID: store.newID("take"), shotID: shotID,
-            cameraMarkID: store.newID("camera")
-        ))
-        if store.document.scenes.contains(where: { $0.id == sceneID }) { selectShot(shotID) }
+        do { try store.createScene() } catch { store.onError?(error.localizedDescription) }
     }
 }
