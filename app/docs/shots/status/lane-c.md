@@ -31,7 +31,7 @@ No Shots UI, export action, prompt-writing action or self-test launch flag is cl
 
 ## Dependencies and coordination
 
-The branch is stacked on published A0 draft PR #52 (`0f9d68f`), which is stacked on W0 PR #51
+The branch is stacked on published A0 draft PR #52 (`8c7815f`), which is stacked on W0 PR #51
 (`f1c3d51`). Those are actual owner artifacts, not replacement implementations. Neither dependency is
 assumed merged. Rebase onto main and rerun the affected checks after the dependency stack lands.
 
@@ -39,8 +39,9 @@ assumed merged. Rebase onto main and rerun the affected checks after the depende
   temporary scaffold with W0's real files, reran four Linux package tests and pushed draft PR #52.
 - W0's latest head has green CI. The owner reports an inherited local Keychain hang separately; that
   partial local run is not a full-suite pass. Current-head review and preview evidence remain gates.
-- A0's macOS CI ran 769 app tests and four core tests successfully, then failed on six core lint
-  violations. Those belong to Lane A and have been identified for its owner; C does not alter them.
+- A0's first macOS CI ran 769 app tests and four core tests successfully, then failed six core lint
+  violations. Gnomon repaired those at `8c7815f`; C rebased onto that head and reran its focused tests
+  (11 passed) and the complete app strict lint gate (passed). A0 macOS CI on the repair is pending.
 - The B owner will prepare B0 after A0's dependency is resolved. C needs its real self-test API.
 - Metis's project/conversation target remains with the parent/user. C has not sent to an ambiguous target.
 
@@ -69,8 +70,10 @@ because an observable playhead observer called itself; clamping now uses a separ
 all tests passed on rerun.
 
 Passed: changed-file SwiftFormat and SwiftLint with the repository's pinned versions, plus whitespace
-checks. The combined lint gate is still red on the six upstream A0 violations described above.
+checks. The combined app strict lint gate also passed after rebasing onto Gnomon's A0 repair.
 Not run for this branch: complete app suite, CI, preview renders, media export and signed sandbox checks.
+
+Draft PR: https://github.com/RationallyPrime/concept-studio/pull/53 (incomplete C0, stacked on A0).
 
 ## Merge boundary
 
