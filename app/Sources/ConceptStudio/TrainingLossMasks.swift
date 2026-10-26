@@ -17,13 +17,13 @@ enum TrainingLossMasks {
     static func validURL(for imageURL: URL, in project: URL) throws -> URL? {
         let mask = url(for: imageURL, in: project)
         guard FileManager.default.fileExists(atPath: mask.path), let source = CGImageSourceCreateWithURL(
-            mask as CFURL,
-            nil
-        ),
-            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-            let png = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any],
-            let description = png[kCGImagePropertyPNGDescription] as? String,
-            try description == sourcePrefix + VisionInspector.contentHash(Data(contentsOf: imageURL))
+                  mask as CFURL,
+                  nil
+              ),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let png = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any],
+              let description = png[kCGImagePropertyPNGDescription] as? String,
+              try description == sourcePrefix + VisionInspector.contentHash(Data(contentsOf: imageURL))
         else { return nil }
         return mask
     }
