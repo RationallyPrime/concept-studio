@@ -5,8 +5,8 @@
 | A0 declarations | **Merged** (`de3947b`; guide frame 61 per CONTRACTS, repaired by the integration owner under a recorded two-line exception). |
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
 | A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
-| A3 bodies | **Draft PR, targeting `main`** (branch `shots/a-core-a3`, rebased onto A2's merge `89d9e7d`). The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
-| A4 generators | **Prepared, not published** (local branch `a4-wip`, on A3's repair `8c2c6c7`; no PR until A3 lands). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
+| A3 bodies | **Merged** (PR #65, `0bdb09a`; two review rounds: the quadruped gait scale and the outward Z overrides). |
+| A4 generators | **Draft PR, targeting `main`** (branch `shots/a-core-a4`, three commits on `0bdb09a`). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
 | A5–A6 | Not started |
 
 **A4 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS=<golden-vectors.v1.json> PREVIS_GOLDENS=<goldens.json>`): 64 run, 64 passed, 0 failed.
