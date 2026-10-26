@@ -80,14 +80,19 @@ enum PackageNames {
         return words.isEmpty ? "shot" : words.joined(separator: "-")
     }
 
-    /// Entity slugs in entity order; repeats get -2, -3, ….
+    /// Entity slugs in entity order; a slug already taken gets -2, -3, …, whichever is first free, so no two
+    /// entities ever share one (names like "Hero", "Hero" and "Hero-2" included).
     static func entitySlugs(_ names: [String]) -> [String] {
-        var seen: [String: Int] = [:]
+        var taken: Set<String> = []
         return names.map { name in
             let base = slug(name)
-            let count = (seen[base] ?? 0) + 1
-            seen[base] = count
-            return count == 1 ? base : "\(base)-\(count)"
+            var candidate = base, suffix = 2
+            while taken.contains(candidate) {
+                candidate = "\(base)-\(suffix)"
+                suffix += 1
+            }
+            taken.insert(candidate)
+            return candidate
         }
     }
 

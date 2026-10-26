@@ -79,6 +79,49 @@ struct PassDrawingTests {
     }
 }
 
+/// Naming and geometry that a package depends on, checked without rendering.
+@Suite("package names and bounds")
+struct PackageNamingTests {
+    @Test func entitySlugsNeverCollide() {
+        #expect(PackageNames.entitySlugs(["Man", "Man", "Woman"]) == ["man", "man-2", "woman"])
+        let slugs = PackageNames.entitySlugs(["Hero", "Hero", "Hero-2"])
+        #expect(Set(slugs).count == 3, "two actors share a slug in \(slugs)")
+        #expect(Array(slugs.prefix(2)) == ["hero", "hero-2"])
+    }
+
+    @Test func theValidatorReportsAPathListedTwice() async throws {
+        let package = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: package) }
+        try Data("{}".utf8).write(to: package.appendingPathComponent("shot.json"))
+        let manifest = PackageManifest(
+            format: PackageManifest.formatName, formatVersion: PackageManifest.currentFormatVersion,
+            createdBy: "test", shot: ShotRef(id: "shot_1", name: "1A", sceneID: "scene_1", sceneRevision: 0),
+            frameRate: 24, frameCount: 22, canvas: ShotCanvas(width: 64, height: 64),
+            files: [
+                PackageFile(role: .description, path: "shot.json"),
+                PackageFile(role: .description, path: "shot.json"),
+            ]
+        )
+        try JSONEncoder().encode(manifest).write(to: package.appendingPathComponent("manifest.json"))
+        #expect(await PackageValidator.problems(at: package) == ["shot.json is listed more than once."])
+    }
+
+    /// Camera at the origin looking down −Z with a 90° vertical field of view: a box from depth 1 to behind the
+    /// camera shows its far side at x = 352 and reaches past the canvas's right, top and bottom edges at the near
+    /// plane.
+    @Test func boundsThatCrossTheCameraPlaneCoverWhatTheyShow() throws {
+        let camera = CameraFrame(position: .zero, pan: 0, tilt: 0, roll: 0, focalLength: 12, verticalFOV: .pi / 2)
+        let bounds = Box3(min: Vec3(0.1, -0.1, -1), max: Vec3(0.2, 0.1, 1))
+        let box = try #require(PassDrawing.projectedBounds(
+            bounds,
+            camera: camera,
+            size: PixelSize(width: 640, height: 640)
+        ))
+        #expect(abs(box.minX - 352) < 0.5)
+        #expect(box.maxX == 640 && box.minY == 0 && box.maxY == 640, "the box was cut to \(box)")
+    }
+}
+
 @Suite("shot packages", .enabled(if: renderingEnabled))
 @MainActor
 struct PackageTests {

@@ -92,13 +92,32 @@ enum PassDrawing {
         }
     }
 
-    /// The pixel rectangle covering a box's corners in front of the camera, clipped to the canvas; nil when nothing
-    /// is left.
+    /// The pixel rectangle covering a box's visible part, clipped to the canvas; nil when nothing is left. Edges that
+    /// cross the camera's near plane are cut there, so a box reaching behind the camera still covers all it shows.
     static func projectedBounds(_ box: Box3, camera: CameraFrame, size: PixelSize) -> CGRect? {
-        let corners = [box.min.x, box.max.x].flatMap { x in
-            [box.min.y, box.max.y].flatMap { y in [box.min.z, box.max.z].map { z in Vec3(x, y, z) } }
+        let view = camera.viewMatrix(), near = PrevisSceneMapper.nearClip
+        // Corner i takes max x, y or z where bit 0, 1 or 2 is set; edges join corners one bit apart.
+        let corners = (0 ..< 8).map { index in
+            view.transform(Vec3(
+                index & 1 == 0 ? box.min.x : box.max.x,
+                index & 2 == 0 ? box.min.y : box.max.y,
+                index & 4 == 0 ? box.min.z : box.max.z
+            ))
         }
-        let pixels = corners.compactMap { camera.project($0, size: size) }
+        // In camera space the view runs down −Z, so a point's depth is −z.
+        var visible = corners.filter { -$0.z >= near }
+        for index in 0 ..< 8 {
+            for bit in [1, 2, 4] where index & bit == 0 {
+                let from = corners[index], to = corners[index | bit]
+                guard (-from.z >= near) != (-to.z >= near) else { continue }
+                let t = (near + from.z) / (from.z - to.z)
+                visible.append(Vec3(
+                    from.x + t * (to.x - from.x), from.y + t * (to.y - from.y), from.z + t * (to.z - from.z)
+                ))
+            }
+        }
+        let toWorld = view.inverse
+        let pixels = visible.compactMap { camera.project(toWorld.transform($0), size: size) }
         guard let minX = pixels.map(\.x).min(), let maxX = pixels.map(\.x).max(),
               let minY = pixels.map(\.y).min(), let maxY = pixels.map(\.y).max()
         else { return nil }
