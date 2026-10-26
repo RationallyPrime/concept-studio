@@ -31,7 +31,7 @@ extension GPUWorkspace {
 
     private func releaseActivePod() {
         stopRefused = false
-        self.pod = nil
+        pod = nil
         saved = nil
         agent = nil
         plan = nil
