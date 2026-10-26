@@ -328,8 +328,15 @@ struct PackageTests {
         let byName = ["--blockout", path.path, "--shot", name, "--out", parent.path]
         #expect(await ShotsCommandLine.run(arguments: byName) == 1)
         #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == [])
-        let byID = ["--blockout", path.path, "--shot", "shot-twin", "--frames", "5", "--passes", "layout"]
+        // By id it exports, and `--passes clean` validates with the clean pass alone.
+        let byID = ["--blockout", path.path, "--shot", "shot-twin", "--frames", "5", "--passes", "clean"]
         #expect(await ShotsCommandLine.run(arguments: byID + ["--out", parent.path]) == 0)
+        let package = try onlyPackage(in: parent)
+        #expect(await PackageValidator.problems(at: package) == [])
+        let manifest = try JSONDecoder().decode(
+            PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+        )
+        #expect(manifest.passes == [.clean])
     }
 
     @Test func theValidatorNamesAVideoListedWithoutTheFrameCount() async throws {
