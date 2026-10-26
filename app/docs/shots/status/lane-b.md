@@ -2,8 +2,8 @@
 
 | Checkpoint | State |
 |---|---|
-| W0 wiring | **Draft PR: [RationallyPrime/concept-studio#51](https://github.com/RationallyPrime/concept-studio/pull/51).** It adds the standalone `app/PrevisCore` package (placeholder source, LICENSE and NOTICE bundled), the app targets `ShotsMedia`, `ShotsExportTool` and `ShotsMediaTests` with placeholders, a CI step for PrevisCore's tests, lint and format paths, the preview script copying PrevisCore, and the bun pin. Still open: CI's complete suite green, the preview-script check, and checkpoint integration approval. |
-| B0 API skeleton | Next, as soon as A0 is on `main` |
+| W0 wiring | **Draft PR [RationallyPrime/concept-studio#51](https://github.com/RationallyPrime/concept-studio/pull/51)**, head `f1c3d51`. All seven CI jobs pass. Codex reviewed `4782eba` with no findings. The later delta is this status file only, checked by Lane B as author verification, not independent clearance. Still open: independent clearance of the current head, and integration approval. |
+| B0 API skeleton | **Draft PR, stacked on A0 (#52).** Every CONTRACTS section 6 declaration and the section 8.3 package types compile against A0's real PrevisCore. `ShotsCommandLine` prints usage, and `shots-export` exits with code 2. `ShotsSelfTest.run()` prints a JSON report and returns 1 until B2. `PackageValidator` reports "not implemented" rather than "valid". Unimplemented work throws `ShotsError.notImplemented`. Build and both linters are clean. |
 | B1–B7 | Not started |
 
 ## W0 verification (2026-10-26, Apple silicon, Swift 6.4 locally; CI runs Swift 6.3)
