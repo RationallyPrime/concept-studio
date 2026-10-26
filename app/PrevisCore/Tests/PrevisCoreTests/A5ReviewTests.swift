@@ -97,4 +97,70 @@ struct A5ReviewTests {
         let clean = try problems(rotation: Quat(x: 0, y: 0, z: 0, w: 1))
         #expect(!clean.contains { $0.message.contains("rotation") })
     }
+
+    // MARK: A static attachment already overridden by blocking is not a dependency (review R2)
+
+    /// bus is statically attached to rider, but bus's own mark at t = 0 overrides that from t = 0; at t = 1 the active
+    /// graph is rider → cart → bus. The stored bus → rider edge must not make a false cycle.
+    private func inactiveAttachmentScene(entityOrder: [Int], trackOrder: [Int], attached: Bool) throws -> PrevisScene {
+        var scene = try #require(ShotsSamples.twoPersonWalk().scenes.first)
+        var bus = cube("bus", heading: .pi / 2)
+        if attached { bus.attachment = EntityAttachment(parentID: "rider", offset: .zero, rotation: .identity) }
+        let entities = [cube("rider"), cube("cart"), bus]
+        scene.entities = entityOrder.map { entities[$0] }
+        let start = ActorMark(
+            id: "bus_start", time: 0, hold: 0, easeIn: 0, easeOut: 0,
+            position: .zero, gait: .stand, arriveHeading: .pi / 2
+        )
+        let tracks = [
+            Track(entityID: "bus", marks: [start]),
+            Track(entityID: "cart", marks: [board("cart_board", at: .zero, onto: "bus")]),
+            Track(entityID: "rider", marks: [board("rider_board", at: Vec3(1, 0, 0), onto: "cart")]),
+        ]
+        scene.blocking[0].tracks = trackOrder.map { tracks[$0] }
+        return scene
+    }
+
+    @Test func anAttachmentOverriddenByBlockingMakesNoFalseCycleInAnyOrder() throws {
+        let catalog = try ContentCatalog.bundled()
+        for attached in [true, false] {
+            for entityOrder in permutations([0, 1, 2]) {
+                for trackOrder in permutations([0, 1, 2]) {
+                    let scene = try inactiveAttachmentScene(
+                        entityOrder: entityOrder, trackOrder: trackOrder, attached: attached
+                    )
+                    let position = try riderPosition(scene, catalog: catalog)
+                    #expect(
+                        abs(position.x - 1) < 1e-9 && abs(position.y) < 1e-9 && abs(position.z) < 1e-9,
+                        "attached \(attached), entities \(entityOrder), tracks \(trackOrder): \(position)"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test func aLiveAttachmentStillOrdersABoardingAfterTheCarrierThatItRidesOn() throws {
+        // cart is attached (no blocking of its own) to bus, and bus boards a van at t = 1 together with rider boarding
+        // cart: rider depends on cart's carrier chain cart → bus → van, so bus must board first.
+        let catalog = try ContentCatalog.bundled()
+        var scene = try #require(ShotsSamples.twoPersonWalk().scenes.first)
+        var cart = cube("cart")
+        cart.attachment = EntityAttachment(parentID: "bus", offset: .zero, rotation: .identity)
+        let entities = [cube("rider"), cart, cube("bus"), cube("van", heading: .pi / 2)]
+        let tracks = [
+            Track(entityID: "bus", marks: [board("bus_board", at: .zero, onto: "van")]),
+            Track(entityID: "rider", marks: [board("rider_board", at: Vec3(1, 0, 0), onto: "cart")]),
+        ]
+        for entityOrder in permutations([0, 1, 2, 3]) {
+            scene.entities = entityOrder.map { entities[$0] }
+            for trackOrder in permutations([0, 1]) {
+                scene.blocking[0].tracks = trackOrder.map { tracks[$0] }
+                let position = try riderPosition(scene, catalog: catalog)
+                #expect(
+                    abs(position.x - 1) < 1e-9 && abs(position.z) < 1e-9,
+                    "\(entityOrder) \(trackOrder): \(position)"
+                )
+            }
+        }
+    }
 }
