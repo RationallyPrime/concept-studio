@@ -3,8 +3,15 @@
 | Checkpoint | State |
 |---|---|
 | A0 declarations | **Merged** (`de3947b`; guide frame 61 per CONTRACTS, repaired by the integration owner under a recorded two-line exception). |
-| A1 content, catalog, import | **Draft PR, targeting `main`** (branch `shots/a-core-a1`, two commits rebased from `8c7815f` onto `1366c35`; `git range-diff` shows both patches unchanged). Tolerant decoding, the full catalog and `starter.v1.json`, `BlockoutImport` and `blockoutProjectJSON()`. |
-| A2–A6 | Not started |
+| A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
+| A2 evaluator parity and paths | **Draft PR, targeting `main`** (branch `shots/a-core-a2`, one commit rebased onto `93dbb76`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
+| A3–A6 | Not started |
+
+**A2 tests** (Linux, Swift 6.3.3, debug): `PREVIS_GOLDENS=<goldens.json> swift test --package-path app/PrevisCore --filter Parity`
+passes all 8 Blockout scenes, 24 360 scalars compared, worst difference 2.8e-14 (limit 1e-9). Without `PREVIS_GOLDENS` the
+parity test is skipped; 27 tests in the package pass. A deliberate mutation (dropping the camera `smoothstep`) fails it with
+2560 issues. Rebased on `main` `93dbb76` and rerun there with the same result. macOS CI: pending on the PR. The app targets
+(`ShotsMedia`, `ConceptStudio`) need macOS to build; the public PrevisCore API is unchanged, so only CI covers them.
 
 **A1 review round 1** (PR #59, three P2 findings at `71ccacd`; repaired additively, each reproduced before the cure):
 - r4376421686, height clamp. `LANE-A-CORE.md` says `params.height` is "folded into `placement.scale` (×h)" with no clamp;
@@ -44,7 +51,9 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 - Sample camera: the sample shot uses a 20 mm lens at z = 6 pushing in to z = 4.5, because a 35 mm lens on a 640 × 1152
   portrait canvas sees only about ±0.9 m at 6 m. Entities stay within ±1.3 m.
 - `ShotsDocument(version:scenes:)` and similar take required non-defaulted parameters per CONTRACTS section 1.
-- The skeleton evaluator ignores time: frames differ only in `index` and `time`. Motion arrives with A2.
+- From A2 the evaluator moves entities and the camera. Authored turns still snap (Blockout defect 1, fixed in A5), and
+  `arriveHeading` on a shot's last mark is never visible because the clock stops at that mark's arrival, so the sample's
+  final turn to face the camera shows only after A5.
 - `PrevisScene.make` starts `revision` at 0.
 
 ## Open questions

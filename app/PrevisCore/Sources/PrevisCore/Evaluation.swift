@@ -1,97 +1,7 @@
 import Foundation
 
-// Evaluation, CONTRACTS section 5.4. A0 evaluates a skeleton: each entity is one grey box (footprint × height)
-// at its placement and the camera sits at the first camera mark. Motion arrives with A2.
-
-public struct ShotEvaluator: Sendable {
-    private let scene: PrevisScene
-    private let shot: Shot
-    private let entities: [(entity: PrevisEntity, asset: AssetSpec)]
-
-    public init(scene: PrevisScene, shotID: ShotID, catalog: ContentCatalog) throws {
-        guard let shot = scene.shots.first(where: { $0.id == shotID }) else {
-            throw ShotsError.invalid([
-                ShotsProblem(
-                    severity: .error,
-                    message: "Scene \"\(scene.name)\" has no shot with id \(shotID); pick one of its shots.",
-                    sceneID: scene.id,
-                    shotID: shotID
-                ),
-            ])
-        }
-        var problems: [ShotsProblem] = []
-        var resolved: [(entity: PrevisEntity, asset: AssetSpec)] = []
-        for entity in scene.entities {
-            if let asset = catalog.asset(entity.assetID) {
-                resolved.append((entity, asset))
-            } else {
-                problems.append(
-                    ShotsProblem(
-                        severity: .error,
-                        message: "\"\(entity.name)\" uses the unknown asset \(entity.assetID); "
-                            + "choose an asset from the catalog.",
-                        sceneID: scene.id,
-                        shotID: shotID,
-                        entityID: entity.id
-                    )
-                )
-            }
-        }
-        if !problems.isEmpty { throw ShotsError.invalid(problems) }
-        self.scene = scene
-        self.shot = shot
-        entities = resolved
-    }
-
-    public var frameCount: Int {
-        shot.frameCount
-    }
-
-    public func frame(_ index: Int) -> SceneFrame {
-        let clamped = min(max(index, 0), max(shot.frameCount - 1, 0))
-        return sceneFrame(index: clamped, time: FrameGrid.time(ofFrame: clamped))
-    }
-
-    public func frame(at time: Double) -> SceneFrame {
-        let clamped = min(max(time.isFinite ? time : 0, 0), shot.duration)
-        return sceneFrame(index: nil, time: clamped)
-    }
-
-    /// Speed, 180° line, trained range and marks past the end. None are checked yet (A5).
-    public func warnings() -> [ShotsProblem] {
-        []
-    }
-
-    /// Ribbons and spike marks. Empty until A2.
-    public func paths() -> [MotionPath] {
-        []
-    }
-
-    private func sceneFrame(index: Int?, time: Double) -> SceneFrame {
-        SceneFrame(
-            index: index,
-            time: time,
-            canvas: shot.canvas,
-            camera: cameraFrame(),
-            entities: entities.map { EntityFrame.placed($0.entity, asset: $0.asset) }
-        )
-    }
-
-    /// The first camera mark by time, then document order; a default camera when the shot has none.
-    private func cameraFrame() -> CameraFrame {
-        let first = shot.camera.marks.enumerated().min { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }
-        let mark = first?.element
-        return CameraFrame.make(
-            position: mark?.position ?? Vec3(0, 1.6, 6),
-            pan: mark?.pan ?? 0,
-            tilt: mark?.tilt ?? 0,
-            roll: mark?.roll ?? 0,
-            focalLength: mark?.focalLength ?? 35,
-            sensor: shot.camera.sensor,
-            aspect: shot.canvas.aspect
-        ).focused(at: mark?.focusDistance)
-    }
-}
+// Evaluation values, CONTRACTS section 5.4. The evaluator itself is in ShotEvaluator.swift. Until A3 each entity is
+// one grey box (footprint × height) at its evaluated pose.
 
 public struct SceneFrame: Sendable, Equatable {
     public var index: Int? // set when evaluated on the grid
@@ -261,12 +171,11 @@ public struct EntityFrame: Sendable, Equatable {
         self.bounds = bounds
     }
 
-    /// The skeleton pose: one grey box at the entity's placement. Attachments are not resolved yet.
-    static func placed(_ entity: PrevisEntity, asset: AssetSpec) -> EntityFrame {
-        let placement = entity.placement
-        let scale = placement.scale
+    /// One grey box (footprint × height) at the evaluated pose; bodies replace it from A3.
+    static func posed(_ entity: PrevisEntity, asset: AssetSpec, state: EntityPose) -> EntityFrame {
+        let scale = entity.placement.scale
         let size = Vec3(asset.footprint, asset.height, asset.footprint)
-        let centre = placement.position + Vec3(0, asset.height * scale / 2, 0)
+        let centre = state.position + Vec3(0, asset.height * scale / 2, 0)
         let half = Vec3(asset.footprint * scale / 2, 0, asset.footprint * scale / 2)
         return EntityFrame(
             id: entity.id,
@@ -274,25 +183,36 @@ public struct EntityFrame: Sendable, Equatable {
             name: entity.name,
             label: entity.label,
             isActor: asset.rig != .none || entity.label != nil,
-            position: placement.position,
-            heading: placement.heading,
-            gait: .stand,
-            speed: 0,
-            distanceTravelled: 0,
+            position: state.position,
+            heading: state.heading,
+            gait: state.gait,
+            speed: state.speed,
+            distanceTravelled: state.distanceTravelled,
+            joints: state.joints,
             parts: [
                 PosedPart(
                     id: "body",
                     shape: .box(size: size),
-                    transform: Mat4.translation(centre) * Mat4.rotation(.yaw(placement.heading)) * Mat4.scale(scale),
+                    transform: Mat4.translation(centre) * Mat4.rotation(.yaw(state.heading)) * Mat4.scale(scale),
                     color: RGB(hex: "#808080")
                 ),
             ],
             bounds: Box3(
-                min: placement.position - half,
-                max: placement.position + half + Vec3(0, asset.height * scale, 0)
+                min: state.position - half,
+                max: state.position + half + Vec3(0, asset.height * scale, 0)
             )
         )
     }
+}
+
+/// An entity's evaluated pose before bodies are attached.
+struct EntityPose {
+    var position: Vec3
+    var heading: Double
+    var gait: Gait = .stand
+    var speed = 0.0
+    var distanceTravelled = 0.0
+    var joints: [Joint: Double] = [:]
 }
 
 public struct PosedPart: Sendable, Equatable {
