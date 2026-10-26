@@ -139,11 +139,15 @@ struct PackageTests {
             let matte = try Pixels(ShotFrameRenderer.image(from: buffer))
             let box = try #require(PassDrawing.projectedBounds(actor.bounds, camera: frame.camera, size: size))
                 .insetBy(dx: -1, dy: -1)
-            var inside = 0, outside = 0
+            var inside = 0, outside = 0, grey = 0
             for y in 0 ..< matte.height {
                 for x in 0 ..< matte.width {
-                    let (red, green, blue) = matte.rgb(x, y)
-                    guard red + green + blue > 600 else { continue }
+                    let pixel = matte.rgb(x, y)
+                    guard pixel != (0, 0, 0) else { continue }
+                    guard pixel == (255, 255, 255) else {
+                        grey += 1
+                        continue
+                    }
                     if box.contains(CGPoint(x: Double(x) + 0.5, y: Double(y) + 0.5)) {
                         inside += 1
                     } else {
@@ -151,6 +155,7 @@ struct PackageTests {
                     }
                 }
             }
+            #expect(grey == 0, "\(actor.name)'s matte has \(grey) pixels that are neither black nor white")
             #expect(outside == 0, "\(actor.name)'s matte is white outside the actor")
             #expect(inside > 100, "\(actor.name)'s matte is nearly empty")
         }
@@ -172,6 +177,8 @@ struct PackageTests {
         // 3 guide frames × clean, pose, layout; pose and layout videos; the clean video; two actors' mattes with a
         // still at each guide frame; shot.json.
         #expect(roles == [.guide: 9, .control: 2, .reference: 1, .matte: 8, .description: 1])
+        let videos = manifest.files.filter { $0.path.hasSuffix(".mp4") }
+        #expect(videos.count == 5 && videos.allSatisfy { $0.frameCount == 124 }, "video entries: \(videos)")
         try Self.expectPoseKeypoints(in: package, manifest: manifest)
     }
 
@@ -225,6 +232,19 @@ struct PackageTests {
         #expect(await PackageValidator.problems(at: package) == [])
         try FileManager.default.removeItem(at: package.appendingPathComponent("control/layout.mp4"))
         #expect(await PackageValidator.problems(at: package) == ["control/layout.mp4 is listed but missing."])
+    }
+
+    @Test func theValidatorNamesAVideoListedWithoutTheFrameCount() async throws {
+        let parent = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let exported = try await Self.exportSmallSample(to: parent)
+        var manifest = exported.manifest
+        let index = try #require(manifest.files.firstIndex { $0.path == "control/pose.mp4" })
+        manifest.files[index].frameCount = nil
+        try JSONEncoder().encode(manifest).write(to: exported.url.appendingPathComponent("manifest.json"))
+        #expect(await PackageValidator.problems(at: exported.url) == [
+            "control/pose.mp4 is listed without the package's frame count \(manifest.frameCount).",
+        ])
     }
 
     @Test func aCancelledExportLeavesNothingBehind() async throws {

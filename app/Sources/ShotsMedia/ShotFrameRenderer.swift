@@ -87,6 +87,8 @@ import RealityKit
             alpha: 1
         )
         renderer.cameraSettings.colorBackground = .color(background)
+        // 4× multisampling for the clean look; none for a matte, so it holds only black and white.
+        renderer.cameraSettings.antialiasing = matte == nil ? .multisample4X : .none
         if let overlay { overlays.addChild(overlay) }
         defer { overlay?.removeFromParent() }
 

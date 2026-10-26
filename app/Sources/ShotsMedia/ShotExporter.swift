@@ -90,22 +90,24 @@ import PrevisCore
         guard let first = frames.first else { throw ShotsMediaError("Shot \"\(shot.name)\" has no frames to export.") }
         let actors = first.entities.filter(\.isActor)
         videoCount = passes.reduce(0) { $0 + ($1 == .matte ? actors.count : 1) }
+        let count = frames.count
         for pass in passes {
             switch pass {
             case .clean:
                 try await video(
-                    PackageFile(role: .reference, path: "reference/clean.mp4", variant: .clean),
+                    PackageFile(role: .reference, path: "reference/clean.mp4", variant: .clean, frameCount: count),
                     guides: .clean
                 ) {
                     try await self.render($0, matte: nil, into: $1)
                 }
             case .pose:
-                try await video(PackageFile(role: .control, path: "control/pose.mp4", variant: .pose), guides: .pose) {
-                    try PassDrawing.pose($0, into: $1)
-                }
+                try await video(
+                    PackageFile(role: .control, path: "control/pose.mp4", variant: .pose, frameCount: count),
+                    guides: .pose
+                ) { try PassDrawing.pose($0, into: $1) }
             case .layout:
                 try await video(
-                    PackageFile(role: .control, path: "control/layout.mp4", variant: .layout),
+                    PackageFile(role: .control, path: "control/layout.mp4", variant: .layout, frameCount: count),
                     guides: .layout
                 ) { try PassDrawing.layout($0, into: $1) }
             case .matte:

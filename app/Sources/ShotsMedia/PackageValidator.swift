@@ -32,12 +32,11 @@ public enum PackageValidator {
             }
             switch url.pathExtension {
             case "png": problems += stillProblems(url, path: file.path, size: size)
-            case "mp4": problems += await videoProblems(
-                    url,
-                    path: file.path,
-                    frameCount: manifest.frameCount,
-                    size: size
-                )
+            case "mp4":
+                if file.frameCount != manifest.frameCount {
+                    problems.append("\(file.path) is listed without the package's frame count \(manifest.frameCount).")
+                }
+                problems += await videoProblems(url, path: file.path, frameCount: manifest.frameCount, size: size)
             default: break
             }
         }
