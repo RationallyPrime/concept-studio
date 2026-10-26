@@ -5,7 +5,31 @@
 | A0 declarations | **Merged** (`de3947b`; guide frame 61 per CONTRACTS, repaired by the integration owner under a recorded two-line exception). |
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
 | A2 evaluator parity and paths | **Draft PR, targeting `main`** (branch `shots/a-core-a2`, one commit rebased onto `93dbb76`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
-| A3–A6 | Not started |
+| A3 bodies | **Prepared, not published.** Local branch `a3-wip`, stacked on A2 (#64); published only after A2 lands. The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
+| A4–A6 | Not started |
+
+**A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 36 run, 36 passed, 0 failed (parity still 8 of 8 scenes). BodyTests: a
+standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross` extension the right
+wrist is ahead of the chest; in `sit` the knees are ahead of the hips; at the top of `wave` the hand is above the head; at the
+`front-kick` extension the ankle is ahead of the hips. Quadrupeds stand on the ground facing −Z. `parts.v1.json` equals a fresh
+`parts.ts` run (`cmp`). macOS CI: not run (unpublished).
+
+**The sign mapping (recorded as LANE-A-CORE.md asks).** Before any change, the rig as the lane document specifies it failed three
+of the five facts: the jab wrist was 0.47 m *behind* the chest, the seated knees 0.40 m behind the hips, and the kicking ankle
+0.77 m behind the hip. Blockout's header says a negative shoulder or hip X raises or swings forward, and a positive torso X leans
+forward, but its geometry turns the other way. The fix is in one place, `PersonRig.angles(...)`: the rig keeps one convention
+(positive X on a shoulder, elbow or hip swings the limb forward, negative X on the torso or head pitches forward, negative X on a
+knee bends it) and maps the data to it there. The gait constants that contradicted the convention changed sign with it: sit (hips
++π/2, knees −π/2), the arm raise in gesture and fall, the slight elbow bend in walk, and the forward lean in stand, run and crouch.
+The Y and Z overrides keep the signs of the lane document's table; no test exercises them, and Blockout's own header says "positive =
+outward" for the Z overrides where its table moves the limb inward. That is an open question below.
+
+**Other A3 decisions.**
+- Blockout's standing figure is 0.14 × (H / 1.78) m taller than its catalog height, so the rig is built at H / 1.0787.
+- Rigged parts are sized for scale 1 and the transform carries the entity scale, like static parts, so a renderer can cache one
+  mesh per shape. Bob and sway amplitudes are therefore proportional to the scale.
+- `prop.tree`'s tapered trunk (radius 0.18 to 0.25) is a cylinder of the mean radius, because `PartShape` has no frustum.
+- The bird has no rig (out of scope), so it draws as a grey box; `bounds` come from the parts' world extents.
 
 **A2 tests** (Linux, Swift 6.3.3, debug): `PREVIS_GOLDENS=<goldens.json> swift test --package-path app/PrevisCore --filter Parity`
 passes all 8 Blockout scenes, 24 360 scalars compared, worst difference 2.8e-14 (limit 1e-9). Without `PREVIS_GOLDENS` the
@@ -60,4 +84,6 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 
 - Closed by the integration owner: the store reads a version header before decoding, so no version-refusal API is added.
 - Lane C accepts C2 persistence on the A1 tolerant readers.
+- Z overrides: the lane document's table moves `shoulderLZ`, `shoulderRZ`, `hipLZ` and `hipRZ` the way Blockout's code does, which is
+  inward for positive values although Blockout's header says outward. A3 follows the table. Should the sign be fixed like the X ones?
 - `FrameGrid.frame(atTime:)` rounds to the nearest frame (contract does not say floor or nearest).
