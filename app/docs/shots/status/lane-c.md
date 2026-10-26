@@ -7,7 +7,7 @@ Owner: Ari (Codex). Canonical branch: `shots/c-shell`.
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
-| C1: workspace entry | Implemented preparation; acceptance pending | D0 PR #61 landing, current-main CI and independent review. |
+| C1: workspace entry | Implemented; acceptance pending | Current-main CI and independent review closure. |
 | C2: commands, persistence and undo | Isolated preparation | Full command/focus/menu coverage and C1 acceptance. |
 | C3: lists, import and export | Pending | B3 exporter and real A3 bodies/keypoints; IT3. |
 | C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
@@ -33,13 +33,13 @@ C0 independent closure and all seven checks passed before merge; 14 focused loca
 - Actual root previews gain shots-empty and shots-sample in both appearances and sizes.
 
 These are C1 surfaces only. Library placement, full inspectors, timeline playback, export and prompt
-writing are later checkpoints. D0 remains an unmerged owner artifact; no C1 acceptance is claimed.
+writing are later checkpoints. D0 PR #61 merged as `42871fbd`; no C1 acceptance is claimed yet.
 
 ## Verification
 
 Initial isolated validation used main `93dbb764` plus published D0 and C1 sources. The current C1
-branch is stacked on published D0 PR #61 (`4547289`) over main `89d9e7d`; its two original C1 patches
-rebased cleanly. No replacement viewport implementation was used. D0 remains an explicit dependency.
+branch has been retargeted to main after D0 PR #61 landed as `42871fbd`. All five C1 patches
+rebased unchanged (`=` range proof). No replacement viewport implementation was used.
 
 - **Run and passed:** native SwiftPM `--filter 'Shots|Viewport'` on the actual published D0 base:
   31 tests in nine suites. Includes
