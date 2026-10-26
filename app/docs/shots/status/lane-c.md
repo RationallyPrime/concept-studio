@@ -250,3 +250,12 @@ cancel leaves no history. Strict lint passed. No gesture wiring or C4 UI accepta
 Media diagnosis remains with Lane B: strict Swift cooperative-pool filter passed11tests/4suites on
 local Swift6.4; no reproduction or cure claim for the Xcode26.6 full-suite CI hang. Native build-system
 selection avoided a local generated-test-bundle code-sign failure without changing attributes/settings.
+
+C4 navigation preparation now also has pure store actions for focused timeline arrows/Home/End/Delete,
+24-frame Shift steps, text-edit protection, playback toggle/restart and idempotent guide insertion.
+Reference: Blockout App.tsx useKeyboard and store.ts setPlaying; CONTRACTS section7 intentionally
+narrows arrows/Delete to timeline focus and suppresses all actions in text editors. Seven tests in
+three suites passed, including unchanged playhead/selection/document/history when another region or
+text editor owns focus, boundary clamping, guide deduplication/one undo and restart at shot end.
+Strict lint and pinned format passed. Actual focus/event wiring and24fps transport loop remain to do.
+No native/global keyboard monitor is installed by this preparation.
