@@ -29,12 +29,15 @@ import PrevisCore
             if renderer == nil, passes.contains(where: { $0 == .clean || $0 == .matte }) {
                 renderer = try ShotFrameRenderer()
             }
-            let writer = PackageWriter(
+            let writer = try PackageWriter(
                 scene: scene,
                 shot: shot,
                 frames: (0 ..< evaluator.frameCount).map { evaluator.frame($0) },
                 folder: staging,
                 renderer: renderer,
+                promptFacts: shot.prompt.map { _ in
+                    try ShotPromptCompiler.facts(scene: scene, shotID: shotID, catalog: catalog)
+                },
                 progress: progress
             )
             let manifest = try await writer.write(passes: passes)
@@ -60,6 +63,7 @@ import PrevisCore
     private let frames: [SceneFrame]
     private let folder: URL
     private let renderer: ShotFrameRenderer?
+    private let promptFacts: PromptFacts?
     private let look: PrevisLook
     private let progress: @MainActor (ExportProgress) -> Void
     private let guides: [(position: PackageFile.Position, frame: Int)]
@@ -73,8 +77,10 @@ import PrevisCore
         frames: [SceneFrame],
         folder: URL,
         renderer: ShotFrameRenderer?,
+        promptFacts: PromptFacts? = nil,
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) {
+        self.promptFacts = promptFacts
         self.scene = scene
         self.shot = shot
         self.frames = frames
@@ -117,6 +123,9 @@ import PrevisCore
             }
         }
         try writeDescription()
+        if let prompt = shot.prompt, let promptFacts {
+            try writePrompt(prompt, facts: promptFacts)
+        }
         let manifest = PackageManifest(
             format: PackageManifest.formatName,
             formatVersion: PackageManifest.currentFormatVersion,
@@ -248,6 +257,16 @@ import PrevisCore
         files.append(PackageFile(role: .description, path: "shot.json"))
     }
 
+    /// `prompt.txt` holds the prompt exactly as it goes into the graph; `prompt.json` adds its sections and facts.
+    private func writePrompt(_ prompt: ShotPrompt, facts: PromptFacts) throws {
+        try Data(prompt.text.utf8).write(to: prepare("prompt.txt"), options: .atomic)
+        try writeJSON(PromptFile(sections: prompt.sections, text: prompt.text, facts: facts), to: "prompt.json")
+        files += [
+            PackageFile(role: .prompt, path: "prompt.txt"),
+            PackageFile(role: .promptSections, path: "prompt.json"),
+        ]
+    }
+
     private func writeJSON(_ value: some Encodable, to path: String) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -263,6 +282,13 @@ import PrevisCore
     private static func frameTag(_ frame: Int) -> String {
         String(format: "%04d", frame)
     }
+}
+
+/// `prompt.json`.
+struct PromptFile: Encodable {
+    var sections: [PromptSection]
+    var text: String
+    var facts: PromptFacts
 }
 
 /// `shot.json`: the shot, its guides, the camera per frame and each subject, with the scene as stored.
