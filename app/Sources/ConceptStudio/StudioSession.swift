@@ -94,6 +94,7 @@ final class StudioSession {
     }
 
     var demoMode = false
+    var workspace = StudioWorkspace.training
     var step: StudioStep? = .images {
         didSet {
             if step != oldValue, !busy, !editing { message = "" }
