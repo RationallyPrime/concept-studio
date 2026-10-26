@@ -89,29 +89,10 @@ private struct SceneChecker {
 
     /// One error per cycle, naming every entity on it.
     private func attachmentCycles() -> [ShotsProblem] {
-        var reported: Set<Set<EntityID>> = []
-        var out: [ShotsProblem] = []
-        for entity in scene.entities {
-            var chain = [entity.id]
-            var current = entity
-            while let parent = current.attachment?.parentID,
-                  let next = scene.entities.first(where: { $0.id == parent }) {
-                if let start = chain.firstIndex(of: parent) {
-                    let cycle = Set(chain[start...])
-                    if reported.insert(cycle).inserted {
-                        let names = chain[start...].map { "\"\(name(of: $0))\"" }.joined(separator: " and ")
-                        out.append(error(
-                            "\(names) are attached to each other in a cycle; detach one of them.",
-                            entity: parent
-                        ))
-                    }
-                    break
-                }
-                chain.append(parent)
-                current = next
-            }
+        AttachmentCycles.find(in: scene.entities).map { cycle in
+            let names = cycle.map { "\"\(name(of: $0))\"" }.joined(separator: " and ")
+            return error("\(names) are attached to each other in a cycle; detach one of them.", entity: cycle[0])
         }
-        return out
     }
 
     // MARK: Takes

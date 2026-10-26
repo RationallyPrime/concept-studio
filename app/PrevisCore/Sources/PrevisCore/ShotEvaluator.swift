@@ -21,8 +21,11 @@ struct Corrections: OptionSet, Sendable {
     /// One easing for position and orientation: the camera's pan, tilt, roll and lens no longer apply a smoothstep on
     /// top of the position easing (defect 6).
     static let singleEasing = Corrections(rawValue: 4)
+    /// Attachments and boardings are one graph, resolved parents first with full transforms, a boarded vehicle's own
+    /// attachment included; Blockout runs four fixed passes in a fixed order (defects 3 and 4).
+    static let attachmentGraph = Corrections(rawValue: 8)
 
-    static let all: Corrections = [.authoredTurns, .verticalHeading, .singleEasing]
+    static let all: Corrections = [.authoredTurns, .verticalHeading, .singleEasing, .attachmentGraph]
 }
 
 public struct ShotEvaluator: Sendable {
@@ -33,6 +36,7 @@ public struct ShotEvaluator: Sendable {
     let entities: [Resolved]
     let tracks: [EntityID: ActorPlan]
     private let boardings: [Boarding]
+    private let graph: AttachmentGraph?
     let camera: TrackPlan
 
     struct Resolved: Sendable {
@@ -67,6 +71,27 @@ public struct ShotEvaluator: Sendable {
                 ),
             ])
         }
+        let resolved = try Self.resolve(scene, shot: shot, catalog: catalog, corrections: corrections)
+        let plans = Self.plans(scene, shot: shot, resolved: resolved, corrections: corrections)
+
+        self.corrections = corrections
+        graph = corrections.contains(.attachmentGraph) ? Self.graph(resolved, plans) : nil
+        sceneID = scene.id
+        self.shot = shot
+        self.aspect = aspect ?? shot.canvas.aspect
+        entities = resolved
+        tracks = plans
+        camera = TrackPlan(waypoints: shot.camera.marks.map(Waypoint.init))
+        boardings = Self.boardings(resolved, plans)
+    }
+
+    /// Every entity with its asset, or an error naming each unknown asset and each attachment cycle.
+    private static func resolve(
+        _ scene: PrevisScene,
+        shot: Shot,
+        catalog: ContentCatalog,
+        corrections: Corrections
+    ) throws -> [Resolved] {
         var problems: [ShotsProblem] = []
         var resolved: [Resolved] = []
         for entity in scene.entities {
@@ -79,55 +104,78 @@ public struct ShotEvaluator: Sendable {
                         message: "\"\(entity.name)\" uses the unknown asset \(entity.assetID); "
                             + "choose an asset from the catalog.",
                         sceneID: scene.id,
-                        shotID: shotID,
+                        shotID: shot.id,
                         entityID: entity.id
                     )
                 )
             }
         }
         if !problems.isEmpty { throw ShotsError.invalid(problems) }
-
-        let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
-        var plans: [EntityID: ActorPlan] = [:]
-        var boardingOrder: [EntityID] = []
-        var boardingMarks: [EntityID: [ActorMark]] = [:]
-        let known = Set(resolved.map(\.entity.id))
-        for track in take?.tracks ?? [] where known.contains(track.entityID) && !track.marks.isEmpty {
-            let heading = resolved.first { $0.entity.id == track.entityID }?.entity.placement.heading ?? 0
-            let plan = ActorPlan(marks: track.marks, placementHeading: heading, corrections: corrections)
-            plans[track.entityID] = plan
-            for mark in plan.marks where mark.boardID != nil {
-                if boardingMarks[track.entityID] == nil { boardingOrder.append(track.entityID) }
-                boardingMarks[track.entityID, default: []].append(mark)
+        if corrections.contains(.attachmentGraph) {
+            let cycles = AttachmentCycles.find(in: scene.entities)
+            if !cycles.isEmpty {
+                throw ShotsError.invalid(cycles.map { cycle in
+                    let names = cycle.map { id in "\"\(scene.entities.first { $0.id == id }?.name ?? id)\"" }
+                    return ShotsProblem(
+                        severity: .error,
+                        message: "\(names.joined(separator: " and ")) are attached to each other in a cycle; "
+                            + "detach one of them.",
+                        sceneID: scene.id,
+                        shotID: shot.id,
+                        entityID: cycle[0]
+                    )
+                })
             }
         }
+        return resolved
+    }
 
-        self.corrections = corrections
-        sceneID = scene.id
-        self.shot = shot
-        self.aspect = aspect ?? shot.canvas.aspect
-        entities = resolved
-        tracks = plans
-        camera = TrackPlan(waypoints: shot.camera.marks.map(Waypoint.init))
-        boardings = boardingOrder.map { id in
-            let marks = boardingMarks[id] ?? []
+    private static func plans(
+        _ scene: PrevisScene,
+        shot: Shot,
+        resolved: [Resolved],
+        corrections: Corrections
+    ) -> [EntityID: ActorPlan] {
+        let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
+        var plans: [EntityID: ActorPlan] = [:]
+        for track in take?.tracks ?? [] where !track.marks.isEmpty {
+            guard let entity = resolved.first(where: { $0.entity.id == track.entityID })?.entity else { continue }
+            plans[track.entityID] = ActorPlan(
+                marks: track.marks,
+                placementHeading: entity.placement.heading,
+                corrections: corrections
+            )
+        }
+        return plans
+    }
+
+    private static func graph(_ resolved: [Resolved], _ plans: [EntityID: ActorPlan]) -> AttachmentGraph {
+        var graph = AttachmentGraph(entities: resolved.map(\.entity), tracks: plans)
+        graph.capture { time in
+            resolved.map { item in
+                let placement = item.entity.placement
+                return plans[item.entity.id]?.pose(at: time, fallbackHeading: placement.heading)
+                    ?? EntityPose(position: placement.position, heading: placement.heading)
+            }
+        }
+        return graph
+    }
+
+    /// Blockout's boardings, each with the offset captured from the vehicle's own track pose at the boarding mark.
+    private static func boardings(_ resolved: [Resolved], _ plans: [EntityID: ActorPlan]) -> [Boarding] {
+        resolved.compactMap { item -> Boarding? in
+            guard let plan = plans[item.entity.id] else { return nil }
+            let marks = plan.marks.filter { $0.boardID != nil }
+            guard !marks.isEmpty else { return nil }
+            let offsets = marks.compactMap { mark -> (MarkID, Offset)? in
+                guard let target = mark.boardID else { return nil }
+                let (position, heading) = Self.pose(of: target, at: mark.time, entities: resolved, tracks: plans)
+                return (mark.id, Boarding.offset(of: mark, from: position, heading: heading))
+            }
             return Boarding(
-                entityID: id,
+                entityID: item.entity.id,
                 marks: marks,
-                offsets: Dictionary(
-                    marks.compactMap { mark in
-                        mark.boardID.map { target in
-                            let (position, heading) = Self.pose(
-                                of: target,
-                                at: mark.time,
-                                entities: resolved,
-                                tracks: plans
-                            )
-                            return (mark.id, Boarding.offset(of: mark, from: position, heading: heading))
-                        }
-                    },
-                    uniquingKeysWith: { first, _ in first }
-                )
+                offsets: Dictionary(offsets, uniquingKeysWith: { first, _ in first })
             )
         }
     }
@@ -168,8 +216,12 @@ public struct ShotEvaluator: Sendable {
 
     private func sceneFrame(index: Int?, time: Double) -> SceneFrame {
         var poses = entities.map { pose(of: $0, at: time) }
-        resolveBoardings(&poses, at: time)
-        resolveAttachments(&poses, at: time)
+        if let graph {
+            graph.resolve(&poses, at: time)
+        } else {
+            resolveBoardings(&poses, at: time)
+            resolveAttachments(&poses, at: time)
+        }
         for index in poses.indices {
             poses[index].time = time
         }
@@ -205,7 +257,7 @@ public struct ShotEvaluator: Sendable {
         return (pose.position, pose.heading)
     }
 
-    // MARK: Boarding and attachment (Blockout's passes 2 and 3)
+    // MARK: Blockout's boarding and attachment passes (used when `.attachmentGraph` is off)
 
     private func resolveBoardings(_ poses: inout [EntityPose], at time: Double) {
         for boarding in boardings {

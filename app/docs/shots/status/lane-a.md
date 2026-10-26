@@ -7,7 +7,42 @@
 | A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
 | A3 bodies | **Merged** (PR #65, `0bdb09a`; two review rounds: the quadruped gait scale and the outward Z overrides). |
 | A4 generators | **Draft PR, targeting `main`** (branch `shots/a-core-a4`, three commits on `0bdb09a`). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
-| A5–A6 | Not started |
+| A5 corrections | **Prepared, not published** (local branch `a5-wip`, on A4's repaired head `5e66777`; no PR until A4 is accepted). Evaluator warnings, `ShotsValidation`, authored turns, vertical heading, one easing and the attachment graph. |
+| A6 | Not started |
+
+**A5 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS` and `PREVIS_GOLDENS` set): 101 run, 101 passed, 0 failed.
+
+**The default evaluator has the corrections on.** `ShotEvaluator`'s public initialiser uses `Corrections.all`; Blockout's behaviour is
+reachable only internally (`corrections: []`) as a **legacy baseline**, so the port can still be proved against its oracle. `ParityTests`
+is that baseline and is labelled so: all 8 scenes within 1e-9 with the corrections off. It says nothing about the default evaluator, which
+is covered by facts (`CorrectionTests`, `AttachmentGraphTests`, `A4ReviewTests`) and by `FeatureParityTests`, which runs the **default**
+evaluator against Blockout's output and requires agreement on every channel the corrections do not touch (an entity's heading only where
+it has an authored turn or a vertical leg or rides something that does; the camera's orientation and lens only where its marks differ in
+them), and pins the exact inventory of intentional deltas:
+
+| Scene | Channels that differ from Blockout, and why |
+|---|---|
+| `actors-paths-ease-hold` | `ent_001.heading`: an authored turn blends instead of snapping (defect 1) |
+| `camera-16:9-handheld`, `camera-9:16-steadicam`, `camera-2.39:1-drone`, `camera-1:1-crane` | `cam.pan`, `tilt`, `roll`, `focal`, `vfov`: one easing instead of easing then smoothstep (defect 6) |
+| `track-and-mount` | `cam.focal`, `cam.vfov`: same; pan and tilt are aim-locked and unchanged |
+| `mount-no-track` | none: the default evaluator equals Blockout on all 2030 channels |
+| `marriage-boarding-alighting` | `ent_041.heading`, `ent_042.heading` (turning parents) and the heading, `x` and `z` of `ent_042` to `ent_045`, which ride or are attached to them |
+
+Every other channel, 17 295 of them in the 8 scenes, agrees within 1e-9. A delta that disappears or a new one that appears fails the test.
+
+**A5 decisions.**
+- *Authored turns (defect 1).* LANE-A-CORE says a turn blends "over the hold before its mark, or over the whole leg when there is no hold". I read
+  it as: a mark with a hold turns the actor during that hold, after arriving; a mark with no hold turns the actor over the whole leg that arrives
+  at it. A leg whose marks coincide keeps the facing it started with (this is what lets a motion play in place; PR 67 r4377817829 now holds as a plain
+  assertion). Easing is the same `easedProgress` as position.
+- *Vertical moves (defect 2).* A leg with no horizontal motion keeps the heading it had.
+- *Attachment graph (defects 3 and 4).* One graph, parents first, full quaternion transforms: a child's offset is in its parent's full orientation
+  and its orientation is the parent's times the attachment's rotation. Boarding is an edge in the same graph, captured from the vehicle's resolved
+  pose, so a cart attached to a moving bus carries its rider (Blockout's fixed order left the rider 0.5 m or more behind). A cycle is an
+  error at evaluator construction and in `ShotsValidation`. `EntityFrame` still exposes only a heading, so pitch and roll of an attachment affect
+  positions of children but not the drawn orientation.
+- *Warnings and validation.* Speed, the 180-degree rule, the trained range, marks past the end, and the two kept Blockout behaviours (marks at one
+  time teleport; a pan always takes the short way). A gait name the reader does not know is a decode error naming it.
 
 **A4 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS=<golden-vectors.v1.json> PREVIS_GOLDENS=<goldens.json>`): 64 run, 64 passed, 0 failed.
 - Vectors: all 14 action paths and all 20 camera moves match Blockout within 1e-9 (camera moves for a still, a walking and a flying subject, at two
