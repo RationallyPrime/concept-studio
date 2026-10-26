@@ -80,12 +80,29 @@ These are acceptance cases to implement alongside their functionality, not tests
 
 - Delivered a project-specific message to the local plan author with C's isolated preparation, test
   evidence and W0/A0/B0 dependencies, requesting W0 status and the unique Lane A owner.
-- The author's `lane-b.md` confirms the dependency order and says selection between Gnomon and Theo
-  remains the owner's call. It reports no Swift toolchain on cx53 and no known Metis conversation target.
-- The author's `shots/b-media` branch exists at the plan commit. W0 has no checkpoint commit yet.
+- Gnomon is the intended single Lane A owner. This was delivered to the verified local plan author,
+  who recorded it in Lane B's working coordination notes. No competing Lane A branch was found.
+- The author's `shots/b-media` worktree contains W0 wiring changes and is running verification.
+  W0 has no checkpoint commit yet; its status prose is not proof that the checks have completed.
+- A bounded read-only host probe verified cx53's public SSH route with the existing key, an active
+  Hive edge, Ubuntu 24.04/x86_64 and Bun 1.3.14. Swift is absent. No native Claude/tmux session was
+  available to address; no wake has been sent by C.
+- The exact official Swift 6.3.3 toolchain operation and Ubuntu prerequisites have been prepared.
+  Only dependency simulation and script syntax checks ran; no package or compiler was installed.
 - Supported Gemini conversation searches for Shots, Concept and Metis found no matching target.
   No message was sent to an ambiguous conversation.
 - The coordinator handles the external seat route; C has not duplicated a wake.
+
+## Consumer drafts waiting for A0
+
+The command/selection/tool declarations and a document-file loader are drafted outside the buildable
+checkout. The loader preserves corrupt bytes under the required backup name, refuses newer versions
+in read-only mode, and uses `AtomicFile` for saves. Three integration tests are drafted for corrupt
+bytes, future versions and sample-document round trips.
+
+These drafts pass Swift syntax parsing and formatting/lint checks. They have not been type-checked
+against PrevisCore and their tests have not run. Move them into the owned Model and test folders once
+A0 provides the actual declarations; do not count them as C0 or C2 completion.
 
 ## Product paragraph proposal
 
