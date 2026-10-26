@@ -4,15 +4,15 @@
 |---|---|
 | A0 declarations | **Merged** (`de3947b`; guide frame 61 per CONTRACTS, repaired by the integration owner under a recorded two-line exception). |
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
-| A2 evaluator parity and paths | **Draft PR, targeting `main`** (branch `shots/a-core-a2`, one commit rebased onto `93dbb76`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
-| A3 bodies | **Prepared, not published.** Local branch `a3-wip`, stacked on A2 (#64); published only after A2 lands. The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
+| A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
+| A3 bodies | **Draft PR, targeting `main`** (branch `shots/a-core-a3`, rebased onto A2's merge `89d9e7d`). The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
 | A4–A6 | Not started |
 
-**A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 36 run, 36 passed, 0 failed (parity still 8 of 8 scenes). BodyTests: a
+**A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 37 run, 37 passed (one known issue, the Z-override question below), 0 failed (parity still 8 of 8 scenes). BodyTests: a
 standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross` extension the right
 wrist is ahead of the chest; in `sit` the knees are ahead of the hips; at the top of `wave` the hand is above the head; at the
 `front-kick` extension the ankle is ahead of the hips. Quadrupeds stand on the ground facing −Z. `parts.v1.json` equals a fresh
-`parts.ts` run (`cmp`). macOS CI: not run (unpublished).
+`parts.ts` run (`cmp`). macOS CI: pending on the PR.
 
 **The sign mapping (recorded as LANE-A-CORE.md asks).** Before any change, the rig as the lane document specifies it failed three
 of the five facts: the jab wrist was 0.47 m *behind* the chest, the seated knees 0.40 m behind the hips, and the kicking ankle
@@ -84,6 +84,13 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 
 - Closed by the integration owner: the store reads a version header before decoding, so no version-refusal API is added.
 - Lane C accepts C2 persistence on the A1 tolerant readers.
-- Z overrides: the lane document's table moves `shoulderLZ`, `shoulderRZ`, `hipLZ` and `hipRZ` the way Blockout's code does, which is
-  inward for positive values although Blockout's header says outward. A3 follows the table. Should the sign be fixed like the X ones?
+- Z overrides (needs the owner or plan maintainer). The contract text is LANE-A-CORE.md, "Joint overrides": `shoulderLZ` adds to
+  shoulderL `.z`, `shoulderRZ` subtracts from shoulderR `.z`, `hipLZ` adds to hipL `.z` and `hipRZ` subtracts from hipR `.z`. A3
+  follows it exactly, as Blockout's `animatePerson` does. With Euler XYZ a positive Z on a hanging limb moves its end toward +X, so
+  the table moves the left limbs and the right limbs toward the body, while Blockout's header for these overrides says "positive =
+  outward" (`builders.ts`, `AnimInput.overrides`). Observed: with all four set to 0.5, each wrist ends 0.31 m and each ankle 0.37 m
+  *inside* its own shoulder or hip. `BodyTests.zOverridesMoveLimbsOutwardAsBlockoutsHeaderSays` asserts the header's expectation
+  under `withKnownIssue`: it passes today as a known issue and reports an unexpected pass once the sign is changed. Options: keep
+  the table (current), or flip the four signs in `PersonRig.angles` and amend the table in a `[contract]` PR. No data or test
+  depends on it today (`wave` swings `shoulderRZ` symmetrically).
 - `FrameGrid.frame(atTime:)` rounds to the nearest frame (contract does not say floor or nearest).
