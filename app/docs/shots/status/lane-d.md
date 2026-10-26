@@ -6,7 +6,7 @@ Owner: Metis (Gemini). Canonical branch: `shots/d-viewport`. Base `main`: `1366c
 
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
-| D0: shell and editor camera maths | Implemented and tested locally; draft PR opened | Current-head CI, independent review closure, and integrator merge approval. Unblocks C1 hosting. |
+| D0: shell and editor camera maths | **Draft PR [RationallyPrime/concept-studio#61](https://github.com/RationallyPrime/concept-studio/pull/61)**, implementation commit `2d888f1` on branch `shots/d-viewport` | Current-head CI, independent review closure, and integrator merge approval. Unblocks C1 hosting. |
 | D1: RealityView display, gestures, grid and snapshots | Next (dependencies W0, A0, B0, C0, B1 merged on `main`) | Preserved separately from the D0 checkpoint PR so D0 can land cleanly. |
 | D2: overlays and playback | Blocked on A2 and A3 | Needs merged A2 (`paths()` and motion evaluation) and A3 (posed mannequin bodies and keypoints). |
 | D3: picking and tools | Blocked on C2 | Needs merged C2 command implementations (`addEntity`, `addActorMark`, `addCameraMark`). |
