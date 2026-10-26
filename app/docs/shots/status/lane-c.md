@@ -347,3 +347,43 @@ Still outstanding for C5: selection inspectors, continuous field preview/commit,
 fake-endpoint integration, every-inspector command/undo tests and previews. Acceptance waits for
 A5 and B5 merged. Prompt facts/write are still stubs on main; this preparation does not implement
 Lane B's compiler or claim that C5/M2 is complete.
+
+## C5 inspectors and prompt integration preparation
+
+Draft implementation now includes selection-driven shot/entity/camera/actor-mark/camera-mark
+inspectors, an Inspect menu for keyboard-accessible selection, and starter library search/arming.
+Blockout reference: `Inspector.tsx:65–120,397ff,567ff,1461ff,1671ff` and
+`Library.tsx:658–690` at the pinned commit above. Preserved: context-driven fields, radians in
+stored values/degrees in controls, captured mark channels, and generator actions through existing
+engine APIs. Adaptations: per-shot notes/H3 prompt and explicit ShotsCommand edits/undo, native
+SwiftUI forms, the contracted starter content set, and a single-entity inspector when several
+entities are selected (the panel names the entity it edits). Source swatch colours are retained.
+
+Continuous rig-intensity changes preview while dragging and commit one coalesced command on
+release; Escape latches cancellation through release. Other fields commit native field/picker
+edits through commands. Read-only files retain selection and library search but disable edits.
+
+The prompt action calls Lane B's facts/template/write seam; demo/no model uses template, otherwise
+it resolves the session endpoint. It captures the shot/revision before awaiting, checks cancellation
+before committing, preserves stale revision after concurrent edits, and routes errors through the
+store's session failure path. This is preparation: **B5 facts/write still throw notImplemented on
+accepted main**, so no real compiler/fake-endpoint acceptance is claimed. Integration will be
+reverified against B5's actual implementation; no alternate compiler is introduced here.
+
+Verification so far: seven focused tests pass, including sixteen inspector-bound command kinds
+individually undone, slider preview/cancel/recovery, and prompt revision/undo/cancellation boundary
+checks with injected synthetic facts/writer. Full app suite: 854 registered tests/148 suites passed;
+five optional preview/model functions skipped, not counted as executed. Initial test compile
+failed on mutating calls inside #require/#expect; locals fixed those tests before passing.
+Strict app lint and full format checks pass. All five inspectors rendered through the existing
+preview script in light/dark at minimum/default sizes (20 PNGs); minimum entity/light and camera/dark
+were visually checked. Native pointer/keyboard/VoiceOver walkthrough remains not run.
+
+A frozen non-offloaded source snapshot is used for tests. Files in the original Documents worktree
+became compressed/dataless and some reads stalled; that worktree and its uncommitted bytes remain
+preserved. Active C5 preparation moved to an isolated /tmp worktree from its saved Git objects and
+frozen source. No sync/security settings or apps/helpers were changed.
+
+Remaining C5 gates: B5 merged; actual compiler/fake ModelClient integration test; fresh full CI and
+independent exact-head review; refreshed final offscreen captures after the last read-only/idle-Escape
+safeguards; native interaction acceptance later. C5 and M2 are not complete.

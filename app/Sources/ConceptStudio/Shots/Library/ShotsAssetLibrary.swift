@@ -28,6 +28,7 @@ struct ShotsAssetLibrary: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
+                        .disabled(store.isReadOnly || store.currentShot == nil)
                         .padding(.vertical, 3)
                         .help("Choose \(asset.name), then click the ground in the scene view to place it.")
                         .accessibilityLabel("Place \(asset.name)")
@@ -43,7 +44,6 @@ struct ShotsAssetLibrary: View {
             }
         }
         .padding(12)
-        .disabled(store.isReadOnly || store.currentShot == nil)
         .accessibilityLabel("Asset library")
     }
 }
