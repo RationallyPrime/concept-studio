@@ -5,8 +5,43 @@
 | A0 declarations | **Merged** (`de3947b`; guide frame 61 per CONTRACTS, repaired by the integration owner under a recorded two-line exception). |
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
 | A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
-| A3 bodies | **Draft PR, targeting `main`** (branch `shots/a-core-a3`, rebased onto A2's merge `89d9e7d`). The person rig with COCO-18 keypoints, the dog, cat and horse rig, `parts.v1.json` for the 15 starter static assets (made by `scripts/blockout/parts.ts`), the grey-box fallback, `bounds` and `isActor`. |
-| A4–A6 | Not started |
+| A3 bodies | **Merged** (PR #65, `0bdb09a`; two review rounds: the quadruped gait scale and the outward Z overrides). |
+| A4 generators | **Draft PR, targeting `main`** (branch `shots/a-core-a4`, three commits on `0bdb09a`). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
+| A5–A6 | Not started |
+
+**A4 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS=<golden-vectors.v1.json> PREVIS_GOLDENS=<goldens.json>`): 64 run, 64 passed, 0 failed.
+- Vectors: all 14 action paths and all 20 camera moves match Blockout within 1e-9 (camera moves for a still, a walking and a flying subject, at two
+  durations), through the internal entry points that take a subject function.
+- Framing, with a mutation check: every `Framing.Kind` keeps its subjects in the canvas on the sample; a wide shot now tilts toward the middle of the
+  figure (Blockout's was always 0); a two-shot backs off further on a portrait canvas than a landscape one (reverting to Blockout's full-sensor
+  horizontal field of view fails that test).
+- Overlaying `wave` on a walk leaves positions, timing, gaits and leg joints unchanged while the arm follows the wave at the marks' times.
+- Attachments: an attachment keeps the child where it stands, then it rides the parent; detaching keeps it where it stands; a cycle is an error naming both.
+
+**A4 decisions.**
+- `ActionPaths.marks` starts from the entity's placement. With a `speed`, times are scaled so the average speed along the marks is that speed.
+- `CameraMoves.marks` runs over the whole shot from its first camera mark; several subjects act as one at their midpoint, as tall as the tallest,
+  facing the average of their headings.
+- `Motions.apply` plays a motion once at the pose the entity has at `time`, keeping earlier marks; looping is the caller's. `overlay` samples at the
+  track's own mark times, so a track needs marks about as often as the gesture changes.
+- `Framing` sizes frame the first subject; `overShoulder` frames the far one of the first two. Distances that fit things in the frame use the canvas aspect.
+- `Attachments.attachment` yields a yaw-only rotation until A5 resolves attachments with full transforms.
+
+**A4 review round 1** (PR #67, four P2 findings at `9fee26d`; each reproduced before its repair, the regressions are in `A4ReviewTests`):
+- r4377817859, negative root displacement. `Motions.apply` clamped every `move.up` at the ground, so `squat-exercise` (−0.35 m) left the body
+  0.47 m above the ground. The signed offset is kept; the bent hips and knees put the body back on it (feet at 0 m at the lowest keyframe).
+- r4377817868, two-shot elevation. The vertical fit used the tallest height only. It now fits the world extent from the lowest base to the highest
+  head, about the aim height 0.55 of it, so two subjects 10 m apart in height are both in a portrait frame. On one ground plane the result is within
+  5% of Blockout's distance (the aim is 0.05 of the extent off-centre, so the margin is now measured from the aim).
+- r4377817875, mounted cameras. `Framing.cameraMark` and `CameraMoves.marks` worked in world space, but a `carMount` camera's marks are relative to its
+  mount. Both now return mount-local marks (position rotated into the mount's frame, `pan` minus its heading) at the mark's own time; the moves also take
+  the camera's start from the mount's world frame. `.dutch` on a mounted camera now changes only the roll.
+- r4377817829, heading. Every generated mark now carries the facing the entity has at `time` (`arriveHeading`), so an actor who faces elsewhere than his
+  placement keeps that facing at the start and end of a motion and after it. **Partly open:** during the motion the evaluator reads a stationary leg's
+  facing from the placement, because Blockout's `evaluateTrack` has no heading for a leg that goes nowhere. Honouring `arriveHeading` there changes
+  A2's `actors-paths-ease-hold` parity scene (entity `ent_001` after t = 5 s: 2.5 rad against Blockout's 1.15), so it is not done here. It is an
+  authored-turn rule, which A5 owns (defect 1), and `whileAMotionPlaysTheFacingHoldsOnceAuthoredTurnsAreResolved` records the end-to-end expectation
+  as a known issue for A5 to turn into a plain assertion. Decision needed from the plan maintainer if it should land sooner, with that parity scene excepted.
 
 **A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 40 run, 40 passed, 0 failed, no known issues; parity 8 of 8 scenes.
 BodyTests: a standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross`

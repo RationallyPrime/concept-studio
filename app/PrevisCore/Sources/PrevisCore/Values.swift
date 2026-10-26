@@ -25,6 +25,10 @@ public struct Vec3: Codable, Hashable, Sendable {
         Vec3(a.x * s, a.y * s, a.z * s)
     }
 
+    static func *= (a: inout Vec3, s: Double) {
+        a = a * s
+    }
+
     func dot(_ b: Vec3) -> Double {
         x * b.x + y * b.y + z * b.z
     }
