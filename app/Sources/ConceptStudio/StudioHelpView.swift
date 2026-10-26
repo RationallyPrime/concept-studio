@@ -23,14 +23,16 @@ struct StudioHelpView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack {
+            VStack(alignment: .leading, spacing: 12) {
                 Text("ConceptStudio help").font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                Spacer()
                 Picker("Help topic", selection: $page) {
                     Text("Glossary").tag(Page.glossary)
                     Text("Training explained").tag(Page.training)
                     Text("Credits").tag(Page.credits)
-                }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("Help topic").frame(width: 350)
+                }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("Help topic").frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
             }
             if page == .glossary {
                 glossary
@@ -62,6 +64,7 @@ struct StudioHelpView: View {
                 Text("Shots").font(.headline).accessibilityAddTraits(.isHeader)
                 Text("Shots is derived from Blockout by Sam Wasserman (wassermanproductions.com), Apache-2.0.")
                 Link("Sam Wasserman’s website", destination: URL(string: "https://wassermanproductions.com")!)
+                    .tint(.primary)
                 Divider()
                 Text(PrevisCoreAttribution.notice()).font(.callout).textSelection(.enabled)
             }

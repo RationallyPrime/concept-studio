@@ -437,3 +437,8 @@ package. Verify focus traversal, field editing vs playback shortcuts, Escape, an
 library actions, Inspect menu, mark pills, fields and export progress/error. No native input was injected.
 C6 completion still needs that actual keyboard/VoiceOver pass, final full preview set and C5 acceptance;
 M1/M2 and D-lane integration remain separate. No release, deployment or owner PRODUCT approval claimed.
+
+C6 visual follow-up: minimum Help capture exposed the three topic segments reaching the window edge.
+The title and full-width topic picker now occupy separate rows, retaining the existing topic wording;
+the new website link uses the established ink tint. Captures and full verification are refreshed after
+this source change. This changes Help layout only, not any training screen or shortcut.
