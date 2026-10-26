@@ -14,6 +14,7 @@ struct SampleEvaluationTests {
         #expect(shot.canvas.isValid)
         #expect(FrameGrid.isValid(shot.frameCount))
         #expect(shot.frameCount == (small ? 22 : 124))
+        #expect(shot.guideFrames == [small ? 11 : 61])
 
         let evaluator = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: catalog)
         let frames = [0] + shot.guideFrames + [shot.frameCount - 1]

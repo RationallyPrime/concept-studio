@@ -79,7 +79,7 @@ public enum ShotsSamples {
         )
         shot.frameCount = frameCount
         shot.canvas = small ? ShotCanvas(width: 320, height: 576) : .portrait
-        shot.guideFrames = [frameCount / 2]
+        shot.guideFrames = [small ? 11 : 61]
         shot.camera.marks = pushIn(duration: duration)
         shot.notes = ShotNotes(
             description: "Two people walk toward each other in a bare room and turn to face the camera.",
