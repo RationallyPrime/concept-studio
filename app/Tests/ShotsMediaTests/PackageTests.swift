@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import PrevisCore
 @testable import ShotsMedia
 import Testing
@@ -171,6 +172,50 @@ struct PackageTests {
         // 3 guide frames × clean, pose, layout; pose and layout videos; the clean video; two actors' mattes with a
         // still at each guide frame; shot.json.
         #expect(roles == [.guide: 9, .control: 2, .reference: 1, .matte: 8, .description: 1])
+        try Self.expectPoseKeypoints(in: package, manifest: manifest)
+    }
+
+    /// Every keypoint in a pose guide still carries its OpenPose colour at the pixel `CameraFrame.project` gives,
+    /// unless it falls off the canvas or a dot drawn after it covers it.
+    private static func expectPoseKeypoints(in package: URL, manifest: PackageManifest) throws {
+        let scene = try #require(ShotsSamples.twoPersonWalk().scenes.first)
+        let evaluator = try ShotEvaluator(scene: scene, shotID: manifest.shot.id, catalog: ContentCatalog.bundled())
+        let size = manifest.canvas.pixelSize, radius = max(1, Double(size.width) / 160)
+        var checked = 0
+        for guide in manifest.files where guide.role == .guide && guide.variant == .pose {
+            let frame = try evaluator.frame(#require(guide.frame))
+            let pose = try bgraPixels(of: package.appendingPathComponent(guide.path))
+            // Dots in drawing order: each person's keypoints in COCO order, people in entity order.
+            let dots = frame.entities.flatMap { entity in
+                entity.keypoints.sorted { $0.name.rawValue < $1.name.rawValue }.compactMap { keypoint in
+                    frame.camera.project(keypoint.position, size: size).map { (keypoint.name, $0) }
+                }
+            }
+            for (index, (name, pixel)) in dots.enumerated() {
+                let onCanvas = pixel.x >= 0 && pixel.y >= 0 && pixel.x < Double(size.width) && pixel
+                    .y < Double(size.height)
+                let covered = dots[(index + 1)...]
+                    .contains { hypot($0.1.x - pixel.x, $0.1.y - pixel.y) <= radius + 1.5 }
+                guard onCanvas, !covered else { continue }
+                let (red, green, blue) = PassDrawing.openPoseColors[name.rawValue]
+                #expect(pose.rgb(Int(pixel.x), Int(pixel.y)) == (red, green, blue), "\(name) in \(guide.path)")
+                checked += 1
+            }
+        }
+        #expect(checked >= 18, "only \(checked) keypoints could be checked")
+    }
+
+    /// A PNG redrawn into the renderer's BGRA layout, so `Pixels` reads its channels the same way.
+    private static func bgraPixels(of url: URL) throws -> Pixels {
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        let context = try #require(CGContext(
+            data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return try Pixels(#require(context.makeImage()))
     }
 
     @Test func theValidatorNamesAMissingFile() async throws {
