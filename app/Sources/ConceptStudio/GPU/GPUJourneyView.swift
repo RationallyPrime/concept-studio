@@ -196,6 +196,9 @@ struct GPUJourneyView: View {
                 Button("Start training", systemImage: "play.fill") {
                     Task {
                         await session.fillDefaultTrainingOutput()
+                        // Class images are captioned with the project's captioner, whose ChatGPT model list is
+                        // otherwise only loaded on the Captioning screen.
+                        if workspace.usesRegularization { await session.prepareChatGPTModels() }
                         await workspace.train(
                             datasetRepo: datasetRepo, output: session.trainingOutput,
                             captureLocal: session.captureTrainingInputs,
