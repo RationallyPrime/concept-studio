@@ -2,18 +2,6 @@ import Foundation
 
 // Generators and helpers, CONTRACTS section 5.5. Skeletons until A3-A4: each throws `notImplemented`.
 
-public enum CameraMoves { // several subjects act as one virtual subject at their midpoint
-    public static func marks(
-        _ moveID: String,
-        scene: PrevisScene,
-        shotID: ShotID,
-        subjects: [EntityID],
-        catalog: ContentCatalog
-    ) throws -> (marks: [CameraMark], trackIDs: [EntityID]) {
-        throw ShotsError.notImplemented("CameraMoves.marks")
-    }
-}
-
 public enum Motions {
     public static func apply(
         _ motionID: String,
