@@ -195,8 +195,9 @@ struct Job {
     }
 
     private static func canvas(_ value: String) throws -> ShotCanvas {
-        let sides = value.lowercased().split(separator: "x").compactMap { Int($0) }
-        guard sides.count == 2, ShotCanvas(width: sides[0], height: sides[1]).isValid else {
+        let parts = value.lowercased().split(separator: "x", omittingEmptySubsequences: false)
+        let sides = parts.compactMap { Int($0) }
+        guard parts.count == 2, sides.count == 2, ShotCanvas(width: sides[0], height: sides[1]).isValid else {
             throw UsageError("--canvas takes WxH in multiples of 32 from 64 to 2048, such as 640x1152.")
         }
         return ShotCanvas(width: sides[0], height: sides[1])

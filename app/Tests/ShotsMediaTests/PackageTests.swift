@@ -127,6 +127,7 @@ struct PackageNamingTests {
         ["--document", "shots.json", "--shot", "shot_1", "--frames", "22", "--out", "out"],
         ["--blockout", "project.json", "--frames", "23", "--out", "out"],
         ["--blockout", "project.json", "--canvas", "100x100", "--out", "out"],
+        ["--blockout", "project.json", "--canvas", "640xabcx1152", "--out", "out"],
         ["--blockout", "project.json", "--passes", "clean,depth", "--out", "out"],
     ])
     @MainActor func aCommandLineItCanNotRunIsAUsageError(_ arguments: [String]) async {
@@ -333,10 +334,51 @@ struct PackageTests {
         #expect(await ShotsCommandLine.run(arguments: byID + ["--out", parent.path]) == 0)
         let package = try onlyPackage(in: parent)
         #expect(await PackageValidator.problems(at: package) == [])
-        let manifest = try JSONDecoder().decode(
-            PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+        let manifest = try writtenManifest(package)
+        #expect(manifest.shot.id == "shot-twin" && manifest.frameCount == 5 && manifest.passes == [.clean])
+    }
+
+    /// Without `--scene` and `--shot` the first scene's first shot exports, as Blockout opens a project
+    /// (`src/renderer/store.ts:233-239`). `--scene` takes a scene's id or its index from 0.
+    @Test func theFirstSceneAndShotExportUnlessOthersAreNamed() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        var project = try #require(
+            JSONSerialization.jsonObject(with: ShotsSamples.blockoutProjectJSON()) as? [String: Any]
         )
-        #expect(manifest.passes == [.clean])
+        var scenes = try #require(project["scenes"] as? [[String: Any]])
+        var shots = try #require(scenes[0]["shots"] as? [[String: Any]])
+        var second = shots[0]
+        second["id"] = "shot-1b"
+        shots.append(second)
+        scenes[0]["shots"] = shots
+        var other = scenes[0]
+        other["id"] = "scene-2"
+        other["number"] = 2
+        other["shots"] = try shots.map { shot in
+            var copy = shot
+            copy["id"] = try "scene-2-" + #require(shot["id"] as? String)
+            return copy
+        }
+        scenes.append(other)
+        project["scenes"] = scenes
+        let path = input.appendingPathComponent("project.json")
+        try JSONSerialization.data(withJSONObject: project).write(to: path)
+        let runs: [([String], String, String)] = [
+            ([], "shot-1", "scene-1"),
+            (["--scene", "1"], "scene-2-shot-1", "scene-2"),
+            (["--scene", "scene-2", "--shot", "scene-2-shot-1b"], "scene-2-shot-1b", "scene-2"),
+        ]
+        for (index, (options, shotID, sceneID)) in runs.enumerated() {
+            let out = parent.appendingPathComponent("run-\(index)")
+            let arguments = ["--blockout", path.path, "--frames", "5", "--passes", "layout"] + options
+            #expect(await ShotsCommandLine.run(arguments: arguments + ["--out", out.path]) == 0)
+            let manifest = try writtenManifest(onlyPackage(in: out))
+            #expect(manifest.shot.id == shotID && manifest.shot.sceneID == sceneID, "\(options)")
+        }
     }
 
     @Test func theValidatorNamesAVideoListedWithoutTheFrameCount() async throws {
@@ -387,6 +429,12 @@ private func onlyPackage(in out: URL) throws -> URL {
     let packages = try manager.contentsOfDirectory(at: shots[0], includingPropertiesForKeys: nil)
     try #require(packages.count == 1)
     return packages[0]
+}
+
+private func writtenManifest(_ package: URL) throws -> PackageManifest {
+    try JSONDecoder().decode(
+        PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+    )
 }
 
 @MainActor private final class ExportTaskBox {
