@@ -103,7 +103,11 @@ on all seven changed Swift files. The four native
 routing tests include real SwiftUI background mounting, document actions, text-editing priority and
 responder cleanup. These are headless in-process tests, not a live Cmd-Z/VoiceOver walkthrough.
 
-**Not run:** complete app suite, Swift 6.3 CI, live menu/keyboard/VoiceOver and signed integration.
+**CI:** first Swift 6.3 run `40337781017` failed during build: identifier collection was too complex
+for that compiler to type-check. The repair uses explicit collection steps with unchanged ordering.
+Post-repair native 45 tests/12 suites and changed-file strict style/format passed; fresh CI pending.
+
+**Not run:** complete local app suite, live menu/keyboard/VoiceOver and signed integration.
 The foreground walkthrough is deferred while the user works on a time-sensitive grant form.
 C2 acceptance requires independent review, exact-head CI and native live focus verification;
 no M1/M2 claim is made.

@@ -239,11 +239,22 @@ enum ShotsCommandApplication {
     }
 
     private static func allIDs(in document: ShotsDocument) -> [String] {
-        document.scenes.flatMap { scene in
-            [scene.id] + scene.entities.map(\.id) + scene.blocking.flatMap { take in
-                [take.id] + take.tracks.flatMap { $0.marks.map(\.id) }
-            } + scene.shots.flatMap { [$0.id] + $0.camera.marks.map(\.id) }
+        var ids: [String] = []
+        for scene in document.scenes {
+            ids.append(scene.id)
+            ids.append(contentsOf: scene.entities.map(\.id))
+            for take in scene.blocking {
+                ids.append(take.id)
+                for track in take.tracks {
+                    ids.append(contentsOf: track.marks.map(\.id))
+                }
+            }
+            for shot in scene.shots {
+                ids.append(shot.id)
+                ids.append(contentsOf: shot.camera.marks.map(\.id))
+            }
         }
+        return ids
     }
 
     private static func requireNew(_ ids: [String], in document: ShotsDocument) throws {
