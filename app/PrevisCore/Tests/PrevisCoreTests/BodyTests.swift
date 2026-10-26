@@ -144,6 +144,37 @@ struct BodyTests {
         }
     }
 
+    /// PR 65 r4377007303: the gait phase is `distance / (stride · scale)`. A walking animal at scale 2 that has covered
+    /// 0.725 m is a quarter of the way through its 2.9 m scaled stride (phase 0.25, legs at full swing); unscaled it
+    /// would be half way (phase 0.5, legs neutral). A scale-2 animal must therefore pose exactly like a scale-1 animal
+    /// at half the distance, with every part twice as big.
+    @Test(arguments: ["animal.dog", "animal.cat", "animal.horse"])
+    func aScaledQuadrupedCyclesItsLegsAtTheScaledStride(id: String) throws {
+        let asset = try #require(catalog.asset(id))
+        func pose(scale: Double, distance: Double) -> EntityFrame {
+            let entity = PrevisEntity(
+                id: "e",
+                assetID: id,
+                name: "Animal",
+                placement: Placement(position: .zero, heading: 0, scale: scale)
+            )
+            let state = EntityPose(position: .zero, heading: 0, gait: .walk, speed: 1, distanceTravelled: distance)
+            return EntityFrame.posed(entity, asset: asset, state: state)
+        }
+        let scaled = pose(scale: 2, distance: 0.725)
+        let unscaledQuarterCycle = pose(scale: 1, distance: 0.3625)
+        let unscaledHalfCycle = pose(scale: 1, distance: 0.725)
+
+        for leg in ["legFrontLeft", "legBackRight"] {
+            let big = try #require(scaled.parts.first { $0.id == leg }).transform.m
+            let small = try #require(unscaledQuarterCycle.parts.first { $0.id == leg }).transform.m
+            let neutral = try #require(unscaledHalfCycle.parts.first { $0.id == leg }).transform.m
+            #expect(zip(big.prefix(15), small.prefix(15)).allSatisfy { abs($0 - 2 * $1) < 1e-9 }, "\(leg) pose")
+            // full swing differs visibly from the neutral pose the unscaled stride would give
+            #expect(zip(big.prefix(15), neutral.prefix(15)).contains { abs($0 - 2 * $1) > 1e-3 }, "\(leg) not neutral")
+        }
+    }
+
     @Test func staticAssetsUseTheirPartsAndOthersAGreyBox() throws {
         let chair = try body("furniture.chair")
         #expect(chair.parts.count > 1 && chair.bounds.min.y > -0.01 && chair.bounds.max.y < 1.2)

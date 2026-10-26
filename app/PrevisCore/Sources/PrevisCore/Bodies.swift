@@ -55,7 +55,7 @@ enum Bodies {
         case .person:
             keypoints = PersonRig.build(asset: asset, scale: entity.placement.scale, state: state, into: &builder)
         case .quadruped:
-            QuadrupedRig.build(asset: asset, state: state, into: &builder)
+            QuadrupedRig.build(asset: asset, scale: entity.placement.scale, state: state, into: &builder)
         case .bird, .none:
             if let staticParts = asset.parts, !staticParts.isEmpty {
                 for part in staticParts {
