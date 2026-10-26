@@ -58,11 +58,12 @@ extension StudioSession {
         guard !refuseWhileComputerBusy("Stop the cloud GPU before switching to the demo.") else { return }
         whenConfirmed(discardDraftsConfirmation) {
             self.perform("Opening the offline demo…") {
-                await self.releaseProject()
+                guard await self.releaseProject() else { return }
                 self.demoMode = true
                 self.showChatGPTPlanNotice = false
                 self.gpu = self.makeGPUWorkspace(demoMode: true)
                 self.project = try await DemoProject.create(at: self.demoDirectory)
+                if let project = self.project { self.loadShots(for: project) }
                 self.gpu.projectFolder = self.project?.directory
                 self.projectState = ProjectAppState(dataset: HubDestination(repo: "demo/concept-studio"))
                 self.selectedImageID = self.project?.images.first?.id
@@ -88,7 +89,7 @@ extension StudioSession {
                 } else {
                     try StudioProject.create(at: url)
                 }
-                await self.releaseProject()
+                guard await self.releaseProject() else { return }
                 self.demoMode = false
                 self.loadSavedChoices()
                 self.gpu = self.makeGPUWorkspace(demoMode: false)
@@ -99,6 +100,7 @@ extension StudioSession {
                 self.projectAccess = url
                 _ = url.startAccessingSecurityScopedResource()
                 self.project = opened
+                self.loadShots(for: opened)
                 self.gpu.projectFolder = opened.directory
                 self.projectState = existing ? ProjectAppState.load(from: url) : ProjectAppState()
                 self.rememberRecent(url)
@@ -140,13 +142,14 @@ extension StudioSession {
                     )
                 }
                 let opened = try await StudioProject.open(at: selected)
-                await self.releaseProject()
+                guard await self.releaseProject() else { return }
                 self.demoMode = false
                 self.loadSavedChoices()
                 self.gpu = self.makeGPUWorkspace(demoMode: false)
                 self.projectAccess = selected
                 _ = selected.startAccessingSecurityScopedResource()
                 self.project = opened
+                self.loadShots(for: opened)
                 self.gpu.projectFolder = opened.directory
                 self.projectState = ProjectAppState.load(from: selected)
                 self.rememberRecent(selected)
@@ -160,7 +163,9 @@ extension StudioSession {
         }
     }
 
-    func releaseProject() async {
+    @discardableResult
+    func releaseProject() async -> Bool {
+        guard flushShots() else { return false }
         activePublishID = nil
         chatGPTWorkGeneration += 1
         await chatGPT.cancelAndWait()
@@ -176,6 +181,8 @@ extension StudioSession {
         }
         projectAccess?.stopAccessingSecurityScopedResource()
         projectAccess = nil
+        shots = nil
+        workspace = .training
         project = nil
         projectState = ProjectAppState()
         analyses = [:]
@@ -187,6 +194,7 @@ extension StudioSession {
         usingPodCaptioner = false
         requestBaseURL = ""
         mappingUndo = []
+        return true
     }
 
     func closeProject() async {
@@ -198,7 +206,7 @@ extension StudioSession {
             await editTask?.value
             let closingDemoWorkspace = gpu.demoMode
             if closingDemoWorkspace { await gpu.stopEverything() }
-            await releaseProject()
+            guard await releaseProject() else { return }
             demoMode = false
             if closingDemoWorkspace {
                 gpu = makeGPUWorkspace(demoMode: false)
