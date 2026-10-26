@@ -19,6 +19,32 @@ private actor ClassImageCaptionClient: ModelClient {
     }
 }
 
+/// Times out the first `failures` requests, then captions.
+private actor TimingOutCaptionClient: ModelClient {
+    nonisolated let requestedModel = "class-image-test"
+    private var failures: Int
+    private(set) var requests = 0
+
+    init(failures: Int) {
+        self.failures = failures
+    }
+
+    func request(
+        instructions: String, messages: [ChatMessage], output: OutputRequest, settings: RequestSettings,
+        onPartialText: (@Sendable (String) async -> Void)? = nil
+    ) async throws -> ModelReply {
+        requests += 1
+        if failures > 0 {
+            failures -= 1
+            throw ModelError.transport("The request timed out.")
+        }
+        return ModelReply(
+            text: Caption(caption: "A person outdoors in daylight.").jsonValue.pythonDumps(),
+            servedModel: requestedModel
+        )
+    }
+}
+
 @Suite("regularisation model coverage and supplied images")
 @MainActor
 struct RegularizationTests {
@@ -101,6 +127,24 @@ struct RegularizationTests {
         #expect(try Data(contentsOf: folder.appendingPathComponent("original.png")) == bytes)
         #expect(try String(contentsOf: folder.appendingPathComponent("original.txt"), encoding: .utf8)
             == "PRIVATE_CLASS_OWNER42 old caption")
+    }
+
+    @Test(arguments: [(2, true), (3, false)])
+    func timedOutClassImageRequestsAreRetried(failures: Int, captioned: Bool) async throws {
+        let client = TimingOutCaptionClient(failures: failures)
+        let skill = try Skills.load()
+        let captioner = try RegularizationCaptioner(
+            captioner: ResolvedEndpoint(client: client), skill: skill, profile: "plain",
+            profileText: skill.profile("plain"), classNouns: ["person"]
+        )
+        let image = try MediaFixtures.encoded(MediaFixtures.image(), type: .png)
+        let samples = [Sample(sampleID: "class-000001", data: image, suffix: ".png")]
+        if captioned {
+            #expect(try await captioner.captions(of: samples) == ["class-000001": "A person outdoors in daylight."])
+        } else {
+            await #expect(throws: ModelError.self) { try await captioner.captions(of: samples) }
+        }
+        #expect(await client.requests == RegularizationCaptioner.attempts)
     }
 
     @Test func unusableClassImagesStayOutOfTrainingSnapshot() throws {

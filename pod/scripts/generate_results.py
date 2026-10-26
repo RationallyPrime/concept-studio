@@ -532,7 +532,10 @@ def arch_generate(
     process = native["config"]["process"][0]
     if process["network"].get("type") != "lora":
         raise ValueError("Comparison requires a trained LoRA network")
-    model_values = dict(process["model"])
+    dtype = process["train"].get("dtype", "bf16")
+    # The trainer sets the model's dtype to the train dtype before building it. ModelConfig's own
+    # default is float16, which loads Krea 2's VAE in half while its latents arrive in bf16.
+    model_values = {**process["model"], "dtype": dtype}
     model_kwargs = dict(model_values.get("model_kwargs") or {})
     sample_model = model_kwargs.pop("sample_model", None)
     model_values["model_kwargs"] = model_kwargs
@@ -546,7 +549,7 @@ def arch_generate(
     sd = cls(
         device="cuda:0",
         model_config=model,
-        dtype=process["train"].get("dtype", "bf16"),
+        dtype=dtype,
         noise_scheduler=cls.get_train_scheduler(),
     )
     try:

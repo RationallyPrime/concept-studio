@@ -3113,7 +3113,7 @@
         ],
         "gated": true,
         "first_download_gb": 61.9,
-        "download_note": "The four files musubi-tuner reads: the Raw and Turbo transformers (26.3 GB each), the text encoder (8.9 GB) and the VAE (0.5 GB), at the pinned revisions."
+        "download_note": "Four files: the Raw and Turbo transformers (26.3 GB each), the text encoder (8.9 GB) and the VAE (0.5 GB)."
       },
       "video": null,
       "captions": {

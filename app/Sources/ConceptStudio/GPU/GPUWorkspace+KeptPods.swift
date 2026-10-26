@@ -26,6 +26,19 @@ extension GPUWorkspace {
         if !demoMode { preferences.removeObject(forKey: Self.activePodKey) }
     }
 
+    /// Drops kept computers RunPod no longer has under the current key, for example ones deleted on RunPod's own
+    /// site, and returns their ids. Their agent tokens stay, as their secrets do, in case another account holds them.
+    func forgetMissingKeptPods(_ provider: any GPUProvider) async throws -> [String] {
+        var missing: [String] = []
+        for kept in keptPods where try await !provider.exists(id: kept.pod.id) {
+            missing.append(kept.pod.id)
+        }
+        guard !missing.isEmpty else { return [] }
+        keptPods.removeAll { missing.contains($0.pod.id) }
+        persistKeptPods()
+        return missing
+    }
+
     func persistKeptPods() {
         if !demoMode, let data = try? JSONEncoder().encode(keptPods) {
             preferences.set(data, forKey: Self.keptPodsKey)
