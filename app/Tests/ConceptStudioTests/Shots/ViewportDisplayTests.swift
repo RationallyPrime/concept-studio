@@ -24,8 +24,10 @@ struct ViewportDisplayTests {
             viewportSize: size,
             optionPressed: false
         )
-        #expect(camera.yaw != initialYaw)
-        #expect(camera.pitch != initialPitch)
+        let expectedDeltaYaw = -40.0 * (2.0 * .pi / 600.0)
+        let expectedDeltaPitch = 20.0 * (2.0 * .pi / 600.0)
+        #expect(abs(camera.yaw - (initialYaw + expectedDeltaYaw)) < 1e-12)
+        #expect(abs(camera.pitch - (initialPitch + expectedDeltaPitch)) < 1e-12)
         #expect(camera.target == initialTarget)
 
         ViewportCameraGestures.applyDrag(
@@ -48,6 +50,17 @@ struct ViewportDisplayTests {
         #expect(camera.distance < beforeScrollDistance)
     }
 
+    @Test @MainActor func groundGridMatchesBlockoutSixtyMetreReference() {
+        #expect(ViewportGrid.gridExtent == 30)
+        let overlayRoot = ViewportGrid.makeOverlayRoot()
+        #expect(overlayRoot.name == "viewport.overlayRoot")
+        #expect(overlayRoot.parent == nil)
+        let grid = overlayRoot.children.first { $0.name == "viewport.groundGrid" }
+        #expect(grid != nil)
+        let childNames = Set(grid?.children.map(\.name) ?? [])
+        #expect(childNames == ["viewport.groundGrid.axes", "viewport.groundGrid.divisions"])
+    }
+
     @Test(.enabled(if: viewportRenderingEnabled))
     @MainActor
     func defaultAndTopSnapshotsDrawEveryEntityAboveBackgroundAndKeepOverlaySeparate() async throws {
@@ -64,21 +77,38 @@ struct ViewportDisplayTests {
             .appendingPathComponent("d1-snapshots-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: tempFolder) }
 
-        let views = [
-            ("d1-default-small.png", EditorCamera.defaultView),
-            ("d1-top-small.png", EditorCamera.topView),
-        ]
-        for (label, camera) in views {
-            try await verifySnapshot(
-                label: label,
-                camera: camera,
+        let defaultPixels = try await verifySnapshot(
+            label: "d1-default-small.png",
+            camera: EditorCamera.defaultView,
+            frame: frame,
+            look: look,
+            overlayRoot: overlayRoot,
+            renderer: renderer,
+            folder: tempFolder
+        )
+        _ = try await verifySnapshot(
+            label: "d1-top-small.png",
+            camera: EditorCamera.topView,
+            frame: frame,
+            look: look,
+            overlayRoot: overlayRoot,
+            renderer: renderer,
+            folder: tempFolder
+        )
+
+        // Determinism check (reference: Blockout tests/e2e/smoke.spec.ts:114-130):
+        // rendering defaultView again after an intervening topView render yields byte-identical pixels.
+        let repeatedDefaultPixels = try await SnapshotPixels(
+            ViewportSnapshotRenderer.renderSnapshot(
                 frame: frame,
                 look: look,
+                camera: EditorCamera.defaultView,
                 overlayRoot: overlayRoot,
-                renderer: renderer,
-                folder: tempFolder
+                size: frame.canvas.pixelSize,
+                renderer: renderer
             )
-        }
+        )
+        #expect(defaultPixels.bytes == repeatedDefaultPixels.bytes)
 
         let cleanWithoutOverlay = try await SnapshotPixels(
             renderer.image(
@@ -89,17 +119,7 @@ struct ViewportDisplayTests {
                 size: frame.canvas.pixelSize
             )
         )
-        let withGridOverlay = try await SnapshotPixels(
-            ViewportSnapshotRenderer.renderSnapshot(
-                frame: frame,
-                look: look,
-                camera: EditorCamera.defaultView,
-                overlayRoot: overlayRoot,
-                size: frame.canvas.pixelSize,
-                renderer: renderer
-            )
-        )
-        #expect(cleanWithoutOverlay.bytes != withGridOverlay.bytes)
+        #expect(cleanWithoutOverlay.bytes != defaultPixels.bytes)
         #expect(overlayRoot.parent == nil)
     }
 
@@ -142,7 +162,7 @@ struct ViewportDisplayTests {
         overlayRoot: Entity,
         renderer: ShotFrameRenderer,
         folder: URL
-    ) async throws {
+    ) async throws -> SnapshotPixels {
         let snapshotImage = try await ViewportSnapshotRenderer.renderSnapshot(
             frame: frame,
             look: look,
@@ -194,6 +214,7 @@ struct ViewportDisplayTests {
                 "\(entity.name) centre pixel does not differ from bare scene in \(label)"
             )
         }
+        return drawnPixels
     }
 }
 
