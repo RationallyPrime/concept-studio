@@ -20,6 +20,7 @@ public enum Framing {
     /// `overShoulder` needs two. `reverse` swings the camera to the opposite side of the subjects' midpoint, `top`
     /// looks
     /// straight down, `low` looks up from knee height and `dutch` cycles the horizon between level, right and left.
+    /// On a `carMount` camera the mark is returned relative to the mount, as the evaluator reads it.
     public static func cameraMark(
         _ kind: Kind,
         scene: PrevisScene,
@@ -59,14 +60,16 @@ public enum Framing {
         case .low: context.low()
         case .dutch: context.dutch(camera)
         }
+        // A mounted camera's marks are relative to its mount, so the world pose is converted at this instant.
+        let mount = MountFrame(shot: shot, frame: frame)
         return CameraMark(
             id: PrevisIDs.make("mark"),
             time: FrameGrid.time(ofFrame: min(max(atFrame, 0), evaluator.frameCount - 1)),
             hold: 0,
             easeIn: 0,
             easeOut: 0,
-            position: pose.position,
-            pan: pose.pan,
+            position: mount?.local(pose.position) ?? pose.position,
+            pan: pose.pan - (mount?.heading ?? 0),
             tilt: pose.tilt,
             roll: pose.roll,
             focalLength: lens
@@ -167,15 +170,23 @@ public enum Framing {
             // stay on the camera's current side of the line (the 180° rule)
             if (camera - mid).dot(perpendicular) < 0 { perpendicular *= -1 }
             let span = (people.map { abs(($0.position - mid).dot(axis)) * 2 }.max() ?? 0) + 1.6
-            let tallest = people.map(\.height).max() ?? primary.height
-            // fit the span across the canvas width and the tallest across its height, whichever needs more room
+            // The vertical extent is world space: from the lowest base to the highest head, so subjects at different
+            // elevations are both fitted. On a shared ground plane it is the tallest's height, as in Blockout. The
+            // camera
+            // looks at 0.55 of the extent, so the frame must reach whichever end is further from that, plus a margin.
+            let bottom = people.map(\.position.y).min() ?? mid.y
+            let top = people.map { $0.position.y + $0.height }.max() ?? bottom
+            let extent = top - bottom
+            let aimY = bottom + extent * 0.55
+            let reach = max(top - aimY, aimY - bottom) + 0.2
+            // fit the span across the canvas width and the extent across its height, whichever needs more room
             let distance = max(
                 span / 2 / tan(optics.horizontalFOV / 2),
-                (tallest + 0.4) / 2 / tan(optics.verticalFOV / 2),
+                reach / tan(optics.verticalFOV / 2),
                 1.5
             )
-            let position = Vec3(mid.x, mid.y + tallest * 0.62, mid.z) + perpendicular * distance
-            let (pan, tilt) = panTilt(from: position, to: Vec3(mid.x, mid.y + tallest * 0.55, mid.z))
+            let position = Vec3(mid.x, bottom + extent * 0.62, mid.z) + perpendicular * distance
+            let (pan, tilt) = panTilt(from: position, to: Vec3(mid.x, bottom + extent * 0.55, mid.z))
             return Pose(position: position, pan: pan, tilt: tilt)
         }
 

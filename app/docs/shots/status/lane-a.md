@@ -27,6 +27,22 @@
 - `Framing` sizes frame the first subject; `overShoulder` frames the far one of the first two. Distances that fit things in the frame use the canvas aspect.
 - `Attachments.attachment` yields a yaw-only rotation until A5 resolves attachments with full transforms.
 
+**A4 review round 1** (PR #67, four P2 findings at `9fee26d`; each reproduced before its repair, the regressions are in `A4ReviewTests`):
+- r4377817859, negative root displacement. `Motions.apply` clamped every `move.up` at the ground, so `squat-exercise` (−0.35 m) left the body
+  0.47 m above the ground. The signed offset is kept; the bent hips and knees put the body back on it (feet at 0 m at the lowest keyframe).
+- r4377817868, two-shot elevation. The vertical fit used the tallest height only. It now fits the world extent from the lowest base to the highest
+  head, about the aim height 0.55 of it, so two subjects 10 m apart in height are both in a portrait frame. On one ground plane the result is within
+  5% of Blockout's distance (the aim is 0.05 of the extent off-centre, so the margin is now measured from the aim).
+- r4377817875, mounted cameras. `Framing.cameraMark` and `CameraMoves.marks` worked in world space, but a `carMount` camera's marks are relative to its
+  mount. Both now return mount-local marks (position rotated into the mount's frame, `pan` minus its heading) at the mark's own time; the moves also take
+  the camera's start from the mount's world frame. `.dutch` on a mounted camera now changes only the roll.
+- r4377817829, heading. Every generated mark now carries the facing the entity has at `time` (`arriveHeading`), so an actor who faces elsewhere than his
+  placement keeps that facing at the start and end of a motion and after it. **Partly open:** during the motion the evaluator reads a stationary leg's
+  facing from the placement, because Blockout's `evaluateTrack` has no heading for a leg that goes nowhere. Honouring `arriveHeading` there changes
+  A2's `actors-paths-ease-hold` parity scene (entity `ent_001` after t = 5 s: 2.5 rad against Blockout's 1.15), so it is not done here. It is an
+  authored-turn rule, which A5 owns (defect 1), and `whileAMotionPlaysTheFacingHoldsOnceAuthoredTurnsAreResolved` records the end-to-end expectation
+  as a known issue for A5 to turn into a plain assertion. Decision needed from the plan maintainer if it should land sooner, with that parity scene excepted.
+
 **A3 tests** (Linux, Swift 6.3.3, debug; with `PREVIS_GOLDENS`): 40 run, 40 passed, 0 failed, no known issues; parity 8 of 8 scenes.
 BodyTests: a standing man stands at y ≈ 0 with his head top within 2 cm of 1.78 m × scale (1 and 1.2); at the `jab-cross`
 extension the right wrist is ahead of the chest; in `sit` the knees are ahead of the hips; at the top of `wave` the hand is above

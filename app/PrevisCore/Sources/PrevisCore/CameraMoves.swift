@@ -30,6 +30,8 @@ public enum CameraMoves { // several subjects act as one virtual subject at thei
         }
         let first = shot.camera.marks.enumerated()
             .min { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }?.element
+        // The moves work in world space; a mounted camera's marks are relative to its mount.
+        let mount0 = MountFrame(shot: shot, frame: evaluator.frame(at: 0))
         let context = CameraMoveContext(
             subjectAt: { t in
                 let frame = evaluator.frame(at: t)
@@ -37,8 +39,8 @@ public enum CameraMoves { // several subjects act as one virtual subject at thei
             },
             subjectHeight: people.map(\.height).max() ?? 1.75,
             camera: CameraStart(
-                position: first?.position ?? Vec3(0, 1.6, 6),
-                pan: first?.pan ?? 0,
+                position: first.map { mount0?.world($0.position) ?? $0.position } ?? Vec3(0, 1.6, 6),
+                pan: (first?.pan ?? 0) + (mount0?.heading ?? 0),
                 tilt: first?.tilt ?? 0,
                 focalLength: first?.focalLength ?? 35
             ),
@@ -48,14 +50,15 @@ public enum CameraMoves { // several subjects act as one virtual subject at thei
             throw ShotsError.notImplemented("The camera move \"\(moveID)\" is in the catalog but has no generator yet.")
         }
         let marks = specs.map { spec in
-            CameraMark(
+            let mount = MountFrame(shot: shot, frame: evaluator.frame(at: spec.time))
+            return CameraMark(
                 id: PrevisIDs.make("mark"),
                 time: spec.time,
                 hold: spec.hold,
                 easeIn: spec.easeIn,
                 easeOut: spec.easeOut,
-                position: spec.position,
-                pan: spec.pan,
+                position: mount?.local(spec.position) ?? spec.position,
+                pan: spec.pan - (mount?.heading ?? 0),
                 tilt: spec.tilt,
                 roll: spec.roll,
                 focalLength: spec.focalLength

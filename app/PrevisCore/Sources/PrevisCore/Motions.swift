@@ -12,7 +12,11 @@ public enum Motions {
     /// the
     /// middle of a take. Each keyframe becomes a standing mark with that keyframe's joints; a keyframe's `move` shifts
     /// it
-    /// forward along the heading and up. Only people can play a motion. A motion that reads best repeated plays once;
+    /// forward along the heading and up, and a negative `up` lowers the root (a squat) rather than being clamped at the
+    /// ground: the bent hips and knees put the body back on it. Every mark keeps the facing the entity has at `time`,
+    /// so a
+    /// gesture does not turn an actor who faces elsewhere than his placement. Only people can play a motion. A motion
+    /// that reads best repeated plays once;
     /// the
     /// caller repeats it by applying it again at the end.
     public static func apply(
@@ -55,10 +59,11 @@ public enum Motions {
                 easeOut: 0,
                 position: Vec3(
                     here.position.x + forward.x * move.forward,
-                    max(0, here.position.y + move.up),
+                    here.position.y + move.up,
                     here.position.z + forward.z * move.forward
                 ),
                 gait: .stand,
+                arriveHeading: here.heading,
                 joints: keyframe.joints
             )
         }
