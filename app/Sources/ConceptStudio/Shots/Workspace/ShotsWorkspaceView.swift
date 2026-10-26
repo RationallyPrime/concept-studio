@@ -28,9 +28,16 @@ private struct ShotsWorkspaceContent: View {
                 viewport.frame(minWidth: 260, maxWidth: .infinity, minHeight: 220)
                 inspector.frame(minWidth: 180, idealWidth: 210, maxWidth: 250)
             }
-            timeline.frame(minHeight: 96, idealHeight: 112, maxHeight: 160)
+            ShotsTimelineView(store: store).frame(minHeight: 150, idealHeight: 210, maxHeight: 360)
         }
         .background(ShotsUndoBridge(store: store))
+        .onKeyPress(keys: [.space]) { press in
+            guard press.modifiers.isDisjoint(with: [.command, .control, .option, .shift]),
+                  !ShotsTimelineView.editingText,
+                  store.currentShot != nil else { return .ignored }
+            store.toggleShotsPlayback()
+            return .handled
+        }
     }
 
     private var sceneColumn: some View {
@@ -80,26 +87,5 @@ private struct ShotsWorkspaceContent: View {
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
         }
         .accessibilityLabel("Shot inspector")
-    }
-
-    private var timeline: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Timeline").font(.headline)
-                Spacer()
-                if let shot = store.currentShot {
-                    Text("Frame \(store.playhead) of \(shot.frameCount)")
-                        .monospacedDigit().foregroundStyle(.secondary)
-                }
-            }
-            Slider(
-                value: Binding(get: { Double(store.playhead) }, set: { store.playhead = Int($0.rounded()) }),
-                in: 0 ... Double(max(1, (store.currentShot?.frameCount ?? 1) - 1)), step: 1
-            )
-            .disabled(store.currentShot == nil)
-            .accessibilityLabel("Playhead")
-            .accessibilityValue("Frame \(store.playhead)")
-        }
-        .padding(12)
     }
 }

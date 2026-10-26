@@ -27,13 +27,19 @@ struct ShotsTimelineGeometry {
     }
 
     func movedTime(from time: Double, hold: Double, delta: Double) -> Double {
-        let proposed = frame(atPosition: position(atTime: time) + delta)
+        let proposed = translatedFrame(from: time, delta: delta)
         return FrameGrid.time(ofFrame: min(proposed, framesFitting(in: duration - hold)))
     }
 
     func stretchedHold(from hold: Double, time: Double, delta: Double) -> Double {
-        let proposed = frame(atPosition: position(atTime: hold) + delta)
+        let proposed = translatedFrame(from: hold, delta: delta)
         return FrameGrid.time(ofFrame: min(proposed, framesFitting(in: duration - time)))
+    }
+
+    private func translatedFrame(from seconds: Double, delta: Double) -> Int {
+        guard duration > 0 else { return 0 }
+        // Do not clamp the original value before adding the delta: shared blocking can exceed this shot.
+        return frame(atPosition: seconds / duration * width + delta)
     }
 
     private func framesFitting(in seconds: Double) -> Int {

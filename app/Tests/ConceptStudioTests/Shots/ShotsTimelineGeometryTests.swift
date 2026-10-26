@@ -21,6 +21,8 @@ struct ShotsTimelineGeometryTests {
         #expect(scale.movedTime(from: 1, hold: 0.5, delta: 12.5) == FrameGrid.time(ofFrame: 27))
         #expect(scale.movedTime(from: 1, hold: 0.5, delta: 1000) == FrameGrid.time(ofFrame: 111))
         #expect(scale.movedTime(from: 1, hold: 0.5, delta: -1000) == 0)
+        // Match Blockout's clamp-after-delta rule even for shared marks beyond a short shot.
+        #expect(scale.movedTime(from: 8, hold: 0, delta: -5) == FrameGrid.time(ofFrame: 123))
     }
 
     @Test func stretchingAHoldLeavesTheMarkTimeAndFitsTheShot() {

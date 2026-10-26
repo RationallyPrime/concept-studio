@@ -259,3 +259,40 @@ three suites passed, including unchanged playhead/selection/document/history whe
 text editor owns focus, boundary clamping, guide deduplication/one undo and restart at shot end.
 Strict lint and pinned format passed. Actual focus/event wiring and24fps transport loop remain to do.
 No native/global keyboard monitor is installed by this preparation.
+
+### C4 native UI candidate (stacked on unmerged C3; not accepted)
+
+The native timeline now has camera-first and tracked-entity lanes, frame/second ruler, guide markers
+and an Add guide action, scrubbing, mark selection, retime and hold-edge gestures. Gestures capture the
+original mark, use transient preview, follow a retimed mark with the playhead and commit one existing
+typed update on release; Escape/disappearance/shot change cancels preview. Read-only disables edits.
+Space routes at the Shots workspace; arrows/Home/End/Delete route only within the focused timeline,
+with Shift stepping24frames and text-edit/modifier protection. These are ordinary SwiftUI focus handlers,
+not global/local NSEvent monitors, CGEvent taps, CUA bindings or synthetic input. The elapsed-clock
+playback loop presents discrete24fps frames and includes the last frame before looping.
+
+Reference inspected: pinned3f2d0564 Timeline.tsx (lanes/ruler/capture-preview-single-commit and clamp
+after translation), App.tsx useKeyboard, store.ts setPlaying, SceneManager.ts playback loop. Existing
+evaluate.test.ts hold-window and audit-fixes.test.ts overlapping-hold fixtures remain evaluator behavior;
+C4 does not rewrite or clamp shared blocking when a shot changes. The e2e interaction.spec.ts was
+inspected as reference, not run (it launches Electron and injects real mouse input). Adaptations: explicit
+24fps frame grid, CONTRACTS focus ownership/single-mark selection, native controls/semantic colours.
+
+Verification run/passed:843full local app tests/145suites at the UI candidate (prior to only an equivalent
+transport-label local binding refactor/format); final frozen source then passed10tests/5suites in the
+isolated preview snapshot, including all9timeline tests and8actual empty/sample captures at both
+sizes/appearances. Full app strict lint and pinned format passed. Script render-app-preview.sh created
+the original source-hashed isolated snapshot; after visual repairs it was refreshed with all current
+source/test bytes, every hash rechecked, and rebuilt using explicit native SwiftPM. A temporary command
+wrapper selected native build system; no package/tool/security configuration changed.
+
+Visual inspection of minimum light/dark sample found short-label truncation and final-frame clipping
+in the first capture; fixed with numeric frame pills (gait remains in help/VoiceOver) and right gutter.
+Both corrected minimum sample images inspected; all8corrected PNGs and source manifest retained.
+The clamp-after-delta geometry regression covers a shared mark beyond the shot; playback tests cover
+delayed callbacks and presenting the last frame before wrap.
+
+Not run/claimed: actual native key/VoiceOver/pointer walkthrough, current-head remote C4CI or independent
+C4acceptance. C3 PR70 remains draft after two AVAssetReader watchdog failures; its media owner has been
+notified and parent provided manual delivery. C4 acceptance/landing waits for real C3 completion and its
+own review/CI/focus validation; no M1/M2, ComfyUI or release/deployment claim.
