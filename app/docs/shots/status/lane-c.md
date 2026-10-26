@@ -217,3 +217,111 @@ unchanged by the rebase/B3 export-only delta and IT3 addition; minimum light/dar
 
 **Not run/claimed:** complete local app suite, live native menu/picker/keyboard/VoiceOver, ComfyUI graph
 handoff, signed app walkthrough, M1/M2. Current-head CI and independent C3 review remain required.
+
+### C4 source-aligned preparation; C3 acceptance still blocked
+
+C3 PR70 head`972060e` has terminal independent clean review6425635875. CI40388637232
+built successfully, then its full app test hit the300s watchdog. The process sample shows C3 IT3
+and two B3 package tests concurrently blocked at `VideoInspector.swift:49` in AVAssetReader sample
+reading. Six other jobs passed; standalone core/full lint/full format were skipped. This is not a
+complete suite pass or a presumed flake. Media-owner evidence/handoff:6425833845. No CI rerun or
+merge requested without diagnosis. Focused63tests/17suites previously passed remains separate evidence.
+
+C4 is isolated on `shots/c-timeline`, based on the frozen C3 draft head. Read pinned Blockout
+`src/renderer/panels/Timeline.tsx` first: ruler/scrub mapping, retime clamp preserving hold, hold
+stretch clamp preserving mark time, camera-first lanes and local drag preview/single release commit.
+Only the pure geometry preparation is implemented: time-to-position, clamped position-to-frame,
+retime and hold stretch. Intentional Shots adaptation:24fps snapping and explicit frame-count end;
+shared blocking beyond a short shot remains in the document. Source pin3f2d0564 is recorded in code.
+
+Run/passed:3geometry tests/1suite cover every124frame round trip, edges, rounding, zero width,
+retime/hold endpoints and a shared mark beyond the shot. Strict lint passed; formatter initially
+reported declaration-comment/property-layout style, automatically formatted, then pinned format passed.
+No production timeline UI, focus routing, playback, drag gesture, visual/accessibility acceptance or
+C4 checkpoint completion is claimed. No desktop UI automation used.
+
+C4 follow-up preparation: `ShotsTimelineDrag` captures an actor or camera mark and returns one typed
+update command from the original drag value, as Blockout Timeline.tsx beginDrag/onMove/onUp does.
+It uses the existing transient store preview and existing perform/undo path, preserving all non-time
+channels. Five geometry/transaction tests in two suites passed: repeated preview leaves committed
+document/history untouched, hold stretch commits one undo step, camera retime preserves channels,
+cancel leaves no history. Strict lint passed. No gesture wiring or C4 UI acceptance is claimed.
+
+Media diagnosis remains with Lane B: strict Swift cooperative-pool filter passed11tests/4suites on
+local Swift6.4; no reproduction or cure claim for the Xcode26.6 full-suite CI hang. Native build-system
+selection avoided a local generated-test-bundle code-sign failure without changing attributes/settings.
+
+C4 navigation preparation now also has pure store actions for focused timeline arrows/Home/End/Delete,
+24-frame Shift steps, text-edit protection, playback toggle/restart and idempotent guide insertion.
+Reference: Blockout App.tsx useKeyboard and store.ts setPlaying; CONTRACTS section7 intentionally
+narrows arrows/Delete to timeline focus and suppresses all actions in text editors. Seven tests in
+three suites passed, including unchanged playhead/selection/document/history when another region or
+text editor owns focus, boundary clamping, guide deduplication/one undo and restart at shot end.
+Strict lint and pinned format passed. Actual focus/event wiring and24fps transport loop remain to do.
+No native/global keyboard monitor is installed by this preparation.
+
+### C4 native UI candidate (stacked on unmerged C3; not accepted)
+
+The native timeline now has camera-first and tracked-entity lanes, frame/second ruler, guide markers
+and an Add guide action, scrubbing, mark selection, retime and hold-edge gestures. Gestures capture the
+original mark, use transient preview, follow a retimed mark with the playhead and commit one existing
+typed update on release; Escape/disappearance/shot change cancels preview. Read-only disables edits.
+Space routes at the Shots workspace; arrows/Home/End/Delete route only within the focused timeline,
+with Shift stepping24frames and text-edit/modifier protection. These are ordinary SwiftUI focus handlers,
+not global/local NSEvent monitors, CGEvent taps, CUA bindings or synthetic input. The elapsed-clock
+playback loop presents discrete24fps frames and includes the last frame before looping.
+
+Reference inspected: pinned3f2d0564 Timeline.tsx (lanes/ruler/capture-preview-single-commit and clamp
+after translation), App.tsx useKeyboard, store.ts setPlaying, SceneManager.ts playback loop. Existing
+evaluate.test.ts hold-window and audit-fixes.test.ts overlapping-hold fixtures remain evaluator behavior;
+C4 does not rewrite or clamp shared blocking when a shot changes. The e2e interaction.spec.ts was
+inspected as reference, not run (it launches Electron and injects real mouse input). Adaptations: explicit
+24fps frame grid, CONTRACTS focus ownership/single-mark selection, native controls/semantic colours.
+
+Verification run/passed:843full local app tests/145suites at the UI candidate (prior to only an equivalent
+transport-label local binding refactor/format); final frozen source then passed10tests/5suites in the
+isolated preview snapshot, including all9timeline tests and8actual empty/sample captures at both
+sizes/appearances. Full app strict lint and pinned format passed. Script render-app-preview.sh created
+the original source-hashed isolated snapshot; after visual repairs it was refreshed with all current
+source/test bytes, every hash rechecked, and rebuilt using explicit native SwiftPM. A temporary command
+wrapper selected native build system; no package/tool/security configuration changed.
+
+Visual inspection of minimum light/dark sample found short-label truncation and final-frame clipping
+in the first capture; fixed with numeric frame pills (gait remains in help/VoiceOver) and right gutter.
+Both corrected minimum sample images inspected; all8corrected PNGs and source manifest retained.
+The clamp-after-delta geometry regression covers a shared mark beyond the shot; playback tests cover
+delayed callbacks and presenting the last frame before wrap.
+
+Not run/claimed: actual native key/VoiceOver/pointer walkthrough, current-head remote C4CI or independent
+C4acceptance. C3 PR70 remains draft after two AVAssetReader watchdog failures; its media owner has been
+notified and parent provided manual delivery. C4 acceptance/landing waits for real C3 completion and its
+own review/CI/focus validation; no M1/M2, ComfyUI or release/deployment claim.
+
+### C4 review round1 repair (same PR71)
+
+Independent review atc1b3d3a found two P2s: Escape cancellation restarted on the next pointer callback,
+and Add guide persisted automatic endpoint frames. The repair uses an explicit idle/active/cancelled
+transaction whose cancelled phase lasts to pointer release. SwiftUI GestureState cleanup resets an
+abandoned gesture without committing; ordinary release performs one command. Guide insertion now
+guards the declared1..N-2extra-guide domain and deduplicates at the action boundary; the button uses
+the same eligibility. No LaneB/Core contract or validation file was changed.
+
+Run/passed:12timeline tests/5suites, including Escape→moremovement→release (no document/history
+change), following gesture recovery, abandoned gesture reset, both automatic endpoint no-ops and one
+interior guide undo. Controlled mutations reintroducing each old mechanism make the two corresponding
+regressions fail; fixed source restored byte-for-byte. An earlier control attempt failed to compile
+because the compiler reported a timestamp change in an unchanged source file; no tests ran in that
+attempt. The temporary mutation was restored. The isolated source-hashed snapshot control executed
+both regressions and failed as expected.
+
+Full repaired frozen app run:846tests/146suites passed. Its first attempt had4missing-fixture errors
+because the preview-only snapshot omitted3shared repo fixture files; exact immutable HEAD bytes
+were supplied without overwriting different data, then the full run passed. No assertion was weakened.
+Final snapshot run:13tests/6suites passed including all12timeline tests and8offscreencaptures.
+Native keyboard/VoiceOver/pointer walkthrough remains unrun. Independent bounded closure and fresh
+CI remain required; no accepted C4 claim.
+
+A4 acceptedmainc501e7be and the independently reviewed media-reader repairPR74/7fce98d4 have now
+landed. Next refreshC3 thenC4 onto real repaired main, preserving reviewed commits, and run actual
+current-head tests/review/CI including formerly skipped gates. Earlier C3/C4 AVAssetReader failures
+remain failed historical evidence; no unchanged rerun hides them.
