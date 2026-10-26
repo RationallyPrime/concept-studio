@@ -1,9 +1,8 @@
 import Foundation
+@testable import PrevisCore
 import Testing
 
-@testable import PrevisCore
-
-@Suite struct SampleEvaluationTests {
+struct SampleEvaluationTests {
     /// IT0: both samples at their first, guide and last frames project every entity inside the canvas, and
     /// `ray` inverts `project`.
     @Test(arguments: [false, true])
@@ -29,9 +28,10 @@ import Testing
                     (entity.bounds.min.y + entity.bounds.max.y) / 2,
                     (entity.bounds.min.z + entity.bounds.max.z) / 2
                 )
-                let pixel = try #require(frame.camera.project(centre, size: size), "\(entity.name) is behind the camera")
-                #expect((0..<Double(size.width)).contains(pixel.x), "\(entity.name) x=\(pixel.x) at frame \(index)")
-                #expect((0..<Double(size.height)).contains(pixel.y), "\(entity.name) y=\(pixel.y) at frame \(index)")
+                let projected = frame.camera.project(centre, size: size)
+                let pixel = try #require(projected, "\(entity.name) is behind the camera")
+                #expect((0 ..< Double(size.width)).contains(pixel.x), "\(entity.name) x=\(pixel.x) at frame \(index)")
+                #expect((0 ..< Double(size.height)).contains(pixel.y), "\(entity.name) y=\(pixel.y) at frame \(index)")
 
                 let ray = frame.camera.ray(through: pixel, size: size)
                 #expect(abs(ray.direction.length - 1) < 1e-12)

@@ -4,7 +4,7 @@ import Foundation
 
 public struct ContentCatalog: Sendable {
     public let motions: [MotionPreset]
-    public let assets: [AssetSpec]    // environment kits are not loaded
+    public let assets: [AssetSpec] // environment kits are not loaded
     public let cameraMoves: [CatalogItem]
     public let actionPaths: [CatalogItem]
     public let starter: StarterSet
@@ -46,8 +46,13 @@ public struct ContentCatalog: Sendable {
         )
     }
 
-    public func motion(_ id: String) -> MotionPreset? { motionsByID[id] }
-    public func asset(_ id: String) -> AssetSpec? { assetsByID[id] }
+    public func motion(_ id: String) -> MotionPreset? {
+        motionsByID[id]
+    }
+
+    public func asset(_ id: String) -> AssetSpec? {
+        assetsByID[id]
+    }
 
     private struct AssetsFile: Decodable {
         var assets: [AssetSpec]
@@ -74,7 +79,7 @@ public struct StarterSet: Codable, Sendable, Equatable {
 
 public struct CatalogItem: Codable, Sendable, Equatable, Identifiable {
     public var id: String, name: String, category: String, description: String
-    public var track: Bool?    // camera moves: aim-locks the subject
+    public var track: Bool? // camera moves: aim-locks the subject
 
     public init(id: String, name: String, category: String, description: String, track: Bool? = nil) {
         self.id = id
@@ -127,8 +132,8 @@ public struct MotionKeyframe: Codable, Sendable, Equatable {
 }
 
 public struct RootMove: Codable, Sendable, Equatable {
-    public var forward: Double    // 0 when absent in the data
-    public var up: Double    // 0 when absent in the data
+    public var forward: Double // 0 when absent in the data
+    public var up: Double // 0 when absent in the data
 
     public init(forward: Double, up: Double) {
         self.forward = forward
@@ -144,12 +149,12 @@ public struct RootMove: Codable, Sendable, Equatable {
 
 public struct AssetSpec: Codable, Sendable, Equatable, Identifiable {
     public var id: String, name: String, category: String
-    public var height: Double    // metres at scale 1
-    public var footprint: Double    // metres, largest horizontal extent
+    public var height: Double // metres at scale 1
+    public var footprint: Double // metres, largest horizontal extent
     public var speedScale: Double
-    public var motion: String    // biped, quadruped, wheeled, rail, flying, static
+    public var motion: String // biped, quadruped, wheeled, rail, flying, static
     public var promptNoun: String
-    public var parts: [PartSpec]?    // from parts.v1.json; nil = generic box
+    public var parts: [PartSpec]? // from parts.v1.json; nil = generic box
 
     /// person for biped, quadruped for quadruped, bird for animal.bird, else none.
     public var rig: AssetRig {
@@ -189,8 +194,8 @@ public enum AssetRig: String, Sendable { case none, person, quadruped, bird }
 public struct PartSpec: Codable, Sendable, Equatable {
     public var id: String
     public var shape: PartShape
-    public var position: Vec3    // asset frame, origin on the ground
-    public var rotation: Vec3    // Euler XYZ, radians
+    public var position: Vec3 // asset frame, origin on the ground
+    public var rotation: Vec3 // Euler XYZ, radians
     public var color: RGB
 
     public init(id: String, shape: PartShape, position: Vec3, rotation: Vec3, color: RGB) {
@@ -202,11 +207,11 @@ public struct PartSpec: Codable, Sendable, Equatable {
     }
 }
 
-public enum PartShape: Codable, Hashable, Sendable {    // centred on the local origin, axis +Y
+public enum PartShape: Codable, Hashable, Sendable { // centred on the local origin, axis +Y
     case box(size: Vec3)
     case cylinder(radius: Double, height: Double)
     case sphere(radius: Double)
-    case capsule(radius: Double, length: Double)    // straight part; total height length + 2·radius
+    case capsule(radius: Double, length: Double) // straight part; total height length + 2·radius
     case cone(radius: Double, height: Double)
-    case wedge(size: Vec3)    // ramp rising toward −Z
+    case wedge(size: Vec3) // ramp rising toward −Z
 }

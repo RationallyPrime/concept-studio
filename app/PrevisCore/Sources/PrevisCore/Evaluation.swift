@@ -28,7 +28,8 @@ public struct ShotEvaluator: Sendable {
                 problems.append(
                     ShotsProblem(
                         severity: .error,
-                        message: "\"\(entity.name)\" uses the unknown asset \(entity.assetID); choose an asset from the catalog.",
+                        message: "\"\(entity.name)\" uses the unknown asset \(entity.assetID); "
+                            + "choose an asset from the catalog.",
                         sceneID: scene.id,
                         shotID: shotID,
                         entityID: entity.id
@@ -42,7 +43,9 @@ public struct ShotEvaluator: Sendable {
         entities = resolved
     }
 
-    public var frameCount: Int { shot.frameCount }
+    public var frameCount: Int {
+        shot.frameCount
+    }
 
     public func frame(_ index: Int) -> SceneFrame {
         let clamped = min(max(index, 0), max(shot.frameCount - 1, 0))
@@ -55,10 +58,14 @@ public struct ShotEvaluator: Sendable {
     }
 
     /// Speed, 180° line, trained range and marks past the end. None are checked yet (A5).
-    public func warnings() -> [ShotsProblem] { [] }
+    public func warnings() -> [ShotsProblem] {
+        []
+    }
 
     /// Ribbons and spike marks. Empty until A2.
-    public func paths() -> [MotionPath] { [] }
+    public func paths() -> [MotionPath] {
+        []
+    }
 
     private func sceneFrame(index: Int?, time: Double) -> SceneFrame {
         SceneFrame(
@@ -87,13 +94,19 @@ public struct ShotEvaluator: Sendable {
 }
 
 public struct SceneFrame: Sendable, Equatable {
-    public var index: Int?    // set when evaluated on the grid
+    public var index: Int? // set when evaluated on the grid
     public var time: Double
     public var canvas: ShotCanvas
-    public var camera: CameraFrame    // field of view for the canvas aspect
-    public var entities: [EntityFrame]    // document order
+    public var camera: CameraFrame // field of view for the canvas aspect
+    public var entities: [EntityFrame] // document order
 
-    public init(index: Int? = nil, time: Double, canvas: ShotCanvas, camera: CameraFrame, entities: [EntityFrame] = []) {
+    public init(
+        index: Int? = nil,
+        time: Double,
+        canvas: ShotCanvas,
+        camera: CameraFrame,
+        entities: [EntityFrame] = []
+    ) {
         self.index = index
         self.time = time
         self.canvas = canvas
@@ -107,7 +120,7 @@ public struct CameraFrame: Sendable, Equatable {
     public var pan: Double, tilt: Double, roll: Double
     public var focalLength: Double
     public var focusDistance: Double?
-    public var verticalFOV: Double    // radians
+    public var verticalFOV: Double // radians
 
     static let near = 0.05
     static let far = 500.0
@@ -131,7 +144,9 @@ public struct CameraFrame: Sendable, Equatable {
     }
 
     /// R = Ry(pan) · Rx(tilt) · Rz(roll); the camera looks down its local −Z and positive tilt looks up.
-    public var orientation: Quat { .yaw(pan) * .pitch(tilt) * .roll(roll) }
+    public var orientation: Quat {
+        .yaw(pan) * .pitch(tilt) * .roll(roll)
+    }
 
     /// World → camera.
     public func viewMatrix() -> Mat4 {
@@ -203,15 +218,15 @@ public struct EntityFrame: Sendable, Equatable {
     public var assetID: String
     public var name: String
     public var label: EntityLabel?
-    public var isActor: Bool    // rigged asset or labelled: gets a matte and a layout box
+    public var isActor: Bool // rigged asset or labelled: gets a matte and a layout box
     public var position: Vec3
     public var heading: Double
     public var gait: Gait
     public var speed: Double
     public var distanceTravelled: Double
-    public var joints: [Joint: Double]    // evaluated pose overrides, before the gait pose
+    public var joints: [Joint: Double] // evaluated pose overrides, before the gait pose
     public var parts: [PosedPart]
-    public var keypoints: [Keypoint]    // COCO-18 world positions; empty unless rig == .person
+    public var keypoints: [Keypoint] // COCO-18 world positions; empty unless rig == .person
     public var bounds: Box3
 
     public init(
@@ -281,9 +296,9 @@ public struct EntityFrame: Sendable, Equatable {
 }
 
 public struct PosedPart: Sendable, Equatable {
-    public var id: String    // stable within the entity across frames
+    public var id: String // stable within the entity across frames
     public var shape: PartShape
-    public var transform: Mat4    // part → world, including the entity scale
+    public var transform: Mat4 // part → world, including the entity scale
     public var color: RGB
 
     public init(id: String, shape: PartShape, transform: Mat4, color: RGB) {
@@ -304,7 +319,7 @@ public struct Keypoint: Sendable, Equatable {
     }
 }
 
-public enum KeypointName: Int, Sendable, CaseIterable {    // OpenPose COCO-18 order
+public enum KeypointName: Int, Sendable, CaseIterable { // OpenPose COCO-18 order
     case nose = 0, neck, rightShoulder, rightElbow, rightWrist, leftShoulder, leftElbow, leftWrist
     case rightHip, rightKnee, rightAnkle, leftHip, leftKnee, leftAnkle, rightEye, leftEye, rightEar, leftEar
 }

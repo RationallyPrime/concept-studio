@@ -7,8 +7,12 @@
 
 **Tests, A0** (unmerged-W0 verification: W0's own `Package.swift`, `LICENSE` and `NOTICE` at `4782eba`, branch head
 `f1c3d51`; Swift 6.3.3 on Linux x86_64, debug build):
-`swift test --package-path app/PrevisCore` — 4 tests, 4 passed, 0 failed. macOS CI: pending on the PR. swiftlint and
-swiftformat: **not run** (not installed on this machine).
+`swift test --package-path app/PrevisCore` — 4 tests, 4 passed, 0 failed. macOS CI on the first head reached 769 app tests
+and 4 core tests passing, then strict SwiftLint failed on six issues (function length, `String(decoding:)`, four long
+lines). Repaired in the next commit. Local, pinned tools run from `app/` (Linux builds of swiftlint 0.65.1 and swiftformat
+0.64.0): `swiftlint lint --strict` 0 violations (SourceKit-only rules such as `statement_position` are skipped on
+Linux, so CI is still the reference); `swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint` applied to
+the PrevisCore paths, 0 files need formatting.
 
 **What A0 contains.** Every declaration in CONTRACTS section 5 with public memberwise initialisers. Real already:
 `Vec3`, `Quat`, `Mat4` (with `inverse`), `PixelSize`, `ShotCanvas`, `FrameGrid`, `PrevisIDs`, `PrevisScene.make`,

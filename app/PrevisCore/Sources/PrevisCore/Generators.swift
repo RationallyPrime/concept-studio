@@ -2,7 +2,7 @@ import Foundation
 
 // Generators and helpers, CONTRACTS section 5.5. Skeletons until A3-A4: each throws `notImplemented`.
 
-public enum CameraMoves {    // several subjects act as one virtual subject at their midpoint
+public enum CameraMoves { // several subjects act as one virtual subject at their midpoint
     public static func marks(
         _ moveID: String,
         scene: PrevisScene,
@@ -14,7 +14,7 @@ public enum CameraMoves {    // several subjects act as one virtual subject at t
     }
 }
 
-public enum ActionPaths {    // speed nil keeps Blockout's timing; otherwise metres per second
+public enum ActionPaths { // speed nil keeps Blockout's timing; otherwise metres per second
     public static func marks(
         _ pathID: String,
         entity: PrevisEntity,

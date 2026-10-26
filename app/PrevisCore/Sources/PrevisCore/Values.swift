@@ -13,12 +13,26 @@ public struct Vec3: Codable, Hashable, Sendable {
 
     public static let zero = Vec3(0, 0, 0)
 
-    static func + (a: Vec3, b: Vec3) -> Vec3 { Vec3(a.x + b.x, a.y + b.y, a.z + b.z) }
-    static func - (a: Vec3, b: Vec3) -> Vec3 { Vec3(a.x - b.x, a.y - b.y, a.z - b.z) }
-    static func * (a: Vec3, s: Double) -> Vec3 { Vec3(a.x * s, a.y * s, a.z * s) }
+    static func + (a: Vec3, b: Vec3) -> Vec3 {
+        Vec3(a.x + b.x, a.y + b.y, a.z + b.z)
+    }
 
-    func dot(_ b: Vec3) -> Double { x * b.x + y * b.y + z * b.z }
-    var length: Double { dot(self).squareRoot() }
+    static func - (a: Vec3, b: Vec3) -> Vec3 {
+        Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
+    }
+
+    static func * (a: Vec3, s: Double) -> Vec3 {
+        Vec3(a.x * s, a.y * s, a.z * s)
+    }
+
+    func dot(_ b: Vec3) -> Double {
+        x * b.x + y * b.y + z * b.z
+    }
+
+    var length: Double {
+        dot(self).squareRoot()
+    }
+
     var normalized: Vec3 {
         let l = length
         return l > 0 ? self * (1 / l) : self
@@ -35,8 +49,10 @@ public struct Point2: Codable, Hashable, Sendable {
 }
 
 public struct PixelSize: Codable, Hashable, Sendable {
-    public var width: Int, height: Int    // any positive size
-    public var aspect: Double { Double(width) / Double(height) }
+    public var width: Int, height: Int // any positive size
+    public var aspect: Double {
+        Double(width) / Double(height)
+    }
 
     public init(width: Int, height: Int) {
         self.width = width
@@ -61,8 +77,13 @@ public struct Quat: Codable, Hashable, Sendable {
         Quat(x: 0, y: sin(heading / 2), z: 0, w: cos(heading / 2))
     }
 
-    static func pitch(_ angle: Double) -> Quat { Quat(x: sin(angle / 2), y: 0, z: 0, w: cos(angle / 2)) }
-    static func roll(_ angle: Double) -> Quat { Quat(x: 0, y: 0, z: sin(angle / 2), w: cos(angle / 2)) }
+    static func pitch(_ angle: Double) -> Quat {
+        Quat(x: sin(angle / 2), y: 0, z: 0, w: cos(angle / 2))
+    }
+
+    static func roll(_ angle: Double) -> Quat {
+        Quat(x: 0, y: 0, z: sin(angle / 2), w: cos(angle / 2))
+    }
 
     /// Hamilton product: `a * b` applies `b` first, then `a`.
     static func * (a: Quat, b: Quat) -> Quat {
@@ -97,10 +118,12 @@ public struct Mat4: Hashable, Sendable {
 
     public static func * (a: Mat4, b: Mat4) -> Mat4 {
         var out = [Double](repeating: 0, count: 16)
-        for col in 0..<4 {
-            for row in 0..<4 {
+        for col in 0 ..< 4 {
+            for row in 0 ..< 4 {
                 var sum = 0.0
-                for k in 0..<4 { sum += a.m[k * 4 + row] * b.m[col * 4 + k] }
+                for k in 0 ..< 4 {
+                    sum += a.m[k * 4 + row] * b.m[col * 4 + k]
+                }
                 out[col * 4 + row] = sum
             }
         }
@@ -187,7 +210,7 @@ public struct Box3: Hashable, Sendable {
 }
 
 public struct RGB: Codable, Hashable, Sendable {
-    public var r: Double, g: Double, b: Double    // 0...1, quantised to n/255
+    public var r: Double, g: Double, b: Double // 0...1, quantised to n/255
 
     public init(r: Double, g: Double, b: Double) {
         self.r = RGB.quantise(r)
@@ -211,9 +234,8 @@ public struct RGB: Codable, Hashable, Sendable {
         let text = try decoder.singleValueContainer().decode(String.self)
         let digits = text.hasPrefix("#") ? String(text.dropFirst()) : text
         guard digits.count == 6, UInt32(digits, radix: 16) != nil else {
-            throw DecodingError.dataCorrupted(
-                .init(codingPath: decoder.codingPath, debugDescription: "A colour is written \"#rrggbb\", not \"\(text)\".")
-            )
+            let message = "A colour is written \"#rrggbb\", not \"\(text)\"."
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: message))
         }
         self.init(hex: text)
     }
@@ -238,12 +260,17 @@ public struct RGB: Codable, Hashable, Sendable {
 
 public struct ShotCanvas: Codable, Hashable, Sendable {
     public var width: Int, height: Int
-    public var aspect: Double { Double(width) / Double(height) }
-    public var pixelSize: PixelSize { PixelSize(width: width, height: height) }
+    public var aspect: Double {
+        Double(width) / Double(height)
+    }
+
+    public var pixelSize: PixelSize {
+        PixelSize(width: width, height: height)
+    }
 
     /// Multiples of 32 within 64...2048.
     public var isValid: Bool {
-        [width, height].allSatisfy { $0 % 32 == 0 && (64...2048).contains($0) }
+        [width, height].allSatisfy { $0 % 32 == 0 && (64 ... 2048).contains($0) }
     }
 
     public init(width: Int, height: Int) {
@@ -265,7 +292,7 @@ public struct ShotCanvas: Codable, Hashable, Sendable {
 public enum FrameGrid {
     public static let fps = 24
     public static let defaultFrameCount = 124
-    public static let trainedRange = 124...362
+    public static let trainedRange = 124 ... 362
 
     private static let base = 5
     private static let step = 17
@@ -288,16 +315,20 @@ public enum FrameGrid {
         return base + (rem == 0 ? k : k + 1) * step
     }
 
-    public static func time(ofFrame index: Int) -> Double { Double(index) / Double(fps) }
+    public static func time(ofFrame index: Int) -> Double {
+        Double(index) / Double(fps)
+    }
 
     /// The nearest frame, never below 0.
-    public static func frame(atTime time: Double) -> Int { max(0, Int((time * Double(fps)).rounded())) }
+    public static func frame(atTime time: Double) -> Int {
+        max(0, Int((time * Double(fps)).rounded()))
+    }
 }
 
 public enum PrevisIDs {
     /// `<prefix>_<12 lowercase hex>`, random.
     public static func make(_ prefix: String) -> String {
-        let hex = String(UInt64.random(in: 0..<(1 << 48)), radix: 16)
+        let hex = String(UInt64.random(in: 0 ..< (1 << 48)), radix: 16)
         return prefix + "_" + String(repeating: "0", count: 12 - hex.count) + hex
     }
 }

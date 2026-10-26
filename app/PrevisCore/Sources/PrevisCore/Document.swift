@@ -23,10 +23,10 @@ public struct ShotsDocument: Codable, Sendable, Equatable {
 public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
     public var id: SceneID
     public var name: String
-    public var revision: Int    // bumped by the store on every edit except setPrompt
+    public var revision: Int // bumped by the store on every edit except setPrompt
     public var lighting: LightingPreset
     public var entities: [PrevisEntity]
-    public var blocking: [BlockingTake]    // v1: exactly one take, shared by the scene's shots
+    public var blocking: [BlockingTake] // v1: exactly one take, shared by the scene's shots
     public var shots: [Shot]
 
     public init(
@@ -72,11 +72,11 @@ public enum LightingPreset: String, Codable, Sendable, CaseIterable {
 
 public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var id: EntityID
-    public var assetID: String    // fixed once placed
+    public var assetID: String // fixed once placed
     public var name: String
     public var label: EntityLabel?
-    public var placement: Placement    // pose before the first mark, and always if there are none
-    public var attachment: EntityAttachment?    // rides the parent until its own first mark
+    public var placement: Placement // pose before the first mark, and always if there are none
+    public var attachment: EntityAttachment? // rides the parent until its own first mark
 
     public init(
         id: EntityID,
@@ -98,7 +98,7 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
 public struct Placement: Codable, Sendable, Equatable {
     public var position: Vec3
     public var heading: Double
-    public var scale: Double    // uniform; also scales gait stride
+    public var scale: Double // uniform; also scales gait stride
 
     public init(position: Vec3, heading: Double, scale: Double) {
         self.position = position
@@ -119,8 +119,8 @@ public struct EntityLabel: Codable, Sendable, Equatable {
 
 public struct EntityAttachment: Codable, Sendable, Equatable {
     public var parentID: EntityID
-    public var offset: Vec3    // in the parent's frame
-    public var rotation: Quat    // relative to the parent: a full transform, not yaw only
+    public var offset: Vec3 // in the parent's frame
+    public var rotation: Quat // relative to the parent: a full transform, not yaw only
 
     public init(parentID: EntityID, offset: Vec3, rotation: Quat) {
         self.parentID = parentID
@@ -153,15 +153,15 @@ public struct Track: Codable, Sendable, Equatable {
 
 public struct ActorMark: Codable, Sendable, Equatable, Identifiable {
     public var id: MarkID
-    public var time: Double    // seconds from the first frame
-    public var hold: Double    // seconds to stay before leaving for the next mark
+    public var time: Double // seconds from the first frame
+    public var hold: Double // seconds to stay before leaving for the next mark
     public var easeIn: Double, easeOut: Double
     public var position: Vec3
-    public var via: [Vec3]    // waypoints between the previous mark and this one
+    public var via: [Vec3] // waypoints between the previous mark and this one
     public var gait: Gait
-    public var arriveHeading: Double?    // facing at this mark; nil = along travel
-    public var joints: [Joint: Double]    // pose overrides, radians; JSON object keyed by joint name
-    public var boardID: EntityID?    // from this mark on, ride that entity
+    public var arriveHeading: Double? // facing at this mark; nil = along travel
+    public var joints: [Joint: Double] // pose overrides, radians; JSON object keyed by joint name
+    public var boardID: EntityID? // from this mark on, ride that entity
 
     public init(
         id: MarkID,
@@ -203,15 +203,17 @@ public enum Joint: String, Codable, CodingKeyRepresentable, Sendable, CaseIterab
 public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var id: ShotID
     public var name: String
-    public var frameCount: Int    // on the grid
+    public var frameCount: Int // on the grid
     public var canvas: ShotCanvas
     public var blockingTakeID: TakeID
     public var camera: ShotCamera
-    public var guideFrames: [Int]    // extra middle guides: sorted, unique, within 1...frameCount-2
+    public var guideFrames: [Int] // extra middle guides: sorted, unique, within 1...frameCount-2
     public var notes: ShotNotes
     public var prompt: ShotPrompt?
-    public var results: [ShotResult]    // reserved for later destinations; empty in v1
-    public var duration: Double { Double(frameCount - 1) / Double(FrameGrid.fps) }
+    public var results: [ShotResult] // reserved for later destinations; empty in v1
+    public var duration: Double {
+        Double(frameCount - 1) / Double(FrameGrid.fps)
+    }
 
     public init(
         id: ShotID,
@@ -273,10 +275,10 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
 public struct ShotCamera: Codable, Sendable, Equatable {
     public var sensor: Sensor
     public var rig: Rig
-    public var rigIntensity: Double    // 0...1
-    public var seed: Double    // rig-noise seed; Double for Blockout parity
-    public var mountID: EntityID?    // car mount: marks are relative to this entity
-    public var trackIDs: [EntityID]    // aim lock: none, one entity, or the midpoint of several
+    public var rigIntensity: Double // 0...1
+    public var seed: Double // rig-noise seed; Double for Blockout parity
+    public var mountID: EntityID? // car mount: marks are relative to this entity
+    public var trackIDs: [EntityID] // aim lock: none, one entity, or the midpoint of several
     public var marks: [CameraMark]
 
     public init(
@@ -322,8 +324,8 @@ public struct CameraMark: Codable, Sendable, Equatable, Identifiable {
     public var position: Vec3
     public var via: [Vec3]
     public var pan: Double, tilt: Double, roll: Double
-    public var focalLength: Double    // millimetres
-    public var focusDistance: Double?    // metres; nil = deep focus
+    public var focalLength: Double // millimetres
+    public var focusDistance: Double? // metres; nil = deep focus
 
     public init(
         id: MarkID,
@@ -354,8 +356,8 @@ public struct CameraMark: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-public struct ShotNotes: Codable, Sendable, Equatable {    // v1 choice; may change after Phase 0
-    public var description: String    // setting and action in the user's words
+public struct ShotNotes: Codable, Sendable, Equatable { // v1 choice; may change after Phase 0
+    public var description: String // setting and action in the user's words
     public var characters: [CharacterNote]
     public var sound: String
     public var music: String
@@ -379,10 +381,10 @@ public struct CharacterNote: Codable, Sendable, Equatable {
 }
 
 public struct ShotPrompt: Codable, Sendable, Equatable {
-    public var sections: [PromptSection]    // in prompt order
-    public var text: String    // the full prompt, exactly as pasted into the graph
-    public var sceneRevision: Int    // revision it was written from; behind the scene = stale
-    public var writtenBy: String    // "template" or the model name
+    public var sections: [PromptSection] // in prompt order
+    public var text: String // the full prompt, exactly as pasted into the graph
+    public var sceneRevision: Int // revision it was written from; behind the scene = stale
+    public var writtenBy: String // "template" or the model name
 
     public init(sections: [PromptSection] = [], text: String, sceneRevision: Int, writtenBy: String) {
         self.sections = sections
