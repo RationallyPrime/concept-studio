@@ -3,7 +3,18 @@
 | Checkpoint | State |
 |---|---|
 | A0 declarations | **Draft PR, stacked on W0 (PR #51, unmerged).** Base `shots/b-media`; rebase on `main` and rerun checks once W0 lands. Replaces W0's two placeholder files. |
-| A1–A6 | Not started |
+| A1 content, catalog, import | **Prepared, not published.** Tolerant decoding, the full catalog and `starter.v1.json`, `BlockoutImport` and `blockoutProjectJSON()`. It ships as its own PR after A0 is on `main`. |
+| A2–A6 | Not started |
+
+**A1 tests** (Linux, Swift 6.3.3, debug): 14 tests in the package, 14 passed, 0 failed. The four content files equal a fresh
+`extract.ts` run (`cmp`). macOS CI: not run (unpublished).
+- Tolerant decoding: unknown keys are ignored and absent fields take the `Shot.make` or zero defaults; identity fields
+  (`id`, `assetID`, `entityID`, `parentID`) are required and the error names them; unknown joint names are skipped.
+  Every field of a fully populated document survives a round trip, so a misspelt key fails a test.
+- `ContentCatalog.bundled()` fails with the file or id named when a file is unreadable or the starter set names an id the
+  catalog lacks.
+- Import: a scene keeps one take (Shots v1), with a note when Blockout had several; entities whose asset Shots lacks are
+  dropped with their marks and a note; every dropped feature gets one note.
 
 **Tests, A0** (unmerged-W0 verification: W0's own `Package.swift`, `LICENSE` and `NOTICE` at `4782eba`, branch head
 `f1c3d51`; Swift 6.3.3 on Linux x86_64, debug build):
@@ -35,7 +46,7 @@ and last frames, projects every entity inside the canvas and checks that `ray` i
 
 ## Open questions
 
-- Tolerant decoding ("readers ignore unknown keys and default absent fields", CONTRACTS section 4) is not done for the
-  document types in A0; synthesised `Codable` requires every non-optional key. Only `RootMove` defaults. Lane C persists
-  the document, so proposal: add it in A1 alongside the importer. Say if it is needed sooner.
+- Tolerant decoding is prepared in A1 (above), not in the published A0. Lane C must wait for A1 to accept C2 persistence.
+- Should the store get a `ShotsDocument.decode(_:)` that refuses a newer `version` before the tolerant readers run? Today
+  the version is only a field and the store must check it. That would be new public API, so it needs a `[contract]` PR.
 - `FrameGrid.frame(atTime:)` rounds to the nearest frame (contract does not say floor or nearest).

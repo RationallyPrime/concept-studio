@@ -53,16 +53,6 @@ public enum ShotsValidation {
     }
 }
 
-public enum BlockoutImport { // notes: what was dropped or changed, in plain sentences
-    public static func document(
-        fromProjectJSON data: Data,
-        catalog: ContentCatalog,
-        keepIDs: Bool = false
-    ) throws -> (document: ShotsDocument, notes: [String]) {
-        throw ShotsError.notImplemented("BlockoutImport.document")
-    }
-}
-
 public enum ShotsSamples {
     /// A man and a woman walk toward each other and turn, with a chair and a wall behind them; two camera marks
     /// make a push-in, and one middle guide. Fixed ids. Full: 124 frames, 640 × 1152, guide frame 61. Small: the
@@ -99,10 +89,50 @@ public enum ShotsSamples {
         return ShotsDocument(version: ShotsDocument.currentVersion, scenes: [scene])
     }
 
-    /// A small Blockout-format project for import tests. Empty until A1.
+    /// A small Blockout-format project for import tests: two actors approach each other while the camera pushes
+    /// in, 3 s at 24 fps (73 frames) in 9:16. Blockout's own ids, so `keepIDs: true` keeps them.
     public static func blockoutProjectJSON() -> Data {
-        Data()
+        Data(blockoutProject.utf8)
     }
+
+    private static let blockoutProject = """
+    {
+      "version": 1, "id": "proj-1", "name": "Sample", "settings": {},
+      "scenes": [{
+        "id": "scene-1", "name": "Two actors", "number": 1,
+        "environment": {"lighting": "day"},
+        "entities": [
+          {"id": "e-man", "assetId": "person.man", "name": "Man",
+           "transform": {"position": {"x": -2, "y": 0, "z": 0}, "rotationY": -1.5707963267948966, "scale": 1},
+           "params": {"height": 1.1}},
+          {"id": "e-woman", "assetId": "person.woman", "name": "Woman",
+           "label": {"text": "W", "color": "#e5484d"},
+           "transform": {"position": {"x": 2, "y": 0, "z": 0}, "rotationY": 1.5707963267948966, "scale": 1}}
+        ],
+        "blocking": [{"id": "take-1", "name": "Master", "tracks": [
+          {"entityId": "e-man", "marks": [
+            {"id": "m1", "time": 0, "hold": 0, "easeIn": 0, "easeOut": 0.2,
+             "position": {"x": -2, "y": 0, "z": 0}, "gait": "walk"},
+            {"id": "m2", "time": 3, "hold": 0, "easeIn": 0.2, "easeOut": 0,
+             "position": {"x": -0.4, "y": 0, "z": 0}, "gait": "walk", "arriveHeading": 3.141592653589793}]},
+          {"entityId": "e-woman", "marks": [
+            {"id": "m3", "time": 0, "hold": 0, "easeIn": 0, "easeOut": 0.2,
+             "position": {"x": 2, "y": 0, "z": 0}, "gait": "walk"},
+            {"id": "m4", "time": 3, "hold": 0, "easeIn": 0.2, "easeOut": 0,
+             "position": {"x": 0.4, "y": 0, "z": 0}, "gait": "walk"}]}
+        ]}],
+        "shots": [{
+          "id": "shot-1", "name": "1A", "duration": 3, "fps": 24, "aspect": "9:16",
+          "blockingTakeId": "take-1", "notes": "Two people meet.",
+          "camera": {"sensorId": "super35", "rig": "sticks", "rigIntensity": 0, "seed": 1, "marks": [
+            {"id": "c1", "time": 0, "hold": 0, "easeIn": 0, "easeOut": 0,
+             "position": {"x": 0, "y": 1.6, "z": 6}, "pan": 0, "tilt": 0, "roll": 0, "focalLength": 20},
+            {"id": "c2", "time": 3, "hold": 0, "easeIn": 0, "easeOut": 0,
+             "position": {"x": 0, "y": 1.5, "z": 4.5}, "pan": 0, "tilt": 0, "roll": 0, "focalLength": 20}]}
+        }]
+      }]
+    }
+    """
 
     private static let man = "ent_000000000001"
     private static let woman = "ent_000000000002"

@@ -1,6 +1,6 @@
 import Foundation
 
-// Content, CONTRACTS section 5.3. A0 loads assets.v1.json only; the remaining files arrive with A1.
+// Content, CONTRACTS section 5.3.
 
 public struct ContentCatalog: Sendable {
     public let motions: [MotionPreset]
@@ -28,22 +28,57 @@ public struct ContentCatalog: Sendable {
         motionsByID = Dictionary(motions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
-    /// Reads `Resources/*.v1.json`. Errors name the missing or unreadable file.
+    /// Reads `Resources/*.v1.json`. Errors name the missing or unreadable file, or the starter id that does not
+    /// resolve.
     public static func bundled() throws -> ContentCatalog {
-        let file = try resource("assets.v1.json")
-        let decoded: AssetsFile
-        do {
-            decoded = try JSONDecoder().decode(AssetsFile.self, from: file)
-        } catch {
-            throw ShotsError.unknownContent("assets.v1.json in the PrevisCore bundle is unreadable: \(error)")
-        }
-        return ContentCatalog(
-            motions: [],
-            assets: decoded.assets,
-            cameraMoves: [],
-            actionPaths: [],
-            starter: StarterSet(assets: [], motions: [], cameraMoves: [], actionPaths: [])
+        let starter: StarterSet = try load("starter.v1.json")
+        let catalog = try ContentCatalog(
+            motions: load("motions.v1.json", as: MotionsFile.self).motions,
+            assets: load("assets.v1.json", as: AssetsFile.self).assets,
+            cameraMoves: load("camera-moves.catalog.v1.json", as: MovesFile.self).moves,
+            actionPaths: load("action-presets.catalog.v1.json", as: PathsFile.self).paths,
+            starter: starter
         )
+        try catalog.checkStarterResolves()
+        return catalog
+    }
+
+    /// Every id the starter set names must exist, so a stale starter file fails here and not in a picker.
+    private func checkStarterResolves() throws {
+        let groups: [(kind: String, wanted: [String], known: Set<String>)] = [
+            ("asset", starter.assets, Set(assets.map(\.id))),
+            ("motion", starter.motions, Set(motions.map(\.id))),
+            ("camera move", starter.cameraMoves, Set(cameraMoves.map(\.id))),
+            ("action path", starter.actionPaths, Set(actionPaths.map(\.id))),
+        ]
+        for group in groups {
+            if let missing = group.wanted.first(where: { !group.known.contains($0) }) {
+                throw ShotsError.unknownContent(
+                    "starter.v1.json names the \(group.kind) \"\(missing)\", which the bundled catalog does not have."
+                )
+            }
+        }
+    }
+
+    private static func load<T: Decodable>(_ name: String, as type: T.Type = T.self) throws -> T {
+        let data = try resource(name)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw ShotsError.unknownContent("\(name) in the PrevisCore bundle is unreadable: \(error)")
+        }
+    }
+
+    private struct MotionsFile: Decodable {
+        var motions: [MotionPreset]
+    }
+
+    private struct MovesFile: Decodable {
+        var moves: [CatalogItem]
+    }
+
+    private struct PathsFile: Decodable {
+        var paths: [CatalogItem]
     }
 
     public func motion(_ id: String) -> MotionPreset? {
