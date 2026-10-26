@@ -87,8 +87,13 @@ These are acceptance cases to implement alongside their functionality, not tests
 - A bounded read-only host probe verified cx53's public SSH route with the existing key, an active
   Hive edge, Ubuntu 24.04/x86_64 and Bun 1.3.14. Swift is absent. No native Claude/tmux session was
   available to address; no wake has been sent by C.
-- The exact official Swift 6.3.3 toolchain operation and Ubuntu prerequisites have been prepared.
-  Only dependency simulation and script syntax checks ran; no package or compiler was installed.
+- The environment-approved toolchain operation is complete: official Swift 6.3.3 is installed for
+  the cx53 `hive` user. The archive passed GPG verification against Swift's published release-key
+  fingerprint. Both the installed-path version check and a Foundation compile/run check passed.
+  Ubuntu added 16 prerequisite/dependency packages, with no upgrades or removals. Credentials, shell
+  profiles and service configuration were not changed; the Hive edge retained its active process.
+- The local author received the verified compiler-ready update. Gnomon's staged handoff has the
+  exact compiler path, but staged files are not proof of delivery, claim or task execution.
 - Supported Gemini conversation searches for Shots, Concept and Metis found no matching target.
   No message was sent to an ambiguous conversation.
 - The coordinator handles the external seat route; C has not duplicated a wake.
