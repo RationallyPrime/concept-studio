@@ -38,7 +38,7 @@ private struct ShotsWorkspaceContent: View {
                 ForEach(store.document.scenes, id: \.id) { scene in
                     Section(scene.name) {
                         ForEach(scene.shots, id: \.id) { shot in
-                            Label(shot.name, systemImage: "film").tag(shot.id)
+                            Label(shot.name, systemImage: "film").foregroundStyle(.primary).tag(shot.id)
                         }
                     }
                 }
