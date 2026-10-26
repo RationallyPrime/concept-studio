@@ -296,3 +296,32 @@ Not run/claimed: actual native key/VoiceOver/pointer walkthrough, current-head r
 C4acceptance. C3 PR70 remains draft after two AVAssetReader watchdog failures; its media owner has been
 notified and parent provided manual delivery. C4 acceptance/landing waits for real C3 completion and its
 own review/CI/focus validation; no M1/M2, ComfyUI or release/deployment claim.
+
+### C4 review round1 repair (same PR71)
+
+Independent review atc1b3d3a found two P2s: Escape cancellation restarted on the next pointer callback,
+and Add guide persisted automatic endpoint frames. The repair uses an explicit idle/active/cancelled
+transaction whose cancelled phase lasts to pointer release. SwiftUI GestureState cleanup resets an
+abandoned gesture without committing; ordinary release performs one command. Guide insertion now
+guards the declared1..N-2extra-guide domain and deduplicates at the action boundary; the button uses
+the same eligibility. No LaneB/Core contract or validation file was changed.
+
+Run/passed:12timeline tests/5suites, including Escape→moremovement→release (no document/history
+change), following gesture recovery, abandoned gesture reset, both automatic endpoint no-ops and one
+interior guide undo. Controlled mutations reintroducing each old mechanism make the two corresponding
+regressions fail; fixed source restored byte-for-byte. An earlier control attempt failed to compile
+because the compiler reported a timestamp change in an unchanged source file; no tests ran in that
+attempt. The temporary mutation was restored. The isolated source-hashed snapshot control executed
+both regressions and failed as expected.
+
+Full repaired frozen app run:846tests/146suites passed. Its first attempt had4missing-fixture errors
+because the preview-only snapshot omitted3shared repo fixture files; exact immutable HEAD bytes
+were supplied without overwriting different data, then the full run passed. No assertion was weakened.
+Final snapshot run:13tests/6suites passed including all12timeline tests and8offscreencaptures.
+Native keyboard/VoiceOver/pointer walkthrough remains unrun. Independent bounded closure and fresh
+CI remain required; no accepted C4 claim.
+
+A4 acceptedmainc501e7be and the independently reviewed media-reader repairPR74/7fce98d4 have now
+landed. Next refreshC3 thenC4 onto real repaired main, preserving reviewed commits, and run actual
+current-head tests/review/CI including formerly skipped gates. Earlier C3/C4 AVAssetReader failures
+remain failed historical evidence; no unchanged rerun hides them.
