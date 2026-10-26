@@ -22,164 +22,9 @@ public enum BlockoutImport { // notes: what was dropped or changed, in plain sen
         }
         var converter = Converter(catalog: catalog, keepIDs: keepIDs)
         if project.settings?.defaultProfileId != nil { converter.drop(.profiles) }
-        let scenes = project.scenes.map { converter.scene($0) }
+        let scenes = try project.scenes.map { try converter.scene($0) }
         return (ShotsDocument(version: ShotsDocument.currentVersion, scenes: scenes), converter.notes)
     }
-}
-
-// MARK: - Blockout's file shape (only what is read)
-
-struct BlockoutProject: Decodable {
-    var version: Int?
-    var settings: Settings?
-    var scenes: [Scene] = []
-
-    struct Settings: Decodable {
-        var defaultProfileId: String?
-    }
-
-    struct Vector: Decodable {
-        var x = 0.0, y = 0.0, z = 0.0
-        var vec: Vec3 {
-            Vec3(x, y, z)
-        }
-    }
-
-    struct Label: Decodable {
-        var text = ""
-        var color = "#000000"
-    }
-
-    struct Transform: Decodable {
-        var position = Vector()
-        var rotationY = 0.0
-        var scale = 1.0
-    }
-
-    struct AttachedLocal: Decodable {
-        var x = 0.0, y = 0.0, z = 0.0, rotY = 0.0
-    }
-
-    /// A parameter that is a number in some files and a string in others; only numbers are used.
-    struct Param: Decodable {
-        var number: Double?
-        init(from decoder: Decoder) throws {
-            number = try? decoder.singleValueContainer().decode(Double.self)
-        }
-    }
-
-    struct Entity: Decodable {
-        var id: String
-        var assetId: String
-        var name = ""
-        var label: Label?
-        var transform = Transform()
-        var params: [String: Param]?
-        var attachedTo: String?
-        var attachedLocal: AttachedLocal?
-        var excludeFromExport: Bool?
-    }
-
-    struct Mark: Decodable {
-        var id: String
-        var time = 0.0
-        var hold = 0.0
-        var easeIn = 0.0
-        var easeOut = 0.0
-        var position = Vector()
-        var via: [Vector]?
-    }
-
-    struct ActorMark: Decodable {
-        var base: Mark
-        var gait: Gait
-        var arriveHeading: Double?
-        var joints: [String: Double]?
-        var attachTo: String?
-
-        init(from decoder: Decoder) throws {
-            base = try Mark(from: decoder)
-            let c = try decoder.container(keyedBy: AnyKey.self)
-            gait = try c.value("gait", .stand)
-            arriveHeading = try c.optional("arriveHeading")
-            joints = try c.optional("joints")
-            attachTo = try c.optional("attachTo")
-        }
-    }
-
-    struct CameraMark: Decodable {
-        var base: Mark
-        var pan = 0.0, tilt = 0.0, roll = 0.0
-        var focalLength = 35.0
-        var focusDistance: Double?
-
-        init(from decoder: Decoder) throws {
-            base = try Mark(from: decoder)
-            let c = try decoder.container(keyedBy: AnyKey.self)
-            pan = try c.value("pan", 0)
-            tilt = try c.value("tilt", 0)
-            roll = try c.value("roll", 0)
-            focalLength = try c.value("focalLength", 35)
-            focusDistance = try c.optional("focusDistance")
-        }
-    }
-
-    struct Track: Decodable {
-        var entityId: String
-        var marks: [ActorMark] = []
-    }
-
-    struct Take: Decodable {
-        var id: String
-        var name = ""
-        var tracks: [Track] = []
-    }
-
-    struct Camera: Decodable {
-        var sensorId = "super35"
-        var rig = "sticks"
-        var rigIntensity = 0.0
-        var seed = 1.0
-        var mountEntityId: String?
-        var trackEntityId: String?
-        var marks: [CameraMark] = []
-    }
-
-    struct Shot: Decodable {
-        var id: String
-        var name = ""
-        var duration = 5.0
-        var fps: Double?
-        var aspect = "9:16"
-        var blockingTakeId: String?
-        var camera = Camera()
-        var cameraBank: [AnyDecodable]?
-        var notes: String?
-        var referenceVideo: AnyDecodable?
-    }
-
-    struct Environment: Decodable {
-        var lighting = "day"
-        var sunAzimuth: Double?
-        var sunElevation: Double?
-        var fog: Double?
-    }
-
-    struct Scene: Decodable {
-        var id: String
-        var name = ""
-        var environment: Environment?
-        var entities: [Entity] = []
-        var scans: [AnyDecodable]?
-        var blocking: [Take] = []
-        var shots: [Shot] = []
-        var drafts: [AnyDecodable]?
-    }
-}
-
-/// Accepts and ignores any JSON value: for features that are counted but not read.
-struct AnyDecodable: Decodable {
-    init(from decoder: Decoder) throws {}
 }
 
 // MARK: - Conversion
@@ -226,7 +71,7 @@ private struct Converter {
 
     // MARK: Scene
 
-    mutating func scene(_ source: BlockoutProject.Scene) -> PrevisScene {
+    mutating func scene(_ source: BlockoutProject.Scene) throws -> PrevisScene {
         var ids = IDs(keep: keepIDs)
         drop(.drafts, count: source.drafts?.count ?? 0)
         drop(.scans, count: source.scans?.count ?? 0)
@@ -238,7 +83,10 @@ private struct Converter {
         let kept = Set(entities.map(\.id))
         let take = chosenTake(source, ids: &ids, keptEntities: kept)
 
-        let shots = source.shots.map { shot($0, takeID: take.id, ids: &ids, kept: kept) }
+        var shots: [Shot] = []
+        for source in source.shots {
+            try shots.append(shot(source, takeID: take.id, ids: &ids, kept: kept))
+        }
         return PrevisScene(
             id: ids.make(source.id, "scene"),
             name: source.name,
@@ -292,7 +140,7 @@ private struct Converter {
         let keptIDs = Set(known.map(\.id))
         return known.map { source in
             let asset = catalog.asset(source.assetId)
-            let height = asset?.rig == .person ? (source.params?["height"]?.number).map { min(1.2, max(0.8, $0)) } : nil
+            let height = asset?.rig == .person ? heightMultiplier(source) : nil
             var attachment: EntityAttachment?
             if let parent = source.attachedTo, keptIDs.contains(parent) {
                 let local = source.attachedLocal ?? .init()
@@ -370,7 +218,8 @@ private struct Converter {
         takeID: TakeID,
         ids: inout IDs,
         kept: Set<EntityID>
-    ) -> Shot {
+    ) throws -> Shot {
+        let frameCount = try frameCount(of: source)
         drop(.cameraBanks, count: source.cameraBank?.count ?? 0)
         if source.referenceVideo != nil { drop(.referenceVideos) }
         if let fps = source.fps, fps != Double(FrameGrid.fps) {
@@ -388,7 +237,7 @@ private struct Converter {
         return Shot(
             id: ids.make(source.id, "shot"),
             name: source.name,
-            frameCount: FrameGrid.snapUp(Int((source.duration * Double(FrameGrid.fps)).rounded()) + 1),
+            frameCount: frameCount,
             canvas: canvas(aspect: source.aspect, shot: source.name),
             blockingTakeID: takeID,
             camera: ShotCamera(
@@ -402,6 +251,33 @@ private struct Converter {
             ),
             notes: ShotNotes(description: source.notes ?? "", sound: "", music: "")
         )
+    }
+
+    /// `duration · 24 + 1` frames, rounded up onto the grid. A duration that is not finite and non-negative, or whose
+    /// frame count would not leave headroom to add one and round up, is bad data and fails the import.
+    private func frameCount(of shot: BlockoutProject.Shot) throws -> Int {
+        guard let duration = shot.duration else { return FrameGrid.defaultFrameCount }
+        let frames = duration * Double(FrameGrid.fps)
+        guard duration.isFinite, duration >= 0, frames <= Double(Self.maxFrames) else {
+            throw ShotsError.importFailed(
+                "Shot \"\(shot.name)\" has the duration \(duration) s, which cannot be a frame count; "
+                    + "fix the duration in the Blockout project."
+            )
+        }
+        return FrameGrid.snapUp(Int(frames.rounded()) + 1)
+    }
+
+    /// Far past any real shot, and far enough below `Int.max` that adding one and rounding up cannot overflow.
+    private static let maxFrames = Int.max / 64
+
+    /// `params.height` on a person multiplies the scale, as supplied. A value that cannot be a scale is ignored.
+    private mutating func heightMultiplier(_ entity: BlockoutProject.Entity) -> Double? {
+        guard let height = entity.params?["height"]?.number else { return nil }
+        guard height.isFinite, height > 0 else {
+            details.append("\"\(entity.name)\" has the height \(height), which cannot scale a person; it was ignored.")
+            return nil
+        }
+        return height
     }
 
     private mutating func canvas(aspect: String, shot: String) -> ShotCanvas {

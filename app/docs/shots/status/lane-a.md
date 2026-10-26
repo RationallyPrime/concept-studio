@@ -6,6 +6,17 @@
 | A1 content, catalog, import | **Draft PR, targeting `main`** (branch `shots/a-core-a1`, two commits rebased from `8c7815f` onto `1366c35`; `git range-diff` shows both patches unchanged). Tolerant decoding, the full catalog and `starter.v1.json`, `BlockoutImport` and `blockoutProjectJSON()`. |
 | A2–A6 | Not started |
 
+**A1 review round 1** (PR #59, three P2 findings at `71ccacd`; repaired additively, each reproduced before the cure):
+- r4376421686, height clamp. `LANE-A-CORE.md` says `params.height` is "folded into `placement.scale` (×h)" with no clamp;
+  Blockout's 0.8–1.2 clamp is a renderer detail. Before: height 0.6 imported scale 0.8, silently. Now the supplied multiplier is
+  kept. A value that cannot be a scale (≤ 0 or not finite) is ignored with a note.
+- r4376421700, duration overflow. Before: `duration` 1e308 trapped (`Double value cannot be converted to Int`, Signal 4).
+  Now a duration that is not finite, is negative, or exceeds `Int.max / 64` frames throws `ShotsError.importFailed` naming the shot.
+- r4376421710, absent fields. Before: removing `hold` from a mark threw `keyNotFound`; 85 of the sample's non-identity key paths
+  failed when removed one at a time. Now Blockout's records are read like Shots' own documents (CONTRACTS section 4): absent
+  fields default (an absent `duration` gives the default frame count), `id`, `assetId` and `entityId` stay required.
+  Limitation: a field present with the wrong type is still an import error.
+
 **A1 behaviour.**
 - Tolerant decoding: unknown keys are ignored and absent fields take the `Shot.make` or zero defaults; identity fields
   (`id`, `assetID`, `entityID`, `parentID`) are required and the error names them; unknown joint names are skipped.
