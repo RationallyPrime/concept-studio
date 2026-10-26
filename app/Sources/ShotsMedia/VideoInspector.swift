@@ -1,5 +1,6 @@
 import AVFoundation
 import PrevisCore
+import Synchronization
 
 /// What a video file actually contains, read back after writing.
 struct VideoFacts: Equatable {
@@ -21,6 +22,11 @@ struct VideoFacts: Equatable {
 
 /// Reads videos back, for the self-test and the package validator.
 enum VideoInspector {
+    /// `AVAssetReader` reads synchronously and waits on CoreMedia's own workers. With as many concurrent reads as
+    /// Swift's cooperative pool has threads (three on the CI runner), every read held a cooperative thread and none
+    /// returned. Keep the reads off the cooperative executor, as `MediaEditor` does for the app's clips.
+    private static let readerQueue = DispatchQueue(label: "ShotsMedia.VideoInspector", qos: .userInitiated)
+
     static func facts(_ url: URL) async throws -> VideoFacts {
         let asset = AVURLAsset(url: url)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
@@ -38,22 +44,49 @@ enum VideoInspector {
             facts.transferFunction = extensions[kCVImageBufferTransferFunctionKey as String] as? String
             facts.matrix = extensions[kCVImageBufferYCbCrMatrixKey as String] as? String
         }
-        let reader = try AVAssetReader(asset: asset)
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
-        reader.add(output)
-        guard reader.startReading() else {
-            throw ShotsMediaError(
-                "\(url.lastPathComponent) can't be read: \(reader.error?.localizedDescription ?? "?")."
-            )
+        let name = url.lastPathComponent
+        let cancelled = Mutex(false)
+        facts.presentationTimes = try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                readerQueue.async {
+                    continuation.resume(with: Result {
+                        try presentationTimes(asset: asset, track: track, name: name) {
+                            if cancelled.withLock({ $0 }) { throw CancellationError() }
+                        }
+                    })
+                }
+            }
+        } onCancel: {
+            cancelled.withLock { $0 = true }
         }
-        while let sample = output.copyNextSampleBuffer() {
-            // Passthrough reading also yields empty marker buffers; only real samples are frames.
-            guard CMSampleBufferGetNumSamples(sample) > 0 else { continue }
-            facts.presentationTimes.append(CMSampleBufferGetPresentationTimeStamp(sample))
-        }
-        facts.presentationTimes.sort { CMTimeCompare($0, $1) < 0 }
         facts.frameCount = facts.presentationTimes.count
         return facts
+    }
+
+    /// Every frame's presentation time in `track`, sorted. Blocks while reading; call it only on `readerQueue`.
+    private static func presentationTimes(
+        asset: AVURLAsset, track: AVAssetTrack, name: String, checkCancellation: () throws -> Void
+    ) throws -> [CMTime] {
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        output.alwaysCopiesSampleData = false
+        reader.add(output)
+        guard reader.startReading() else {
+            throw ShotsMediaError("\(name) can't be read: \(reader.error?.localizedDescription ?? "?").")
+        }
+        defer { reader.cancelReading() }
+        var times: [CMTime] = []
+        while let sample = output.copyNextSampleBuffer() {
+            try checkCancellation()
+            // Passthrough reading also yields empty marker buffers; only real samples are frames.
+            guard CMSampleBufferGetNumSamples(sample) > 0 else { continue }
+            times.append(CMSampleBufferGetPresentationTimeStamp(sample))
+        }
+        guard reader.status == .completed else {
+            throw ShotsMediaError("\(name) stopped reading early: \(reader.error?.localizedDescription ?? "?").")
+        }
+        return times.sorted { CMTimeCompare($0, $1) < 0 }
     }
 
     /// Plain-sentence problems with a video that should hold `frameCount` frames at `size`, presented at i/24.

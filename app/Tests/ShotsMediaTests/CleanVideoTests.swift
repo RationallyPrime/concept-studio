@@ -92,6 +92,30 @@ struct VideoWriterTests {
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(!FileManager.default.fileExists(atPath: url.path), "the cancelled video was left behind")
     }
+
+    /// The validator reads every video of a package, and tests export packages in parallel. While reads blocked
+    /// cooperative threads, as many concurrent reads as the pool has threads never returned: CI's three-core runner
+    /// hung in three of them.
+    @Test func moreConcurrentReadsThanThePoolHasThreadsAllFinish() async throws {
+        let folder = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("blank.mp4")
+        try await VideoWriter.write(
+            to: url, size: PixelSize(width: 64, height: 64), frameCount: 5, progress: { _ in }, draw: { _, _ in }
+        )
+        let reads = ProcessInfo.processInfo.activeProcessorCount + 2
+        let frameCounts = try await withThrowingTaskGroup(of: Int.self) { group in
+            for _ in 0 ..< reads {
+                group.addTask { try await VideoInspector.facts(url).frameCount }
+            }
+            var counts: [Int] = []
+            for try await count in group {
+                counts.append(count)
+            }
+            return counts
+        }
+        #expect(frameCounts == Array(repeating: 5, count: reads))
+    }
 }
 
 @MainActor private final class TaskBox {
