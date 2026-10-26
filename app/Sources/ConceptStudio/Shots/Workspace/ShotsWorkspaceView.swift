@@ -29,6 +29,7 @@ private struct ShotsWorkspaceContent: View {
             }
             timeline.frame(minHeight: 96, idealHeight: 112, maxHeight: 160)
         }
+        .background(ShotsUndoBridge(store: store))
     }
 
     private var sceneColumn: some View {
