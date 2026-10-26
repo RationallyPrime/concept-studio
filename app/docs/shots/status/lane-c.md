@@ -239,3 +239,14 @@ retime/hold endpoints and a shared mark beyond the shot. Strict lint passed; for
 reported declaration-comment/property-layout style, automatically formatted, then pinned format passed.
 No production timeline UI, focus routing, playback, drag gesture, visual/accessibility acceptance or
 C4 checkpoint completion is claimed. No desktop UI automation used.
+
+C4 follow-up preparation: `ShotsTimelineDrag` captures an actor or camera mark and returns one typed
+update command from the original drag value, as Blockout Timeline.tsx beginDrag/onMove/onUp does.
+It uses the existing transient store preview and existing perform/undo path, preserving all non-time
+channels. Five geometry/transaction tests in two suites passed: repeated preview leaves committed
+document/history untouched, hold stretch commits one undo step, camera retime preserves channels,
+cancel leaves no history. Strict lint passed. No gesture wiring or C4 UI acceptance is claimed.
+
+Media diagnosis remains with Lane B: strict Swift cooperative-pool filter passed11tests/4suites on
+local Swift6.4; no reproduction or cure claim for the Xcode26.6 full-suite CI hang. Native build-system
+selection avoided a local generated-test-bundle code-sign failure without changing attributes/settings.
