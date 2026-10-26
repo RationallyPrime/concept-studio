@@ -14,13 +14,13 @@ enum QuadrupedRig {
         var angle: Double
     }
 
-    static func build(asset: AssetSpec, state: EntityPose, into builder: inout BodyBuilder) {
+    static func build(asset: AssetSpec, scale: Double, state: EntityPose, into builder: inout BodyBuilder) {
         let h = asset.height
         let bodyLen = h * 1.7
         let bodyR = h * 0.28
         let legH = h * 0.55
         let bodyY = legH
-        let phase = PersonRig.phase(gait: state.gait, distance: state.distanceTravelled, scale: 1)
+        let phase = PersonRig.phase(gait: state.gait, distance: state.distanceTravelled, scale: scale)
         let swing = sin(phase * 2 * .pi)
         let amp = min(1, 0.2 + state.speed * 0.15)
         let moving = state.speed > 0.01
