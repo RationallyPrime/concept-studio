@@ -4,11 +4,33 @@ This file travels at the top of Lane B's stack (now `shots/b-media-b3`), so chec
 
 | Checkpoint | State |
 |---|---|
-| W0 wiring | **Draft PR [RationallyPrime/concept-studio#51](https://github.com/RationallyPrime/concept-studio/pull/51)**, head `42de04a`. **Independent clearance:** Codex reviewed `f1c3d51` and found no major issues. `42de04a` merges `main`'s tool-pin update (#56), keeping swiftformat 0.64.1 and W0's bun pin in `mise.toml`. Lane B built it, tested PrevisCore and linted it (author verification). Codex also cleared `42de04a` (no major issues), and all seven CI jobs pass there. Still open: checkpoint integration approval. |
+| W0 wiring | **Landed on `main`** as merge commit `ff2cce2`, by the integration owner, from head `42de04a`, with the branch preserved. Codex cleared `f1c3d51` and `42de04a`, and all seven CI jobs passed at `42de04a`. |
 | B0 API skeleton | **Draft PR [RationallyPrime/concept-studio#54](https://github.com/RationallyPrime/concept-studio/pull/54), stacked on A0 (#52).** Every CONTRACTS section 6 declaration and the section 8.3 package types compile against A0's real PrevisCore. `ShotsCommandLine` prints usage, and `shots-export` exits with code 2. `ShotsSelfTest.run()` prints a JSON report and returns 1 until B2. `PackageValidator` reports "not implemented" rather than "valid". Unimplemented work throws `ShotsError.notImplemented`. Build and both linters are clean (author verification). All seven CI jobs pass on `41199e5`. Lane C's C0 builds on this head; that is consumer integration, not code review. No independent code review yet. |
 | B1 scene mapper and frame renderer | **Draft PR [RationallyPrime/concept-studio#55](https://github.com/RationallyPrime/concept-studio/pull/55), stacked on B0 (#54), repair head `95b4d27`.** `PrevisSceneMapper` gives one container per entity, parts keyed by id, meshes cached by shape (capsules are a cylinder plus two spheres; wedges are a flat-shaded custom mesh), materials cached by colour, and a ground plane with a three-light rig per preset. `ShotFrameRenderer` renders offscreen with `RealityRenderer`, zero time step, 4× multisampling and no tone mapping, into IOSurface buffers through `.bgra8Unorm_srgb`, with the `size` and `overlay` options. Overlapping calls render one at a time, a cancelled call throws without holding up the queue, and on macOS 27 occlusion culling is off, so a frame never depends on an earlier render. **Author verification:** six render tests pass locally in five consecutive runs (projection, 0.5 px marker parity, wedge winding, identical bytes after other frames and looks, an overlapping render without an overlay staying clean, and cancelled renders throwing while a later one still renders clean). **Package test verification:** Lane C reran the four render tests at `69a814d`. **CI execution:** run 40277594522 at `69a814d` executed and passed all four render tests on the macOS runner; only the optional snapshot test skipped. Run 40279486059 at `3bc3a27` executed and passed all five render tests, and its `swift test` step took 158 s. **Independent review:** Codex reviewed `69a814d` and raised one P2, overlapping renders sharing an overlay. It is fixed in `3bc3a27`, together with a macOS 27 culling defect found while verifying it: right after a camera cut, a whole entity could be missing. The closure review of `3bc3a27` raised a second P2, cancelled renders still rendering, fixed in `95b4d27`. **Closure:** Codex's bounded closure review of `95b4d27` reports no unresolved findings, and all seven CI jobs pass there. CI ran the overlap and cancellation tests (35 s and 40 s on the runner). Still open: checkpoint integration approval. |
 | B2 video writer and self-test | **Draft PR [RationallyPrime/concept-studio#57](https://github.com/RationallyPrime/concept-studio/pull/57), stacked on B1 (#55).** `VideoWriter` encodes H.264 straight from the renderer's IOSurface buffers: frame i at exactly i/24 s, the file ending at N/24 s, BT.709 tags. `writeCleanVideo` produces the clean reference video, `VideoInspector` reads videos back for the validator, and `ShotsSelfTest.run()` renders the full sample and prints a JSON report. **Author verification:** the small sample's clean video has 22 frames at 320 × 576, presentation times 0/24, 11/24 and 21/24, and BT.709 tags, and its decoded middle frame matches the renderer (mean 0.49 levels; unrendered buffers give 97 and fail). From the signed, sandboxed debug build, with C0 merged locally for verification only, `--shots-self-test` exits 0 and reports 124 frames at 640 × 1152, avc1, BT.709, times 0/24, 62/24 and 123/24, in 0.82 s, writing inside the app's container. ffprobe reads the same full-size video as h264 High with bt709 tags, 24/1 fps, 124 decoded frames and 124/24 s. **Lane C** read the saved self-test report and local suite logs: consistent with the result above, not an independent rerun. **CI at `06b771a`:** all seven jobs pass; the clean-video test executed in 89 s on the runner, and the `swift test` step took 200 s of the 300 s watchdog. **Independent review:** Codex reviewed `06b771a` and raised two findings. The P1: a writer that had stopped left `append` waiting forever. The P2: an export cancelled during finalization returned success and kept its file. Both are fixed in `0052c3d`, on B1's `95b4d27`, with regressions that fail before the fixes. A full disk on this Mac fails the writer with readiness still true, so that case threw rather than hung; a cancelled writer reproduces the hang. The earlier signed self-test success predates these error paths and doesn't cover them. A rerun on the repaired bytes passes: local verification merge `92cffe8`, of B2 `2286487` and C0 `86bee46`, built signed and sandboxed. `--shots-self-test` exits 0 with 124 frames at 640 × 1152, avc1, BT.709, times 0/24, 62/24 and 123/24, in 0.60 s. It covers the success path; the writer tests cover the error paths. **Closure:** Codex's bounded closure review of `2286487` found no major issues and left none unresolved (receipt comment 6410036481). All seven CI jobs pass there (run 40281892066): both writer tests and the clean-video test, 779 app tests in 127 suites, the four PrevisCore tests, and formatting. The `swift test` step took 127 s. Still open: checkpoint integration approval. |
-| B3–B7 | Not started |
+| B3 passes, package and sample CLI | **Draft PR from `shots/b-media-b3`, stacked on B2 (#57).** **What's built:**
+- **Pose:** drawn the way ComfyUI's DWPose preprocessor draws: limbs at 60 %, then joints in exact OpenPose COCO-18 colours on top, unantialiased, on black.
+- **Layout:** label-coloured or palette boxes over each actor's projected bounds, on white.
+- **Mattes:** the actor unlit white, everything else black, so other entities occlude it.
+- **Guide stills** come from the same pixels as the videos.
+- **Package:** `shot.json`, the manifest and the validator, per CONTRACTS section 8.3.
+- **`ShotExporter`** builds in staging, validates, then delivers, and removes the staging folder on any error or cancellation.
+- **CLI:** `shots-export --sample --out <dir>`.
+
+**Author verification:** 16 ShotsMedia tests pass in three runs: 15 run, and the snapshot test skips.
+- **IT1:** the full sample through the CLI; the validator is clean, and 21 files carry the expected roles.
+- **Pose:** OpenPose colours at the keypoint pixels, and the 60 % limb colour.
+- **Layout:** label and palette colours.
+- **Mattes:** each is white only over its own actor.
+- **Validator:** it names a deleted file.
+- **Cancellation:** a cancelled export leaves nothing behind.
+- **Inverse checks:** three deliberate breaks each fail their test: joints drawn under limbs, white non-actors in a matte, and no staging cleanup.
+- **CLI run:** `shots-export --sample --out <dir>` exits 0 in 3 s and prints the package path.
+
+**Waiting on Lane A:** A0's evaluator gives one grey box per entity and no keypoints. Until A3, pose videos are black and mattes are boxes. IT1's keypoint-pixel check joins then.
+
+**Not yet built:** prompt files, which arrive with B5. |
+| B4–B7 | Not started |
 
 ## W0 verification (2026-10-26, Apple silicon, Swift 6.4 locally; CI runs Swift 6.3)
 
@@ -62,9 +84,11 @@ integrator or the owner asks.
 
 ## Open questions
 
-- **IT1's CI cost (Lane B, B3).** On the 3-CPU macOS runner, B2's 22-frame clean video at 320 × 576 took 89 s, about 4 s per
-  frame; locally it takes 0.5 s. The app's `swift test` step used 200 s of the 300 s watchdog with it. IT1 stays as specified (the
-  full 124-frame sample, exported once). So B3 has to make CI rendering fast enough for IT1 to fit, rather than shrink IT1, and
-  starts by finding where those 4 s per frame go.
+- **IT1's CI cost (Lane B, B3): a correction.** Earlier this file read B2's 89 s clean-video test as about 4 s per frame on CI.
+  - That was wrong. Per-test times in the CI log include waiting for the main actor behind other suites: B2's writer test, which
+    renders nothing, also showed 25.7 s.
+  - At `2286487`, the whole app test run, every render test included, took 67 s, and the `swift test` step took 127 s of the
+    300 s watchdog.
+  - B3's first CI run is the first with IT1 (a full 124-frame export, kept as specified) and gives its real cost.
 
 - Where does Lane D run? It needs macOS with Xcode and RealityKit.
