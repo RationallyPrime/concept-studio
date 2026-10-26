@@ -227,6 +227,7 @@ extension StudioSession {
     /// Carries out a close decision. Returns false when the computer could not be confirmed stopped,
     /// in which case the project stays open and the alert explains why.
     func carryOut(_ decision: StudioCloseDecision) async -> Bool {
+        guard flushShots() else { return false }
         switch decision {
         case let .stop(discardingPendingResult):
             if discardingPendingResult {
@@ -234,7 +235,7 @@ extension StudioSession {
                 await gpu.stopEverything(discardingPendingResult: true)
             }
             await closeProject()
-            return !gpu.hasRunningPod
+            return !gpu.hasRunningPod && project == nil
         case .keepRunning:
             await leaveComputerRunning()
             return true
@@ -332,6 +333,10 @@ final class StudioAppDelegate: NSObject, NSApplicationDelegate {
     /// replies later, once the provider confirms the computer stopped; if it cannot, the app stays open.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let session else { return .terminateNow }
+        guard session.flushShots() else {
+            session.quitDecision = nil
+            return .terminateCancel
+        }
         switch session.quitDecision {
         case .keepRunning:
             return .terminateNow
@@ -413,6 +418,7 @@ struct WindowCloseGuard: NSViewRepresentable {
         }
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {
+            guard session.flushShots() else { return false }
             if allowed || !session.needsCloseConfirmation {
                 return original?.windowShouldClose?(sender) ?? true
             }

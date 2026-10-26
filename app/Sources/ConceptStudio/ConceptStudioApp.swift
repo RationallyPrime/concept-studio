@@ -1,7 +1,20 @@
 import AppKit
+import ShotsMedia
 import SwiftUI
 
+/// Keep the sandbox probe ahead of session construction and the SwiftUI app lifecycle.
 @main
+enum ConceptStudioLaunch {
+    @MainActor
+    static func main() async {
+        if ProcessInfo.processInfo.arguments.contains("--shots-self-test") {
+            let code = await ShotsSelfTest.run()
+            exit(code)
+        }
+        ConceptStudioApp.main()
+    }
+}
+
 struct ConceptStudioApp: App {
     @State private var session = StudioSession()
     @State private var showNewHub = false
