@@ -82,6 +82,13 @@ private struct SceneChecker {
                         entity: entity.id
                     ))
                 }
+                let rotation = attachment.rotation
+                if !(rotation.x.isFinite && rotation.y.isFinite && rotation.z.isFinite && rotation.w.isFinite) {
+                    out.append(error(
+                        "The attachment of \"\(entity.name)\" has a rotation that is not a number; reset it.",
+                        entity: entity.id
+                    ))
+                }
             }
         }
         return out

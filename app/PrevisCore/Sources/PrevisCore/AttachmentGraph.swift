@@ -91,23 +91,51 @@ struct AttachmentGraph: Sendable {
         self.boardings = boardings
     }
 
-    /// Captures each boarding's offset from the vehicle's resolved pose at the moment of boarding, earliest first, so a
-    /// vehicle that is itself attached or boarded is resolved before its rider is placed.
+    /// Captures each boarding's offset from the vehicle's resolved pose at the moment of boarding, earliest first.
+    /// Boardings
+    /// at one instant are ordered by dependency: a vehicle that is itself boarding (or attached to something that is)
+    /// at that
+    /// instant is captured before its rider, so the rider is saved against the vehicle's boarded pose whatever the
+    /// order of
+    /// the entities or of the dictionary. Ties between independent boardings fall back to rider index, then the mark's
+    /// order.
     mutating func capture(basePoses: (Double) -> [EntityPose]) {
-        let all = boardings.flatMap { rider, marks in marks.map { (rider: rider, mark: $0) } }
-            .enumerated().sorted { ($0.element.mark.time, $0.offset) < ($1.element.mark.time, $1.offset) }
-            .map(\.element)
-        for (_, mark) in all {
-            var poses = basePoses(mark.time)
-            resolve(&poses, at: mark.time)
-            let parent = poses[mark.target]
-            let inverse = parent.frame.inverse
-            let facing = mark.arriveHeading ?? parent.heading
-            captured[mark.id] = Mounting(
-                offset: inverse.rotate(mark.position - parent.position),
-                rotation: inverse * .yaw(facing)
-            )
+        let all = boardings.keys.sorted()
+            .flatMap { rider in boardings[rider, default: []].map { (rider: rider, mark: $0) } }
+        for time in Set(all.map(\.mark.time)).sorted() {
+            var pending = all.filter { $0.mark.time == time }
+            var done = Set<Int>()
+            while !pending.isEmpty {
+                let ready = pending.firstIndex { entry in
+                    ancestors(of: entry.mark.target).allSatisfy { ancestor in
+                        done.contains(ancestor) || !pending.contains { $0.rider == ancestor }
+                    }
+                } ?? 0
+                let (rider, mark) = pending.remove(at: ready)
+                var poses = basePoses(time)
+                resolve(&poses, at: time)
+                let parent = poses[mark.target]
+                let inverse = parent.frame.inverse
+                let facing = mark.arriveHeading ?? parent.heading
+                captured[mark.id] = Mounting(
+                    offset: inverse.rotate(mark.position - parent.position),
+                    rotation: inverse * .yaw(facing)
+                )
+                done.insert(rider)
+            }
         }
+    }
+
+    /// Every entity `entity` could be carried by: its live attachment and the targets of its boardings, transitively.
+    private func ancestors(of entity: Int) -> Set<Int> {
+        var found = Set<Int>()
+        var frontier = [entity]
+        while let next = frontier.popLast() {
+            guard found.insert(next).inserted else { continue }
+            if let link = attached[next] { frontier.append(link.parent) }
+            frontier += boardings[next, default: []].map(\.target)
+        }
+        return found
     }
 
     /// The parent edge in force for `child` at `time`: a captured boarding, else a live attachment.

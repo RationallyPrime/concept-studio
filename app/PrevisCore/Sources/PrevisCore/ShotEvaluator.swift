@@ -13,8 +13,10 @@ import Foundation
 struct Corrections: OptionSet, Sendable {
     let rawValue: Int
 
-    /// An authored turn (`arriveHeading`) blends over the hold at its mark, or over the whole leg when the mark has
-    /// no hold, instead of snapping when the leg ends (defect 1).
+    /// An authored turn (`arriveHeading`) finishes on arrival: it blends over the leg that arrives at the mark, from
+    /// the
+    /// departure facing, and the mark's hold keeps the arrived facing, instead of snapping when the leg ends (defect
+    /// 1).
     static let authoredTurns = Corrections(rawValue: 1)
     /// A leg with no horizontal motion keeps its heading instead of facing −Z (defect 2).
     static let verticalHeading = Corrections(rawValue: 2)
