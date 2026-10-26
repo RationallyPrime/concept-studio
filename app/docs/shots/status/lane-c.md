@@ -325,3 +325,25 @@ A4 acceptedmainc501e7be and the independently reviewed media-reader repairPR74/7
 landed. Next refreshC3 thenC4 onto real repaired main, preserving reviewed commits, and run actual
 current-head tests/review/CI including formerly skipped gates. Earlier C3/C4 AVAssetReader failures
 remain failed historical evidence; no unchanged rerun hides them.
+
+## C5 preparation after C4 — not an accepted checkpoint
+
+On accepted main `ec2cb5a`, the library now arms a starter asset for Lane D's place tool,
+changes the armed asset, and cancels by choosing it again. Search matches names and categories.
+Reference: Blockout `src/renderer/panels/Library.tsx:658–690` at
+`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`. Its arm/toggle semantics are retained;
+custom models/scans/sequences are outside this plan's starter content set. SwiftUI native buttons
+and fields adapt the reference to the existing workspace. Document edits remain Lane D commands;
+choosing a library tool changes neither document nor undo history.
+
+Three library boundary tests passed in a frozen source snapshot, covering arm/switch/cancel,
+read-only/missing-shot/unknown-asset guards, starter membership and case-insensitive filtering.
+The first in-place build failed because the compiler reported a Yams dependency source changed
+while compiling; it is not counted as a passing run. The isolated source build compiled the app
+and passed all three tests. Strict lint and full format checks passed. No native pointer,
+keyboard or VoiceOver walkthrough has been run.
+
+Still outstanding for C5: selection inspectors, continuous field preview/commit, prompt UI and
+fake-endpoint integration, every-inspector command/undo tests and previews. Acceptance waits for
+A5 and B5 merged. Prompt facts/write are still stubs on main; this preparation does not implement
+Lane B's compiler or claim that C5/M2 is complete.

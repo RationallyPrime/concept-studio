@@ -44,16 +44,7 @@ private struct ShotsWorkspaceContent: View {
         VStack(alignment: .leading, spacing: 0) {
             ShotsSceneList(store: store)
             Divider()
-            Text("Library").font(.headline).padding(12)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(store.catalog.assets.filter { store.catalog.starter.assets.contains($0.id) }) { asset in
-                        Text(asset.name).font(.callout)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
-            }
-            .frame(height: 92).accessibilityLabel("Asset library")
+            ShotsAssetLibrary(store: store)
         }
     }
 
