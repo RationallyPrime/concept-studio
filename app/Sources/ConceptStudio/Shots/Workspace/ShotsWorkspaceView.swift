@@ -6,7 +6,7 @@ struct ShotsWorkspaceView: View {
 
     var body: some View {
         if let store = session.shots {
-            ShotsWorkspaceContent(store: store, projectDirectory: session.project?.directory)
+            ShotsWorkspaceContent(store: store, projectDirectory: session.project?.directory, session: session)
         } else {
             ContentUnavailableView(
                 "Shots is unavailable", systemImage: "film",
@@ -19,6 +19,7 @@ struct ShotsWorkspaceView: View {
 private struct ShotsWorkspaceContent: View {
     @Bindable var store: ShotsStore
     let projectDirectory: URL?
+    let session: StudioSession
     @State private var showsShotCamera = false
 
     var body: some View {
@@ -44,16 +45,7 @@ private struct ShotsWorkspaceContent: View {
         VStack(alignment: .leading, spacing: 0) {
             ShotsSceneList(store: store)
             Divider()
-            Text("Library").font(.headline).padding(12)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(store.catalog.assets.filter { store.catalog.starter.assets.contains($0.id) }) { asset in
-                        Text(asset.name).font(.callout)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12)
-            }
-            .frame(height: 92).accessibilityLabel("Asset library")
+            ShotsAssetLibrary(store: store)
         }
     }
 
@@ -77,7 +69,7 @@ private struct ShotsWorkspaceContent: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Inspector").font(.headline)
                 Divider()
-                ShotsShotSettings(store: store)
+                ShotsInspectorView(store: store, session: session)
                 Divider()
                 ShotsExportView(store: store, projectDirectory: projectDirectory)
                 if store.isReadOnly {
