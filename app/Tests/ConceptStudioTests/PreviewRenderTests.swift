@@ -134,6 +134,13 @@ struct PreviewRenderTests {
                 name, view: StudioRootView(session: session), output: output, filter: filter, captures: &captures
             )
         }
+        try await captureShotInspectors(
+            session: session,
+            catalog: catalog,
+            output: output,
+            filter: filter,
+            captures: &captures
+        )
     }
 
     /// Extra states of a journey screen: a prefilled suggestion, a multi-selection, a running computer, tabs.
@@ -514,6 +521,35 @@ extension PreviewRenderTests {
             try await capture(
                 "advanced-\(mode)-training", view: StudioRootView(session: session),
                 output: output, filter: filter, captures: &captures
+            )
+        }
+    }
+}
+
+private extension PreviewRenderTests {
+    func captureShotInspectors(
+        session: StudioSession, catalog: ContentCatalog, output: URL,
+        filter: Set<String>, captures: inout [[String: String]]
+    ) async throws {
+        let store = ShotsStore(catalog: catalog, document: ShotsSamples.twoPersonWalk(), saveURL: nil)
+        session.shots = store
+        let scene = try #require(store.currentScene)
+        let shot = try #require(store.currentShot)
+        let track = try #require(scene.blocking.first?.tracks.first)
+        let actorMark = try #require(track.marks.first)
+        let cameraMark = try #require(shot.camera.marks.first)
+        let selections: [(String, ShotsSelection)] = [
+            ("shot", .none), ("entity", .entities([track.entityID])), ("camera", .camera),
+            ("actor-mark", .actorMark(track.entityID, actorMark.id)), ("camera-mark", .cameraMark(cameraMark.id)),
+        ]
+        for (name, selection) in selections {
+            store.selection = selection
+            try await capture(
+                "shots-inspector-\(name)",
+                view: StudioRootView(session: session),
+                output: output,
+                filter: filter,
+                captures: &captures
             )
         }
     }

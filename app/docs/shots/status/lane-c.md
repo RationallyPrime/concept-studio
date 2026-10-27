@@ -1,6 +1,6 @@
 # Lane C status
 
-Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `shots/c-shell` retained).
+Owner: Ari (Codex). Integration preparation: `shots/c5-b5-integration`; published C5/C6 drafts #76/#77 remain preserved.
 
 ## Checkpoints
 
@@ -9,10 +9,24 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `s
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
 | C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
-| C3: lists, import and export | Implemented on accepted B3/main, `shots/c-scenes` | Independent current-head review and CI. |
-| C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
-| C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
-| C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
+| C3: lists, import and export | Accepted and merged, PR #70 | Native walkthrough remains integration evidence. |
+| C4: timeline | Accepted and merged, PR #71 | Native focus/keyboard walkthrough remains integration evidence. |
+| C5: inspectors, library and prompt | Draft PR #76; real B5 endpoint integration locally verified | B5 repair/acceptance, fresh final composition review/CI and native acceptance. |
+| C6: polish | Draft PR #77, stacked on C5 | Accepted dependencies, final composition and native keyboard/VoiceOver walkthrough. |
+
+### C5/B5 integration preparation (2026-10-27)
+
+Composed C5 `4fda2b5` with published B5 #79 `3679ad7` in an isolated worktree. The prompt boundary test now uses
+the actual `ShotPromptCompiler.facts` and `write` through `ResolvedEndpoint` and a fake `ModelClient`; no provider
+is contacted. It checks the facts received by the client, exact FL2VA header/sections, stored revision/model,
+unchanged scene revision and a single Undo. Stale-result and cancellation checks also use the real facts path.
+
+Local verification: four inspector boundary tests pass; full app suite reports 918 tests/153 suites passing;
+PrevisCore reports 148/20 passing; strict lint and full formatting pass. Optional model/preview and Blockout
+vector tests skip without their opt-in inputs; no known-issue result is accepted. Existing source-aligned C5
+previews are unchanged. This is preparation against an explicitly unaccepted B5 draft: its open camera-reading
+findings remain with Lane B, and this evidence must be refreshed on the eventual accepted composition.
+Native UI, keyboard/VoiceOver, M1 ComfyUI and M2 walkthrough acceptance are not established by these tests.
 
 ## C0 delivered
 
@@ -325,3 +339,94 @@ A4 acceptedmainc501e7be and the independently reviewed media-reader repairPR74/7
 landed. Next refreshC3 thenC4 onto real repaired main, preserving reviewed commits, and run actual
 current-head tests/review/CI including formerly skipped gates. Earlier C3/C4 AVAssetReader failures
 remain failed historical evidence; no unchanged rerun hides them.
+
+## C5 preparation after C4 — not an accepted checkpoint
+
+On accepted main `ec2cb5a`, the library now arms a starter asset for Lane D's place tool,
+changes the armed asset, and cancels by choosing it again. Search matches names and categories.
+Reference: Blockout `src/renderer/panels/Library.tsx:658–690` at
+`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`. Its arm/toggle semantics are retained;
+custom models/scans/sequences are outside this plan's starter content set. SwiftUI native buttons
+and fields adapt the reference to the existing workspace. Document edits remain Lane D commands;
+choosing a library tool changes neither document nor undo history.
+
+Three library boundary tests passed in a frozen source snapshot, covering arm/switch/cancel,
+read-only/missing-shot/unknown-asset guards, starter membership and case-insensitive filtering.
+The first in-place build failed because the compiler reported a Yams dependency source changed
+while compiling; it is not counted as a passing run. The isolated source build compiled the app
+and passed all three tests. Strict lint and full format checks passed. No native pointer,
+keyboard or VoiceOver walkthrough has been run.
+
+Still outstanding for C5: selection inspectors, continuous field preview/commit, prompt UI and
+fake-endpoint integration, every-inspector command/undo tests and previews. Acceptance waits for
+A5 and B5 merged. Prompt facts/write are still stubs on main; this preparation does not implement
+Lane B's compiler or claim that C5/M2 is complete.
+
+## C5 inspectors and prompt integration preparation
+
+Draft implementation now includes selection-driven shot/entity/camera/actor-mark/camera-mark
+inspectors, an Inspect menu for keyboard-accessible selection, and starter library search/arming.
+Blockout reference: `Inspector.tsx:65–120,397ff,567ff,1461ff,1671ff` and
+`Library.tsx:658–690` at the pinned commit above. Preserved: context-driven fields, radians in
+stored values/degrees in controls, captured mark channels, and generator actions through existing
+engine APIs. Adaptations: per-shot notes/H3 prompt and explicit ShotsCommand edits/undo, native
+SwiftUI forms, the contracted starter content set, and a single-entity inspector when several
+entities are selected (the panel names the entity it edits). Source swatch colours are retained.
+
+Continuous rig-intensity changes preview while dragging and commit one coalesced command on
+release; Escape latches cancellation through release. Other fields commit native field/picker
+edits through commands. Read-only files retain selection and library search but disable edits.
+
+The prompt action calls Lane B's facts/template/write seam; demo/no model uses template, otherwise
+it resolves the session endpoint. It captures the shot/revision before awaiting, checks cancellation
+before committing, preserves stale revision after concurrent edits, and routes errors through the
+store's session failure path. This is preparation: **B5 facts/write still throw notImplemented on
+accepted main**, so no real compiler/fake-endpoint acceptance is claimed. Integration will be
+reverified against B5's actual implementation; no alternate compiler is introduced here.
+
+Verification so far: seven focused tests pass, including sixteen inspector-bound command kinds
+individually undone, slider preview/cancel/recovery, and prompt revision/undo/cancellation boundary
+checks with injected synthetic facts/writer. Full app suite: 854 registered tests/148 suites passed;
+five optional preview/model functions skipped, not counted as executed. Initial test compile
+failed on mutating calls inside #require/#expect; locals fixed those tests before passing.
+Strict app lint and full format checks pass. All five inspectors rendered through the existing
+preview script in light/dark at minimum/default sizes (20 PNGs); minimum entity/light and camera/dark
+were visually checked. Native pointer/keyboard/VoiceOver walkthrough remains not run.
+
+A frozen non-offloaded source snapshot is used for tests. Files in the original Documents worktree
+became compressed/dataless and some reads stalled; that worktree and its uncommitted bytes remain
+preserved. Active C5 preparation moved to an isolated /tmp worktree from its saved Git objects and
+frozen source. No sync/security settings or apps/helpers were changed.
+
+Remaining C5 gates: B5 merged; actual compiler/fake ModelClient integration test; fresh full CI and
+independent exact-head review; refreshed final offscreen captures after the last read-only/idle-Escape
+safeguards; native interaction acceptance later. C5 and M2 are not complete.
+
+### C5 independent review R1 repairs (PR76)
+
+Initial review at5c88b0e found two P2s, preserved as r4383158847 (entity-name typing lacks a
+coalescing key) and r4383158863 (Undo/Redo clears a preview but stale slider release still commits).
+The additive repair gives entity-name and rig edits their command-kind/target coalescing keys.
+The slider now uses the shared store-facing gesture lifecycle for preview, invalidation, cancel
+and commit: every update notices lost preview ownership, cancellation latches through release,
+and commit requires the exact owned preview. Observing a foreign/history-cleared preview cancels
+without clearing another owner's preview. The view uses these same methods, rather than a test-only path.
+
+Five new store-level regression tests cover 240 typed characters without evicting an earlier edit,
+separate targets/non-coalescing controls, Undo with/without subsequent movement, Redo, replacement
+preview custody, normal one-step commit, Escape and the next drag. All12focused tests pass.
+Restoring the old mechanisms in the isolated snapshot makes the review regressions fail with13issues;
+fixed bytes were restored in finally. Fresh full app verification and closure/CI are tracked in PR76.
+Old-head green CI40411243246 and its20captures are not treated as acceptance of this repair.
+B5 real prompt integration and native acceptance remain outstanding as above.
+
+### C5 final composition (2026-10-27)
+
+B5 is accepted and merged as `9c6532b`. C5's final composition keeps its production and test bytes unchanged
+from the independently accepted `690172b` review, then merges the landed B5 history. Independent closure
+re-ran all four inspector-boundary tests with zero failures/skips; the full composed app run passes 936 tests
+in 154 suites with Blockout vectors enabled. All twenty inspector previews regenerated (five inspectors,
+two sizes, two appearances), and their source manifest has zero mismatches against this composition.
+The small entity/dark and camera-mark/light renders were inspected. Final exact-head CI remains required.
+These fulfill C5's command/Undo, real compiler/fake-endpoint and inspector-preview checks; native interaction,
+M1/M2 and C6's actual keyboard/VoiceOver walkthrough remain separate integration evidence.
