@@ -4,12 +4,14 @@ import PrevisCore
 
 enum ShotsEditingError: Error, LocalizedError {
     case readOnly
+    case finishCurrentEdit
     case missing(String)
     case duplicate(String)
 
     var errorDescription: String? {
         switch self {
         case .readOnly: "This Shots file needs a newer version of ConceptStudio. Update the app to edit it."
+        case .finishCurrentEdit: "Finish or cancel the current edit before adding an entity or mark."
         case let .missing(name): "The \(name) is no longer in this project. Select it again and retry."
         case let .duplicate(id): "The identifier \(id) is already in this project. Create a new item instead."
         }

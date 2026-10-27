@@ -414,5 +414,206 @@
     "source_ids": [],
     "definition_scope": "concept_studio",
     "display_order": 202
+  },
+  {
+    "id": "shots-workspace",
+    "term": "Shots",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The workspace where you arrange a scene, plan its movement and camera, and export a shot package.",
+    "good_stuff": "Shots keeps scenes and shots in shots.json alongside the training project. Blocking, cameras, guides and prompts are prepared here for an external generation workflow.",
+    "related_terms": [
+      "shots-scene",
+      "shots-shot",
+      "shots-package"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 203
+  },
+  {
+    "id": "shots-scene",
+    "term": "Scene",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "A shared stage containing the people, objects and movement used by one or more shots.",
+    "good_stuff": "A scene owns its entities, lighting and blocking takes. Several shots can cover the same action with different cameras. Editing the shared blocking affects each shot that uses that take.",
+    "related_terms": [
+      "shots-shot",
+      "shots-blocking"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 204
+  },
+  {
+    "id": "shots-shot",
+    "term": "Shot",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "One camera view of a scene over a chosen number of frames.",
+    "good_stuff": "A shot references a blocking take and owns its camera marks, frame count, canvas, guide frames, notes and prompt. Several shots can reuse the same scene action.",
+    "related_terms": [
+      "shots-scene",
+      "shots-mark",
+      "shots-canvas"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 205
+  },
+  {
+    "id": "shots-blocking",
+    "term": "Blocking",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The planned positions and movement of people and objects in a scene.",
+    "good_stuff": "Blocking uses timed actor marks to describe positions, holds, travel, facing and actions. A shared blocking take can be filmed by more than one shot camera.",
+    "related_terms": [
+      "shots-mark",
+      "shots-hold",
+      "shots-gait"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 206
+  },
+  {
+    "id": "shots-mark",
+    "term": "Mark",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "A timed instruction for where an actor or camera should be and what it should do.",
+    "good_stuff": "An actor mark stores position, gait, facing and optional pose or boarding changes. A camera mark stores position, angles and lens settings. Easing controls the transition between marks; hold controls when it leaves.",
+    "related_terms": [
+      "shots-blocking",
+      "shots-hold",
+      "shots-gait"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 207
+  },
+  {
+    "id": "shots-hold",
+    "term": "Hold",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "How long an actor or camera stays at a mark before moving on.",
+    "good_stuff": "Hold is measured in seconds after reaching the mark. The evaluator shortens a hold that would overlap the next mark so the next movement still has time to happen.",
+    "related_terms": [
+      "shots-mark",
+      "shots-blocking"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 208
+  },
+  {
+    "id": "shots-gait",
+    "term": "Gait",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The kind of movement or pose an actor uses, such as walking, running or sitting.",
+    "good_stuff": "The gait on a destination mark selects the movement used while approaching that mark. At a held mark it selects the base pose. Motion presets can add joint overrides, and uniform scale changes the stride.",
+    "related_terms": [
+      "shots-mark",
+      "shots-blocking"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 209
+  },
+  {
+    "id": "shots-guide-frame",
+    "term": "Guide frame",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "A still image from a chosen frame that helps guide the generated shot.",
+    "good_stuff": "The first frame and last frame are included automatically, along with any extra interior guide frames. Frame indices start at zero and identify the exact corresponding video frame in the package.",
+    "related_terms": [
+      "shots-package",
+      "shots-frame-grid"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 210
+  },
+  {
+    "id": "shots-package",
+    "term": "Shot package",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The files you take to a ComfyUI workflow to generate a planned shot.",
+    "good_stuff": "A package carries the selected clean reference, pose and layout videos, actor mattes, matching guide stills, shot description and manifest. It also contains prompt text and structured prompt data when a prompt has been written.",
+    "related_terms": [
+      "shots-shot",
+      "shots-guide-frame",
+      "shots-canvas"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 211
+  },
+  {
+    "id": "shots-frame-grid",
+    "term": "Frame grid",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The model’s allowed spacing for the number of frames in a shot.",
+    "good_stuff": "Frame counts follow 17k + 5: 5, 22, 39 and so on. Shots snaps frame-count edits to this grid. The trained range is 124–362 frames; the frame rate is 24 frames per second.",
+    "related_terms": [
+      "shots-shot",
+      "shots-guide-frame"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 212
+  },
+  {
+    "id": "shots-canvas",
+    "term": "Canvas",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The width and height, in pixels, of the shot’s exported images and videos.",
+    "good_stuff": "The canvas fixes the image aspect ratio and export dimensions. Custom dimensions use multiples of 32 pixels. It is separate from the dimensions of the editor viewport or the physical size of the scene.",
+    "related_terms": [
+      "shots-shot",
+      "shots-look-through"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 213
+  },
+  {
+    "id": "shots-look-through",
+    "term": "Look-through",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "The view through the shot’s camera, showing the framing you plan to export.",
+    "good_stuff": "Look-through uses the same frame renderer, scene look and shot camera as the clean export. The image is letterboxed to the shot canvas; the free editor camera can show a different view of the scene.",
+    "related_terms": [
+      "shots-shot",
+      "shots-canvas",
+      "shots-aim-lock"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 214
+  },
+  {
+    "id": "shots-aim-lock",
+    "term": "Aim lock",
+    "section_id": "using-conceptstudio",
+    "aliases": [],
+    "plain_language": "Keeps the shot camera pointed at selected subjects as they move.",
+    "good_stuff": "With one subject, the camera aims at that subject. With several, it aims at their midpoint. Aim lock controls pointing; a camera mount separately makes the camera ride with an entity.",
+    "related_terms": [
+      "shots-shot",
+      "shots-look-through"
+    ],
+    "source_ids": [],
+    "definition_scope": "concept_studio",
+    "display_order": 215
   }
 ]
