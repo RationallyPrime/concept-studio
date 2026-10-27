@@ -419,3 +419,14 @@ Restoring the old mechanisms in the isolated snapshot makes the review regressio
 fixed bytes were restored in finally. Fresh full app verification and closure/CI are tracked in PR76.
 Old-head green CI40411243246 and its20captures are not treated as acceptance of this repair.
 B5 real prompt integration and native acceptance remain outstanding as above.
+
+### C5 final composition (2026-10-27)
+
+B5 is accepted and merged as `9c6532b`. C5's final composition keeps its production and test bytes unchanged
+from the independently accepted `690172b` review, then merges the landed B5 history. Independent closure
+re-ran all four inspector-boundary tests with zero failures/skips; the full composed app run passes 936 tests
+in 154 suites with Blockout vectors enabled. All twenty inspector previews regenerated (five inspectors,
+two sizes, two appearances), and their source manifest has zero mismatches against this composition.
+The small entity/dark and camera-mark/light renders were inspected. Final exact-head CI remains required.
+These fulfill C5's command/Undo, real compiler/fake-endpoint and inspector-preview checks; native interaction,
+M1/M2 and C6's actual keyboard/VoiceOver walkthrough remain separate integration evidence.
