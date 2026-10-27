@@ -32,6 +32,8 @@ enum CameraLegs {
 
     /// What a merged stretch must reach to count as a move rather than a held frame.
     static let minimumTravel = 0.15 // metres
+    /// A subject that goes less than this over a stretch is standing still there, as he does at a hold.
+    static let standing = 0.0001 // metres
     static let minimumTurn = 5.0 * .pi / 180
     static let minimumZoom = log(1.1)
     /// A hold, or a small move, shorter than this between or around other moves is not worth naming.
@@ -51,28 +53,34 @@ enum CameraLegs {
         let frames = (0 ..< evaluator.frameCount).map { evaluator.frame($0) }
         let mounted = shot.camera.rig == .carMount && subjects.count == 1 && subjects.first == shot.camera.mountID
         let headings = facings(of: subjects, in: frames)
-        let samples = zip(frames, headings).map { frame, heading in
+        let cuts = Self.cuts(of: shot, in: scene, subjects: subjects, last: frames.count - 1)
+        let samples = zip(frames, headings).enumerated().map { index, sample in
             Sample(
-                camera: frame.camera, subject: centre(of: subjects, in: frame), heading: heading, mounted: mounted
+                camera: sample.0.camera, subject: centre(of: subjects, in: sample.0), heading: sample.1,
+                mounted: mounted, jumped: cuts.jumps.contains(index)
             )
         }
         var spans: [Span] = []
-        let stretches = stretches(of: shot, in: scene, subjects: subjects, last: samples.count - 1)
-        let keyed = Self.stretches(of: shot, in: scene, subjects: [], last: samples.count - 1)
-        let runs = movingRuns(stretches, samples: samples)
-        for stretch in stretches {
+        let references = Self.references(cuts, samples: samples)
+        let runs = movingRuns(cuts.stretches, samples: samples)
+        for (stretch, reference) in zip(cuts.stretches, references) {
             let run = runs.first { $0.from <= stretch.from && stretch.to <= $0.to } ?? stretch
             let travels = travelling(stretch, in: run, samples: samples, free: subjects.isEmpty)
-            // Around a travelling subject, offsets are read between the camera's own marks (see `direction`).
-            let between = keyed.first { $0.from <= stretch.from && stretch.to <= $0.to } ?? stretch
-            let following = subjectTravel(between, samples: samples) >= minimumTravel
+            // A jump to a mark at the same time is a cut in the picture, not a move.
+            if stretch.to == stretch.from + 1, samples[stretch.to].jumped {
+                append(Span(from: stretch.from, to: stretch.to), to: &spans)
+                continue
+            }
             for (from, to) in pieces(of: stretch) {
-                let span = following ? between : Span(from: from, to: to)
-                let move = direction(samples[from ... to], within: samples[span.from ... span.to], travels: travels)
+                let span = reference ?? Span(from: from, to: to)
+                let move = direction(
+                    samples[from ... to], within: samples[span.from ... span.to], keyed: reference != nil,
+                    travels: travels
+                )
                 append(Span(from: from, to: to, move: move), to: &spans)
             }
         }
-        spans = settled(spans, samples: samples)
+        spans = settled(spans, legs: cuts.legs, samples: samples)
         return try Reading(
             legs: spans.map { leg($0, samples: samples) },
             shake: shake(scene: scene, shotID: shotID, catalog: catalog, quiet: samples),
@@ -82,11 +90,12 @@ enum CameraLegs {
 
     // MARK: Pieces
 
-    private struct Sample {
+    struct Sample {
         var camera: CameraFrame
         var subject: Vec3? // the subject the camera is built around, on the ground; nil without one
         var heading: Double? // that subject's facing, when it is a single one
         var mounted: Bool // riding the subject, which turns the camera with it
+        var jumped = false // reached across a jump from the frame before
 
         /// The camera's place relative to the subject, as the world sees it.
         var offset: Vec3? {
@@ -105,14 +114,22 @@ enum CameraLegs {
     /// The camera's offsets from the subject at two samples, in the frame where they change less: the subject's own
     /// for a camera kept behind a turning walker, and always for a car mount; the world's for a camera that keeps its
     /// world bearing as the subject turns, as Blockout's push and orbit presets do.
-    private static func offsets(_ a: Sample, _ b: Sample) -> (before: Vec3, after: Vec3)? {
+    /// Given `local`, in that frame instead.
+    private static func offsets(_ a: Sample, _ b: Sample, local: Bool? = nil) -> (before: Vec3, after: Vec3)? {
         guard let before = a.offset, let after = b.offset else { return nil }
         guard let localBefore = a.localOffset, let localAfter = b.localOffset else { return (before, after) }
-        let local = length(difference(localAfter, localBefore)), world = length(difference(after, before))
-        return a.mounted || local < world ? (localBefore, localAfter) : (before, after)
+        return (local ?? ownFrame(a, b)) ? (localBefore, localAfter) : (before, after)
     }
 
-    private struct Span {
+    /// Whether the offsets at two samples are read in the subject's own frame (see `offsets`).
+    private static func ownFrame(_ a: Sample, _ b: Sample) -> Bool {
+        guard let before = a.offset, let after = b.offset, let localBefore = a.localOffset,
+              let localAfter = b.localOffset
+        else { return false }
+        return a.mounted || length(difference(localAfter, localBefore)) < length(difference(after, before))
+    }
+
+    struct Span {
         var from: Int, to: Int, move: CameraMove = .static
     }
 
@@ -141,17 +158,6 @@ enum CameraLegs {
             positions.map(\.y).reduce(0, +) / count,
             positions.map(\.z).reduce(0, +) / count
         )
-    }
-
-    /// The stretches between cuts at every camera mark and the end of its hold, and at the marks of `subjects`.
-    private static func stretches(of shot: Shot, in scene: PrevisScene, subjects: [EntityID], last: Int) -> [Span] {
-        guard last > 0 else { return [Span(from: 0, to: 0)] }
-        let take = scene.blocking.first { $0.id == shot.blockingTakeID }
-        let subjectMarks = take?.tracks.filter { subjects.contains($0.entityID) }.flatMap(\.marks) ?? []
-        let times = shot.camera.marks.flatMap { [$0.time, $0.time + $0.hold] }
-            + subjectMarks.flatMap { [$0.time, $0.time + $0.hold] }
-        let marked = Set([0, last] + times.map { min(max(FrameGrid.frame(atTime: max($0, 0)), 0), last) }).sorted()
-        return zip(marked, marked.dropFirst()).map { Span(from: $0, to: $1) }
     }
 
     /// Neighbouring stretches in which the camera keeps moving at a like pace, joined: within a quarter of each
@@ -222,12 +228,13 @@ enum CameraLegs {
 
     /// The way the camera goes over one piece, however little: by its travel when its stretch `travels`, relative to
     /// the reference subject when there is one; otherwise by its turn, zoom or roll. The relative move is the one
-    /// from the start of `span` to its end. Around a subject standing still that is the piece itself. Around a
-    /// travelling one it runs between two of the camera's marks, where camera and subject are both where they were
-    /// put. In between, the camera's easing and his, his snap onto a new heading at his marks and the curve of either
-    /// path make the camera lag and catch up, and that isn't a move.
+    /// from the start of `span` to its end. Around a subject standing still that is the piece itself. Around one on
+    /// the move it is `keyed`: it runs between two of the camera's marks, where camera and subject are both where
+    /// they were put, and names a move only if the change between them is enough to name. In between, the camera's
+    /// easing and his, his stops and starts, his snap onto a new heading at his marks and the curve of either path
+    /// make the camera lag and catch up, and that isn't a move.
     private static func direction(
-        _ piece: ArraySlice<Sample>, within span: ArraySlice<Sample>, travels: Bool
+        _ piece: ArraySlice<Sample>, within span: ArraySlice<Sample>, keyed: Bool, travels: Bool
     ) -> CameraMove {
         guard let a = piece.first, let b = piece.last, let start = span.first, let end = span.last else {
             return .static
@@ -235,9 +242,15 @@ enum CameraLegs {
         let move = difference(b.camera.position, a.camera.position)
         guard travels, length(move) >= 0.005 else { return turning(a, b) }
         guard let (before, after) = offsets(start, end) else { return free(move, from: a.camera, to: b.camera) }
-        // Passing over or under the subject anywhere in the span makes its azimuth meaningless.
-        let passesOver = span.contains { $0.offset.map(overhead) ?? false }
-        return relative(before, after, passesOver: passesOver) ?? .track
+        // Passing over or under the subject anywhere in the span makes its azimuth meaningless. Otherwise the way
+        // round is summed step by step, in the frame the ends are read in, so half a turn or more keeps its way round.
+        let local = ownFrame(start, end)
+        let swept = span.contains { $0.offset.map(overhead) ?? false } ? 0
+            : zip(span.dropLast(), span.dropFirst()).reduce(0) { total, step in
+                offsets(step.0, step.1, local: local)
+                    .map { total + turn(azimuth($0.before), azimuth($0.after)) } ?? total
+            }
+        return relative(before, after, swept: swept, least: keyed ? minimumTravel : 0.005) ?? .track
     }
 
     /// The planted camera's largest change, in units of the least that names a move, so a turn and a zoom compare;
@@ -272,15 +285,16 @@ enum CameraLegs {
         return lateral > 0 ? .truckRight : .truckLeft
     }
 
-    /// The camera's move relative to the subject, from its offset to the subject before and after: the largest of
-    /// going round it (an orbit), toward or away from it (a push or pull), and up or down (a crane), or nil when the
-    /// offset holds, so whatever travel there is only keeps up with the subject. A crane wins over a push when most of
-    /// the change in distance is height, as it is when looking straight down, where going round means nothing.
-    private static func relative(_ before: Vec3, _ after: Vec3, passesOver: Bool) -> CameraMove? {
-        guard length(difference(after, before)) >= 0.005 else { return nil }
+    /// The camera's move relative to the subject, from its offset to the subject before and after and the angle it
+    /// `swept` round him on the way: the largest of going round it (an orbit), toward or away from it (a push or
+    /// pull), and up or down (a crane), or nil when the offset and the way round change by less than `least`, so
+    /// whatever travel there is only keeps up with the subject. A crane wins over a push when most of the change in
+    /// distance
+    /// is height, as it is when looking straight down, where going round means nothing.
+    private static func relative(_ before: Vec3, _ after: Vec3, swept: Double, least: Double) -> CameraMove? {
         let radius = (hypot(before.x, before.z) + hypot(after.x, after.z)) / 2
-        let swept = passesOver ? 0 : turn(azimuth(before), azimuth(after))
         let arc = abs(swept) * radius, radial = length(after) - length(before), rise = after.y - before.y
+        guard length(difference(after, before)) >= least || arc >= least else { return nil }
         if arc >= abs(radial), arc >= abs(rise) { return swept > 0 ? .orbitLeft : .orbitRight }
         if abs(rise) >= 0.8 * abs(radial) { return rise > 0 ? .craneUp : .craneDown }
         return radial < 0 ? .push : .pull
@@ -290,7 +304,7 @@ enum CameraLegs {
 
     /// Moves too small to name fall back to what the camera still does (see `fallback`); then brief spans not worth
     /// naming join the span before them (or after, at the start), and neighbours with the same move join.
-    private static func settled(_ spans: [Span], samples: [Sample]) -> [Span] {
+    private static func settled(_ spans: [Span], legs: Set<ClosedRange<Int>>, samples: [Sample]) -> [Span] {
         var quieted: [Span] = []
         for var span in spans {
             let path = pathLength(span, samples: samples)
@@ -309,10 +323,14 @@ enum CameraLegs {
             let span = quieted[index]
             // A brief hold or a brief small move isn't worth naming; a brief large one is a snap and stays. A move
             // of the camera's place is a snap only if the camera itself travels far, not just a subject outrunning
-            // it. Only a span with a neighbour to join is dropped, so the shot always keeps at least one leg.
+            // it. A move filling one of the camera's own legs, with no travelling subject to account for it, was put
+            // there, and stays however brief. Only a span with a neighbour to join is dropped, so the shot always
+            // keeps at least one leg.
             let small = amount(of: span, samples: samples) < 3 * threshold(span.move)
             let slight = switch span.move {
             case .static: true
+            case _ where legs.contains(span.from ... span.to) && subjectTravel(span, samples: samples) < standing:
+                false
             case .panLeft, .panRight, .tiltUp, .tiltDown, .zoomIn, .zoomOut, .rollClockwise, .rollCounterclockwise:
                 small
             default: small || pathLength(span, samples: samples) < 3 * minimumTravel
@@ -386,7 +404,8 @@ enum CameraLegs {
                 guard let (before, after) = offsets(step.0, step.1) else {
                     return total + turn(step.0.camera.pan, step.1.camera.pan)
                 }
-                return overhead(before) || overhead(after) ? total : total + turn(azimuth(before), azimuth(after))
+                return overhead(before) || overhead(after) || step.1.jumped
+                    ? total : total + turn(azimuth(before), azimuth(after))
             })
         case .panLeft, .panRight: return abs(steps.reduce(0) { $0 + panned($1.0.camera, $1.1.camera) })
         case .tiltUp, .tiltDown: return abs(last.tilt - first.tilt)
@@ -394,20 +413,6 @@ enum CameraLegs {
             return abs(steps.reduce(0) { $0 + rolled($1.0, $1.1) })
         case .zoomIn, .zoomOut: return abs(log(last.focalLength / first.focalLength))
         case .static: return 0
-        }
-    }
-
-    private static func pathLength(_ span: Span, samples: [Sample]) -> Double {
-        zip(samples[span.from ..< span.to], samples[span.from + 1 ... span.to]).reduce(0) {
-            $0 + length(difference($1.1.camera.position, $1.0.camera.position))
-        }
-    }
-
-    /// How far the reference subject itself goes over a span; 0 without one.
-    private static func subjectTravel(_ span: Span, samples: [Sample]) -> Double {
-        zip(samples[span.from ..< span.to], samples[span.from + 1 ... span.to]).reduce(0) { total, step in
-            guard let start = step.0.subject, let end = step.1.subject else { return total }
-            return total + length(difference(end, start))
         }
     }
 
@@ -503,11 +508,11 @@ enum CameraLegs {
 
     // MARK: Geometry
 
-    private static func difference(_ a: Vec3, _ b: Vec3) -> Vec3 {
+    static func difference(_ a: Vec3, _ b: Vec3) -> Vec3 {
         Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
     }
 
-    private static func length(_ v: Vec3) -> Double {
+    static func length(_ v: Vec3) -> Double {
         (v.x * v.x + v.y * v.y + v.z * v.z).squareRoot()
     }
 
