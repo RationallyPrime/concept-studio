@@ -25,6 +25,11 @@ public enum ShotsCommandLine {
                 to: FolderDestination(parent: URL(fileURLWithPath: job.out, isDirectory: true)),
                 progress: { _ in }
             )
+            if let prompt = scene.shots.first(where: { $0.id == shotID })?.prompt {
+                for problem in ShotPromptCompiler.problems(prompt, scene: scene) {
+                    FileHandle.standardError.write(Data("note: \(problem)\n".utf8))
+                }
+            }
             FileHandle.standardOutput.write(Data((package.url.path + "\n").utf8))
             return 0
         } catch let error as UsageError {

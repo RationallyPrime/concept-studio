@@ -817,7 +817,10 @@ The store never touches `job.yaml` or `images/`.
   manifest.json
   shot.json
   prompt.txt                         only when the shot has a prompt
-  prompt.json                        only when the shot has a prompt: {sections, text, facts}
+  prompt.json                        only when the shot has a prompt: {sections, text, facts, sceneRevision,
+                                     problems}; sceneRevision is the revision the prompt was written from
+                                     (facts are the scene's at export), problems are sentences such as a stale
+                                     or overlong prompt
   guides/<position>-f<frame:04>-<variant>.png
   control/pose.mp4
   control/layout.mp4

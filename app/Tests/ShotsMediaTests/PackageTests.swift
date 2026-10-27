@@ -259,14 +259,35 @@ struct PackageTests {
             try? FileManager.default.removeItem(at: parent)
             try? FileManager.default.removeItem(at: input)
         }
-        let document = ShotsSamples.twoPersonWalk(small: true)
+        var document = ShotsSamples.twoPersonWalk(small: true)
         let shot = try #require(document.scenes.first?.shots.first)
+        let facts = try ShotPromptCompiler.facts(
+            scene: document.scenes[0],
+            shotID: shot.id,
+            catalog: ContentCatalog.bundled()
+        )
+        let prompt = ShotPromptCompiler.template(facts)
+        document.scenes[0].shots[0].prompt = prompt
+        // The blocking changed after the prompt was written, so the package says the prompt is stale.
+        document.scenes[0].revision += 1
         let path = input.appendingPathComponent("shots.json")
         try JSONEncoder().encode(document).write(to: path)
         let arguments = ["--document", path.path, "--shot", shot.id, "--out", parent.path]
         #expect(await ShotsCommandLine.run(arguments: arguments) == 0)
         let package = try onlyPackage(in: parent)
         #expect(await PackageValidator.problems(at: package) == [])
+        // A shot with a prompt carries it exactly as stored, with its sections and facts beside it.
+        #expect(try String(contentsOf: package.appendingPathComponent("prompt.txt"), encoding: .utf8) == prompt.text)
+        let manifest = try JSONDecoder().decode(
+            PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+        )
+        #expect(manifest.files.filter { $0.role == .prompt || $0.role == .promptSections }.map(\.path)
+            == ["prompt.txt", "prompt.json"])
+        let promptFile = try #require(JSONSerialization.jsonObject(
+            with: Data(contentsOf: package.appendingPathComponent("prompt.json"))
+        ) as? [String: Any])
+        #expect(promptFile["sceneRevision"] as? Int == 0)
+        #expect((promptFile["problems"] as? [String])?.map { $0.contains("now at revision 1") } == [true])
         try FileManager.default.removeItem(at: package.appendingPathComponent("control/layout.mp4"))
         #expect(await PackageValidator.problems(at: package) == ["control/layout.mp4 is listed but missing."])
     }

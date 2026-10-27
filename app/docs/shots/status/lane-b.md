@@ -1,6 +1,6 @@
 # Lane B status
 
-This file travels at the top of each Lane B checkpoint (now B4's `shots/b-media-b4`, with B5 stacked on it), so checkpoints that have passed review keep their exact heads.
+This file travels at the top of each Lane B checkpoint (now B5's `shots/b-media-b5`), so checkpoints that have passed review keep their exact heads.
 
 | Checkpoint | State |
 |---|---|
@@ -31,7 +31,7 @@ This file travels at the top of each Lane B checkpoint (now B4's `shots/b-media-
 - **The hang:** CI hung in C3's IT3 inside the exporter. `VideoInspector` read samples with `AVAssetReader` on Swift's cooperative threads; with as many concurrent reads as the pool has threads (three on the CI runner), every read held a thread and none returned.
 - **The fix:** reads run on their own serial queue, with cancellation, as `MediaEditor` already does for the app's clips. A regression test runs more concurrent reads than the machine has cores.
 - **Evidence:** the hang reproduced locally with 12 concurrent reads on a 10-core Mac, and the old reader fails the regression test. The integrator's independent bounded review accepted `609869f` (comment 6427452923); CI run 40400625215 passed. IT3 and reader saturation then passed on fresh C3 and C4 CI. |
-| B4 Blockout and document input, IT2 | **Draft PR [RationallyPrime/concept-studio#78](https://github.com/RationallyPrime/concept-studio/pull/78), on `main` at `c23dea8`: code head `70d588a`, with this status commit on top.**
+| B4 Blockout and document input, IT2 | **Landed on `main`** as merge commit `94cdbba`, by the integration owner, from head `dba68f1` ([RationallyPrime/concept-studio#78](https://github.com/RationallyPrime/concept-studio/pull/78)). The integrator's independent review accepted `dba68f1` (comment 6430062402).
 - **Restack:** B4's two commits replay patch-identical onto `main` (range-diff `=`: `ce66dfb` → `35485a6`, `c7b6717` → `a4249ea`). The old status commits are dropped; this file is the one status commit on top.
 - **Since the restack:**
   - `dd1fc52`: an export with `--passes clean` validates with the clean pass alone, as the plan's B4 verify list asks.
@@ -75,7 +75,149 @@ This file travels at the top of each Lane B checkpoint (now B4's `shots/b-media-
 - camera-mark stills as guide frames.
 
 **M1** (owner-run, outside CI): with B4, `swift run -c release shots-export --blockout <file> --out <dir>` exports a Blockout project for ComfyUI. The release build of `shots-export` succeeds on `70d588a`. |
-| B5 prompt | **On `shots/b-media-b5`, reworked after the Blockout audit, being restacked onto this B4 head.** Its own draft PR follows, stacked on B4, with its Blockout sources, differences and gates in its row there. |
+| B5 prompt | **Draft PR [RationallyPrime/concept-studio#79](https://github.com/RationallyPrime/concept-studio/pull/79) (`[contract]`), on `main` at `94cdbba`: code head `dfa70ba`, with this status commit on top. Reworked after the Blockout audit (2026-10-26), then closed under the owner's bounded closure (2026-10-27, below).** Its first four code commits are range-diff identical to those gated on B4's code head `70d588a` (`ced5009..981572d`); between the two bases only this file differs. `23cd878` then qualifies two calls CI's Swift 6.3 read as the local constant being declared (`Self.panned`, `Self.riding`), with no change in behaviour; ShotsMedia (80 tests) and both linters were rerun on it. `7c64083` adds the closure fixes recorded below. The merge `6342181` publishes them with the earlier published history; its tree is `5153057`'s. `dfa70ba` makes the bounded-closure fixes.
+
+**Built:**
+- **`PromptFacts`:**
+  - the picture times and middle guides;
+  - camera legs, the subjects the camera aims at or rides with, and the rig's shake;
+  - subjects, by catalog noun, appearance and gait marks;
+  - props, the lighting in words, the setting, sound and music, and the scene revision.
+- **Names:** no entity names or labels reach the facts or the prompt.
+- **Format:** the FL2VA picture-alignment header and H3's three sections.
+- **`write`:** runs through `StructuredStage` with the bundled `h3-shot-prompt` skill, and tells the model its character budget.
+- **Package files:** `prompt.txt` and `prompt.json`. `prompt.json` also records the revision the prompt was written from, and its problems.
+  - These two keys are additive. CONTRACTS section 8.3's `prompt.json` line is updated in this branch, so B5's PR goes through the `[contract]` route.
+
+**Camera legs come from the evaluated camera** (`CameraLegs.swift`), as the clean video shows it, with rig noise off:
+- **Evaluator handling inherited:** `ShotEvaluator` has already shortened holds that run past the next mark (Blockout `src/engine/evaluate.ts:66-68`), aimed an aim-locked camera, and carried a mounted one (`evaluate.ts:434-475`).
+- **Around a travelling subject, read between the camera's marks:** which way the camera goes relative to a subject on the move is judged between two of the camera's own marks, where camera and subject are both where they were put.
+  - In between, the camera's easing and the subject's, his snap onto a new heading at a path corner, and the curve of either path make the camera lag and catch up. That isn't a move.
+  - The A4 oracle found this. Blockout eases a preset's first and last marks by a quarter of the leg (`src/engine/camera-moves.ts:136-153`), and A4 keeps that. Around a man already walking, the camera fell behind and caught up, so the behind follows read pull, push, track, push, pull, and the leading ones the reverse.
+  - Blockout's default marks drift the same way (actor marks ease 0.25, camera marks 0.3: `src/engine/schema.ts:93`, `:107`). A follow round a right-angle corner read as an arc: the man's facing snaps at his mark while the camera swings round between its own.
+  - The legs still come from the evaluated, eased camera, so their frames and speeds are the video's. Around a subject standing still, each piece is read on its own, as before.
+  - **Standing still is read on its own:** a stretch where the subject does not move at all, as at a hold, is read piece by piece. A stretch where he moves at all is read between the camera's marks around it, whatever his stops and starts in between. A push on a man who stands for 3 s and then sprints off is a push while he stands, not a pull against where he ends up.
+  - **A standing stretch holds only frames where he stands:** it starts at the first frame at or after he reaches his mark, and ends at the last frame at or before he leaves it. A hold ending between frames, at 2.9 s, or a stop at 3.1 s, puts no frame of his run in it.
+  - **Only a nameable change:** between the camera's marks, an offset or a way round that changes by less than 0.15 m names nothing, so the rounding of mark times to frames does not.
+  - **The same threshold around a travelling subject:** a push, pull or crane relative to a subject on the move needs the same 0.15 m as one around a subject standing still, however fast the two travel together. A 3.5 m crane beside a man going 12 m/s is a crane.
+  - **Where the camera is placed:** at its own marks and, on a car mount, the car's, whichever subject it aims at. Those cuts fall where the evaluator places them: at each mark's time, and when it leaves, its hold cut short a tenth of a second before the next mark (`evaluate.ts:66-68`). The camera's own are rounded to the nearest frame, and a car's or a subject's inward, as above. A jump to a mark at the same time is a one-frame cut of its own, at the frame where the evaluator crosses it, and it counts in no move's path or orbit. It still counts in how far an aimed push, pull or crane goes (Open, below).
+  - **Going round:** the angle round the subject is summed frame by frame, so an orbit of half a turn or more between two marks keeps its way round, and a full turn that ends where it began is still an orbit.
+- **Stretches and pieces:** stretches run between the moments the camera's marks, its car's and its reference subjects' marks are reached or left, as the evaluator times them. Each stretch is read in pieces of at most 12 frames, and pieces with the same move merge, so Blockout's many-mark presets read as one move.
+- **Travelling or planted, per stretch:** the camera travels where three things hold:
+  - its path over the run of moving stretches reaches 0.15 m, so a push keyed with close marks adds up;
+  - its path over the stretch is at least a quarter of the subject's travel;
+  - for a free camera, that path outweighs its pan and tilt, unless it circles something at least half a metre away.
+  Otherwise it is planted, and pans, tilts, zooms or rolls. So drift neither turns a pan into an arc nor hides it.
+- **Around an aim-locked subject, or a mounted camera's car,** moves are judged relative to it: orbit, push, pull or crane, or track when the camera keeps its offset.
+  - **Frames:** the subject's own frame or the world's, whichever the offset changes less in. A camera kept behind a turning walker tracks him, and Blockout's world-bearing push stays a push. A mount always uses the subject's frame.
+  - **Following:** a relative move on a travelling subject also carries track ("pushes in while following the man"). A camera that only creeps beside a walker holds.
+  - **Naming:** the prompt names that subject ("arcs counter-clockwise around the man").
+- **Overhead:** passing over a subject is a push then a pull, never an arc.
+- **Pans when tilted:** a pan swings the view by the cosine of the tilt. Looking straight down or up, a free camera's pan spins the picture and reads as a roll. An aimed camera's pan over a subject below it adds no roll.
+- **Brief spans and speed:** a brief hold or small move joins a neighbour; a brief large one (a snap) stays. A move that fills one of the camera's own legs while its subject stands still was put there, and is named however brief. Speed is measured over the frames that actually move.
+- **Orbit names follow Blockout:** `orbitLeft` is counter-clockwise seen from above (`src/engine/camera-moves.ts:362-372`). B5 had it reversed.
+- **From H3's own camera vocabulary** (MiniMax's prompt guide, motion table): tracking, roll and shake. A zoom or roll riding on a move goes in the leg's `also`, and rig noise is `shake`.
+
+**Reused from Blockout `src/engine/prompt.ts`:**
+- the lighting words (lines 15-25);
+- the notable-subject rule: whatever moves, carries a label, or is a person, vehicle or animal (40-46);
+- each noun once, for props (48-52);
+- a 35 mm lens when there are no camera marks (30), through the evaluator's default.
+
+**Intentional differences from Blockout:**
+- **Prompt structure:** the prompt follows H3's FL2VA structure, not Blockout's motion-reference prompt (SHOTS-PLAN sections 3 and 7).
+- **Same-noun subjects:** subjects that share a noun and appearance are told apart by order ("the first man"), instead of being listed once, because the template narrates each subject.
+- **Labels:** no editor labels in prompts (SHOTS-PLAN section 7), where Blockout writes `noun ("label")`.
+- **Camera subjects:** whatever the camera aims at or rides with is a subject, even a prop, so the prompt can name it.
+- **Setting:** no "Setting:" line from environment kits. Kits are out of scope (LANE-A-CORE), so the setting comes from the shot's notes.
+- **Music:** no music writes `N/A`, as H3's guide asks; B5 used to write `None.`
+
+**Guards:** a stored prompt older than the scene, or longer than 1,800 characters, is reported in `prompt.json` and as a CLI note. The 1,800 characters is about 512 Qwen3 tokens, ai-toolkit's cap on H3 captions. Nothing is refused.
+
+**Author-side review** (separate review agents run by the author, not the integrator's independent review): nine rounds, each followed by an adversarial check of its findings, and then closed by the owner (below). The first five confirmed 33 distinct findings, and all are fixed here with a test each:
+- **The first review (three lenses), 15 findings:**
+  - camera reading: drift, a truck with a slight pan, a turning mount, the overhead check, small moves around a standing subject, and a five-frame shot;
+  - the camera's subject left unnamed, and the `prompt.json` contract line;
+  - in the tests: a fixture name, a test that restated a table, and unguarded indexing.
+- **Four closure rounds, 18 more:** mostly regressions from the fixes. Among them:
+  - the frame choice for turning subjects;
+  - a close aim-locked orbit read as a pan;
+  - a push with a strong zoom splitting;
+  - pushes keyed with close marks;
+  - free pans lost to drift;
+  - pans at steep tilt read as rolls;
+  - a pan out and back;
+  - drifts around a push;
+  - a free close orbit;
+  - a spin riding on a crane;
+  - a pan with sideways drift read as an orbit.
+- **A sixth round, on the later commits** (the A4 oracle, a first fix and the corner and overhead tests): three finders and an adversarial check of each finding. Six findings were confirmed, and five more went unverified for lack of slots; those were a duplicate and claims about text since rewritten.
+  - **The first fix was wrong:** it read the camera's marks without their easing. A camera eased like its walker then read as arcs (a steady side track as three of them), and leg frames and speeds left the video's. It was replaced by the reading between the camera's marks.
+  - **The oracle checked too little:** it checked only the longest leg, and the refactor had dropped the ordering checks around the flying subject. It now checks whole sequences and the eased walk, and runs the ordering checks around the flying subject again.
+  - **Stale claims:** the corner's cause, and the flying subject's leftover legs, are corrected above.
+- **A seventh round, a closure review of `1989b9a` and `1f3417f`:** two findings confirmed and four unverified. All six were checked. Five were real and are fixed in `7c64083`, each with its own test:
+  - **Following decided over the whole span between two camera marks** (confirmed): a push on a man who stood and then ran off read as a pull. Where he stands still, the camera is now read on its own.
+  - **A car mount's own marks not cut** (confirmed): a camera car closing on a runner and stopping read as a pull. The car's marks now place the camera.
+  - **The way round taken end to end:** three quarters of a turn between two marks read as a quarter turn the other way. It is now summed frame by frame.
+  - **A jump to a mark at the same time** spread over the following leg as a fast push. It is now a one-frame cut of its own.
+  - **A hold's written end, past the next mark,** was a cut in the middle of the next leg and brought back the lag. Cuts now fall where the evaluator places them. A two-frame push squeezed out by such a hold would then have been dropped as brief, so a move filling one of the camera's own legs now stays.
+  - The sixth, that the vectors oracle required the flying subject's 3 s crane to read as a track, came from the tenth-of-path rule. The check was first relaxed to one leg that follows the subject; the bounded closure drops the rule and the check.
+- **An eighth round, on those fixes:** three finders and an adversarial check of each finding. Four findings were confirmed (two of them the same defect), two refuted, and five more went unverified for lack of slots. Every real one is fixed in `7c64083`, each with a test:
+  - **The first fix for following brought the lag back** (confirmed): it joined only the stretches where he travelled, so the reading ended at his stops and starts, between two camera marks. Follows around a man who stops or pauses read pulls. A stretch where he moves at all is now read between the camera's own marks again, and only standing still is read on its own.
+  - **0.15 m was the wrong test for standing still:** a walker easing into a mark, or covering 12 cm in two frames, counted as standing, which split his follow and let a 5 cm nudge beside him be named a push. Standing still now means not moving at all.
+  - **An overhead pass read as a track** (confirmed): the new guard took a symmetric pass over a standing man for no change. It again means the offset held and the camera did not go round.
+  - **The jump fix was partial** (confirmed): it held only for the reference span, and only when the jump's time fell on a frame or rounded down. Jumps are now cut at the evaluator's crossing frame and left out of every path.
+  - A camera following round a closed loop, and the relaxed flying-subject check, were refuted. A wrong distance in a test comment was corrected.
+- **A ninth round, on `7c64083`:** three finders and an adversarial check of each finding. One medium and four lows were confirmed; the wording of a limit was judged a known limit; three more went unverified.
+  - **Medium, fixed in `dfa70ba`:** cuts rounded a mark time to the nearest frame. A hold ending between frames, at 2.9 s, left one frame of his run in the standing stretch, so the push read as a pull. Standing stretches now round inward.
+  - **Four lows,** recorded as limits under Open: a camera car on a loop whose rider snaps his facing (a regression), a rider with no marks of his own, a subject's own jump, and a camera jump just before a frame.
+  - **Wording:** the limit "while the subject stands" also covers A4's own follow presets; it is reworded under Open.
+  - **Unverified:** a jump still counting in an aimed push's amount (a probe shows it is real; Open), two stale lines in this row (corrected), and the orbit amount's jump rule having no test (it now has one).
+- **Independent review** (the integrator's, on `6342181`): changes requested, P2. An authored crane around a fast subject was left out: the camera rose 3.5 m beside a man going 12 m/s and read as a track, because around a travelling subject a change in height or distance had to reach a tenth of the camera's path. At half the speed it read as a crane.
+- **The owner's bounded closure (2026-10-27):** the owner chose bounded closure over a simpler reader that names one move per authored camera leg.
+  - **Fixed in `dfa70ba`, each with a CI test:**
+    - the crane: the tenth-of-path rule is gone, and the reproducer is a test at both speeds;
+    - the off-grid medium: a 2.9 s hold and a 3.1 s stop are a test;
+    - the orbit amount's jump rule has its own test.
+  - **One listed scene was corrected:** dropping the rule exposed a fault in the eased-walker test's scene. Its camera was keyed 4 m behind where an un-eased walker would be, so at its middle marks it stood 3.7 m behind him, and it read as a 0.3 m push and pull that the rule had hidden. Its marks are now keyed 4 m behind where he is, as the test says, and it reads as one track.
+  - **Accepted as a limit:** the flying subject's own bob may read as small crane legs. That is what the rule was added to hide.
+  - **The rest are limits,** recorded under Open.
+  - **No further author-side review rounds on B5.** A later finding counts against the acceptance bar only if it breaks a listed scene; anything else becomes a follow-up ticket and does not hold the checkpoint. Whether to review again is the integrator's call.
+  - **The acceptance bar:**
+    - the A4 oracle in CI: the 20 starter moves around a man standing, walking, and walking with Blockout's default easing;
+    - Blockout's golden vectors, with `PREVIS_VECTORS` set;
+    - the spec's sample export;
+    - every listed scene as a CI test: the 58 camera tests, plus the crane at both speeds, the off-grid hold and stop, and the orbit's jump;
+    - the app and PrevisCore suites, both linters, and an undo check of each new fix.
+
+**Author verification:**
+- **Restack:** first on B4 `a4249ea` over main `c23dea8`, with A4's `CameraMoves` and A5's evaluator (turns blended into the mark, one attachment graph). The two reworked commits came across range-diff identical, every gate was rerun and passed, and the new evaluator needed no change. They were then rebased onto B4's code head `70d588a` with no conflicts.
+- **Tests on the code head `dfa70ba`:** ShotsMedia passes 97 tests with `PREVIS_VECTORS` set and without it, 61 of them camera tests. The whole app passes 923, and PrevisCore 148.
+- **A4 oracle (runs in CI):** each of A4's 20 starter moves is generated with `CameraMoves.marks`, the fixture of Blockout `tests/unit/camera-moves.test.ts`. It runs around a man standing, walking at 2 m/s, and walking eased by a quarter (Blockout's default actor easing).
+  - Each move reads as exactly its name, or a follow move as a track (a hold around someone standing). Whip-pan, side-dolly-past and crash-in are built of parts, and their sequences are spelled out. A crash-in is a hold then a push around someone standing, and a track then a push around someone walking.
+  - It found the lag described above.
+- **Blockout oracle:** the golden camera-move vectors from Blockout's own engine (all 39 presets × three subjects × two lengths, run with `PREVIS_VECTORS`) read in order and as their names around standing and walking subjects. That includes the whip pan, the snap zooms, the dolly-zoom and the dutch rolls. Passes over a subject never read as arcs. Its ordering checks run around the flying subject too.
+- **Undo checks:** 64, each undoing one change in the code at `dfa70ba`, and each failing its own test in one sweep.
+  - The five new ones undo the bounded closure: the tenth-of-path rule put back, a subject's departure or arrival rounded to the nearest frame, all of his marks rounded that way, and a jump counted in an orbit.
+  - The other 59 are the earlier cases, carried onto the new code; the tenth-of-path case is gone with the rule.
+  - The rules a test reached only through Blockout's golden vectors, or no longer reached once moves filling the camera's own legs were kept, each have a CI test of their own: the snap rule, the 0.8 crane rule, the speed trim, keeping the last leg, and the overhead checks.
+- **Export and lint:** `shots-export --sample` is valid, and swiftlint and swiftformat are clean.
+
+**Open:**
+- **Review:** the owner has stopped author-side review rounds on B5, so `dfa70ba` has had none. A later finding holds the checkpoint only if it breaks a listed scene (the acceptance bar, above).
+- **Oracle coverage:** the A4 oracle covers the 20 starter moves, the ones A4 generates. The other 19 Blockout presets are checked only by the vectors oracle, which needs `PREVIS_VECTORS`.
+- **The reading is a heuristic,** tuned against Blockout's presets and the review's cases:
+  - a straight aim-locked strafe past a subject reads as a push then a pull, not as a truck;
+  - **Around Blockout's 12 m/s flying test subject** (accepted by the owner): its own 1 m bob reads as small crane legs. With the tenth-of-path rule gone, 40 of 78 readings have more than one leg, up from 28. Crane-up-reveal, crane-down-intro and the pedestals now read as cranes. The dolly-zoom, crash-in, creep-in-low and orbit-90-right begin with a crane down as the subject rises. Passes over it read push, track, pull, and a planted camera tilts down as it flies off.
+  - **A follow keyed from an eased subject's un-eased path** (the same trade as the bob): around a travelling subject, a change in distance or height of 0.15 m between two camera marks is named. A camera keyed 4 m behind where an eased walker would be without easing stands 3.7 m behind him at its middle marks, and reads as a small push and pull. Keyed from where he is, it reads as one track. The tenth-of-path rule used to hide this.
+  - **Inside a camera span:** around a subject on the move, a relative move that really changes direction between two camera marks is read as its net move between them, not split.
+  - **While the subject stands:** the camera's own motion is named. Whenever one of the camera's marks falls after he stops, before he starts, or past a pause, the camera is still moving between its marks while he stands, and that reads as a small push, pull, truck or arc there. That is real motion relative to him. It includes A4's own follow presets in an ordinary 6 s shot, whose marks are 0.86 s apart, and pedestal-up-slow; around a man who stops, starts or pauses, they gain a 10- to 14-frame leg that the published head folded into the move around it.
+- **Ninth-round lows, not fixed:**
+  - **A regression against `3679ad7`:** a camera car following a rider round a loop whose facing snaps at each mark (Blockout's horse-gallop-loop) reads alternating arcs left and right. The published head read one track. The car's marks cut the loop into spans, and a span across a snap is summed in the rider's own frame.
+  - **A rider with no marks of his own**, attached to a car or boarded onto it, gets no standing cut. A push on him while the car waits and then drives off reads as a pull for the whole shot, as it did before.
+  - **A subject's own jump** to a mark at the same time is cut as a one-frame stretch but not as a jump, so the aimed camera's re-aim reads as a one-frame fast pan.
+  - **A camera jump just before a frame,** or two marks a fraction of a frame apart, is sampled partway across; that frame counts as a step, and its leg reads as a push.
+- **A jump in an aimed push, pull or crane:** how far it goes is still measured end to end, jump included. Pushing 2 m on a man standing still with a 2.5 m jump between reads fast and large, where the same 2 m in one push reads medium. |
 | B6–B7 | Not started |
 
 ## W0 verification (2026-10-26, Apple silicon, Swift 6.4 locally; CI runs Swift 6.3)
@@ -122,7 +264,7 @@ Ari, the integration owner, lands Shots checkpoints. She lands them in dependenc
   - **B4:** audited. It matches Blockout where Blockout has an equivalent; Blockout has no headless export.
   - **B5:** reworked on its branch; its row and PR record the Blockout sources and differences.
   - **Oracles Blockout offers Lane B:**
-    - `tests/unit/camera-moves.test.ts` (B5, after A4);
+    - `tests/unit/camera-moves.test.ts` (B5: ported as the A4 oracle);
     - `tests/unit/audit-fixes.test.ts:88-108` (hold truncation);
     - `tests/unit/tracking.test.ts:26-60` (aim lock);
     - `tests/e2e/smoke.spec.ts:114-130` (same frame, same bytes);
@@ -180,3 +322,25 @@ Ari, the integration owner, lands Shots checkpoints. She lands them in dependenc
     Both change shared CI configuration, so Lane B proposes and doesn't pick.
 
 - Where does Lane D run? It needs macOS with Xcode and RealityKit.
+
+## Integrator repair: distinguish camera motion from subject motion (2026-10-27)
+
+The owner-published `e53c2fd` restored an authored crane but narrated a level camera as a downward pedestal when
+only its subject rose. Ari takes this repair in an isolated branch under the user's explicit authority to land B5;
+Claude's committed history and checkout remain preserved. The earlier proposed listed-tests-only acceptance bar
+is not a waiver of confirmed material defects.
+
+The repair measures crane direction and amplitude from actual evaluated world camera height, excluding jumps
+from amplitude. Horizontal subject separation measures push/pull, so subject height alone cannot invent a dolly.
+A camera rising alongside its subject still cranes even if their relative height is constant. A straight-over pass
+whose endpoint radii match keeps its existing camera-motion fallback rather than becoming a false track.
+
+Reference: Blockout `3f2d056`, `src/engine/camera-moves.ts:488-518` (Pedestal Up moves from `ctx.camera.y`),
+and `422-452` (Crane-Up Reveal authors actual camera positions). Blockout has no equivalent H3 motion classifier;
+this is the Swift prompt-facts adaptation, not a new translation or an alteration to the evaluator.
+
+Regression coverage combines camera/subject rises of -3.5, 0 and +3.5 metres at shared forward speeds 0, 6 and
+12 m/s: 27 scenarios, checking evaluated camera height, actual crane direction/amplitude, no false pedestal in
+text, and stationary/tilt/tracking controls. Existing authored-crane cases at both speeds and Blockout preset
+oracles remain active. The preimage fails the new matrix and restored repair passes. Final independent closure,
+full exact-head verification and CI remain required; native/M1/M2 acceptance is separate.
