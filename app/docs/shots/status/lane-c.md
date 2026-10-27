@@ -456,3 +456,13 @@ C6 visual follow-up: minimum Help capture exposed the three topic segments reach
 The title and full-width topic picker now occupy separate rows, retaining the existing topic wording;
 the new website link uses the established ink tint. Captures and full verification are refreshed after
 this source change. This changes Help layout only, not any training screen or shortcut.
+### C5 final composition (2026-10-27)
+
+B5 is accepted and merged as `9c6532b`. C5's final composition keeps its production and test bytes unchanged
+from the independently accepted `690172b` review, then merges the landed B5 history. Independent closure
+re-ran all four inspector-boundary tests with zero failures/skips; the full composed app run passes 936 tests
+in 154 suites with Blockout vectors enabled. All twenty inspector previews regenerated (five inspectors,
+two sizes, two appearances), and their source manifest has zero mismatches against this composition.
+The small entity/dark and camera-mark/light renders were inspected. Final exact-head CI remains required.
+These fulfill C5's command/Undo, real compiler/fake-endpoint and inspector-preview checks; native interaction,
+M1/M2 and C6's actual keyboard/VoiceOver walkthrough remain separate integration evidence.

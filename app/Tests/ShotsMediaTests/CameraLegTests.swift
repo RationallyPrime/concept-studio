@@ -27,6 +27,31 @@ struct CameraLegTests {
         #expect(snap.toFrame - snap.fromFrame < CameraLegs.minimumHoldFrames && snap.speed == .fast)
     }
 
+    /// Following a walker 6 m back, the camera snaps 2 m closer in two frames and follows on. Around a travelling
+    /// subject a brief move counts only as a snap: this one is, so it is named.
+    @Test func aSnapWhileFollowingIsKept() throws {
+        let marks = [
+            mark(0, at: Vec3(0, 1.6, 6)), mark(21.0 / 24, at: Vec3(0, 1.6, 4.25)),
+            mark(23.0 / 24, at: Vec3(0, 1.6, 4 - 23.0 / 12)), mark(3, at: Vec3(0, 1.6, -2)),
+        ]
+        let legs = try cameraLegs(
+            frames: 73, marks: marks, subject: ("person.man", [(0, .zero), (3, Vec3(0, 0, -6))]), aimed: true
+        )
+        #expect(legs.map(\.move) == [.track, .push, .track], "\(legs)")
+    }
+
+    /// The camera pushes 0.35 m in six frames, holds for five, then pans. The brief hold joins the push, whose
+    /// speed is still that of the six frames it moves in: fast, where over eleven it would be medium.
+    @Test func aPushFollowedByABriefHoldKeepsItsSpeed() throws {
+        let marks = [
+            mark(0, at: Vec3(0, 1.6, 6)), mark(6.0 / 24, at: Vec3(0, 1.6, 5.65), hold: 5.0 / 24),
+            mark(38.0 / 24, at: Vec3(0, 1.6, 5.65), pan: 0.5),
+        ]
+        let legs = try cameraLegs(frames: 39, marks: marks)
+        #expect(legs.map(\.move) == [.push, .panLeft] && legs.first?.toFrame == 11, "\(legs)")
+        #expect(legs.first?.speed == .fast, "\(legs)")
+    }
+
     /// Closing from 6 m to 2 m on a man who walks away at 1.4 m/s: a push relative to him, made while following
     /// him.
     @Test func aPushOnAWalkerAlsoFollowsHim() throws {
@@ -41,6 +66,16 @@ struct CameraLegTests {
     @Test func theShortestShotKeepsALeg() throws {
         let legs = try cameraLegs(
             frames: 5, marks: [mark(0, at: Vec3(0, 1.6, 6)), mark(2.0 / 24, at: Vec3(0, 1.6, 5.8))]
+        )
+        #expect(legs.count == 1 && legs.first?.fromFrame == 0 && legs.last?.toFrame == 4, "\(legs)")
+    }
+
+    /// The same around a man jogging off: a brief track, then a brief hold, and nothing the camera put there on its
+    /// own, still leave the shot one leg.
+    @Test func theShortestShotAroundAJoggerKeepsALeg() throws {
+        let legs = try cameraLegs(
+            frames: 5, marks: [mark(0, at: Vec3(0, 1.6, 6)), mark(2.0 / 24, at: Vec3(0, 1.6, 5.8))],
+            subject: ("person.man", [(0, .zero), (4.0 / 24, Vec3(0, 0, -0.5))]), aimed: true
         )
         #expect(legs.count == 1 && legs.first?.fromFrame == 0 && legs.last?.toFrame == 4, "\(legs)")
     }
@@ -434,7 +469,7 @@ struct CameraLegTests {
     }
 }
 
-private func mark(
+func mark(
     _ time: Double,
     at position: Vec3,
     hold: Double = 0,
@@ -467,7 +502,7 @@ private func legsAroundTurningWalker(
 }
 
 /// One shot with `marks`, and optionally one subject walking (or driving) through `path`, aim-locked or not.
-private func shotScene(
+func shotScene(
     frames: Int,
     marks: [CameraMark],
     subject: (asset: String, path: [(time: Double, at: Vec3)])? = nil,
