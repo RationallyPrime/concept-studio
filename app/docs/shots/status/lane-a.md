@@ -7,8 +7,8 @@
 | A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
 | A3 bodies | **Merged** (PR #65, `0bdb09a`; two review rounds: the quadruped gait scale and the outward Z overrides). |
 | A4 generators | **Draft PR, targeting `main`** (branch `shots/a-core-a4`, three commits on `0bdb09a`). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
-| A5 corrections | **Prepared, not published** (local branch `a5-wip`, on A4's repaired head `5e66777`; no PR until A4 is accepted). Evaluator warnings, `ShotsValidation`, authored turns, vertical heading, one easing and the attachment graph. |
-| A6 | Not started |
+| A5 corrections | **Merged** (PR #73, `c23dea8`; independent review R1 and two closure rounds repaired simultaneous nested boardings, non-finite attachment rotation and inactive-attachment capture order). |
+| A6 hardening | **Draft checkpoint, not accepted** (branch `shots/a-core-a6` on `c23dea8`). `TimingTests` (suite `Timing`, gated by `SHOTS_TIMING=1`, CONTRACTS section 10: `init` under 5 ms, `frame` under 2 ms, ten entities). `TranslatedHeaderTests` audits that the twelve translating files carry the Blockout header, pinned commit, licence and author, and that no other file claims to be a translation. No integration fixes: no lane has reported a defect in PrevisCore. See the A6 notes below. |
 
 **A5 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS` and `PREVIS_GOLDENS` set): 101 run, 101 passed, 0 failed.
 
@@ -156,6 +156,19 @@ entity at its placement, camera at the first mark); A1's catalog and importer. G
 (`paths()`, `warnings()`, validation) are still skeletons: A2 to A5.
 
 **See it:** `swift test --package-path app/PrevisCore`.
+
+## A6 notes
+
+- **Timing is not measured here.** The budgets are release builds on Apple silicon, measured by Lane B with
+  `SHOTS_TIMING=1 swift test -c release --package-path PrevisCore --filter Timing`. A Linux x86_64 release run on agent-cx53
+  (indicative only, not the budget and not a Mac number) gave `init` median 0.054 ms and `frame` mean 0.12 ms with ten entities.
+  CI does not run the test.
+- **Header audit.** Files that translate Blockout code carry the header: ActionPaths, AttachmentGraph, Attachments,
+  CameraMovePresets, Framing, Kernels, Motions, PersonRig, Plans, QuadrupedRig, ShotEvaluator, Warnings. The rest are
+  Shots' own: documents, values, decoding, content, import, evaluation values, bodies composition (it uses the rig
+  files), camera-move wiring (it calls CameraMovePresets) and sample data. The test fails if a file claims a translation
+  but is not in the list.
+- **Lane reports.** Nothing in the B, C or D status files or open PRs asks Lane A for a change.
 
 ## Blockout reference (for independent review)
 
