@@ -1,6 +1,6 @@
 # Lane B status
 
-This file travels at the top of each Lane B checkpoint (now B5's `shots/b-media-b5`), so checkpoints that have passed review keep their exact heads.
+This file travels at the top of each Lane B checkpoint (now B6's `shots/b-media-b6`), so checkpoints that have passed review keep their exact heads.
 
 | Checkpoint | State |
 |---|---|
@@ -75,7 +75,7 @@ This file travels at the top of each Lane B checkpoint (now B5's `shots/b-media-
 - camera-mark stills as guide frames.
 
 **M1** (owner-run, outside CI): with B4, `swift run -c release shots-export --blockout <file> --out <dir>` exports a Blockout project for ComfyUI. The release build of `shots-export` succeeds on `70d588a`. |
-| B5 prompt | **Draft PR [RationallyPrime/concept-studio#79](https://github.com/RationallyPrime/concept-studio/pull/79) (`[contract]`), on `main` at `94cdbba`: code head `dfa70ba`, with this status commit on top. Reworked after the Blockout audit (2026-10-26), then closed under the owner's bounded closure (2026-10-27, below).** Its first four code commits are range-diff identical to those gated on B4's code head `70d588a` (`ced5009..981572d`); between the two bases only this file differs. `23cd878` then qualifies two calls CI's Swift 6.3 read as the local constant being declared (`Self.panned`, `Self.riding`), with no change in behaviour; ShotsMedia (80 tests) and both linters were rerun on it. `7c64083` adds the closure fixes recorded below. The merge `6342181` publishes them with the earlier published history; its tree is `5153057`'s. `dfa70ba` makes the bounded-closure fixes.
+| B5 prompt | **Landed on `main`** as merge commit `9c6532b`, by the integration owner, from head `60ec148` ([RationallyPrime/concept-studio#79](https://github.com/RationallyPrime/concept-studio/pull/79), `[contract]`). `60ec148` is the integrator's camera-versus-subject repair on top of the owner's `e53c2fd`, recorded under "Integrator repair" below; the integrator's independent closure accepted it. **Before landing: on `main` at `94cdbba`, code head `dfa70ba`, with a status commit on top. Reworked after the Blockout audit (2026-10-26), then closed under the owner's bounded closure (2026-10-27, below).** Its first four code commits are range-diff identical to those gated on B4's code head `70d588a` (`ced5009..981572d`); between the two bases only this file differs. `23cd878` then qualifies two calls CI's Swift 6.3 read as the local constant being declared (`Self.panned`, `Self.riding`), with no change in behaviour; ShotsMedia (80 tests) and both linters were rerun on it. `7c64083` adds the closure fixes recorded below. The merge `6342181` publishes them with the earlier published history; its tree is `5153057`'s. `dfa70ba` makes the bounded-closure fixes.
 
 **Built:**
 - **`PromptFacts`:**
@@ -218,7 +218,45 @@ This file travels at the top of each Lane B checkpoint (now B5's `shots/b-media-
   - **A subject's own jump** to a mark at the same time is cut as a one-frame stretch but not as a jump, so the aimed camera's re-aim reads as a one-frame fast pan.
   - **A camera jump just before a frame,** or two marks a fraction of a frame apart, is sampled partway across; that frame counts as a step, and its leg reads as a push.
 - **A jump in an aimed push, pull or crane:** how far it goes is still measured end to end, jump included. Pushing 2 m on a man standing still with a 2.5 m jump between reads fast and large, where the same 2 m in one push reads medium. |
-| B6–B7 | Not started |
+| B6 app support and budgets | **Draft PR [RationallyPrime/concept-studio#80](https://github.com/RationallyPrime/concept-studio/pull/80) on `main` at `139a2e4`: code head `c261b67`, with this status commit on top.** Unblocks D6.
+
+**Progress steps Lane C can show.** Lane C's export view (`ShotsExportView`) shows each step as it comes. The steps used to be file paths ("Writing control/pose.mp4"); they are now plain words, after Blockout's `Rendering <pass> pass…` (`src/renderer/export/exporter.ts:295`):
+- one step per video, in pass order: "Rendering the clean pass…", "Drawing the pose pass…", "Drawing the layout pass…", then "Rendering the matte of <name>…" for each actor;
+- then "Checking the package…", at fraction 1.
+- The fraction counts frames across all videos and never goes back. Lane C's IT3 checks only that it ends at 1, so it is unaffected.
+
+**Cancellation.** Cancelling during any step, the check included, throws `CancellationError` and leaves neither a staging folder nor a package.
+- **Fixed:** cancelling during the check used to fail as "The exported package isn't valid: … can't be read: … CancellationError", because the validator could no longer read the videos. The staging folder was still removed. The exporter now checks for cancellation before reading the validator's problems.
+- **Blockout differs:** it writes straight into the package folder, so a cancelled export leaves a partial package (`exporter.ts:133-137`, `:364-370`). The staged export here was already the plan's (CONTRACTS section 6).
+- **Blockout's test** (`tests/e2e/cancel-export.spec.ts:31-72`) cancels once, on a timer, and checks that the result is "cancelled" and no `.mp4` is left. Ours, `cancellingDuringAnyStepLeavesNothingBehind`, cancels during each step in turn, and checks that the destination is empty.
+
+**Budgets** (CONTRACTS section 10). Measured in release builds on this Mac: Apple M4, 10 cores, macOS 27.0.1, local Swift 6.4. CI uses Swift 6.3 and never sets `SHOTS_TIMING`.
+- **Lane A,** `SHOTS_TIMING=1 swift test -c release --filter Timing --package-path PrevisCore`, with ten entities:
+  - `ShotEvaluator.init` median 0.017 ms (budget 5);
+  - `frame` mean 0.052 ms over 372 frames (budget 2).
+  - The test is Lane A's draft PR #75 (`9a3ef8e`), run on a copy of `main`'s PrevisCore. It is not part of this branch.
+- **Lane B,** `SHOTS_TIMING=1 swift test -c release --filter Timing` in `app/`, on the full sample (124 frames, 640 × 1152, two actors):
+  - `ShotFrameRenderer.image`: median 2.0 ms over 21 frames, at most 4.5 ms (budget 40);
+  - the standard export: 1.64 s in all (budget 30). Clean 0.30 s, pose 0.25 s, layout 0.26 s, the two mattes 0.29 s and 0.26 s, and the check 0.02 s.
+  - The app's `Timing` filter also matches one unrelated test, `eachModelKeepsItsOwnFrameGridAndTiming`, which passes.
+- **Lane D's** viewport budget is measured in D6.
+
+**Reports from C and D:** none is open for Lane B. D6 waits on B6. Lane C's note on an Xcode 26.6 CI hang has no reproduction, and `main`'s CI at `139a2e4` passed.
+
+**Gates on `c261b67` with this file:**
+- **Tests:** the app passes 948 tests in 157 suites. ShotsMedia passes 102 tests in 13 suites with `PREVIS_VECTORS` set and without it. PrevisCore passes 148.
+- **Export and lint:** `shots-export --sample` is valid, and swiftlint and swiftformat are clean.
+- **Preimage:** both new tests fail on `139a2e4`.
+
+**Undo checks: six, each failing its own test:**
+- the cancellation check moved back after the problems guard, or removed;
+- the staging folder kept on error;
+- an unnamed matte step;
+- file-path steps;
+- a fraction that restarts with each video.
+
+**Review:** the Codex review loop on the draft, then the integrator's independent acceptance. Lane B doesn't merge its own work. |
+| B7 walkthrough fixes | Not started |
 
 ## W0 verification (2026-10-26, Apple silicon, Swift 6.4 locally; CI runs Swift 6.3)
 
