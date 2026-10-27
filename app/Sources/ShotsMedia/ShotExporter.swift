@@ -41,12 +41,13 @@ import PrevisCore
                 progress: progress
             )
             let manifest = try await writer.write(passes: passes)
-            progress(ExportProgress(step: "Validating", fractionCompleted: 1))
+            progress(ExportProgress(step: "Checking the package…", fractionCompleted: 1))
             let problems = await PackageValidator.problems(at: staging)
+            // Cancelled while checking, the validator can't read the videos; that is the cancellation, not a fault.
+            try Task.checkCancellation()
             guard problems.isEmpty else {
                 throw ShotsMediaError("The exported package isn't valid: \(problems.joined(separator: " "))")
             }
-            try Task.checkCancellation()
             let url = try await destination.deliver(staged: staging, manifest: manifest)
             return ExportedPackage(url: url, manifest: manifest)
         } catch {
@@ -102,19 +103,19 @@ import PrevisCore
             case .clean:
                 try await video(
                     PackageFile(role: .reference, path: "reference/clean.mp4", variant: .clean, frameCount: count),
-                    guides: .clean
+                    guides: .clean, step: "Rendering the clean pass…"
                 ) {
                     try await self.render($0, matte: nil, into: $1)
                 }
             case .pose:
                 try await video(
                     PackageFile(role: .control, path: "control/pose.mp4", variant: .pose, frameCount: count),
-                    guides: .pose
+                    guides: .pose, step: "Drawing the pose pass…"
                 ) { try PassDrawing.pose($0, into: $1) }
             case .layout:
                 try await video(
                     PackageFile(role: .control, path: "control/layout.mp4", variant: .layout, frameCount: count),
-                    guides: .layout
+                    guides: .layout, step: "Drawing the layout pass…"
                 ) { try PassDrawing.layout($0, into: $1) }
             case .matte:
                 for (actor, slug) in zip(actors, PackageNames.entitySlugs(actors.map(\.name))) {
@@ -155,12 +156,15 @@ import PrevisCore
                 entityID: actor.id, entityName: actor.name
             )
         }
-        try await video(movie, stills: stills) { try await self.render($0, matte: actor.id, into: $1) }
+        try await video(movie, stills: stills, step: "Rendering the matte of \(actor.name)…") {
+            try await self.render($0, matte: actor.id, into: $1)
+        }
     }
 
     private func video(
         _ file: PackageFile,
         guides variant: PackageFile.Variant,
+        step: String,
         draw: @escaping @MainActor (SceneFrame, CVPixelBuffer) async throws -> Void
     ) async throws {
         let stills = guides.map { guide in
@@ -170,13 +174,15 @@ import PrevisCore
                 position: guide.position, variant: variant, frame: guide.frame
             )
         }
-        try await video(file, stills: stills, draw: draw)
+        try await video(file, stills: stills, step: step, draw: draw)
     }
 
-    /// Writes one video, and each still from the very pixels of its frame.
+    /// Writes one video, and each still from the very pixels of its frame. `step` is what Lane C shows meanwhile,
+    /// in plain words, as Blockout's "Rendering <pass> pass…" (`src/renderer/export/exporter.ts:295`).
     private func video(
         _ file: PackageFile,
         stills: [PackageFile],
+        step: String,
         draw: @escaping @MainActor (SceneFrame, CVPixelBuffer) async throws -> Void
     ) async throws {
         let url = try prepare(file.path)
@@ -188,7 +194,7 @@ import PrevisCore
             frameCount: frames.count,
             progress: { index in
                 self.progress(ExportProgress(
-                    step: "Writing \(file.path)",
+                    step: step,
                     fractionCompleted: (done + Double(index + 1) / count) / total
                 ))
             },
