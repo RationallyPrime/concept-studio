@@ -107,6 +107,33 @@ struct PackageNamingTests {
         #expect(await PackageValidator.problems(at: package) == ["shot.json is listed more than once."])
     }
 
+    /// The validator checks only the passes the manifest lists: layout alone needs no clean video or mattes.
+    @Test @MainActor func aLayoutOnlyExportValidatesWithoutTheOtherPasses() async throws {
+        let parent = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let package = try await exportSmallSample(to: parent, options: ExportOptions(passes: [.layout]))
+        #expect(await PackageValidator.problems(at: package.url) == [])
+        #expect(package.manifest.passes == [.layout])
+        let roles = Dictionary(grouping: package.manifest.files, by: \.role).mapValues(\.count)
+        #expect(roles == [.guide: 3, .control: 1, .description: 1])
+    }
+
+    @Test(arguments: [
+        ["--sample"],
+        ["--sample", "--out", "out", "--bogus"],
+        ["--sample", "--document", "shots.json", "--out", "out"],
+        ["--sample", "--shot", "shot_1", "--out", "out"],
+        ["--document", "shots.json", "--out", "out"],
+        ["--document", "shots.json", "--shot", "shot_1", "--frames", "22", "--out", "out"],
+        ["--blockout", "project.json", "--frames", "23", "--out", "out"],
+        ["--blockout", "project.json", "--canvas", "100x100", "--out", "out"],
+        ["--blockout", "project.json", "--canvas", "640xabcx1152", "--out", "out"],
+        ["--blockout", "project.json", "--passes", "clean,depth", "--out", "out"],
+    ])
+    @MainActor func aCommandLineItCanNotRunIsAUsageError(_ arguments: [String]) async {
+        #expect(await ShotsCommandLine.run(arguments: arguments) == 2)
+    }
+
     /// Camera at the origin looking down −Z with a 90° vertical field of view: a box from depth 1 to behind the
     /// camera shows its far side at x = 352 and reaches past the canvas's right, top and bottom edges at the near
     /// plane.
@@ -166,7 +193,7 @@ struct PackageTests {
         let out = try scratchFolder()
         defer { try? FileManager.default.removeItem(at: out) }
         #expect(await ShotsCommandLine.run(arguments: ["--sample", "--out", out.path]) == 0)
-        let package = try Self.onlyPackage(in: out)
+        let package = try onlyPackage(in: out)
         #expect(await PackageValidator.problems(at: package) == [])
         let manifest = try JSONDecoder().decode(
             PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
@@ -225,19 +252,160 @@ struct PackageTests {
         return try Pixels(#require(context.makeImage()))
     }
 
-    @Test func theValidatorNamesAMissingFile() async throws {
-        let parent = try scratchFolder()
-        defer { try? FileManager.default.removeItem(at: parent) }
-        let package = try await Self.exportSmallSample(to: parent).url
+    /// The small sample through `--document`, then one file deleted from the valid package.
+    @Test func aDocumentExportValidatesUntilAFileGoesMissing() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        var document = ShotsSamples.twoPersonWalk(small: true)
+        let shot = try #require(document.scenes.first?.shots.first)
+        let facts = try ShotPromptCompiler.facts(
+            scene: document.scenes[0],
+            shotID: shot.id,
+            catalog: ContentCatalog.bundled()
+        )
+        let prompt = ShotPromptCompiler.template(facts)
+        document.scenes[0].shots[0].prompt = prompt
+        // The blocking changed after the prompt was written, so the package says the prompt is stale.
+        document.scenes[0].revision += 1
+        let path = input.appendingPathComponent("shots.json")
+        try JSONEncoder().encode(document).write(to: path)
+        let arguments = ["--document", path.path, "--shot", shot.id, "--out", parent.path]
+        #expect(await ShotsCommandLine.run(arguments: arguments) == 0)
+        let package = try onlyPackage(in: parent)
         #expect(await PackageValidator.problems(at: package) == [])
+        // A shot with a prompt carries it exactly as stored, with its sections and facts beside it.
+        #expect(try String(contentsOf: package.appendingPathComponent("prompt.txt"), encoding: .utf8) == prompt.text)
+        let manifest = try JSONDecoder().decode(
+            PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+        )
+        #expect(manifest.files.filter { $0.role == .prompt || $0.role == .promptSections }.map(\.path)
+            == ["prompt.txt", "prompt.json"])
+        let promptFile = try #require(JSONSerialization.jsonObject(
+            with: Data(contentsOf: package.appendingPathComponent("prompt.json"))
+        ) as? [String: Any])
+        #expect(promptFile["sceneRevision"] as? Int == 0)
+        #expect((promptFile["problems"] as? [String])?.map { $0.contains("now at revision 1") } == [true])
         try FileManager.default.removeItem(at: package.appendingPathComponent("control/layout.mp4"))
         #expect(await PackageValidator.problems(at: package) == ["control/layout.mp4 is listed but missing."])
+    }
+
+    /// IT2: Blockout's project format through the import and the exporter, then the same through the command line,
+    /// both at 22 frames and 320 × 576.
+    @Test func aBlockoutProjectExportsThroughTheImportAndTheCommandLine() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        let project = input.appendingPathComponent("project.json")
+        try ShotsSamples.blockoutProjectJSON().write(to: project)
+        let catalog = try ContentCatalog.bundled()
+        let imported = try BlockoutImport.document(fromProjectJSON: Data(contentsOf: project), catalog: catalog)
+        var scene = try #require(imported.0.scenes.first)
+        scene.shots[0].frameCount = 22
+        scene.shots[0].canvas = ShotCanvas(width: 320, height: 576)
+        scene.shots[0].guideFrames = scene.shots[0].guideFrames.filter { $0 > 0 && $0 < 21 }
+        let direct = try await ShotExporter(catalog: catalog).export(
+            scene: scene, shotID: scene.shots[0].id, options: .standard,
+            to: FolderDestination(parent: parent.appendingPathComponent("direct")), progress: { _ in }
+        )
+        #expect(await PackageValidator.problems(at: direct.url) == [])
+        let out = parent.appendingPathComponent("command-line")
+        let arguments = ["--blockout", project.path, "--frames", "22", "--canvas", "320x576", "--out", out.path]
+        #expect(await ShotsCommandLine.run(arguments: arguments) == 0)
+        let package = try onlyPackage(in: out)
+        #expect(await PackageValidator.problems(at: package) == [])
+        let manifest = try JSONDecoder().decode(
+            PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+        )
+        for written in [direct.manifest, manifest] {
+            #expect(written.frameCount == 22 && written.canvas == ShotCanvas(width: 320, height: 576))
+            #expect(written.passes == PassKind.allCases)
+        }
+    }
+
+    /// `--shot` by name refuses a name two shots share instead of exporting the first of them.
+    @Test func aShotNameTwoShotsShareIsRefused() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        var project = try #require(
+            JSONSerialization.jsonObject(with: ShotsSamples.blockoutProjectJSON()) as? [String: Any]
+        )
+        var scenes = try #require(project["scenes"] as? [[String: Any]])
+        var shots = try #require(scenes[0]["shots"] as? [[String: Any]])
+        var twin = shots[0]
+        twin["id"] = "shot-twin"
+        shots.append(twin)
+        scenes[0]["shots"] = shots
+        project["scenes"] = scenes
+        let path = input.appendingPathComponent("project.json")
+        try JSONSerialization.data(withJSONObject: project).write(to: path)
+        let name = try #require(twin["name"] as? String)
+        let byName = ["--blockout", path.path, "--shot", name, "--out", parent.path]
+        #expect(await ShotsCommandLine.run(arguments: byName) == 1)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == [])
+        // By id it exports, and `--passes clean` validates with the clean pass alone.
+        let byID = ["--blockout", path.path, "--shot", "shot-twin", "--frames", "5", "--passes", "clean"]
+        #expect(await ShotsCommandLine.run(arguments: byID + ["--out", parent.path]) == 0)
+        let package = try onlyPackage(in: parent)
+        #expect(await PackageValidator.problems(at: package) == [])
+        let manifest = try writtenManifest(package)
+        #expect(manifest.shot.id == "shot-twin" && manifest.frameCount == 5 && manifest.passes == [.clean])
+    }
+
+    /// Without `--scene` and `--shot` the first scene's first shot exports, as Blockout opens a project
+    /// (`src/renderer/store.ts:233-239`). `--scene` takes a scene's id or its index from 0.
+    @Test func theFirstSceneAndShotExportUnlessOthersAreNamed() async throws {
+        let parent = try scratchFolder(), input = try scratchFolder()
+        defer {
+            try? FileManager.default.removeItem(at: parent)
+            try? FileManager.default.removeItem(at: input)
+        }
+        var project = try #require(
+            JSONSerialization.jsonObject(with: ShotsSamples.blockoutProjectJSON()) as? [String: Any]
+        )
+        var scenes = try #require(project["scenes"] as? [[String: Any]])
+        var shots = try #require(scenes[0]["shots"] as? [[String: Any]])
+        var second = shots[0]
+        second["id"] = "shot-1b"
+        shots.append(second)
+        scenes[0]["shots"] = shots
+        var other = scenes[0]
+        other["id"] = "scene-2"
+        other["number"] = 2
+        other["shots"] = try shots.map { shot in
+            var copy = shot
+            copy["id"] = try "scene-2-" + #require(shot["id"] as? String)
+            return copy
+        }
+        scenes.append(other)
+        project["scenes"] = scenes
+        let path = input.appendingPathComponent("project.json")
+        try JSONSerialization.data(withJSONObject: project).write(to: path)
+        let runs: [([String], String, String)] = [
+            ([], "shot-1", "scene-1"),
+            (["--scene", "1"], "scene-2-shot-1", "scene-2"),
+            (["--scene", "scene-2", "--shot", "scene-2-shot-1b"], "scene-2-shot-1b", "scene-2"),
+        ]
+        for (index, (options, shotID, sceneID)) in runs.enumerated() {
+            let out = parent.appendingPathComponent("run-\(index)")
+            let arguments = ["--blockout", path.path, "--frames", "5", "--passes", "layout"] + options
+            #expect(await ShotsCommandLine.run(arguments: arguments + ["--out", out.path]) == 0)
+            let manifest = try writtenManifest(onlyPackage(in: out))
+            #expect(manifest.shot.id == shotID && manifest.shot.sceneID == sceneID, "\(options)")
+        }
     }
 
     @Test func theValidatorNamesAVideoListedWithoutTheFrameCount() async throws {
         let parent = try scratchFolder()
         defer { try? FileManager.default.removeItem(at: parent) }
-        let exported = try await Self.exportSmallSample(to: parent)
+        let exported = try await exportSmallSample(to: parent)
         var manifest = exported.manifest
         let index = try #require(manifest.files.firstIndex { $0.path == "control/pose.mp4" })
         manifest.files[index].frameCount = nil
@@ -252,7 +420,7 @@ struct PackageTests {
         defer { try? FileManager.default.removeItem(at: parent) }
         let box = ExportTaskBox()
         box.task = Task {
-            try await Self.exportSmallSample(to: parent) { _ in
+            try await exportSmallSample(to: parent) { _ in
                 if let task = box.task, !task.isCancelled { Task { task.cancel() } }
             }
         }
@@ -260,26 +428,34 @@ struct PackageTests {
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(try FileManager.default.contentsOfDirectory(atPath: parent.path) == [])
     }
+}
 
-    private static func exportSmallSample(
-        to parent: URL,
-        progress: @escaping @MainActor (ExportProgress) -> Void = { _ in }
-    ) async throws -> ExportedPackage {
-        let scene = try #require(ShotsSamples.twoPersonWalk(small: true).scenes.first)
-        let shot = try #require(scene.shots.first)
-        return try await ShotExporter(catalog: ContentCatalog.bundled()).export(
-            scene: scene, shotID: shot.id, options: .standard, to: FolderDestination(parent: parent), progress: progress
-        )
-    }
+@MainActor private func exportSmallSample(
+    to parent: URL,
+    options: ExportOptions = .standard,
+    progress: @escaping @MainActor (ExportProgress) -> Void = { _ in }
+) async throws -> ExportedPackage {
+    let scene = try #require(ShotsSamples.twoPersonWalk(small: true).scenes.first)
+    let shot = try #require(scene.shots.first)
+    return try await ShotExporter(catalog: ContentCatalog.bundled()).export(
+        scene: scene, shotID: shot.id, options: options, to: FolderDestination(parent: parent), progress: progress
+    )
+}
 
-    private static func onlyPackage(in out: URL) throws -> URL {
-        let manager = FileManager.default
-        let shots = try manager.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)
-        try #require(shots.count == 1)
-        let packages = try manager.contentsOfDirectory(at: shots[0], includingPropertiesForKeys: nil)
-        try #require(packages.count == 1)
-        return packages[0]
-    }
+/// The one package a FolderDestination wrote under `out`.
+private func onlyPackage(in out: URL) throws -> URL {
+    let manager = FileManager.default
+    let shots = try manager.contentsOfDirectory(at: out, includingPropertiesForKeys: nil)
+    try #require(shots.count == 1)
+    let packages = try manager.contentsOfDirectory(at: shots[0], includingPropertiesForKeys: nil)
+    try #require(packages.count == 1)
+    return packages[0]
+}
+
+private func writtenManifest(_ package: URL) throws -> PackageManifest {
+    try JSONDecoder().decode(
+        PackageManifest.self, from: Data(contentsOf: package.appendingPathComponent("manifest.json"))
+    )
 }
 
 @MainActor private final class ExportTaskBox {
