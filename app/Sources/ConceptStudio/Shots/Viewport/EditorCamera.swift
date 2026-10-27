@@ -48,13 +48,22 @@ struct EditorCamera: Sendable, Equatable {
         self.sensor = sensor
     }
 
-    static let defaultView = EditorCamera()
+    static let defaultView = EditorCamera(
+        target: Vec3(0, 0.9, -0.5),
+        distance: 7.5,
+        yaw: 0.18,
+        pitch: -0.25,
+        focalLength: 24,
+        sensor: .super35
+    )
 
     static let topView = EditorCamera(
-        target: .zero,
+        target: Vec3(0, 0, -0.8),
         distance: 10.0,
         yaw: 0,
-        pitch: -maxPitch
+        pitch: -maxPitch,
+        focalLength: 24,
+        sensor: .super35
     )
 
     /// Camera orientation in world space (`R = Ry(yaw) * Rx(pitch)`).

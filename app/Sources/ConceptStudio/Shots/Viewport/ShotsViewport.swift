@@ -1,55 +1,226 @@
+import AppKit
+import Observation
 import PrevisCore
+import RealityKit
+import ShotsMedia
 import SwiftUI
 
-/// Free editor camera viewport for 3D shot blocking (CONTRACTS section 7).
-/// D0 provides the placeholder surface wired to `ShotsStore` and `EditorCamera`.
-struct ShotsViewport: View {
-    let store: ShotsStore
-    @State private var editorCamera = EditorCamera.defaultView
+/// Live viewport scene state shared between `ShotsViewport`'s `RealityView` and `ViewportScrollWheelOverlay`.
+/// Synchronizing through this object ensures that stage updates (`store.frame`, `store.currentScene?.lighting`)
+/// and input gestures (`EditorCamera`) apply deterministically both inside live `RealityView` rendering
+/// and during headless AppKit hosting layout/event routing.
+@MainActor
+@Observable
+final class ViewportLiveSession {
+    var editorCamera = EditorCamera.defaultView
+    let mapper = PrevisSceneMapper(look: PrevisLook(lighting: .day))
+    let overlayRoot = ViewportGrid.makeOverlayRoot()
+    let skyDome = ViewportGrid.makeSkyDomeEntity(for: .day)
+    var viewportSize = PixelSize(width: 640, height: 480)
+    private(set) var activeLighting: LightingPreset = .day
 
-    init(store: ShotsStore) {
-        self.store = store
+    func sync(with store: ShotsStore, frame: SceneFrame?, size: PixelSize) {
+        viewportSize = size
+        let lighting = store.currentScene?.lighting ?? .day
+        activeLighting = lighting
+        mapper.setLook(PrevisLook(lighting: lighting))
+        ViewportGrid.updateSkyDome(skyDome, for: lighting)
+
+        if let frame {
+            mapper.apply(frame)
+        } else {
+            let emptyFrame = SceneFrame(
+                index: 0,
+                time: 0,
+                canvas: store.currentShot?.canvas ?? .portrait,
+                camera: editorCamera.cameraFrame(for: size),
+                entities: []
+            )
+            mapper.apply(emptyFrame)
+        }
+        syncCamera()
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "cube.transparent")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Text("3D blocking viewport")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Spacer()
-                if store.isReadOnly {
-                    Text("Read-only")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.primary.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
-                }
+    func syncCamera() {
+        _ = mapper.cameraEntity(for: editorCamera.cameraFrame(for: viewportSize))
+    }
+
+    var mappedEntityContainerNames: [String] {
+        var names: [String] = []
+        func collect(from entity: Entity) {
+            if entity.name.hasPrefix("previs:") {
+                names.append(entity.name)
             }
-
-            Text(summaryText)
-                .font(.system(size: 13))
-                .foregroundStyle(StudioStyle.supportingText)
-                .monospacedDigit()
-
-            Text(cameraSummaryText)
-                .font(.system(size: 12))
-                .foregroundStyle(StudioStyle.supportingText)
-                .monospacedDigit()
+            for child in entity.children {
+                collect(from: child)
+            }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .background(InstantPrint.ground, in: RoundedRectangle(cornerRadius: 6))
+        collect(from: mapper.root)
+        return names.sorted()
+    }
+}
+
+/// Free editor camera viewport for 3D shot blocking (CONTRACTS section 7).
+/// D1 renders `store.frame` through `PrevisSceneMapper` alongside a separate `overlayRoot` holding the ground grid,
+/// with post effects disabled and orbit/pan/dolly trackpad and mouse gestures.
+///
+/// Reference: Blockout `src/renderer/viewport/Viewport.tsx:19-99, 329-604` and
+/// `src/renderer/viewport/SceneManager.ts:178-255, 370-403, 764-796, 1994-2113`.
+/// Intentional Swift/RealityKit deviations:
+/// - `RealityView` mounts separate root entities (`mapper.root`, `overlayRoot`, and `skyDome`) so editor chrome never
+///   leaks into exported passes (`LANE-D-VIEWPORT.md` lines 38-44; `SHOTS-PLAN.md` section 4).
+/// - Post effects (`motionBlur`, `depthOfField`, `cameraGrain`, HDR) are disabled on `RealityView` content.
+struct ShotsViewport: View {
+    let store: ShotsStore
+
+    @State var session = ViewportLiveSession()
+
+    var body: some View {
+        let activeLighting = store.currentScene?.lighting ?? .day
+        let currentFrame = store.frame
+
+        GeometryReader { geometry in
+            let currentSize = PixelSize(
+                width: max(Int(geometry.size.width.rounded()), 1),
+                height: max(Int(geometry.size.height.rounded()), 1)
+            )
+            ZStack(alignment: .topLeading) {
+                ViewportGrid.backgroundColor(for: activeLighting)
+
+                RealityView { content in
+                    content.renderingEffects.motionBlur = .disabled
+                    content.renderingEffects.depthOfField = .disabled
+                    content.renderingEffects.cameraGrain = .disabled
+                    content.renderingEffects.dynamicRange = .standard
+                    ViewportGrid.disableOcclusionCulling(on: session.mapper.root)
+                    ViewportGrid.disableOcclusionCulling(on: session.overlayRoot)
+                    ViewportGrid.disableOcclusionCulling(on: session.skyDome)
+                    content.add(session.skyDome)
+                    content.add(session.mapper.root)
+                    content.add(session.overlayRoot)
+                    syncScene(in: content, frame: currentFrame, size: currentSize)
+                } update: { content in
+                    syncScene(in: content, frame: currentFrame, size: currentSize)
+                }
+
+                ViewportScrollWheelOverlay(
+                    session: session,
+                    onSync: {
+                        session.sync(with: store, frame: currentFrame, size: currentSize)
+                    },
+                    onScroll: { event in
+                        let optionPressed = event.modifierFlags.contains(.option)
+                        ViewportCameraGestures.applyScrollOrTrackpad(
+                            to: &session.editorCamera,
+                            scrollingDeltaX: event.scrollingDeltaX,
+                            scrollingDeltaY: event.scrollingDeltaY,
+                            hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+                            optionPressed: optionPressed,
+                            viewportSize: currentSize
+                        )
+                        session.syncCamera()
+                    },
+                    onDrag: { delta, optionPressed in
+                        ViewportCameraGestures.applyDrag(
+                            to: &session.editorCamera,
+                            deltaPoints: delta,
+                            viewportSize: currentSize,
+                            optionPressed: optionPressed
+                        )
+                        session.syncCamera()
+                    },
+                    onMagnify: { magnification in
+                        ViewportCameraGestures.applyMagnify(
+                            to: &session.editorCamera,
+                            magnification: magnification
+                        )
+                        session.syncCamera()
+                    }
+                )
+
+                if hasEmptyStage {
+                    emptyStagePrompt
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .allowsHitTesting(false)
+                }
+
+                viewportHUD
+                    .allowsHitTesting(false)
+            }
+            .onAppear {
+                session.sync(with: store, frame: currentFrame, size: currentSize)
+            }
+            .onChange(of: currentSize) { _, updated in
+                session.sync(with: store, frame: currentFrame, size: updated)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
+                .strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityDescription)
+    }
+
+    private func syncScene(in content: RealityViewCameraContent, frame: SceneFrame?, size: PixelSize) {
+        session.sync(with: store, frame: frame, size: size)
+        let cameraEntity = session.mapper.cameraEntity(for: session.editorCamera.cameraFrame(for: size))
+        if cameraEntity.parent == nil, !content.entities.contains(where: { $0 === cameraEntity }) {
+            content.add(cameraEntity)
+        }
+    }
+
+    private var viewportHUD: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "cube.transparent")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text(summaryText)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+            if store.isReadOnly {
+                Text("Read-only")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(InstantPrint.chipText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(InstantPrint.chip, in: RoundedRectangle(cornerRadius: 4))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(InstantPrint.ground.opacity(0.88), in: RoundedRectangle(cornerRadius: 5))
+        .overlay {
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        }
+        .padding(10)
+    }
+
+    private var emptyStagePrompt: some View {
+        VStack(spacing: 6) {
+            Text("3D blocking viewport")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text(
+                store.currentShot == nil
+                    ? "No active shot selected."
+                    : "Click a library item, then click the floor to place it."
+            )
+            .font(.system(size: 12))
+            .foregroundStyle(StudioStyle.supportingText)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(InstantPrint.ground.opacity(0.88), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var hasEmptyStage: Bool {
+        guard let scene = store.currentScene else { return true }
+        return (store.frame?.entities.count ?? scene.entities.count) == 0
     }
 
     private var summaryText: String {
@@ -57,13 +228,9 @@ struct ShotsViewport: View {
             return "No active shot selected."
         }
         let entityCount = store.frame?.entities.count ?? scene.entities.count
+        let lens = Int((store.frame?.camera.focalLength ?? 35).rounded())
         let frameSummary = "Frame \(store.playhead) of \(shot.frameCount)"
-        return "\(scene.name) · Shot \(shot.name) · \(frameSummary) · \(entityCount) entities"
-    }
-
-    private var cameraSummaryText: String {
-        let distance = String(format: "%.1f", editorCamera.distance)
-        return "Editor camera · \(distance) m from target"
+        return "\(scene.name) · Shot \(shot.name) · \(lens) mm · \(frameSummary) · \(entityCount) entities"
     }
 
     private var accessibilityDescription: String {
