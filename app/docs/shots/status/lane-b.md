@@ -322,3 +322,25 @@ Ari, the integration owner, lands Shots checkpoints. She lands them in dependenc
     Both change shared CI configuration, so Lane B proposes and doesn't pick.
 
 - Where does Lane D run? It needs macOS with Xcode and RealityKit.
+
+## Integrator repair: distinguish camera motion from subject motion (2026-10-27)
+
+The owner-published `e53c2fd` restored an authored crane but narrated a level camera as a downward pedestal when
+only its subject rose. Ari takes this repair in an isolated branch under the user's explicit authority to land B5;
+Claude's committed history and checkout remain preserved. The earlier proposed listed-tests-only acceptance bar
+is not a waiver of confirmed material defects.
+
+The repair measures crane direction and amplitude from actual evaluated world camera height, excluding jumps
+from amplitude. Horizontal subject separation measures push/pull, so subject height alone cannot invent a dolly.
+A camera rising alongside its subject still cranes even if their relative height is constant. A straight-over pass
+whose endpoint radii match keeps its existing camera-motion fallback rather than becoming a false track.
+
+Reference: Blockout `3f2d056`, `src/engine/camera-moves.ts:488-518` (Pedestal Up moves from `ctx.camera.y`),
+and `422-452` (Crane-Up Reveal authors actual camera positions). Blockout has no equivalent H3 motion classifier;
+this is the Swift prompt-facts adaptation, not a new translation or an alteration to the evaluator.
+
+Regression coverage combines camera/subject rises of -3.5, 0 and +3.5 metres at shared forward speeds 0, 6 and
+12 m/s: 27 scenarios, checking evaluated camera height, actual crane direction/amplitude, no false pedestal in
+text, and stationary/tilt/tracking controls. Existing authored-crane cases at both speeds and Blockout preset
+oracles remain active. The preimage fails the new matrix and restored repair passes. Final independent closure,
+full exact-head verification and CI remain required; native/M1/M2 acceptance is separate.

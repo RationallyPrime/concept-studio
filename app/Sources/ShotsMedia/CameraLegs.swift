@@ -250,7 +250,13 @@ enum CameraLegs {
                 offsets(step.0, step.1, local: local)
                     .map { total + turn(azimuth($0.before), azimuth($0.after)) } ?? total
             }
-        return relative(before, after, swept: swept, least: keyed ? minimumTravel : 0.005) ?? .track
+        let least = keyed ? minimumTravel : 0.005
+        if let named = relative(
+            before, after, swept: swept, rise: end.camera.position.y - start.camera.position.y, least: least
+        ) { return named }
+        // Passing straight across the subject can end at the same radius without being a follow.
+        return hypot(after.x - before.x, after.z - before.z) >= least
+            ? free(move, from: a.camera, to: b.camera) : .track
     }
 
     /// The planted camera's largest change, in units of the least that names a move, so a turn and a zoom compare;
@@ -285,16 +291,21 @@ enum CameraLegs {
         return lateral > 0 ? .truckRight : .truckLeft
     }
 
-    /// The camera's move relative to the subject, from its offset to the subject before and after and the angle it
-    /// `swept` round him on the way: the largest of going round it (an orbit), toward or away from it (a push or
-    /// pull), and up or down (a crane), or nil when the offset and the way round change by less than `least`, so
-    /// whatever travel there is only keeps up with the subject. A crane wins over a push when most of the change in
-    /// distance
-    /// is height, as it is when looking straight down, where going round means nothing.
-    private static func relative(_ before: Vec3, _ after: Vec3, swept: Double, least: Double) -> CameraMove? {
+    /// Horizontal camera motion relative to the subject distinguishes orbit and push/pull. A crane uses the
+    /// camera's actual world-height change: a rising subject cannot pedestal a level camera, and a camera
+    /// rising alongside its subject still cranes even when their relative height is constant.
+    private static func relative(
+        _ before: Vec3,
+        _ after: Vec3,
+        swept: Double,
+        rise: Double,
+        least: Double
+    ) -> CameraMove? {
         let radius = (hypot(before.x, before.z) + hypot(after.x, after.z)) / 2
-        let arc = abs(swept) * radius, radial = length(after) - length(before), rise = after.y - before.y
-        guard length(difference(after, before)) >= least || arc >= least else { return nil }
+        // A pedestal is camera motion in world height, not the subject rising under a level camera.
+        // Horizontal separation names push/pull independently of either height.
+        let arc = abs(swept) * radius, radial = hypot(after.x, after.z) - hypot(before.x, before.z)
+        guard max(abs(radial), abs(rise), arc) >= least else { return nil }
         if arc >= abs(radial), arc >= abs(rise) { return swept > 0 ? .orbitLeft : .orbitRight }
         if abs(rise) >= 0.8 * abs(radial) { return rise > 0 ? .craneUp : .craneDown }
         return radial < 0 ? .push : .pull
@@ -381,17 +392,21 @@ enum CameraLegs {
         }
     }
 
-    /// How far a span goes in its own measure: metres of camera path, or of change in distance or height relative to
-    /// the subject; radians swept or turned; or the log of the lens ratio.
+    /// How far a span goes in its own measure: camera path, horizontal subject separation, or actual camera
+    /// height; radians swept or turned; or the log of the lens ratio. Jumps do not add crane distance.
     private static func amount(of span: Span, samples: [Sample]) -> Double {
         let steps = zip(samples[span.from ..< span.to], samples[span.from + 1 ... span.to])
         let first = samples[span.from].camera, last = samples[span.to].camera
         switch span.move {
-        case .push, .pull, .craneUp, .craneDown:
+        case .craneUp, .craneDown:
+            return abs(steps.reduce(0) { total, step in
+                step.1.jumped ? total : total + step.1.camera.position.y - step.0.camera.position.y
+            })
+        case .push, .pull:
             guard let (before, after) = offsets(samples[span.from], samples[span.to]) else {
                 return pathLength(span, samples: samples)
             }
-            return [.push, .pull].contains(span.move) ? abs(length(after) - length(before)) : abs(after.y - before.y)
+            return abs(hypot(after.x, after.z) - hypot(before.x, before.z))
         case .truckLeft, .truckRight, .track:
             return pathLength(span, samples: samples)
         case .orbitLeft, .orbitRight:

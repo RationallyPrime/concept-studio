@@ -234,6 +234,37 @@ struct CameraLegMarkTests {
         #expect(legs.map(\.move) == [.craneUp] && legs.first?.also == [.track], "\(legs)")
     }
 
+    /// Camera height and subject height are independent: only camera motion can pedestal the camera.
+    @Test(arguments: [-3.5, 0.0, 3.5], [-3.5, 0.0, 3.5])
+    func cameraAndSubjectVerticalMotionAreIndependent(cameraRise: Double, subjectRise: Double) throws {
+        for speed in [0.0, 6.0, 12.0] {
+            let ahead = -3 * speed
+            let scene = try shotScene(
+                frames: 73,
+                marks: [mark(0, at: Vec3(0, 1.6, 6)), mark(3, at: Vec3(0, 1.6 + cameraRise, 6 + ahead))],
+                subject: ("person.man", [(0, .zero), (3, Vec3(0, subjectRise, ahead))]), aimed: true
+            )
+            let evaluated = try ShotEvaluator(
+                scene: scene, shotID: scene.shots[0].id, catalog: ContentCatalog.bundled()
+            )
+            #expect(abs(evaluated.frame(72).camera.position.y - evaluated.frame(0).camera.position.y - cameraRise) <
+                1e-9)
+            let facts = try ShotPromptCompiler.facts(
+                scene: scene, shotID: scene.shots[0].id, catalog: ContentCatalog.bundled()
+            )
+            if cameraRise == 0 {
+                #expect(!facts.cameraLegs.contains { [.craneUp, .craneDown].contains($0.move) }, "\(facts.cameraLegs)")
+                #expect(!ShotPromptCompiler.template(facts).text.contains("pedestals"))
+                let expected: CameraMove = speed > 0 ? .track
+                    : subjectRise == 0 ? .static : subjectRise > 0 ? .tiltUp : .tiltDown
+                #expect(facts.cameraLegs.map(\.move) == [expected], "\(facts.cameraLegs)")
+            } else {
+                #expect(facts.cameraLegs.map(\.move) == [cameraRise > 0 ? .craneUp : .craneDown], "\(facts.cameraLegs)")
+                #expect(facts.cameraLegs.first?.amplitude == .large)
+            }
+        }
+    }
+
     /// Off the frame grid, a stretch where the man stands holds only frames where he stands. The camera pushes in on
     /// a man who stands until 2.9 s and then sprints off, and creeps in on one who runs 10 m and stops at 3.1 s.
     /// While each stands it is a push, not a pull against a frame of his running.
