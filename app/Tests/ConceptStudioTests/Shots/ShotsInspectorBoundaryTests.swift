@@ -1,4 +1,6 @@
+import ConceptCore
 @testable import ConceptStudio
+import Foundation
 import PrevisCore
 import ShotsMedia
 import Testing
@@ -85,13 +87,26 @@ struct ShotsInspectorBoundaryTests {
         let store = try makeStore()
         let before = store.document
         let revision = try #require(store.currentScene?.revision)
-        try await ShotsPromptAction.write(store: store, facts: { scene, shotID, _ in
-            let shot = try #require(scene.shots.first { $0.id == shotID })
-            return PromptFacts(sceneRevision: scene.revision, frameCount: shot.frameCount, canvas: shot.canvas)
-        }, writer: { facts in
-            ShotPrompt(text: "A synthetic prompt", sceneRevision: facts.sceneRevision, writtenBy: "fake endpoint")
-        })
-        #expect(store.currentShot?.prompt?.sceneRevision == revision)
+        let client = InspectorPromptClient()
+        try await ShotsPromptAction.write(store: store) { facts in
+            try await ShotPromptCompiler.write(facts, endpoint: ResolvedEndpoint(client: client))
+        }
+        let prompt = try #require(store.currentShot?.prompt)
+        let received = try #require(await client.receivedFacts)
+        #expect(await client.requestCount == 1)
+        #expect(received.sceneRevision == revision && received.frameCount == 124)
+        #expect(received.cameraLegs.map(\.move) == [.push])
+        #expect(prompt.sceneRevision == revision && prompt.writtenBy == "inspector-fake")
+        #expect(prompt.text == """
+        How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second \
+        mark of the target video; Picture 2 (from Shot 1) aligns with the 5.12-second mark of the target video.
+
+        integrated_multimodal_description: [Shot 1] The man walks toward the woman.
+
+        overall_soundscape: Footsteps.
+
+        non_diegetic_music: N/A
+        """)
         #expect(store.currentScene?.revision == revision)
         store.undo()
         #expect(store.document == before)
@@ -102,9 +117,7 @@ struct ShotsInspectorBoundaryTests {
         let store = try makeStore()
         let shot = try #require(store.currentShot)
         let revision = try #require(store.currentScene?.revision)
-        try await ShotsPromptAction.write(store: store, facts: { _, _, _ in
-            PromptFacts(sceneRevision: revision, frameCount: shot.frameCount, canvas: shot.canvas)
-        }, writer: { facts in
+        try await ShotsPromptAction.write(store: store, writer: { facts in
             try store.perform(.setNotes(shot.id, ShotNotes(description: "Changed while writing", sound: "", music: "")))
             return ShotPrompt(text: "From old blocking", sceneRevision: facts.sceneRevision, writtenBy: "fake endpoint")
         })
@@ -112,14 +125,39 @@ struct ShotsInspectorBoundaryTests {
         #expect(store.currentScene?.revision == revision + 1)
         let before = store.document
         await #expect(throws: CancellationError.self) {
-            try await ShotsPromptAction.write(store: store, facts: { _, _, _ in
-                PromptFacts(sceneRevision: revision, frameCount: shot.frameCount, canvas: shot.canvas)
-            }, writer: { _ in throw CancellationError() })
+            try await ShotsPromptAction.write(store: store, writer: { _ in throw CancellationError() })
         }
         #expect(store.document == before)
     }
 
     private func makeStore() throws -> ShotsStore {
         try ShotsStore(catalog: ContentCatalog.bundled(), document: ShotsSamples.twoPersonWalk(), saveURL: nil)
+    }
+}
+
+/// Exercises the real StructuredStage/ResolvedEndpoint seam without contacting a provider.
+private actor InspectorPromptClient: ModelClient {
+    nonisolated let requestedModel = "inspector-fake"
+    private(set) var receivedFacts: PromptFacts?
+    private(set) var requestCount = 0
+
+    func request(
+        instructions: String,
+        messages: [ChatMessage],
+        output: OutputRequest,
+        settings: RequestSettings,
+        onPartialText: (@Sendable (String) async -> Void)?
+    ) async throws -> ModelReply {
+        requestCount += 1
+        let text = messages.last?.content.compactMap { content -> String? in
+            if case let .text(text) = content { return text }
+            return nil
+        }.joined(separator: "\n") ?? ""
+        let start = try #require(text.range(of: "Its facts:\n\n")?.upperBound)
+        receivedFacts = try JSONDecoder().decode(PromptFacts.self, from: Data(text[start...].utf8))
+        return ModelReply(text: """
+        {"integrated_multimodal_description":"[Shot 1] The man walks toward the woman.",
+        "overall_soundscape":"Footsteps.","non_diegetic_music":"N/A"}
+        """, servedModel: nil)
     }
 }

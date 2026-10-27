@@ -1,6 +1,6 @@
 # Lane C status
 
-Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `shots/c-shell` retained).
+Owner: Ari (Codex). Integration preparation: `shots/c5-b5-integration`; published C5/C6 drafts #76/#77 remain preserved.
 
 ## Checkpoints
 
@@ -9,10 +9,24 @@ Owner: Ari (Codex). Current checkpoint branch: `shots/c-scenes` (C0/C1 branch `s
 | C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
 | C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
 | C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
-| C3: lists, import and export | Implemented on accepted B3/main, `shots/c-scenes` | Independent current-head review and CI. |
-| C4: timeline | Geometry preparation | Timeline UI, playback timer, focus and keyboard handling. |
-| C5: inspectors, library and prompt | Pending | A4 generators, A5 corrections, B5 prompt. |
-| C6: polish | Proposal only | Integrated previews, glossary/credits and keyboard walkthrough. |
+| C3: lists, import and export | Accepted and merged, PR #70 | Native walkthrough remains integration evidence. |
+| C4: timeline | Accepted and merged, PR #71 | Native focus/keyboard walkthrough remains integration evidence. |
+| C5: inspectors, library and prompt | Draft PR #76; real B5 endpoint integration locally verified | B5 repair/acceptance, fresh final composition review/CI and native acceptance. |
+| C6: polish | Draft PR #77, stacked on C5 | Accepted dependencies, final composition and native keyboard/VoiceOver walkthrough. |
+
+### C5/B5 integration preparation (2026-10-27)
+
+Composed C5 `4fda2b5` with published B5 #79 `3679ad7` in an isolated worktree. The prompt boundary test now uses
+the actual `ShotPromptCompiler.facts` and `write` through `ResolvedEndpoint` and a fake `ModelClient`; no provider
+is contacted. It checks the facts received by the client, exact FL2VA header/sections, stored revision/model,
+unchanged scene revision and a single Undo. Stale-result and cancellation checks also use the real facts path.
+
+Local verification: four inspector boundary tests pass; full app suite reports 918 tests/153 suites passing;
+PrevisCore reports 148/20 passing; strict lint and full formatting pass. Optional model/preview and Blockout
+vector tests skip without their opt-in inputs; no known-issue result is accepted. Existing source-aligned C5
+previews are unchanged. This is preparation against an explicitly unaccepted B5 draft: its open camera-reading
+findings remain with Lane B, and this evidence must be refreshed on the eventual accepted composition.
+Native UI, keyboard/VoiceOver, M1 ComfyUI and M2 walkthrough acceptance are not established by these tests.
 
 ## C0 delivered
 
