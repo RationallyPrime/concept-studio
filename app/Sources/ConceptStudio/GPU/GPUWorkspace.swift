@@ -132,8 +132,14 @@ final class GPUWorkspace {
     /// Set while the pod draws regularisation images, before the trainer reports its first measurement.
     var regularizationProgress: RegularizationProgress?
 
-    /// Sample images during training. Off by default: sample generation is unverified (POD-SPEC 4.2).
+    /// Sample images during training, where the model's row offers them. Off by default: sample generation is
+    /// unverified (POD-SPEC 4.2).
     var samplesEnabled = false
+    /// What the samples show; blank means `defaultSamplePrompt`.
+    var samplePrompt = ""
+    /// The last Stop could not get RunPod to stop this cloud GPU (for example during a host migration). The person
+    /// may then stop tracking it and rent another.
+    var stopRefused = false
     var runID = ""
     static let defaultSeed = 42
     var seed = GPUWorkspace.defaultSeed
