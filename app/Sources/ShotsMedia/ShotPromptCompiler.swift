@@ -400,7 +400,7 @@ enum PromptTemplate {
             if [.zoomIn, .zoomOut].contains(leg.move), let end = leg.focalLength.last {
                 phrase += " to a \(millimetres(end)) lens"
             }
-            let riding = leg.also.map { riding($0, on: leg, around: target) }
+            let riding = leg.also.map { Self.riding($0, on: leg, around: target) }
             return riding.isEmpty ? phrase : phrase + " while " + riding.joined(separator: " and ")
         }
         let opening = first.focalLength.first.map { "On a \(millimetres($0)) lens, the camera " } ?? "The camera "

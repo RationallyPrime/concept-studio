@@ -188,7 +188,7 @@ enum CameraLegs {
         // Between two marks a free camera turns one way, so the net turn is the whole of it.
         let first = samples[stretch.from].camera, last = samples[stretch.to].camera
         let panned = zip(samples[stretch.from ..< stretch.to], samples[stretch.from + 1 ... stretch.to]).reduce(0) {
-            $0 + panned($1.0.camera, $1.1.camera)
+            $0 + Self.panned($1.0.camera, $1.1.camera)
         }
         let move = difference(last.position, first.position), tilted = abs(last.tilt - first.tilt) / minimumTurn
         let along = -move.x * sin(first.pan) * cos(first.tilt) + move.y * sin(first.tilt)
