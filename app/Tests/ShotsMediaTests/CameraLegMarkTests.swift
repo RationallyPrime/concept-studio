@@ -113,21 +113,23 @@ struct CameraLegMarkTests {
     }
 
     /// A man walks at 1.4 m/s, eased into and out of a mark every 2 s, as Blockout's actor marks are by default; the
-    /// camera is keyed 4 m behind and 1.8 m above him a quarter of a second after each. Slowing into his marks he
-    /// never stands, so the follow is one track.
+    /// camera is keyed 4 m behind and 1.8 m above where he is a quarter of a second after each. Slowing into his
+    /// marks he never stands, so the follow is one track.
     @Test func aCameraKeyedJustAfterAnEasedWalkersMarksTracksHim() throws {
         let end = 191.0 / 24
         let times = [0, 2, 4, 6, end], cameraTimes = [0, 2.25, 4.25, 6.25, end]
         var scene = try shotScene(
-            frames: 192,
-            marks: cameraTimes.map { mark($0, at: Vec3(0, 1.8, 4 - 1.4 * $0)) },
-            subject: ("person.man", times.map { ($0, Vec3(0, 0, -1.4 * $0)) }),
-            aimed: true
+            frames: 192, marks: [], subject: ("person.man", times.map { ($0, Vec3(0, 0, -1.4 * $0)) }), aimed: true
         )
         scene.blocking[0].tracks[0].marks = scene.blocking[0].tracks[0].marks.map { mark in
             var mark = mark
             (mark.easeIn, mark.easeOut) = (0.25, 0.25)
             return mark
+        }
+        let walker = try ShotEvaluator(scene: scene, shotID: scene.shots[0].id, catalog: ContentCatalog.bundled())
+        scene.shots[0].camera.marks = cameraTimes.map { time in
+            let man = walker.frame(at: time).entities.first?.position ?? .zero
+            return mark(time, at: Vec3(man.x, 1.8, man.z + 4))
         }
         let legs = try legs(scene)
         #expect(legs.map(\.move) == [.track], "\(legs)")
@@ -206,6 +208,54 @@ struct CameraLegMarkTests {
         )
         let sidewaysLegs = try legs(sideways)
         #expect(sidewaysLegs.map(\.move) == [.push] && sidewaysLegs.first?.amplitude == .medium, "\(sidewaysLegs)")
+    }
+
+    /// Going 30° round a man standing still, the camera jumps another 90° round him between two marks at the same
+    /// time. The jump is no part of the orbit: 30° is medium, where the jump counted in would make it large.
+    @Test func aJumpRoundAStandingManIsNoPartOfTheOrbit() throws {
+        let round = { (degrees: Double) in Vec3(4 * sin(degrees * .pi / 180), 1.6, 4 * cos(degrees * .pi / 180)) }
+        let marks = [0, 1.5, 1.5, 3].enumerated().map { mark($1, at: round([0, 15, 105, 120][$0])) }
+        let scene = try shotScene(frames: 73, marks: marks, subject: ("person.man", [(0, .zero)]), aimed: true)
+        let legs = try legs(scene)
+        #expect(legs.map(\.move) == [.orbitLeft] && legs.first?.amplitude == .medium, "\(legs)")
+    }
+
+    /// The camera rises 3.5 m relative to a man going 36 m straight ahead in 3 s, following him from 6 m back, and
+    /// at half the speed. A crane is named however fast the two travel together: crane up, following him.
+    @Test(arguments: [1.0, 0.5]) func aCraneWhileFollowingAFastSubjectIsACrane(speed: Double) throws {
+        let ahead = -36 * speed
+        let scene = try shotScene(
+            frames: 73,
+            marks: [mark(0, at: Vec3(0, 1.6, 6)), mark(3, at: Vec3(0, 5.1, 6 + ahead))],
+            subject: ("person.man", [(0, .zero), (3, Vec3(0, 0, ahead))]),
+            aimed: true
+        )
+        let legs = try legs(scene)
+        #expect(legs.map(\.move) == [.craneUp] && legs.first?.also == [.track], "\(legs)")
+    }
+
+    /// Off the frame grid, a stretch where the man stands holds only frames where he stands. The camera pushes in on
+    /// a man who stands until 2.9 s and then sprints off, and creeps in on one who runs 10 m and stops at 3.1 s.
+    /// While each stands it is a push, not a pull against a frame of his running.
+    @Test func aManStandingUntilOrFromAnOffGridTimeStandsOnlyOnHisFrames() throws {
+        let end = 140.0 / 24
+        var leaving = try shotScene(
+            frames: 141,
+            marks: [mark(0, at: Vec3(0, 1.6, 6)), mark(end, at: Vec3(0, 1.6, 0))],
+            subject: ("person.man", [(0, .zero), (end, Vec3(0, 0, -18))]),
+            aimed: true
+        )
+        leaving.blocking[0].tracks[0].marks[0].hold = 2.9
+        let leavingLegs = try legs(leaving)
+        #expect(leavingLegs.map(\.move) == [.push, .static] && leavingLegs.first?.toFrame == 69, "\(leavingLegs)")
+        let arriving = try shotScene(
+            frames: 141,
+            marks: [mark(0, at: Vec3(0, 1.6, 6)), mark(end, at: Vec3(0, 1.6, 4))],
+            subject: ("person.man", [(0, .zero), (3.1, Vec3(0, 0, -10))]),
+            aimed: true
+        )
+        let arrivingLegs = try legs(arriving)
+        #expect(arrivingLegs.map(\.move) == [.static, .push] && arrivingLegs.last?.fromFrame == 75, "\(arrivingLegs)")
     }
 
     private func legs(_ scene: PrevisScene) throws -> [PromptFacts.CameraLeg] {

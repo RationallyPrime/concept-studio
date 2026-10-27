@@ -307,13 +307,8 @@ enum CameraLegs {
     private static func settled(_ spans: [Span], legs: Set<ClosedRange<Int>>, samples: [Sample]) -> [Span] {
         var quieted: [Span] = []
         for var span in spans {
-            let path = pathLength(span, samples: samples)
-            // Following a travelling subject, a change in distance or height has to be a tenth of the path to show.
-            let around = samples[span.from].subject != nil
-            let least = around && [.push, .pull, .craneUp, .craneDown].contains(span.move)
-                ? max(threshold(span.move), path / 10) : threshold(span.move)
-            if span.move != .static, amount(of: span, samples: samples) < least {
-                span.move = fallback(span, path: path, samples: samples)
+            if span.move != .static, amount(of: span, samples: samples) < threshold(span.move) {
+                span.move = fallback(span, path: pathLength(span, samples: samples), samples: samples)
             }
             append(span, to: &quieted)
         }

@@ -22,7 +22,7 @@ extension CameraLegs {
         let held = { (entity: EntityID) in
             marked(
                 tracks.filter { $0.entityID == entity }.flatMap(\.marks).map { ($0.time, $0.hold, $0.position) },
-                last: last
+                last: last, inward: true
             )
         }
         let camera = marked(shot.camera.marks.map { ($0.time, $0.hold, $0.position) }, last: last)
@@ -42,17 +42,23 @@ extension CameraLegs {
     /// The frames where a track's marks hold, as the evaluator times its legs (`TrackPlan`, after Blockout
     /// `evaluate.ts:66-68`): each mark's time, and the moment it leaves, its hold cut short a tenth of a second before
     /// the next mark. A jump is a crossing to another place along a leg too short to take a frame; it lies between the
-    /// last frame before the leg ends and the first after, which the evaluator puts past it.
+    /// last frame before the leg ends and the first after, which the evaluator puts past it. `inward`, for an
+    /// entity's track, rounds each time at a mark toward the frames where it is there, up from its arrival and down
+    /// from its departure, so a stretch where it stands holds no frame of its travel; the camera's own round to the
+    /// nearest frame.
     static func marked(
-        _ marks: [(time: Double, hold: Double, position: Vec3)], last: Int
+        _ marks: [(time: Double, hold: Double, position: Vec3)], last: Int, inward: Bool = false
     ) -> (frames: [Int], jumps: [Int], legs: [ClosedRange<Int>]) {
         let sorted = marks.enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }
             .map(\.element)
         let frame = { (time: Double) in min(max(FrameGrid.frame(atTime: max(time, 0)), 0), last) }
-        var frames = sorted.last.map { [frame($0.time)] } ?? [], jumps: [Int] = [], legs: [ClosedRange<Int>] = []
+        let at = { (time: Double, way: FloatingPointRoundingRule) in
+            inward ? min(max(Int((time * Double(FrameGrid.fps)).rounded(way)), 0), last) : frame(time)
+        }
+        var frames = sorted.first.map { [at($0.time, .up)] } ?? [], jumps: [Int] = [], legs: [ClosedRange<Int>] = []
         for (from, to) in zip(sorted, sorted.dropFirst()) {
             let depart = min(from.time + from.hold, max(from.time, to.time - 0.1))
-            frames += [frame(from.time), frame(depart)]
+            frames += [at(depart, .down), at(to.time, .up)]
             if frame(depart) < frame(to.time) {
                 legs.append(frame(depart) ... frame(to.time))
             } else if length(difference(to.position, from.position)) >= 0.005 {
