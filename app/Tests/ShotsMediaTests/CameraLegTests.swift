@@ -339,6 +339,49 @@ struct CameraLegTests {
         }
     }
 
+    /// A man runs at 6 m/s with the camera 4 m behind him. For five frames the camera slows to cover 0.4 m while he
+    /// covers 1.25 m, then it keeps up again 4.85 m back. He outran it for a moment; the camera made no snap of its
+    /// own, so the shot is one track.
+    @Test func aRunnerPullingAwayForAMomentIsNoSnap() throws {
+        let slow = 1.5 + 5.0 / 24
+        let marks = [
+            mark(0, at: Vec3(0, 1.6, 4)), mark(1.5, at: Vec3(0, 1.6, -5)), mark(slow, at: Vec3(0, 1.6, -5.4)),
+            mark(3, at: Vec3(0, 1.6, -13.15)),
+        ]
+        let scene = try shotScene(
+            frames: 73, marks: marks, subject: ("person.man", [(0, .zero), (3, Vec3(0, 0, -18))]), aimed: true
+        )
+        let legs = try facts(scene).cameraLegs
+        #expect(legs.map(\.move) == [.track], "\(legs)")
+    }
+
+    /// As a jib's arm swings up, the camera rises 1.8 m over a man standing still and eases 1.2 m back. The rise is
+    /// most of the change in where it sees him from: a crane, not a pull.
+    @Test func aJibArcingUpAndBackIsACrane() throws {
+        let scene = try shotScene(
+            frames: 73,
+            marks: [mark(0, at: Vec3(0, 1.6, 4)), mark(3, at: Vec3(0, 3.4, 5.2))],
+            subject: ("person.man", [(0, .zero)]),
+            aimed: true
+        )
+        let legs = try facts(scene).cameraLegs
+        #expect(legs.map(\.move) == [.craneUp], "\(legs)")
+    }
+
+    /// Passing 3 m over a man and 0.1 m to his side, his bearing swings round by 165° in the frames from 24 to 36,
+    /// though at both of those frames the camera is still clear of straight overhead (frames 32–34). That piece is
+    /// part of the push, not an arc: the camera went over him, not round him.
+    @Test func aPassJustOffHisTopIsAPushThenAPull() throws {
+        let scene = try shotScene(
+            frames: 73,
+            marks: [mark(0, at: Vec3(-5.5, 3, 0.1)), mark(3, at: Vec3(6.5, 3, 0.1))],
+            subject: ("person.man", [(0, .zero)]),
+            aimed: true
+        )
+        let legs = try facts(scene).cameraLegs
+        #expect(legs.map(\.move) == [.push, .pull] && legs.first?.toFrame == 36, "\(legs)")
+    }
+
     /// A man placed facing −X walks off along −Z, so the evaluator snaps him to his path as he leaves. The camera
     /// keeps 4 m behind his path the whole time: the snap doesn't swing it round him, and it is a track.
     @Test func aWalkersSnapToHisPathDoesNotSwingTheCamera() throws {
