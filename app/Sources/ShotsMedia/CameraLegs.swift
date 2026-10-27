@@ -21,7 +21,8 @@ public enum CameraShake: String, Codable, Sendable { case slight, strong }
 
 /// Camera legs read from the evaluated camera, the one the clean video shows, rather than from the raw marks: the
 /// evaluator has already shortened holds that run past the next mark, aimed an aim-locked camera and carried a
-/// mounted one. Rig noise is left out of the moves and reported as shake.
+/// mounted one. Rig noise is left out of the moves and reported as shake. Around a travelling subject, which way the
+/// camera goes relative to it is judged between the camera's own marks (see `direction`).
 enum CameraLegs {
     struct Reading: Equatable {
         var legs: [PromptFacts.CameraLeg]
@@ -57,12 +58,18 @@ enum CameraLegs {
         }
         var spans: [Span] = []
         let stretches = stretches(of: shot, in: scene, subjects: subjects, last: samples.count - 1)
+        let keyed = Self.stretches(of: shot, in: scene, subjects: [], last: samples.count - 1)
         let runs = movingRuns(stretches, samples: samples)
         for stretch in stretches {
             let run = runs.first { $0.from <= stretch.from && stretch.to <= $0.to } ?? stretch
             let travels = travelling(stretch, in: run, samples: samples, free: subjects.isEmpty)
+            // Around a travelling subject, offsets are read between the camera's own marks (see `direction`).
+            let between = keyed.first { $0.from <= stretch.from && stretch.to <= $0.to } ?? stretch
+            let following = subjectTravel(between, samples: samples) >= minimumTravel
             for (from, to) in pieces(of: stretch) {
-                append(Span(from: from, to: to, move: direction(samples[from ... to], travels: travels)), to: &spans)
+                let span = following ? between : Span(from: from, to: to)
+                let move = direction(samples[from ... to], within: samples[span.from ... span.to], travels: travels)
+                append(Span(from: from, to: to, move: move), to: &spans)
             }
         }
         spans = settled(spans, samples: samples)
@@ -136,8 +143,7 @@ enum CameraLegs {
         )
     }
 
-    /// The stretches between cuts at every camera mark and the end of its hold, and at the reference subjects'
-    /// marks.
+    /// The stretches between cuts at every camera mark and the end of its hold, and at the marks of `subjects`.
     private static func stretches(of shot: Shot, in scene: PrevisScene, subjects: [EntityID], last: Int) -> [Span] {
         guard last > 0 else { return [Span(from: 0, to: 0)] }
         let take = scene.blocking.first { $0.id == shot.blockingTakeID }
@@ -215,14 +221,22 @@ enum CameraLegs {
     // MARK: Direction of one piece
 
     /// The way the camera goes over one piece, however little: by its travel when its stretch `travels`, relative to
-    /// the reference subject when there is one; otherwise by its turn, zoom or roll.
-    private static func direction(_ piece: ArraySlice<Sample>, travels: Bool) -> CameraMove {
-        guard let a = piece.first, let b = piece.last else { return .static }
+    /// the reference subject when there is one; otherwise by its turn, zoom or roll. The relative move is the one
+    /// from the start of `span` to its end. Around a subject standing still that is the piece itself. Around a
+    /// travelling one it runs between two of the camera's marks, where camera and subject are both where they were
+    /// put. In between, the camera's easing and his, his snap onto a new heading at his marks and the curve of either
+    /// path make the camera lag and catch up, and that isn't a move.
+    private static func direction(
+        _ piece: ArraySlice<Sample>, within span: ArraySlice<Sample>, travels: Bool
+    ) -> CameraMove {
+        guard let a = piece.first, let b = piece.last, let start = span.first, let end = span.last else {
+            return .static
+        }
         let move = difference(b.camera.position, a.camera.position)
         guard travels, length(move) >= 0.005 else { return turning(a, b) }
-        guard let (before, after) = offsets(a, b) else { return free(move, from: a.camera, to: b.camera) }
-        // Passing over or under the subject anywhere in the piece makes its azimuth meaningless.
-        let passesOver = piece.contains { $0.offset.map(overhead) ?? false }
+        guard let (before, after) = offsets(start, end) else { return free(move, from: a.camera, to: b.camera) }
+        // Passing over or under the subject anywhere in the span makes its azimuth meaningless.
+        let passesOver = span.contains { $0.offset.map(overhead) ?? false }
         return relative(before, after, passesOver: passesOver) ?? .track
     }
 

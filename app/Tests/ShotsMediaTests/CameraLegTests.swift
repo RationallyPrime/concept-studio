@@ -318,6 +318,27 @@ struct CameraLegTests {
         #expect(legs.map(\.move) == [.rollCounterclockwise], "\(legs)")
     }
 
+    /// Blockout eases actor marks by a quarter and camera marks by 0.3 by default. A camera keyed beside or behind a
+    /// walker at his two marks then lags him a little and catches up, or not at all when the eases match; either way
+    /// it is where it was put at every mark, and it tracks him.
+    @Test func aCameraKeyedBesideOrBehindAnEasedWalkerTracksHim() throws {
+        let end = 191.0 / 24
+        for (start, ease) in [(Vec3(4, 1.6, 0), 0.25), (Vec3(4, 1.6, 0), 0.3), (Vec3(0, 1.6, 4), 0.3)] {
+            var marks = [mark(0, at: start), mark(end, at: Vec3(start.x, start.y, start.z - 16))]
+            (marks[0].easeOut, marks[1].easeIn) = (ease, ease)
+            var scene = try shotScene(
+                frames: 192, marks: marks, subject: ("person.man", [(0, .zero), (end, Vec3(0, 0, -16))]), aimed: true
+            )
+            scene.blocking[0].tracks[0].marks = scene.blocking[0].tracks[0].marks.map { mark in
+                var mark = mark
+                (mark.easeIn, mark.easeOut) = (0.25, 0.25)
+                return mark
+            }
+            let legs = try facts(scene).cameraLegs
+            #expect(legs.map(\.move) == [.track], "\(start), ease \(ease): \(legs)")
+        }
+    }
+
     /// A man placed facing −X walks off along −Z, so the evaluator snaps him to his path as he leaves. The camera
     /// keeps 4 m behind his path the whole time: the snap doesn't swing it round him, and it is a track.
     @Test func aWalkersSnapToHisPathDoesNotSwingTheCamera() throws {
