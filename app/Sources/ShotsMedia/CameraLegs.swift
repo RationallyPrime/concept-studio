@@ -252,7 +252,7 @@ enum CameraLegs {
             }
         let least = keyed ? minimumTravel : 0.005
         if let named = relative(
-            before, after, swept: swept, rise: end.camera.position.y - start.camera.position.y, least: least
+            before, after, swept: swept, rise: cameraRise(span), least: least
         ) { return named }
         // Passing straight across the subject can end at the same radius without being a follow.
         return hypot(after.x - before.x, after.z - before.z) >= least
@@ -399,9 +399,7 @@ enum CameraLegs {
         let first = samples[span.from].camera, last = samples[span.to].camera
         switch span.move {
         case .craneUp, .craneDown:
-            return abs(steps.reduce(0) { total, step in
-                step.1.jumped ? total : total + step.1.camera.position.y - step.0.camera.position.y
-            })
+            return abs(cameraRise(samples[span.from ... span.to]))
         case .push, .pull:
             guard let (before, after) = offsets(samples[span.from], samples[span.to]) else {
                 return pathLength(span, samples: samples)

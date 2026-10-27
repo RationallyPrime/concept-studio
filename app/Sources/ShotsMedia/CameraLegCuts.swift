@@ -96,4 +96,11 @@ extension CameraLegs {
             return total + length(difference(end, start))
         }
     }
+
+    /// Signed actual camera-height change, excluding cut jumps just as path length does.
+    static func cameraRise(_ samples: ArraySlice<Sample>) -> Double {
+        zip(samples.dropLast(), samples.dropFirst()).reduce(0) { total, step in
+            step.1.jumped ? total : total + step.1.camera.position.y - step.0.camera.position.y
+        }
+    }
 }
