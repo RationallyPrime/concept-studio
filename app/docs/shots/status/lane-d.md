@@ -1,6 +1,6 @@
 # Lane D status
 
-Owner: Metis (Gemini). Canonical branch: `shots/d-viewport`. Current base `main`: `c23dea809c176e77daf738c742c1d50b04ca8449` (includes merged D0 `#61`, A1 `#59`, A2 `#64`, A3 `#65`, C1 `#66`, C2 `#68`, B3 `#58`, A4 `#67`, B reader `#74`, C3 `#70`, C4 `#71`, A5 `#73`).
+Owner: Metis (Gemini). Canonical branch: `shots/d-viewport`. Current base `main`: `139a2e42095fd509241377286b636ff8d3c18cda` (includes merged D0 `#61`, A1 `#59`, A2 `#64`, A3 `#65`, C1 `#66`, C2 `#68`, B3 `#58`, A4 `#67`, B4 `#74`, C3 `#70`, C4 `#71`, A5 `#73`, C5 `#76`, B5 `#79`, D1 `#72`).
 Reference implementation: [Blockout](https://github.com/wassermanproductions/blockout) at `3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9` (`scripts/blockout/fetch.sh`).
 
 ## Checkpoints
@@ -8,8 +8,8 @@ Reference implementation: [Blockout](https://github.com/wassermanproductions/blo
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
 | D0: shell and editor camera maths | **Merged** ([RationallyPrime/concept-studio#61](https://github.com/RationallyPrime/concept-studio/pull/61), `42871fbdec650df2f8436febb3d94858b71c9769`) | Complete. |
-| D1: RealityView display, gestures, grid and snapshots | **Draft PR [#72](https://github.com/RationallyPrime/concept-studio/pull/72) on `shots/d-viewport`** (Round 1 review fixes applied, rebased onto `c23dea8`, audited against Blockout `3f2d056`) | Current-head CI, independent review closure, and integrator merge approval. |
-| D2: overlays and playback | Ready to implement (A2 `#64`, A3 `#65`, A5 `#73`, C4 `#71` merged on `main`) | Marks (`markMesh`), path ribbons (`evaluator.paths()`), camera body and frustum (`buildCameraBody`), selection box (`BoxHelper`), overlay toggles, playback, and 3-pose sign-check snapshot (`jab-cross`, `wave`, `sit`). |
+| D1: RealityView display, gestures, grid and snapshots | **Merged** ([RationallyPrime/concept-studio#72](https://github.com/RationallyPrime/concept-studio/pull/72), `139a2e42095fd509241377286b636ff8d3c18cda`) | Complete. |
+| D2: overlays and playback | **Implementation in progress** (local code and tests verified on base `139a2e4`; preparing checkpoint branch and Draft PR) | Publish checkpoint branch and Draft PR, current-head CI, independent review closure, and integrator merge approval. |
 | D3: picking and tools | Unblocked (C2 `#68`, C3 `#70` merged on `main`) | CPU ray-vs-part-bounds picking, ground-plane (`y = 0`) intersection, select/shift-select, place tool (`⌥` multi-place, `Esc` cancel), and drop-marks tool (`M`). |
 | D4: move and rotate handles | After D3 | Entity, actor-mark and camera-mark handles with `store.preview` while dragging and single `store.run` on release. |
 | D5: look-through view, keyboard and VoiceOver | Unblocked (B3 `#58` merged on `main`) | Coalesced `ShotCameraView` rendering, letterboxed canvas, look-through parity against `middle-f0011-clean.png` on `twoPersonWalk(small: true)`, viewport keyboard shortcuts, and VoiceOver selection announcements. |
@@ -71,7 +71,18 @@ Reference implementation: [Blockout](https://github.com/wassermanproductions/blo
 3. **`4382946781` (P2 — `ShotsViewport.swift`):** `ViewportLiveSession.sync(with:size:)` now applies an empty `SceneFrame(entities: [])` when `store.frame == nil`, removing all mapped `previs:*` entity containers when the last shot or scene is deleted.
 4. **`4382946784` (P2 — `ShotsViewport.swift`, `ViewportGrid.swift`):** Replaced the appearance-dependent `InstantPrint.ground` viewport backdrop with `ViewportGrid.backgroundColor(for: activeLighting)` and added `viewport.skyDome` (`ViewportGrid.makeSkyDomeEntity(for:)`) matching `PrevisLook`'s canonical background palette across all five lighting presets.
 
-## Delivered in D1 (`shots/d-viewport`)
+### D2 reference concepts and intentional Swift/RealityKit adaptations (`ViewportOverlays.swift`, `ViewportGestures.swift`, `ShotsViewport.swift`)
+- **Reference mapping (`builders.ts:6147-6252`, `SceneManager.ts:343-364, 615-760, 2001-2009` at `3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`):** D2 ports the Blockout viewport overlay concepts for floor marks, motion paths, shot camera representation, selection bounds, and HUD toggles.
+- **Numbered floor marks:** Floor `"T"` marks preserve the reference bar/stem dimensions (`0.40×0.02×0.08` at `0, 0.01, -0.14` and `0.08×0.02×0.40` at `0, 0.01, +0.06`) and floating badge height (`y = 0.30`); badges use CoreGraphics/CoreText textures.
+- **Action paths and selection decorations:** Paths consume `evaluator.paths()` (`MotionPath.subject` cases `.entity(String)` and `.camera`) without reimplementing core evaluation; RealityKit triangle ribbons (`halfWidth = 0.018`, total width `0.036`) and struts replace Three.js line materials, with selected-lane direction chevrons and `t=X.Xs` time badges at `y = 0.55`.
+- **Shot camera representation:** Displayed with light housing/lens (`#f5f5f7`, housing at local origin, lens at `z = -0.28` pitched `+.pi / 2` around X) and `#f5a524` (`defaultActorMarkRGB`) wire pyramid frustum (with `#7dd3fc` `cameraOverlayRGB` used for camera marks, path ribbons, and selection box); its materials, lens placement, and wire strut geometry are intentional RealityKit adaptations rather than an exact mesh/material copy.
+- **Selection boxes and HUD toggles:** Wireframe selection boxes (`viewport.selectionGroup`) live only in `overlayRoot` and never tint `mapper.root`. AppKit HUD buttons (`ViewportOverlayTogglesRepresentable`) fix `Marks`/`Paths` hit-testing while passive HUD chrome passes clicks through to `ScrollCapturingView`.
+
+## Delivered in D1 (`shots/d-viewport`) & D2 (`shots/d-overlays`, draft / unresolved sign-check)
+
+- **D2 (`shots/d-overlays`, not accepted):** `ViewportOverlays`, `ViewportOverlayTogglesRepresentable`, `ShotsViewport` playback/selection/overlay sync, `spikeTapeMarksBuildNumberedTGeometryAndRespectShowMarksToggle` in `ViewportDisplayTests`, and `ViewportOverlaysTests` (live session sync without mutating `mapper.root`, hosted AppKit HUD button hit-testing, `twoPersonWalk(small: true)` first/guide/last snapshots, `gait: .sit` side-view snapshot `d2-sign-check-side.png`, and raw `"sit-down"` peak keyframe diagnostic snapshot `d2-sign-check-sit-down-peak.png`).
+
+### D1 (`shots/d-viewport`)
 
 - `ShotsViewport` & `ViewportLiveSession`: hosts `RealityView` displaying `store.frame` through `PrevisSceneMapper`, clears mapped stage entities when `store.frame == nil`, applies the active look's canonical background colour and `skyDome`, attaches `overlayRoot` as a separate root so editor chrome never leaks into exported passes, disables post-effects (`motionBlur`, `depthOfField`, `cameraGrain`, standard dynamic range) and macOS 27 `OcclusionCullingComponent`, and renders the empty-stage prompt and HUD.
 - `ViewportGrid`: 60 m × 60 m (`-30...30` m) 1 m ground grid matching Blockout's `THREE.GridHelper(60, 60, 0x33343a, 0x27282d)` at `0.6` opacity under `overlayRoot`, plus canonical `LightingPreset` background colors and `viewport.skyDome`.
@@ -112,25 +123,27 @@ cd app && mise exec -- swiftlint lint --strict && \
   mise exec -- swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint
 ```
 
-### Verification results (macOS Apple silicon, local Xcode / RealityKit, base `c23dea8`)
+### Verification results (macOS Apple silicon, local Xcode / RealityKit, base `139a2e42095fd509241377286b636ff8d3c18cda`)
 
-- **Run and passed:**
-  - `ViewportEditorCameraTests|ViewportDisplayTests` (default env): 12 tests in 2 suites — 11 ran and passed (including `verticalAndNearVerticalTrackpadScrollStayInPanModeWhileMouseWheelDollies`, `appKitHitTestingRoutesScrollAndDragEventsThroughViewportOverlay`, `deletingLastShotOrSceneClearsMappedEntitiesFromViewportStage`, `liveViewportAppliesSelectedLookCanonicalBackgroundInLightAndDarkAppearances`, `defaultAndTopSnapshotsDrawEveryEntityAboveBackgroundAndKeepOverlaySeparate`, and `groundGridMatchesBlockoutSixtyMetreReference`), 0 failed, 1 skipped (`writesFullSizeDefaultAndTopSnapshotsWhenSnapshotDirectoryIsSet` when `SHOTS_SNAPSHOT_DIR` is unset).
-  - `ViewportEditorCameraTests|ViewportDisplayTests` (with `SHOTS_SNAPSHOT_DIR` set): 12 tests in 2 suites — 12 ran and passed (`1.009s`), 0 failed, 0 skipped, writing `d1-sample-default.png` and `d1-sample-top.png`.
-  - Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 84 tests in 23 suites — 82 ran and passed (`4.854s`), 0 failed, 2 skipped (`writesTheSampleFrameForReview` and `writesFullSizeDefaultAndTopSnapshotsWhenSnapshotDirectoryIsSet` when snapshot env vars are unset).
-  - `PrevisCoreTests`: 148 tests in 20 suites — 144 ran and passed (`1.660s`), 0 failed, 4 skipped (`correctedEvaluatorAgreesWithBlockoutWhereTheCorrectionsDoNotApply`, `everyScenePasses`, `cameraMovesMatchBlockout`, `actionPathsMatchBlockout`, gated on `PREVIS_GOLDENS`/`PREVIS_VECTORS`).
-  - `swiftlint lint --strict` (from `app/`): 0 violations, 0 serious across 396 files.
-  - `swiftformat --lint` (from `app/`): 0/8 Lane D files require formatting.
+- **Run and passed (post-freeze final source):**
+  - `--filter Viewport` (`SHOTS_SNAPSHOT_DIR` set): 18 tests reported in 3 suites (`ViewportEditorCameraTests`, `ViewportDisplayTests`, `ViewportOverlaysTests`) — 18 executed and passed (`1.794s`), 0 failed, 0 skipped. Includes an explicit backward-sit diagnostic (`sideViewSignCheckSnapshotReproducesAuthoredSitDownPeakKeyframeDiscrepancy`), which is a reproducer rather than sign-check acceptance.
+  - `--filter 'Shots|Viewport'` (`SHOTS_SNAPSHOT_DIR` set): 179 tests reported in 32 suites — 177 executed and passed (`7.672s`), 0 failed, 2 skipped (`everyPresetReadsAsItsName` and `zoomsRollsAndWhipsReadAsBlockoutDescribesThem` when `PREVIS_PRESETS` is unset).
+  - Unfiltered `app` (`SHOTS_SNAPSHOT_DIR` set): 950 Swift Testing tests reported in 156 suites — 944 executed and passed (`29.471s`), 0 failed, 6 skipped (`everyPresetReadsAsItsName`, `zoomsRollsAndWhipsReadAsBlockoutDescribesThem`, `renderViewerOverContactSheet`, `renderActualScreens`, `realModelRecognizesTheSameDemoFace`, `nativeModelMatchesPanZoomAndReviewsOneMissingFrame`; XCTest reported 0 tests).
+  - `PrevisCore` (`PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests reported in 20 suites — 148 executed and passed (`1.654s`), 0 failed, 0 skipped.
+  - Full-app style (`swiftlint lint --strict` and `swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint` from `app/`): 0 violations, 0 serious across 413 files; 0/413 files require formatting (4 skipped).
 - **Not run locally:**
-  - Unfiltered full `ConceptStudioTests` suite (existing non-Shots suites trigger the pre-existing local login Keychain prompt).
-  - Live window interactive walkthrough and signed sandbox UI verification.
+  - `CameraLegOracleTests` with `PREVIS_PRESETS` set (`2` tests in `app`) and live interactive window / signed sandbox UI walkthrough.
 
 ## Blockers and dependencies
 
-- **D1:** Round 1 review findings (`4382946767`, `4382946774`, `4382946781`, `4382946784`) repaired on `shots/d-viewport` and rebased onto `c23dea8`; awaiting current-head CI, independent review closure, and integrator merge.
-- **D2, D3, D5:** Unblocked on `main` (A2 `#64`, A3 `#65`, C1 `#66`, C2 `#68`, B3 `#58`, A4 `#67`, C3 `#70`, C4 `#71`, A5 `#73` are all merged on `c23dea8`).
-- **D6:** Blocked on merged B6.
+- **D1:** Merged in PR `#72` (`139a2e42095fd509241377286b636ff8d3c18cda`).
+- **D2 (`shots/d-overlays`):** Draft PR in progress; **sign-check acceptance is UNRESOLVED and blocked on Lane A / contract disposition** for raw authored `"sit-down"` peak keyframe joints (`hipLX: +1.4, hipRX: +1.4`).
+- **D3, D5:** Unblocked on `main` (`139a2e4`).
+- **D6:** Blocked on merged B6 (Draft PR `#80` is not yet merged on `main`).
 
-## Open questions
+## Open questions (UNRESOLVED — blocks D2 sign-check acceptance)
 
-- None for D1.
+- **D2 side-view sign check (`LANE-D-VIEWPORT.md` lines 101-103 vs `LANE-A-CORE.md` line 132 & `BodyTests.swift:73`):**
+  - Procedural `Gait.sit` (`d2-sign-check-side.png`) places knees `0.409` m ahead of hips (`rightHip.z - rightKnee.z > 0.2` m), matching `BodyTests.sittingPutsTheKneesAheadOfTheHips()`.
+  - However, applying the literal peak keyframe (`t = 1.1`) of catalog motion `"sit-down"` (`motions.v1.json` / Blockout `motions.ts:2590-2595`, which authors `hipLX: +1.4, hipRX: +1.4` despite `motions.ts:20-21` stating positive `hipX` is backward) on `gait: .stand` (`d2-sign-check-sit-down-peak.png`) swings the thighs backward (`+Z`) under `PersonRig.angles` (`a.hipL.x -= joint(.hipLX)`), placing knees `> 0.3` m **behind** the hips (`rightKnee.z - rightHip.z > 0.3` m) while `ActorMark.joints` leaves the pelvis at standing height.
+  - Procedural `gait: .sit` correctness does not settle the literal peak-keyframe-joints contract phrasing; maintainer / Lane A disposition is required on whether D2's sign check means `Gait.sit` or whether authored `"sit-down"` requires a separately owned `PrevisCore` correction. Lane D makes no rig or motion-data changes.
