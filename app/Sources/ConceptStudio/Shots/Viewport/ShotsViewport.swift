@@ -12,12 +12,37 @@ import SwiftUI
 @MainActor
 @Observable
 final class ViewportLiveSession {
-    var editorCamera = EditorCamera.defaultView
+    var editorCamera = EditorCamera.defaultView {
+        didSet {
+            ViewportOverlays.orientLabels(in: overlayRoot, to: editorCamera)
+        }
+    }
+
     let mapper = PrevisSceneMapper(look: PrevisLook(lighting: .day))
     let overlayRoot = ViewportGrid.makeOverlayRoot()
     let skyDome = ViewportGrid.makeSkyDomeEntity(for: .day)
     var viewportSize = PixelSize(width: 640, height: 480)
     private(set) var activeLighting: LightingPreset = .day
+    var showMarks = true
+    var showPaths = true
+
+    func setShowMarks(_ visible: Bool) {
+        showMarks = visible
+        ViewportOverlays.ensureGroup(named: ViewportOverlays.marksGroupName, in: overlayRoot).isEnabled = visible
+    }
+
+    func setShowPaths(_ visible: Bool) {
+        showPaths = visible
+        ViewportOverlays.ensureGroup(named: ViewportOverlays.pathsGroupName, in: overlayRoot).isEnabled = visible
+    }
+
+    func toggleMarks() {
+        setShowMarks(!showMarks)
+    }
+
+    func togglePaths() {
+        setShowPaths(!showPaths)
+    }
 
     func sync(with store: ShotsStore, frame: SceneFrame?, size: PixelSize) {
         viewportSize = size
@@ -38,10 +63,21 @@ final class ViewportLiveSession {
             )
             mapper.apply(emptyFrame)
         }
+        ViewportOverlays.sync(
+            overlayRoot: overlayRoot,
+            scene: store.currentScene,
+            shot: store.currentShot,
+            evaluator: store.evaluator,
+            frame: frame,
+            selection: store.selection,
+            showMarks: showMarks,
+            showPaths: showPaths
+        )
         syncCamera()
     }
 
     func syncCamera() {
+        ViewportOverlays.orientLabels(in: overlayRoot, to: editorCamera)
         _ = mapper.cameraEntity(for: editorCamera.cameraFrame(for: viewportSize))
     }
 
@@ -78,6 +114,9 @@ struct ShotsViewport: View {
     var body: some View {
         let activeLighting = store.currentScene?.lighting ?? .day
         let currentFrame = store.frame
+        let currentSelection = store.selection
+        let showMarks = session.showMarks
+        let showPaths = session.showPaths
 
         GeometryReader { geometry in
             let currentSize = PixelSize(
@@ -100,12 +139,14 @@ struct ShotsViewport: View {
                     content.add(session.overlayRoot)
                     syncScene(in: content, frame: currentFrame, size: currentSize)
                 } update: { content in
+                    _ = (currentSelection, showMarks, showPaths)
                     syncScene(in: content, frame: currentFrame, size: currentSize)
                 }
 
                 ViewportScrollWheelOverlay(
                     session: session,
                     onSync: {
+                        _ = (currentSelection, showMarks, showPaths)
                         session.sync(with: store, frame: currentFrame, size: currentSize)
                     },
                     onScroll: { event in
@@ -145,7 +186,6 @@ struct ShotsViewport: View {
                 }
 
                 viewportHUD
-                    .allowsHitTesting(false)
             }
             .onAppear {
                 session.sync(with: store, frame: currentFrame, size: currentSize)
@@ -174,28 +214,41 @@ struct ShotsViewport: View {
 
     private var viewportHUD: some View {
         HStack(spacing: 8) {
-            Image(systemName: "cube.transparent")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.primary)
-            Text(summaryText)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .monospacedDigit()
-            if store.isReadOnly {
-                Text("Read-only")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(InstantPrint.chipText)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(InstantPrint.chip, in: RoundedRectangle(cornerRadius: 4))
+            HStack(spacing: 8) {
+                Image(systemName: "cube.transparent")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(summaryText)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .monospacedDigit()
+                if store.isReadOnly {
+                    Text("Read-only")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(InstantPrint.chipText)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(InstantPrint.chip, in: RoundedRectangle(cornerRadius: 4))
+                }
+                Divider()
+                    .frame(height: 12)
             }
+            .allowsHitTesting(false)
+
+            ViewportOverlayTogglesRepresentable(session: session)
+                .frame(width: 96, height: 18)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(InstantPrint.ground.opacity(0.88), in: RoundedRectangle(cornerRadius: 5))
+        .background {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(InstantPrint.ground.opacity(0.88))
+                .allowsHitTesting(false)
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 5)
                 .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .padding(10)
     }

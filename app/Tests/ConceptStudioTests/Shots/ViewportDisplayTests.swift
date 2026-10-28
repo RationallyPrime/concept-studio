@@ -260,6 +260,31 @@ struct ViewportDisplayTests {
         #expect(childNames == ["viewport.groundGrid.axes", "viewport.groundGrid.divisions"])
     }
 
+    @Test @MainActor func spikeTapeMarksBuildNumberedTGeometryAndRespectShowMarksToggle() throws {
+        let smallDoc = ShotsSamples.twoPersonWalk(small: true)
+        let scene = try #require(smallDoc.scenes.first)
+        let shot = try #require(scene.shots.first)
+        let overlayRoot = ViewportGrid.makeOverlayRoot()
+
+        ViewportOverlays.rebuildMarks(in: overlayRoot, scene: scene, shot: shot, showMarks: true)
+        let marksGroup = try #require(overlayRoot.children.first { $0.name == ViewportOverlays.marksGroupName })
+        #expect(marksGroup.isEnabled)
+        // Two-person walk has 3 marks for Man + 3 marks for Woman + 2 camera marks = 8 marks.
+        #expect(marksGroup.children.count == 8)
+
+        let firstManMark = try #require(
+            marksGroup.children.first { $0.name == "viewport.mark.actor:ent_000000000001:mark_000000000001" }
+        )
+        #expect(abs(firstManMark.position.x - -1.3) < 1e-5)
+        #expect(abs(firstManMark.position.y - 0.01) < 1e-5)
+        #expect(abs(firstManMark.position.z - 0.0) < 1e-5)
+        let partNames = Set(firstManMark.children.map(\.name))
+        #expect(partNames == ["mark.across", "mark.stem", "mark.number.1"])
+
+        ViewportOverlays.rebuildMarks(in: overlayRoot, scene: scene, shot: shot, showMarks: false)
+        #expect(!marksGroup.isEnabled)
+    }
+
     @Test(.enabled(if: viewportRenderingEnabled))
     @MainActor
     func defaultAndTopSnapshotsDrawEveryEntityAboveBackgroundAndKeepOverlaySeparate() async throws {
