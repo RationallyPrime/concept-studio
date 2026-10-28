@@ -17,6 +17,11 @@ final class ViewportLiveSession {
     let overlayRoot = ViewportGrid.makeOverlayRoot()
     let skyDome = ViewportGrid.makeSkyDomeEntity(for: .day)
     var viewportSize = PixelSize(width: 640, height: 480)
+    var handleMode: ViewportHandleMode = .move
+    var activeHandleDrag: ViewportHandleDragSession?
+    @ObservationIgnored var announcementPoster: ((String) -> Void)?
+    private(set) var lastAnnouncement: String?
+    private var lastAnnouncedSelection: ShotsSelection?
     private(set) var activeLighting: LightingPreset = .day
 
     func sync(with store: ShotsStore, frame: SceneFrame?, size: PixelSize) {
@@ -25,6 +30,10 @@ final class ViewportLiveSession {
         activeLighting = lighting
         mapper.setLook(PrevisLook(lighting: lighting))
         ViewportGrid.updateSkyDome(skyDome, for: lighting)
+
+        if let drag = activeHandleDrag, !ViewportHandles.isDragStillValid(drag, in: store) {
+            ViewportHandles.cancelDrag(&activeHandleDrag, in: store)
+        }
 
         if let frame {
             mapper.apply(frame)
@@ -38,11 +47,108 @@ final class ViewportLiveSession {
             )
             mapper.apply(emptyFrame)
         }
+        ViewportHandles.syncOverlay(
+            in: overlayRoot,
+            store: store,
+            mode: handleMode,
+            camera: editorCamera,
+            size: size
+        )
         syncCamera()
+        if lastAnnouncedSelection != store.selection {
+            lastAnnouncedSelection = store.selection
+            postAnnouncement(Self.selectionAnnouncement(for: store.selection, in: store))
+        }
     }
 
-    func syncCamera() {
+    func syncCamera(in store: ShotsStore? = nil) {
         _ = mapper.cameraEntity(for: editorCamera.cameraFrame(for: viewportSize))
+        if let store {
+            ViewportHandles.syncOverlay(
+                in: overlayRoot,
+                store: store,
+                mode: handleMode,
+                camera: editorCamera,
+                size: viewportSize
+            )
+        }
+    }
+
+    func setHandleMode(_ mode: ViewportHandleMode, in store: ShotsStore) {
+        cancelActiveHandleDrag(in: store)
+        handleMode = mode
+        ViewportHandles.syncOverlay(
+            in: overlayRoot,
+            store: store,
+            mode: handleMode,
+            camera: editorCamera,
+            size: viewportSize
+        )
+        postAnnouncement(mode == .move ? "Move handles active" : "Rotate ring active")
+    }
+
+    func cancelActiveHandleDrag(in store: ShotsStore) {
+        if activeHandleDrag != nil || store.preview != nil {
+            ViewportHandles.cancelDrag(&activeHandleDrag, in: store)
+        }
+    }
+
+    func beginHandleDrag(at pixel: Point2, in store: ShotsStore) -> Bool {
+        activeHandleDrag = ViewportHandles.beginDrag(
+            at: pixel,
+            in: store,
+            mode: handleMode,
+            camera: editorCamera,
+            size: viewportSize
+        )
+        return activeHandleDrag != nil
+    }
+
+    func updateHandleDrag(at pixel: Point2, shiftPressed: Bool, in store: ShotsStore) {
+        _ = ViewportHandles.updateDrag(
+            &activeHandleDrag,
+            at: pixel,
+            shiftPressed: shiftPressed,
+            in: store,
+            camera: editorCamera,
+            size: viewportSize
+        )
+    }
+
+    func endHandleDrag(at pixel: Point2, shiftPressed: Bool, in store: ShotsStore) {
+        _ = ViewportHandles.endDrag(
+            &activeHandleDrag,
+            at: pixel,
+            shiftPressed: shiftPressed,
+            in: store,
+            camera: editorCamera,
+            size: viewportSize
+        )
+    }
+
+    func postAnnouncement(_ message: String) {
+        lastAnnouncement = message
+        announcementPoster?(message)
+    }
+
+    static func selectionAnnouncement(for selection: ShotsSelection, in store: ShotsStore) -> String {
+        switch selection {
+        case .none:
+            return "Selection cleared"
+        case let .entities(ids):
+            let names = ids.compactMap { id in
+                store.currentScene?.entities.first(where: { $0.id == id })?.name
+            }
+            if names.isEmpty { return "Selected \(ids.count) entities" }
+            return "Selected \(names.joined(separator: ", "))"
+        case .camera:
+            return "Selected shot camera"
+        case let .actorMark(entityID, markID):
+            let name = store.currentScene?.entities.first(where: { $0.id == entityID })?.name ?? entityID
+            return "Selected actor mark \(markID) for \(name)"
+        case let .cameraMark(markID):
+            return "Selected camera mark \(markID)"
+        }
     }
 
     var mappedEntityContainerNames: [String] {
@@ -118,7 +224,7 @@ struct ShotsViewport: View {
                             optionPressed: optionPressed,
                             viewportSize: currentSize
                         )
-                        session.syncCamera()
+                        session.syncCamera(in: store)
                     },
                     onDrag: { delta, optionPressed in
                         ViewportCameraGestures.applyDrag(
@@ -127,14 +233,14 @@ struct ShotsViewport: View {
                             viewportSize: currentSize,
                             optionPressed: optionPressed
                         )
-                        session.syncCamera()
+                        session.syncCamera(in: store)
                     },
                     onMagnify: { magnification in
                         ViewportCameraGestures.applyMagnify(
                             to: &session.editorCamera,
                             magnification: magnification
                         )
-                        session.syncCamera()
+                        session.syncCamera(in: store)
                     },
                     onClick: { pixel, shiftPressed, optionPressed in
                         ViewportPicking.handleClick(
@@ -147,12 +253,31 @@ struct ShotsViewport: View {
                         )
                         session.sync(with: store, frame: store.frame, size: currentSize)
                     },
+                    onHandleMouseDown: { pixel in
+                        session.viewportSize = currentSize
+                        let started = session.beginHandleDrag(at: pixel, in: store)
+                        if started {
+                            session.sync(with: store, frame: store.frame, size: currentSize)
+                        }
+                        return started
+                    },
+                    onHandleMouseDragged: { pixel, shiftPressed in
+                        session.viewportSize = currentSize
+                        session.updateHandleDrag(at: pixel, shiftPressed: shiftPressed, in: store)
+                        session.sync(with: store, frame: store.frame, size: currentSize)
+                    },
+                    onHandleMouseUp: { pixel, shiftPressed in
+                        session.viewportSize = currentSize
+                        session.endHandleDrag(at: pixel, shiftPressed: shiftPressed, in: store)
+                        session.sync(with: store, frame: store.frame, size: currentSize)
+                    },
                     onKeyDown: { characters, keyCode, modifiers in
                         let handled = ViewportPicking.handleKeyDown(
                             charactersIgnoringModifiers: characters,
                             keyCode: keyCode,
                             modifiers: modifiers,
-                            in: store
+                            in: store,
+                            session: session
                         )
                         if handled {
                             session.sync(with: store, frame: store.frame, size: currentSize)
@@ -264,17 +389,24 @@ struct ShotsViewport: View {
         return "\(scene.name) · Shot \(shot.name) · \(lens) mm · \(frameSummary) · \(entityCount) entities"
     }
 
-    private var accessibilityDescription: String {
+    var accessibilityDescription: String {
+        let selectionText = ViewportLiveSession.selectionAnnouncement(for: store.selection, in: store)
         if store.isReadOnly {
-            return "3D blocking viewport, read-only. \(summaryText)"
+            return "3D blocking viewport, read-only. \(summaryText). \(selectionText)"
         }
-        return "3D blocking viewport. \(summaryText)"
+        if let badge = activeToolBadge {
+            return "3D blocking viewport. \(summaryText). \(selectionText). \(badge)"
+        }
+        return "3D blocking viewport. \(summaryText). \(selectionText)"
     }
 
-    private var activeToolBadge: String? {
+    var activeToolBadge: String? {
         switch store.tool {
         case .select:
-            return nil
+            guard !store.isReadOnly,
+                  ViewportHandles.resolveTarget(in: store, useCommittedDocument: false) != nil
+            else { return nil }
+            return session.handleMode == .move ? "Move" : "Rotate"
         case let .place(assetID):
             let name = store.catalog.asset(assetID)?.name ?? assetID
             return "Place: \(name)"
