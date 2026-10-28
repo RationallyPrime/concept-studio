@@ -10,7 +10,7 @@ Reference implementation: [Blockout](https://github.com/wassermanproductions/blo
 | D0: shell and editor camera maths | **Merged** ([RationallyPrime/concept-studio#61](https://github.com/RationallyPrime/concept-studio/pull/61), `42871fbdec650df2f8436febb3d94858b71c9769`) | Complete. |
 | D1: RealityView display, gestures, grid and snapshots | **Merged** ([RationallyPrime/concept-studio#72](https://github.com/RationallyPrime/concept-studio/pull/72), `efbe83380dc387100c9059ce62b305de81a069a2`) | Complete. |
 | D2: overlays and playback | **Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81) on `shots/d-overlays` (`cc2fa25`)** — all 7 CI jobs green (`40612874202`), Round 1 P2 label-facing closure accepted ([issuecomment-6457931637](https://github.com/RationallyPrime/concept-studio/pull/81#issuecomment-6457931637)) | Held in Draft for raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check contract disposition, Gnomon workspace trust, and native UI/M1/M2 gates. |
-| D3: picking and tools | **Verified locally on `shots/d-picking`; Draft PR publication pending** (`ViewportPicking.swift`, `ViewportGestures.swift`, `ShotsViewport.swift`, `ViewportPickingTests.swift`) | Draft PR publication, current-head CI, independent review closure, and integrator merge approval. |
+| D3: picking and tools | **In review on Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82) (`shots/d-picking`) — Round 1 P2 sub-threshold click-vs-drag jitter repair verified** (`ViewportPicking.swift`, `ViewportGestures.swift`, `ShotsViewport.swift`, `ViewportPickingTests.swift`) | Current-head CI, independent Round 1 closure review, and integrator merge approval. |
 | D4: move and rotate handles | After D3 | Entity, actor-mark and camera-mark handles with `store.preview` while dragging and single `store.run` on release. |
 | D5: look-through view, keyboard and VoiceOver | Unblocked (B3 `#58` merged on `main`) | Coalesced `ShotCameraView` rendering, letterboxed canvas, look-through parity against `middle-f0011-clean.png` on `twoPersonWalk(small: true)`, viewport keyboard shortcuts, and VoiceOver selection announcements. |
 | D6: integration, performance and IT4 | Blocked on B6 | Needs merged B6; scripted IT4 workflow and release-build frame-time measurements. |
@@ -147,19 +147,21 @@ cd app && mise exec -- swiftlint lint --strict && \
    - Selected `.camera` / `.cameraMark` drops a `CameraMark` at the playhead time (`hold: 0, easeIn: 0.3, easeOut: 0.3, roll: 0`) aimed at the shot's subject (`shot.camera.trackIDs` or primary actor at `0.8 * height`), converting to mount-local coordinates when `shot.camera.rig == .carMount` and `shot.camera.mountID != nil`.
 6. **Read-only guard (`store.isReadOnly` ← `LANE-D-VIEWPORT.md` lines 56-57):**
    - Disables `.place`, `.dropMarks`, and `M` tool activation while keeping entity click selection and editor-camera orbit/pan/dolly active.
+7. **PR #82 Round 1 P2 repair — sub-threshold pointer jitter during click (`ViewportGestures.swift:140-234`, `ViewportPickingTests.swift:389-463`):**
+   - Deferred `onDrag?` dispatch in `ScrollCapturingView.mouseDragged(with:)` until pointer movement from `downPoint` (or cumulative delta) reaches `ViewportScrollWheelOverlay.dragThresholdPoints` (`3.0` pt), accumulating sub-threshold deltas in `accumulatedSubThresholdDelta` and flushing them on the first threshold-crossing drag event. This prevents `< 3.0` pt click jitter from orbiting or panning `session.editorCamera` before `mouseUp` commits placement, mark-drop, or selection (`< 1 cm` ground accuracy preserved for `2.0` pt jitter), while real drags (`>= 3.0` pt) still orbit/pan without triggering click actions.
 
-### Verification results for D3 (`shots/d-picking`, base `139a2e4`)
-- `ViewportPickingTests`: 7 tests in 1 suite reported (`0.598s`; 7 executed, 0 skipped, 0 failed).
-- Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 180 tests in 32 suites reported (`7.421s`; 176 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
-- Full unfiltered `app` test suite: 951 tests in 156 suites reported (`26.749s`; 943 executed, 8 skipped, 0 failed).
+### Verification results for D3 (`shots/d-picking`, base `139a2e4`, Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82))
+- `ViewportPickingTests`: 8 tests in 1 suite reported (`0.367s`; 8 executed, 0 skipped, 0 failed), including `subThresholdMouseJitterDoesNotOrbitCameraBeforeClickPlacementWhileTrueDragOrbitsWithoutPlacing`.
+- Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 181 tests in 32 suites reported (`6.877s`; 177 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
+- Full unfiltered `app` test suite: 952 tests in 156 suites reported (`26.402s`; 944 executed, 8 skipped, 0 failed).
 - `PrevisCoreTests` (no fixture env): 148 tests in 20 suites reported (`1.568s`; 144 executed, 4 skipped, 0 failed).
-- `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.782s`; 148 executed, 0 skipped, 0 failed).
+- `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.584s`; 148 executed, 0 skipped, 0 failed).
 - `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 413 files (`0/413` require formatting).
 
 ## Blockers and dependencies
 
 - **D2:** Held in Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81) (`cc2fa25` on `shots/d-overlays`, all 7 CI jobs green, P2 label-facing closure accepted) pending coordinator disposition on the raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check contract mismatch, Gnomon workspace trust, and native UI/M1/M2 gates.
-- **D3:** Verified locally on `shots/d-picking`; Draft PR publication, current-head CI, independent review closure, and integrator merge approval pending.
+- **D3:** In review on Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82) (`shots/d-picking`); Round 1 P2 repair verified locally, awaiting current-head CI, independent Round 1 closure review, and integrator merge approval.
 - **D6:** Blocked on merged B6.
 
 ## Open questions

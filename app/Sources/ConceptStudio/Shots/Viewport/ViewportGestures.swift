@@ -139,6 +139,7 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
         private var mouseDownLocation: NSPoint?
         private var lastMouseLocation: NSPoint?
+        private var accumulatedSubThresholdDelta: CGSize = .zero
         private var didDragBeyondThreshold = false
 
         override var isFlipped: Bool {
@@ -167,6 +168,7 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
             let local = convert(event.locationInWindow, from: nil)
             mouseDownLocation = local
             lastMouseLocation = local
+            accumulatedSubThresholdDelta = .zero
             didDragBeyondThreshold = false
         }
 
@@ -182,28 +184,45 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
             } else {
                 CGSize(width: event.deltaX, height: event.deltaY)
             }
-            if let down = mouseDownLocation {
-                let totalDistance = hypot(currentLocation.x - down.x, currentLocation.y - down.y)
-                if totalDistance >= ViewportScrollWheelOverlay.dragThresholdPoints {
-                    didDragBeyondThreshold = true
-                }
-            }
-            if hypot(delta.width, delta.height) >= ViewportScrollWheelOverlay.dragThresholdPoints {
-                didDragBeyondThreshold = true
-            }
             lastMouseLocation = currentLocation
-            onDrag?(delta, event.modifierFlags.contains(.option))
+            let optionPressed = event.modifierFlags.contains(.option)
+
+            if didDragBeyondThreshold {
+                onDrag?(delta, optionPressed)
+                return
+            }
+
+            accumulatedSubThresholdDelta = CGSize(
+                width: accumulatedSubThresholdDelta.width + delta.width,
+                height: accumulatedSubThresholdDelta.height + delta.height
+            )
+            let distanceFromDown: CGFloat = if let down = mouseDownLocation {
+                hypot(currentLocation.x - down.x, currentLocation.y - down.y)
+            } else {
+                hypot(accumulatedSubThresholdDelta.width, accumulatedSubThresholdDelta.height)
+            }
+            let accumulatedDistance = hypot(accumulatedSubThresholdDelta.width, accumulatedSubThresholdDelta.height)
+            if max(distanceFromDown, accumulatedDistance) >= ViewportScrollWheelOverlay.dragThresholdPoints {
+                didDragBeyondThreshold = true
+                let initialDragDelta = accumulatedSubThresholdDelta
+                accumulatedSubThresholdDelta = .zero
+                onDrag?(initialDragDelta, optionPressed)
+            }
         }
 
         override func mouseUp(with event: NSEvent) {
             let upLocation = convert(event.locationInWindow, from: nil)
             if let down = mouseDownLocation,
-               hypot(upLocation.x - down.x, upLocation.y - down.y) >= ViewportScrollWheelOverlay.dragThresholdPoints {
+               hypot(upLocation.x - down.x, upLocation.y - down.y) >= ViewportScrollWheelOverlay.dragThresholdPoints,
+               !didDragBeyondThreshold {
                 didDragBeyondThreshold = true
+                let totalDelta = CGSize(width: upLocation.x - down.x, height: upLocation.y - down.y)
+                onDrag?(totalDelta, event.modifierFlags.contains(.option))
             }
             let wasDrag = didDragBeyondThreshold
             mouseDownLocation = nil
             lastMouseLocation = nil
+            accumulatedSubThresholdDelta = .zero
             didDragBeyondThreshold = false
             if wasDrag {
                 onDragEnded?()

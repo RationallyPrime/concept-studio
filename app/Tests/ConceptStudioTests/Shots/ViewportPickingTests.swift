@@ -334,7 +334,10 @@ struct ViewportPickingTests {
         mat.m[14] = position.z
         return mat
     }
+}
 
+@MainActor
+extension ViewportPickingTests {
     @Test
     func hostedShotsViewportRoutesClickVsDragAndKeyboardToolShortcuts() throws {
         let catalog = try ContentCatalog.bundled()
@@ -383,6 +386,82 @@ struct ViewportPickingTests {
         #expect(store.tool == .dropMarks)
         sendKey(characters: "\u{1B}", keyCode: 53, in: window, to: overlayView)
         #expect(store.tool == .select)
+    }
+
+    @Test
+    func subThresholdMouseJitterDoesNotOrbitCameraBeforeClickPlacementWhileTrueDragOrbitsWithoutPlacing() throws {
+        let catalog = try ContentCatalog.bundled()
+        let document = ShotsSamples.twoPersonWalk(small: true)
+        let store = ShotsStore(catalog: catalog, document: document, saveURL: nil)
+        let viewportSize = CGSize(width: 640, height: 480)
+        let host = NSHostingView(
+            rootView: ShotsViewport(store: store)
+                .frame(width: viewportSize.width, height: viewportSize.height)
+        )
+        host.frame = CGRect(origin: .zero, size: viewportSize)
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: viewportSize),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer {
+            window.contentView = nil
+            window.close()
+        }
+        host.layoutSubtreeIfNeeded()
+        let overlayView = try #require(findScrollCapturingView(in: host))
+        let session = try #require(overlayView.session)
+        let pixelSize = PixelSize(width: 640, height: 480)
+        let initialCamera = session.editorCamera
+        let startPixel = try #require(initialCamera.project(Vec3(0, 0, 1.4), size: pixelSize))
+
+        // 1. 0-point exact click control: camera unchanged, places at exact ray-ground hit (< 1 cm).
+        store.chooseAssetForPlacement("person.man")
+        let count0 = try #require(store.currentScene?.entities.count)
+        let winStart = overlayView.convert(CGPoint(x: startPixel.x, y: startPixel.y), to: nil)
+        sendMouse(type: .leftMouseDown, at: winStart, in: window, to: overlayView)
+        sendMouse(type: .leftMouseUp, at: winStart, in: window, to: overlayView)
+        #expect(session.editorCamera == initialCamera)
+        #expect(store.currentScene?.entities.count == count0 + 1)
+        let placed0 = try #require(store.currentScene?.entities.last)
+        let expected0 = try #require(ViewportPicking.intersectGround(
+            at: startPixel,
+            camera: initialCamera,
+            size: pixelSize
+        ))
+        #expect(distance(placed0.placement.position, expected0) < 0.01)
+
+        // 2. 2-point (< 3 pt) sub-threshold jitter regression: camera must remain unchanged and placement < 1 cm.
+        store.chooseAssetForPlacement("person.man")
+        let count1 = try #require(store.currentScene?.entities.count)
+        let releasePixel2 = Point2(x: startPixel.x + 2.0, y: startPixel.y)
+        let winRelease2 = overlayView.convert(CGPoint(x: releasePixel2.x, y: releasePixel2.y), to: nil)
+        sendMouse(type: .leftMouseDown, at: winStart, in: window, to: overlayView)
+        sendMouse(type: .leftMouseDragged, at: winRelease2, in: window, to: overlayView)
+        sendMouse(type: .leftMouseUp, at: winRelease2, in: window, to: overlayView)
+        #expect(session.editorCamera == initialCamera)
+        #expect(store.currentScene?.entities.count == count1 + 1)
+        let placed2 = try #require(store.currentScene?.entities.last)
+        let expected2 = try #require(ViewportPicking.intersectGround(
+            at: releasePixel2,
+            camera: initialCamera,
+            size: pixelSize
+        ))
+        #expect(distance(placed2.placement.position, expected2) < 0.01)
+
+        // 3. 8-point (> 3 pt) true drag control: orbits camera and does NOT place an entity.
+        store.chooseAssetForPlacement("person.man")
+        let count2 = try #require(store.currentScene?.entities.count)
+        let winDrag8 = overlayView.convert(CGPoint(x: startPixel.x + 8.0, y: startPixel.y), to: nil)
+        sendMouse(type: .leftMouseDown, at: winStart, in: window, to: overlayView)
+        sendMouse(type: .leftMouseDragged, at: winDrag8, in: window, to: overlayView)
+        sendMouse(type: .leftMouseUp, at: winDrag8, in: window, to: overlayView)
+        #expect(abs(session.editorCamera.yaw - initialCamera.yaw) > 0.05)
+        #expect(store.currentScene?.entities.count == count2)
+        #expect(store.tool == .place(assetID: "person.man"))
     }
 
     private func findScrollCapturingView(in root: NSView) -> ViewportScrollWheelOverlay.ScrollCapturingView? {
