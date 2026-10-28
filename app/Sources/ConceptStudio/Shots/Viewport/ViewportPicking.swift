@@ -178,16 +178,23 @@ extension ViewportPicking {
         }
     }
 
-    /// Handles `M` (drop-marks tool) and `Esc` (return to `.select`) key commands (`LANE-D-VIEWPORT.md` lines 110-112).
+    /// Handles focused viewport key commands: `Esc` (cancel handle drag + return to `.select`), `V` (`.select`),
+    /// `G` (`.move` handle mode), `R` (`.rotate` handle mode), and `M` (toggle `.dropMarks`).
     @MainActor
     @discardableResult
     static func handleKeyDown(
         charactersIgnoringModifiers: String?,
         keyCode: UInt16,
         modifiers: NSEvent.ModifierFlags = [],
-        in store: ShotsStore
+        in store: ShotsStore,
+        session: ViewportLiveSession? = nil
     ) -> Bool {
         if keyCode == 53 {
+            if let session {
+                session.cancelActiveHandleDrag(in: store)
+            } else {
+                store.preview = nil
+            }
             store.tool = .select
             return true
         }
@@ -196,12 +203,29 @@ extension ViewportPicking {
               let chars = charactersIgnoringModifiers?.lowercased() else {
             return false
         }
-        if chars == "m" {
+        switch chars {
+        case "v":
+            session?.cancelActiveHandleDrag(in: store)
+            store.tool = .select
+            return true
+        case "g":
             guard !store.isReadOnly, store.currentShot != nil else { return false }
+            session?.setHandleMode(.move, in: store)
+            store.tool = .select
+            return true
+        case "r":
+            guard !store.isReadOnly, store.currentShot != nil else { return false }
+            session?.setHandleMode(.rotate, in: store)
+            store.tool = .select
+            return true
+        case "m":
+            guard !store.isReadOnly, store.currentShot != nil else { return false }
+            session?.cancelActiveHandleDrag(in: store)
             store.tool = store.tool == .dropMarks ? .select : .dropMarks
             return true
+        default:
+            return false
         }
-        return false
     }
 }
 
