@@ -271,6 +271,9 @@ struct ShotsViewport: View {
                         session.endHandleDrag(at: pixel, shiftPressed: shiftPressed, in: store)
                         session.sync(with: store, frame: store.frame, size: currentSize)
                     },
+                    onHandleCancel: {
+                        session.cancelActiveHandleDrag(in: store)
+                    },
                     onKeyDown: { characters, keyCode, modifiers in
                         let handled = ViewportPicking.handleKeyDown(
                             charactersIgnoringModifiers: characters,
@@ -297,6 +300,9 @@ struct ShotsViewport: View {
             }
             .onAppear {
                 session.sync(with: store, frame: currentFrame, size: currentSize)
+            }
+            .onDisappear {
+                session.cancelActiveHandleDrag(in: store)
             }
             .onChange(of: currentSize) { _, updated in
                 session.sync(with: store, frame: currentFrame, size: updated)

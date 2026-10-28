@@ -125,6 +125,7 @@ struct ViewportHandleGizmoGeometry: Sendable, Equatable {
 
 /// Active handle drag state tracking the baseline committed target and latest preview command.
 struct ViewportHandleDragSession: Sendable, Equatable {
+    var baselineDocument: ShotsDocument
     var sceneID: SceneID
     var shotID: ShotID
     var selection: ShotsSelection
@@ -328,6 +329,7 @@ extension ViewportHandles {
         )
 
         return ViewportHandleDragSession(
+            baselineDocument: store.document,
             sceneID: sceneID,
             shotID: shotID,
             selection: store.selection,
@@ -416,7 +418,13 @@ extension ViewportHandles {
               store.currentSceneID == drag.sceneID,
               store.currentShotID == drag.shotID,
               store.selection == drag.selection,
-              resolveTarget(in: store, useCommittedDocument: true) != nil
+              store.document == drag.baselineDocument,
+              drag.target.matchesCommittedTarget(
+                  in: store.document,
+                  sceneID: drag.sceneID,
+                  shotID: drag.shotID
+              ),
+              drag.latestCommand == nil || store.preview != nil
         else { return false }
         return true
     }
@@ -551,16 +559,21 @@ extension ViewportHandles {
     ) -> ShotsCommand {
         switch target {
         case let .entity(id, initialPlacement):
+            guard abs(deltaHeading) > 1e-9 else { return .setPlacement(id, initialPlacement) }
             var updated = initialPlacement
             updated.heading = normalizeAngle(initialPlacement.heading + deltaHeading)
             return .setPlacement(id, updated)
 
         case let .actorMark(shotID, entityID, initialMark, initialHeading):
+            guard abs(deltaHeading) > 1e-9 else { return .updateActorMark(shotID, entityID, initialMark) }
             var updated = initialMark
             updated.arriveHeading = normalizeAngle(initialHeading + deltaHeading)
             return .updateActorMark(shotID, entityID, updated)
 
         case let .cameraMark(shotID, initialMark, _):
+            guard abs(deltaHeading) > 1e-9 || abs(deltaTilt) > 1e-9 else {
+                return .updateCameraMark(shotID, initialMark)
+            }
             var updated = initialMark
             updated.pan = normalizeAngle(initialMark.pan + deltaHeading)
             updated.tilt = min(max(initialMark.tilt + deltaTilt, -maxTiltRadians), maxTiltRadians)

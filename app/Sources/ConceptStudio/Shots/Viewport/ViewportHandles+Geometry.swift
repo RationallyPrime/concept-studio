@@ -232,7 +232,7 @@ extension ViewportHandles {
             Float(geometry.pivot.y),
             Float(geometry.pivot.z)
         )
-        let scale = Float(max(geometry.worldRadius, 0.05))
+        let scale = Float(max(geometry.worldRadius, 1e-4))
         handlesEntity.scale = SIMD3<Float>(repeating: scale)
 
         handlesEntity.findEntity(named: "viewport.handles.moveGroup")?.isEnabled = (mode == .move)
@@ -298,5 +298,34 @@ extension ViewportHandles {
 
         ViewportGrid.disableOcclusionCulling(on: root)
         return root
+    }
+}
+
+extension ViewportHandleTarget {
+    func matchesCommittedTarget(
+        in document: ShotsDocument,
+        sceneID: SceneID,
+        shotID: ShotID
+    ) -> Bool {
+        guard let scene = document.scenes.first(where: { $0.id == sceneID }),
+              let shot = scene.shots.first(where: { $0.id == shotID })
+        else { return false }
+
+        switch self {
+        case let .entity(id, initialPlacement):
+            return scene.entities.first(where: { $0.id == id })?.placement == initialPlacement
+
+        case let .actorMark(expectedShotID, entityID, initialMark, _):
+            guard expectedShotID == shot.id else { return false }
+            let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
+            let committedMark = take?.tracks.first(where: { $0.entityID == entityID })?.marks
+                .first(where: { $0.id == initialMark.id })
+            return committedMark == initialMark
+
+        case let .cameraMark(expectedShotID, initialMark, _):
+            guard expectedShotID == shot.id else { return false }
+            let committedMark = shot.camera.marks.first(where: { $0.id == initialMark.id })
+            return committedMark == initialMark
+        }
     }
 }

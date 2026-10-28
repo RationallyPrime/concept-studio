@@ -108,7 +108,12 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
     var onHandleMouseDown: ((Point2) -> Bool)?
     var onHandleMouseDragged: ((Point2, Bool) -> Void)?
     var onHandleMouseUp: ((Point2, Bool) -> Void)?
+    var onHandleCancel: (() -> Void)?
     var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
+
+    static func dismantleNSView(_ nsView: ScrollCapturingView, coordinator: ()) {
+        nsView.cancelPendingGesture()
+    }
 
     func makeNSView(context: Context) -> ScrollCapturingView {
         let view = ScrollCapturingView()
@@ -132,6 +137,7 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         view.onHandleMouseDown = onHandleMouseDown
         view.onHandleMouseDragged = onHandleMouseDragged
         view.onHandleMouseUp = onHandleMouseUp
+        view.onHandleCancel = onHandleCancel
         view.onKeyDown = onKeyDown
     }
 
@@ -145,12 +151,39 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         var onHandleMouseDown: ((Point2) -> Bool)?
         var onHandleMouseDragged: ((Point2, Bool) -> Void)?
         var onHandleMouseUp: ((Point2, Bool) -> Void)?
+        var onHandleCancel: (() -> Void)?
         var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
         private var mouseDownLocation: NSPoint?
         private var lastMouseLocation: NSPoint?
         private var accumulatedSubThresholdDelta: CGSize = .zero
         private var didDragBeyondThreshold = false
         private var isDraggingHandle = false
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil {
+                cancelPendingGesture()
+            }
+        }
+
+        override func viewDidMoveToSuperview() {
+            super.viewDidMoveToSuperview()
+            if superview == nil {
+                cancelPendingGesture()
+            }
+        }
+
+        func cancelPendingGesture() {
+            let hadHandleDrag = isDraggingHandle || session?.activeHandleDrag != nil
+            isDraggingHandle = false
+            mouseDownLocation = nil
+            lastMouseLocation = nil
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
+            if hadHandleDrag {
+                onHandleCancel?()
+            }
+        }
 
         override var isFlipped: Bool {
             true
