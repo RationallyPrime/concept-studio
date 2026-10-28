@@ -108,14 +108,33 @@ final class ShotsStore {
     }
 
     func perform(_ command: ShotsCommand, coalescing: Bool = false) throws {
+        try perform([command], coalescingKey: command.coalescingKey, coalescing: coalescing)
+    }
+
+    func perform(_ commands: [ShotsCommand]) throws {
+        try perform(commands, coalescingKey: nil, coalescing: false)
+    }
+
+    private func perform(
+        _ commands: [ShotsCommand],
+        coalescingKey key: ShotsCoalescingKey?,
+        coalescing: Bool
+    ) throws {
         guard !isReadOnly else { throw ShotsEditingError.readOnly }
+        guard !commands.isEmpty else { return }
         let before = document
         var candidate = before
-        try ShotsCommandApplication.apply(command, to: &candidate, catalog: catalog)
+        for command in commands {
+            try ShotsCommandApplication.apply(command, to: &candidate, catalog: catalog)
+        }
         guard candidate != before else { preview = nil; return }
         let failures = ShotsValidation.problems(in: candidate, catalog: catalog).filter { $0.severity == .error }
         guard failures.isEmpty else { throw ShotsError.invalid(failures) }
-        if case .setPrompt = command {} else {
+        let hasSceneMutation = commands.contains { command in
+            if case .setPrompt = command { return false }
+            return true
+        }
+        if hasSceneMutation {
             for index in candidate.scenes.indices {
                 let scene = candidate.scenes[index]
                 if let previous = before.scenes.first(where: { $0.id == scene.id }) {
@@ -126,7 +145,6 @@ final class ShotsStore {
             }
         }
         let now = ContinuousClock.now
-        let key = command.coalescingKey
         let joinsPrevious = coalescing && key != nil && lastEdit?.key == key
             && lastEdit.map { $0.time.duration(to: now) <= .milliseconds(800) } == true
         if !joinsPrevious {
@@ -144,6 +162,14 @@ final class ShotsStore {
     func run(_ command: ShotsCommand, coalescing: Bool = false) {
         do {
             try perform(command, coalescing: coalescing)
+        } catch {
+            onError?(error.localizedDescription)
+        }
+    }
+
+    func run(_ commands: [ShotsCommand]) {
+        do {
+            try perform(commands)
         } catch {
             onError?(error.localizedDescription)
         }

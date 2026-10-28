@@ -20,6 +20,7 @@ final class ViewportLiveSession {
     var handleMode: ViewportHandleMode = .move
     var activeHandleDrag: ViewportHandleDragSession?
     @ObservationIgnored var announcementPoster: ((String) -> Void)?
+    @ObservationIgnored weak var hostView: NSView?
     private(set) var lastAnnouncement: String?
     private var lastAnnouncedSelection: ShotsSelection?
     private(set) var activeLighting: LightingPreset = .day
@@ -128,7 +129,11 @@ final class ViewportLiveSession {
 
     func postAnnouncement(_ message: String) {
         lastAnnouncement = message
-        announcementPoster?(message)
+        if let announcementPoster {
+            announcementPoster(message)
+        } else {
+            ViewportAccessibility.postAnnouncementIfWindowVisible(message, in: hostView)
+        }
     }
 
     static func selectionAnnouncement(for selection: ShotsSelection, in store: ShotsStore) -> String {
@@ -178,8 +183,16 @@ final class ViewportLiveSession {
 /// - Post effects (`motionBlur`, `depthOfField`, `cameraGrain`, HDR) are disabled on `RealityView` content.
 struct ShotsViewport: View {
     let store: ShotsStore
+    var externalSession: ViewportLiveSession?
+    var onToggleLookThrough: (() -> Void)?
+    var claimFocusOnAppear = false
+    var onClaimedFocus: (() -> Void)?
 
-    @State var session = ViewportLiveSession()
+    @State private var ownedSession = ViewportLiveSession()
+
+    var session: ViewportLiveSession {
+        externalSession ?? ownedSession
+    }
 
     var body: some View {
         let activeLighting = store.currentScene?.lighting ?? .day
@@ -211,6 +224,8 @@ struct ShotsViewport: View {
 
                 ViewportScrollWheelOverlay(
                     session: session,
+                    claimFocusOnAppear: claimFocusOnAppear,
+                    onClaimedFocus: onClaimedFocus,
                     onSync: {
                         session.sync(with: store, frame: currentFrame, size: currentSize)
                     },
@@ -275,12 +290,14 @@ struct ShotsViewport: View {
                         session.cancelActiveHandleDrag(in: store)
                     },
                     onKeyDown: { characters, keyCode, modifiers in
+                        session.viewportSize = currentSize
                         let handled = ViewportPicking.handleKeyDown(
                             charactersIgnoringModifiers: characters,
                             keyCode: keyCode,
                             modifiers: modifiers,
                             in: store,
-                            session: session
+                            session: session,
+                            onToggleLookThrough: onToggleLookThrough
                         )
                         if handled {
                             session.sync(with: store, frame: store.frame, size: currentSize)
