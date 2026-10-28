@@ -1,6 +1,6 @@
 # Lane D status
 
-Owner: Metis (Gemini). Canonical branch: `shots/d-viewport`. Current base `main`: `c23dea809c176e77daf738c742c1d50b04ca8449` (includes merged D0 `#61`, A1 `#59`, A2 `#64`, A3 `#65`, C1 `#66`, C2 `#68`, B3 `#58`, A4 `#67`, B reader `#74`, C3 `#70`, C4 `#71`, A5 `#73`).
+Owner: Metis (Gemini). Current D3 branch: `shots/d-picking` (based on `main` `139a2e42095fd509241377286b636ff8d3c18cda`, which includes merged D0 `#61` and D1 `#72`). Preserved D2 branch: `shots/d-overlays` (`cc2fa25e221bcb39a68a79c6bcea98c242cd8c66` on Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81)).
 Reference implementation: [Blockout](https://github.com/wassermanproductions/blockout) at `3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9` (`scripts/blockout/fetch.sh`).
 
 ## Checkpoints
@@ -8,9 +8,9 @@ Reference implementation: [Blockout](https://github.com/wassermanproductions/blo
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
 | D0: shell and editor camera maths | **Merged** ([RationallyPrime/concept-studio#61](https://github.com/RationallyPrime/concept-studio/pull/61), `42871fbdec650df2f8436febb3d94858b71c9769`) | Complete. |
-| D1: RealityView display, gestures, grid and snapshots | **Draft PR [#72](https://github.com/RationallyPrime/concept-studio/pull/72) on `shots/d-viewport`** (Round 1 review fixes applied, rebased onto `c23dea8`, audited against Blockout `3f2d056`) | Current-head CI, independent review closure, and integrator merge approval. |
-| D2: overlays and playback | Ready to implement (A2 `#64`, A3 `#65`, A5 `#73`, C4 `#71` merged on `main`) | Marks (`markMesh`), path ribbons (`evaluator.paths()`), camera body and frustum (`buildCameraBody`), selection box (`BoxHelper`), overlay toggles, playback, and 3-pose sign-check snapshot (`jab-cross`, `wave`, `sit`). |
-| D3: picking and tools | Unblocked (C2 `#68`, C3 `#70` merged on `main`) | CPU ray-vs-part-bounds picking, ground-plane (`y = 0`) intersection, select/shift-select, place tool (`⌥` multi-place, `Esc` cancel), and drop-marks tool (`M`). |
+| D1: RealityView display, gestures, grid and snapshots | **Merged** ([RationallyPrime/concept-studio#72](https://github.com/RationallyPrime/concept-studio/pull/72), `efbe83380dc387100c9059ce62b305de81a069a2`) | Complete. |
+| D2: overlays and playback | **Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81) on `shots/d-overlays` (`cc2fa25`)** — all 7 CI jobs green (`40612874202`), Round 1 P2 label-facing closure accepted ([issuecomment-6457931637](https://github.com/RationallyPrime/concept-studio/pull/81#issuecomment-6457931637)) | Held in Draft for raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check contract disposition, Gnomon workspace trust, and native UI/M1/M2 gates. |
+| D3: picking and tools | **Verified locally on `shots/d-picking`; Draft PR publication pending** (`ViewportPicking.swift`, `ViewportGestures.swift`, `ShotsViewport.swift`, `ViewportPickingTests.swift`) | Draft PR publication, current-head CI, independent review closure, and integrator merge approval. |
 | D4: move and rotate handles | After D3 | Entity, actor-mark and camera-mark handles with `store.preview` while dragging and single `store.run` on release. |
 | D5: look-through view, keyboard and VoiceOver | Unblocked (B3 `#58` merged on `main`) | Coalesced `ShotCameraView` rendering, letterboxed canvas, look-through parity against `middle-f0011-clean.png` on `twoPersonWalk(small: true)`, viewport keyboard shortcuts, and VoiceOver selection announcements. |
 | D6: integration, performance and IT4 | Blocked on B6 | Needs merged B6; scripted IT4 workflow and release-build frame-time measurements. |
@@ -125,12 +125,43 @@ cd app && mise exec -- swiftlint lint --strict && \
   - Unfiltered full `ConceptStudioTests` suite (existing non-Shots suites trigger the pre-existing local login Keychain prompt).
   - Live window interactive walkthrough and signed sandbox UI verification.
 
+## Delivered in D3 (`shots/d-picking`)
+
+### Reference files inspected for D3 (`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`)
+- `src/renderer/viewport/SceneManager.ts:828-958` (`pointerNdc`, `onPointerDown`, placement click, `dropActorMark` / `dropCameraMark` click, entity selection, `groundHit` against `y = 0`).
+- `src/renderer/viewport/Viewport.tsx:419-605` (HUD tool state badges, `droppingMarks` toggle button, and `Esc` cancel hints).
+- `src/renderer/store.ts:498-586` (`addEntity` duplicate naming `Man`, `Man 2`, `dropActorMark`, `dropCameraMark`).
+- `src/engine/schema.ts:92-115` (`createActorMark` defaults `hold: 0, easeIn: 0.25, easeOut: 0.25, gait: "walk"`; `createCameraMark` defaults `hold: 0, easeIn: 0.3, easeOut: 0.3, roll: 0`).
+
+### Preserved Blockout behaviors and intentional Swift/RealityKit deviations in D3
+1. **CPU ray picking against `SceneFrame` (`ViewportPicking.swift` ← `LANE-D-VIEWPORT.md` lines 35-37, 107):**
+   - Uses `EditorCamera.ray(through:size:)` in top-left pixel coordinates (`CONTRACTS.md` section 4), transforms the ray into each `PosedPart`'s local space via `part.transform.inverse`, tests local `PartShape` bounds (`.box`, `.wedge`, `.sphere`, `.capsule`, `.cylinder`, `.cone`), and returns the nearest forward hit (`t > 0`) rather than Three.js `Raycaster.intersectObjects`.
+2. **Ground-plane (`y = 0`) intersection (`ViewportPicking.intersectGround` ← `SceneManager.ts:953-957`):**
+   - Intersects `y = 0` from either side whenever the ray is non-parallel (`abs(direction.y) >= 1e-6`) and the intersection is forward (`t = -origin.y / direction.y >= 0`).
+3. **Select and shift-click multi-selection (`ViewportPicking.applyEntityClick` ← `LANE-D-VIEWPORT.md` line 108):**
+   - Primary click sets `store.selection = .entities([id])` (or `.none` on empty space). Shift-click adds `id` to `.entities` without duplicates (intentional plan deviation from Blockout's `toggleEntitySelected`).
+4. **Place tool (`store.tool == .place(assetID:)` ← `SceneManager.ts:905-913`, `store.ts:500-528`, `LANE-D-VIEWPORT.md` lines 109-110):**
+   - Ground click adds a `PrevisEntity` at `(groundHit.x, 0, groundHit.z)` with duplicate naming (`Man`, `Man 2`) and selects it; holding `⌥` keeps `.place(assetID:)` active, while an ordinary click or `Esc` returns `store.tool` to `.select`.
+5. **Drop-marks tool (`M` / `store.tool == .dropMarks` ← `SceneManager.ts:914-926`, `store.ts:548-571`, `schema.ts:92-115`, `LANE-D-VIEWPORT.md` lines 111-112, 117):**
+   - Selected actor/entity drops an `ActorMark` at the playhead time (`FrameGrid.time(ofFrame: store.playhead)`) with `schema.ts:92-104` defaults (`hold: 0, easeIn: 0.25, easeOut: 0.25, gait: .walk`).
+   - Selected `.camera` / `.cameraMark` drops a `CameraMark` at the playhead time (`hold: 0, easeIn: 0.3, easeOut: 0.3, roll: 0`) aimed at the shot's subject (`shot.camera.trackIDs` or primary actor at `0.8 * height`), converting to mount-local coordinates when `shot.camera.rig == .carMount` and `shot.camera.mountID != nil`.
+6. **Read-only guard (`store.isReadOnly` ← `LANE-D-VIEWPORT.md` lines 56-57):**
+   - Disables `.place`, `.dropMarks`, and `M` tool activation while keeping entity click selection and editor-camera orbit/pan/dolly active.
+
+### Verification results for D3 (`shots/d-picking`, base `139a2e4`)
+- `ViewportPickingTests`: 7 tests in 1 suite reported (`0.598s`; 7 executed, 0 skipped, 0 failed).
+- Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 180 tests in 32 suites reported (`7.421s`; 176 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
+- Full unfiltered `app` test suite: 951 tests in 156 suites reported (`26.749s`; 943 executed, 8 skipped, 0 failed).
+- `PrevisCoreTests` (no fixture env): 148 tests in 20 suites reported (`1.568s`; 144 executed, 4 skipped, 0 failed).
+- `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.782s`; 148 executed, 0 skipped, 0 failed).
+- `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 413 files (`0/413` require formatting).
+
 ## Blockers and dependencies
 
-- **D1:** Round 1 review findings (`4382946767`, `4382946774`, `4382946781`, `4382946784`) repaired on `shots/d-viewport` and rebased onto `c23dea8`; awaiting current-head CI, independent review closure, and integrator merge.
-- **D2, D3, D5:** Unblocked on `main` (A2 `#64`, A3 `#65`, C1 `#66`, C2 `#68`, B3 `#58`, A4 `#67`, C3 `#70`, C4 `#71`, A5 `#73` are all merged on `c23dea8`).
+- **D2:** Held in Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81) (`cc2fa25` on `shots/d-overlays`, all 7 CI jobs green, P2 label-facing closure accepted) pending coordinator disposition on the raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check contract mismatch, Gnomon workspace trust, and native UI/M1/M2 gates.
+- **D3:** Verified locally on `shots/d-picking`; Draft PR publication, current-head CI, independent review closure, and integrator merge approval pending.
 - **D6:** Blocked on merged B6.
 
 ## Open questions
 
-- None for D1.
+- None for D3.
