@@ -1,40 +1,237 @@
+import CoreGraphics
+import Observation
 import PrevisCore
+import ShotsMedia
 import SwiftUI
 
-/// Look-through view for the active shot camera, letterboxed to the shot canvas (CONTRACTS section 7).
-/// D0 provides the placeholder surface wired to `ShotsStore`.
+/// Immutable snapshot of the inputs required to render one shot-camera look-through frame.
+struct ShotCameraRenderRequest: Sendable, Equatable {
+    let sceneID: SceneID
+    let sceneRevision: Int
+    let shotID: ShotID
+    let shotName: String
+    let frame: SceneFrame
+    let look: PrevisLook
+
+    @MainActor
+    static func make(from store: ShotsStore) -> ShotCameraRenderRequest? {
+        guard let scene = store.currentScene,
+              let shot = store.currentShot,
+              let frame = store.frame
+        else {
+            return nil
+        }
+        return ShotCameraRenderRequest(
+            sceneID: scene.id,
+            sceneRevision: scene.revision,
+            shotID: shot.id,
+            shotName: shot.name,
+            frame: frame,
+            look: PrevisLook(scene: scene)
+        )
+    }
+}
+
+/// Coalesces offscreen `ShotFrameRenderer` requests for `ShotCameraView` so at most one render is in flight
+/// and at most one newest pending request waits behind it (`LANE-D-VIEWPORT.md` lines 47-49, 136-144).
+@MainActor
+@Observable
+final class ShotCameraPreviewSession {
+    typealias RenderClosure = @MainActor (SceneFrame, PrevisLook) async throws -> CGImage
+
+    private final class RendererBox {
+        var renderer: ShotFrameRenderer?
+    }
+
+    private(set) var renderedImage: CGImage?
+    private(set) var renderedRequest: ShotCameraRenderRequest?
+    private(set) var isRendering = false
+    private(set) var errorMessage: String?
+
+    private let renderClosure: RenderClosure
+    private var desiredRequest: ShotCameraRenderRequest?
+    private var inFlightRequest: ShotCameraRenderRequest?
+    private var pendingRequest: ShotCameraRenderRequest?
+    private var onErrorHandler: (@MainActor (String) -> Void)?
+    private var drainTask: Task<Void, Never>?
+    private var activeDrainRunID: UInt64 = 0
+
+    init(renderImage: RenderClosure? = nil) {
+        if let renderImage {
+            renderClosure = renderImage
+        } else {
+            let box = RendererBox()
+            renderClosure = { frame, look in
+                if box.renderer == nil {
+                    box.renderer = try ShotFrameRenderer()
+                }
+                guard let renderer = box.renderer else {
+                    throw ShotsMediaError("Shots couldn't initialize the frame renderer.")
+                }
+                return try await renderer.image(of: frame, look: look)
+            }
+        }
+    }
+
+    func requestRender(for store: ShotsStore) {
+        requestRender(ShotCameraRenderRequest.make(from: store), onError: store.onError)
+    }
+
+    func requestRender(_ request: ShotCameraRenderRequest?, onError: (@MainActor (String) -> Void)? = nil) {
+        onErrorHandler = onError
+        guard let request else {
+            clearContext()
+            return
+        }
+        if let renderedRequest,
+           renderedRequest.sceneID != request.sceneID
+           || renderedRequest.shotID != request.shotID
+           || renderedRequest.frame.canvas != request.frame.canvas {
+            renderedImage = nil
+            self.renderedRequest = nil
+            errorMessage = nil
+        }
+        desiredRequest = request
+        if renderedRequest == request,
+           renderedImage != nil,
+           inFlightRequest == nil,
+           pendingRequest == nil,
+           errorMessage == nil {
+            return
+        }
+        if inFlightRequest == request {
+            pendingRequest = nil
+            return
+        }
+        pendingRequest = request
+        isRendering = true
+        if drainTask == nil {
+            activeDrainRunID &+= 1
+            let runID = activeDrainRunID
+            drainTask = Task { @MainActor [weak self] in
+                await self?.drainQueue(runID: runID)
+            }
+        }
+    }
+
+    func cancel() {
+        activeDrainRunID &+= 1
+        drainTask?.cancel()
+        drainTask = nil
+        pendingRequest = nil
+        inFlightRequest = nil
+        isRendering = false
+    }
+
+    func waitForIdle() async {
+        while let task = drainTask {
+            await task.value
+        }
+    }
+
+    private func clearContext() {
+        cancel()
+        desiredRequest = nil
+        renderedImage = nil
+        renderedRequest = nil
+        errorMessage = nil
+    }
+
+    private func drainQueue(runID: UInt64) async {
+        while activeDrainRunID == runID, !Task.isCancelled, let next = pendingRequest {
+            pendingRequest = nil
+            inFlightRequest = next
+            isRendering = true
+            do {
+                let image = try await renderClosure(next.frame, next.look)
+                guard activeDrainRunID == runID, !Task.isCancelled else { break }
+                if desiredRequest?.sceneID == next.sceneID,
+                   desiredRequest?.shotID == next.shotID,
+                   desiredRequest?.frame.canvas == next.frame.canvas {
+                    if pendingRequest == nil || renderedImage == nil {
+                        renderedImage = image
+                        renderedRequest = next
+                    }
+                    errorMessage = nil
+                }
+            } catch is CancellationError {
+                break
+            } catch {
+                guard activeDrainRunID == runID, !Task.isCancelled else { break }
+                if desiredRequest?.sceneID == next.sceneID,
+                   desiredRequest?.shotID == next.shotID {
+                    let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    errorMessage = message
+                    renderedImage = nil
+                    renderedRequest = nil
+                    onErrorHandler?(message)
+                }
+            }
+        }
+        if activeDrainRunID == runID {
+            inFlightRequest = nil
+            isRendering = false
+            drainTask = nil
+        }
+    }
+}
+
+/// Look-through view for the active shot camera, rendered through `ShotFrameRenderer` with `PrevisLook(scene:)`
+/// and letterboxed to the shot canvas (`CONTRACTS.md` section 7, `LANE-D-VIEWPORT.md` lines 47-49, 136-144).
+///
+/// Reference: Blockout `src/renderer/viewport/SceneManager.ts:2101-2105, 2220-2240, 2371-2450` and
+/// `src/renderer/viewport/Viewport.tsx:335-374, 540-588`.
 struct ShotCameraView: View {
     let store: ShotsStore
+    @State var session: ShotCameraPreviewSession
+
+    init(store: ShotsStore, session: ShotCameraPreviewSession? = nil) {
+        self.store = store
+        _session = State(initialValue: session ?? ShotCameraPreviewSession())
+    }
+
+    static func letterboxRect(in containerSize: CGSize, canvas: ShotCanvas) -> CGRect {
+        guard containerSize.width > 0, containerSize.height > 0,
+              canvas.width > 0, canvas.height > 0
+        else {
+            return .zero
+        }
+        let aspect = CGFloat(canvas.aspect)
+        var fittedWidth = containerSize.width
+        var fittedHeight = fittedWidth / aspect
+        if fittedHeight > containerSize.height {
+            fittedHeight = containerSize.height
+            fittedWidth = fittedHeight * aspect
+        }
+        let originX = (containerSize.width - fittedWidth) * 0.5
+        let originY = (containerSize.height - fittedHeight) * 0.5
+        return CGRect(x: originX, y: originY, width: fittedWidth, height: fittedHeight)
+    }
 
     private var canvas: ShotCanvas {
         store.currentShot?.canvas ?? .portrait
     }
 
     var body: some View {
-        ZStack {
-            InstantPrint.ground
-            VStack(spacing: 8) {
-                Image(systemName: "video")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Text("Shot camera")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Text(captionText)
-                    .font(.system(size: 12))
-                    .foregroundStyle(StudioStyle.supportingText)
-                    .monospacedDigit()
-                    .multilineTextAlignment(.center)
+        let currentRequest = ShotCameraRenderRequest.make(from: store)
+        GeometryReader { geometry in
+            let innerSize = CGSize(
+                width: max(geometry.size.width - 16, 1),
+                height: max(geometry.size.height - 16, 1)
+            )
+            let rect = Self.letterboxRect(in: innerSize, canvas: canvas)
+            ZStack {
+                InstantPrint.ground
+                canvasSurface(size: rect.size)
+                    .frame(width: max(rect.width, 1), height: max(rect.height, 1))
+                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(Color.primary.opacity(0.20), lineWidth: 1)
+                    }
             }
-            .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .aspectRatio(CGFloat(canvas.aspect), contentMode: .fit)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
-            .overlay {
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(Color.primary.opacity(0.20), lineWidth: 1)
-            }
-            .padding(8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -43,13 +240,73 @@ struct ShotCameraView: View {
                 .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Shot camera preview. \(captionText)")
+        .accessibilityLabel(accessibilityLabelText)
+        .onAppear {
+            session.requestRender(currentRequest, onError: store.onError)
+        }
+        .onChange(of: currentRequest) { _, updated in
+            session.requestRender(updated, onError: store.onError)
+        }
+        .onDisappear {
+            session.cancel()
+        }
     }
 
-    private var captionText: String {
+    @ViewBuilder
+    private func canvasSurface(size: CGSize) -> some View {
+        if let image = session.renderedImage,
+           session.errorMessage == nil,
+           session.renderedRequest?.sceneID == store.currentSceneID,
+           session.renderedRequest?.shotID == store.currentShotID {
+            ZStack(alignment: .bottomLeading) {
+                Image(decorative: image, scale: 1.0, orientation: .up)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: size.width, height: size.height)
+
+                Text(captionText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .monospacedDigit()
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(InstantPrint.ground.opacity(0.88), in: RoundedRectangle(cornerRadius: 4))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4)
+                            .strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
+                    }
+                    .padding(8)
+            }
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: session.errorMessage == nil ? "video" : "exclamationmark.triangle")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Shot camera")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(session.errorMessage ?? captionText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(StudioStyle.supportingText)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    var captionText: String {
         guard let shot = store.currentShot else {
             return "No active shot · \(canvas.width) × \(canvas.height)"
         }
         return "Shot \(shot.name) · \(canvas.width) × \(canvas.height) · Frame \(store.playhead)"
+    }
+
+    var accessibilityLabelText: String {
+        if let errorMessage = session.errorMessage {
+            return "Shot camera preview. \(captionText). \(errorMessage)"
+        }
+        return "Shot camera preview. \(captionText)"
     }
 }
