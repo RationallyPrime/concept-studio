@@ -252,12 +252,23 @@ struct ShotCameraView: View {
         }
     }
 
+    var activeRenderedRequest: ShotCameraRenderRequest? {
+        guard session.renderedImage != nil,
+              session.errorMessage == nil,
+              let rendered = session.renderedRequest,
+              rendered.sceneID == store.currentSceneID,
+              rendered.shotID == store.currentShotID,
+              rendered.frame.canvas == canvas
+        else {
+            return nil
+        }
+        return rendered
+    }
+
     @ViewBuilder
     private func canvasSurface(size: CGSize) -> some View {
         if let image = session.renderedImage,
-           session.errorMessage == nil,
-           session.renderedRequest?.sceneID == store.currentSceneID,
-           session.renderedRequest?.shotID == store.currentShotID {
+           activeRenderedRequest != nil {
             ZStack(alignment: .bottomLeading) {
                 Image(decorative: image, scale: 1.0, orientation: .up)
                     .resizable()
@@ -297,6 +308,11 @@ struct ShotCameraView: View {
     }
 
     var captionText: String {
+        if let rendered = activeRenderedRequest {
+            let canvasText = "\(rendered.frame.canvas.width) × \(rendered.frame.canvas.height)"
+            let frameIndex = rendered.frame.index ?? FrameGrid.frame(atTime: rendered.frame.time)
+            return "Shot \(rendered.shotName) · \(canvasText) · Frame \(frameIndex)"
+        }
         guard let shot = store.currentShot else {
             return "No active shot · \(canvas.width) × \(canvas.height)"
         }

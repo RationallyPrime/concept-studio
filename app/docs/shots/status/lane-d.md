@@ -12,7 +12,7 @@ Reference implementation: [Blockout](https://github.com/wassermanproductions/blo
 | D2: overlays and playback | **Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81) on `shots/d-overlays` (`cc2fa25`)** — all 7 CI jobs green (`40612874202`), Round 1 P2 label-facing closure accepted ([issuecomment-6457931637](https://github.com/RationallyPrime/concept-studio/pull/81#issuecomment-6457931637)) | Held in Draft for raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check contract disposition and Gnomon workspace trust. |
 | D3: picking and tools | **Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82) on `shots/d-picking` (`fdb33e2`)** — all 7 CI jobs green (`40625014667`), Round 1 P2 sub-threshold jitter closure accepted ([issuecomment-6459717747](https://github.com/RationallyPrime/concept-studio/pull/82#issuecomment-6459717747)) | All accepted headless D3 checks and CI complete; held in Draft under current coordination no-merge instruction. |
 | D4: move and rotate handles | After D3 integration | Entity, actor-mark and camera-mark handles with `store.preview` while dragging and single `store.run` on release. |
-| D5: look-through view, keyboard and VoiceOver | **Local rendering-slice verified on `shots/d-look-through`** (`ShotCameraView.swift`, `ViewportLookThroughTests.swift`) | Draft PR publication, initial independent review, exact-head CI, plus remaining focused viewport keys (`CONTRACTS.md` section 7) and VoiceOver selection announcements. |
+| D5: look-through view, keyboard and VoiceOver | **Draft PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83) on `shots/d-look-through`** — Round 1 P2 retained-image caption/accessibility identity repair verified locally | Independent Round 1 P2 closure review and exact-head CI on PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83), plus remaining focused viewport keys (`CONTRACTS.md` section 7) and VoiceOver selection announcements. |
 | D6: integration, performance and IT4 | Blocked on B6 | Needs merged B6; scripted IT4 workflow and release-build frame-time measurements. |
 
 ## Blockout Reference Audit & Intentional Swift/RealityKit Deviations (D0 & D1)
@@ -135,18 +135,19 @@ cd app && mise exec -- swiftlint lint --strict && \
 ### Preserved behaviors and intentional Swift/RealityKit adaptations in D5 (`ShotCameraView.swift`, `ViewportLookThroughTests.swift`)
 1. **Shared export renderer and canonical look (`ShotCameraView`, `ShotCameraPreviewSession` ← `LANE-D-VIEWPORT.md` lines 47-49, 136-144, 166; `SHOTS-PLAN.md` section 4):**
    - RealityKit's `RealityView` supports a single active camera, and Blockout's live WebGL viewport applied tone mapping/exposure that differed from its exporter. `ShotCameraView` renders `store.frame` offscreen via `ShotFrameRenderer.image(of: frame, look: PrevisLook(scene: scene))` with no editor overlay (`overlay == nil`), matching `ShotExporter`'s `.clean` pass pixel-for-pixel by construction.
-2. **Latest-wins request coalescing (`ShotCameraPreviewSession`):**
+2. **Latest-wins request coalescing & displayed-image metadata identity (`ShotCameraPreviewSession`, `ShotCameraView.activeRenderedRequest`):**
    - Keeps at most one render in flight and at most one newest pending `ShotCameraRenderRequest` (`sceneID`, `sceneRevision`, `shotID`, `shotName`, `frame`, `look`), collapsing intermediate playhead/document updates while preventing stale in-flight completions from overwriting a switched or cleared shot context.
+   - `ShotCameraView.activeRenderedRequest` shares the exact displayed-image predicate between `canvasSurface(size:)` and `captionText` / `accessibilityLabelText`: whenever `session.renderedImage` is shown on screen (including while a newer playhead/document render is still in flight), both the HUD pill and the accessibility label identify `rendered.shotName`, `rendered.frame.canvas`, and `rendered.frame.index` of the displayed pixels rather than the unrendered `store.playhead` target (PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83) Round 1 P2 repair). When no rendered image is active, `captionText` falls back to `store.currentShot` / `store.playhead`.
    - Render failures set `session.errorMessage`, clear `renderedImage` (never silently succeeding), report through `store.onError`, and recover on subsequent requests.
 3. **Canvas letterboxing (`ShotCameraView.letterboxRect(in:canvas:)` ← `SceneManager.ts:2220-2240`):**
    - Fits the active `ShotCanvas` aspect ratio centered inside the available view bounds while preserving `InstantPrint.ground` contrast and accessibility labeling in both `.aqua` and `.darkAqua` appearances.
 
-### Verification results for D5 rendering slice (`shots/d-look-through`, base `139a2e4`)
-- `ViewportLookThroughTests`: 6 tests in 1 suite reported (`0.572s`; 6 executed, 0 skipped, 0 failed), including `lookThroughFrameElevenMatchesExportedMiddleGuideCleanPNGAsDecodedRGB` (`twoPersonWalk(small: true)`, 22 frames, `320×576`, frame 11 look-through image equals exported `guides/middle-f0011-clean.png` as decoded sRGB bytes).
-- Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 179 tests in 32 suites reported (`7.329s`; 175 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
-- Full unfiltered `app` test suite: 950 tests in 156 suites reported (`27.037s`; 942 executed, 8 skipped, 0 failed).
-- `PrevisCoreTests` (no fixture env): 148 tests in 20 suites reported (`1.451s`; 144 executed, 4 skipped, 0 failed).
-- `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.554s`; 148 executed, 0 skipped, 0 failed).
+### Verification results for D5 rendering slice (`shots/d-look-through`, base `139a2e4`, PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83))
+- `ViewportLookThroughTests`: 7 tests in 1 suite reported (`0.622s`; 7 executed, 0 skipped, 0 failed), including `lookThroughFrameElevenMatchesExportedMiddleGuideCleanPNGAsDecodedRGB` (`twoPersonWalk(small: true)`, 22 frames, `320×576`, frame 11 look-through image equals exported `guides/middle-f0011-clean.png` as decoded sRGB bytes) and `retainedImageCaptionAndAccessibilityIdentifyDisplayedFrameWhileNewerRenderIsPending` (Round 1 P2 regression verifying retained Frame 0 pixels report Frame 0 in both `captionText` and `accessibilityLabelText` while Frame 11 is in flight, then advance to Frame 11 once the render completes).
+- Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 180 tests in 32 suites reported (`7.113s`; 176 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
+- Full unfiltered `app` test suite: 951 tests in 156 suites reported (`26.997s`; 943 executed, 8 skipped, 0 failed).
+- `PrevisCoreTests` (no fixture env): 148 tests in 20 suites reported (`1.370s`; 144 executed, 4 skipped, 0 failed).
+- `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.678s`; 148 executed, 0 skipped, 0 failed).
 - `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 412 files (`0/412` require formatting).
 - **Not run / separately pending:**
   - Remaining D5 focused viewport keyboard shortcuts (`CONTRACTS.md` section 7) and VoiceOver selection announcements.
@@ -157,7 +158,7 @@ cd app && mise exec -- swiftlint lint --strict && \
 - **D2:** Held in Draft PR [#81](https://github.com/RationallyPrime/concept-studio/pull/81) (`cc2fa25` on `shots/d-overlays`, all 7 CI jobs green, Round 1 P2 label-facing closure accepted) pending coordinator disposition on the raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check contract mismatch and Gnomon workspace trust.
 - **D3:** Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82) (`fdb33e2` on `shots/d-picking`, all 7 CI jobs green, Round 1 P2 closure accepted); held in Draft under current coordination no-merge instruction.
 - **D4:** After D3 integration (`store.preview` move/rotate handles).
-- **D5:** Local rendering-slice verified on `shots/d-look-through`; Draft PR publication, initial independent review, exact-head CI, and remaining focused viewport keys/VoiceOver pending.
+- **D5:** Draft PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83) on `shots/d-look-through` (Round 1 P2 repair verified locally; awaiting independent Round 1 P2 closure review and exact-head CI, plus remaining focused viewport keys/VoiceOver).
 - **D6:** Blocked on merged B6.
 
 ## Open questions

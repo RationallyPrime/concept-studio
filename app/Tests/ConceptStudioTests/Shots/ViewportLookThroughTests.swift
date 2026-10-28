@@ -125,6 +125,61 @@ struct ViewportLookThroughTests {
     }
 
     @Test
+    func retainedImageCaptionAndAccessibilityIdentifyDisplayedFrameWhileNewerRenderIsPending() async throws {
+        let store = try ShotsStore(
+            catalog: ContentCatalog.bundled(),
+            document: ShotsSamples.twoPersonWalk(small: true),
+            saveURL: nil
+        )
+        var pendingGate: CheckedContinuation<Void, Never>?
+        let session = ShotCameraPreviewSession { frame, _ in
+            if frame.index == 11 {
+                await withCheckedContinuation { continuation in
+                    pendingGate = continuation
+                }
+            }
+            return try makeSolidImage(
+                width: frame.canvas.width,
+                height: frame.canvas.height,
+                red: frame.index == 11 ? 210 : 30
+            )
+        }
+        let view = ShotCameraView(store: store, session: session)
+
+        // 1. Initial control: render frame 0 to completion.
+        store.playhead = 0
+        session.requestRender(for: store)
+        await session.waitForIdle()
+        #expect(session.renderedImage != nil)
+        #expect(session.renderedRequest?.frame.index == 0)
+        #expect(view.captionText == "Shot 1A · 320 × 576 · Frame 0")
+        #expect(view.accessibilityLabelText == "Shot camera preview. Shot 1A · 320 × 576 · Frame 0")
+
+        // 2. Gated pending regression: set playhead 11 and hold frame 11 render while frame 0 image remains shown.
+        store.playhead = 11
+        session.requestRender(for: store)
+        while pendingGate == nil {
+            await Task.yield()
+        }
+        #expect(session.isRendering)
+        #expect(session.renderedImage != nil)
+        #expect(session.renderedRequest?.frame.index == 0)
+        #expect(view.captionText == "Shot 1A · 320 × 576 · Frame 0")
+        #expect(view.accessibilityLabelText == "Shot camera preview. Shot 1A · 320 × 576 · Frame 0")
+
+        // 3. Completed control: release frame 11 render; image, request, caption and accessibility label all match 11.
+        pendingGate?.resume()
+        pendingGate = nil
+        await session.waitForIdle()
+        #expect(!session.isRendering)
+        #expect(session.renderedRequest?.frame.index == 11)
+        #expect(view.captionText == "Shot 1A · 320 × 576 · Frame 11")
+        #expect(view.accessibilityLabelText == "Shot camera preview. Shot 1A · 320 × 576 · Frame 11")
+        let completedBytes = try decodedSRGBBytes(of: #require(session.renderedImage))
+        #expect(completedBytes.first == 210)
+    }
+
+    @Test
     func switchingShotOrClearingActiveShotPreventsStaleInFlightCompletionFromOverwriting() async throws {
         let catalog = try ContentCatalog.bundled()
         let store = ShotsStore(
