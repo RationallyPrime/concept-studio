@@ -19,6 +19,9 @@ import ShotsMedia
         let resolvedSize = size ?? frame.canvas.pixelSize
         let resolvedRenderer = try renderer ?? ShotFrameRenderer()
         let overlayClone = overlayRoot?.clone(recursive: true)
+        if let overlayClone {
+            ViewportOverlays.orientLabels(in: overlayClone, to: camera)
+        }
         return try await resolvedRenderer.image(
             of: frame,
             look: look,

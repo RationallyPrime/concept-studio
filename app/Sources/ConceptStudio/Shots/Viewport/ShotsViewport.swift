@@ -12,7 +12,12 @@ import SwiftUI
 @MainActor
 @Observable
 final class ViewportLiveSession {
-    var editorCamera = EditorCamera.defaultView
+    var editorCamera = EditorCamera.defaultView {
+        didSet {
+            ViewportOverlays.orientLabels(in: overlayRoot, to: editorCamera)
+        }
+    }
+
     let mapper = PrevisSceneMapper(look: PrevisLook(lighting: .day))
     let overlayRoot = ViewportGrid.makeOverlayRoot()
     let skyDome = ViewportGrid.makeSkyDomeEntity(for: .day)
@@ -72,6 +77,7 @@ final class ViewportLiveSession {
     }
 
     func syncCamera() {
+        ViewportOverlays.orientLabels(in: overlayRoot, to: editorCamera)
         _ = mapper.cameraEntity(for: editorCamera.cameraFrame(for: viewportSize))
     }
 

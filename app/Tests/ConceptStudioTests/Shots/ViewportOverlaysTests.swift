@@ -362,6 +362,76 @@ struct ViewportOverlaysTests {
     }
 }
 
+@MainActor
+extension ViewportOverlaysTests {
+    @Test(.enabled(if: overlaysRenderingEnabled))
+    func markNumbersAndPathTimeLabelsFaceCameraAcrossOrbitWithoutMutatingLiveOverlay() async throws {
+        let store = try ShotsStore(
+            catalog: ContentCatalog.bundled(), document: ShotsSamples.twoPersonWalk(small: true), saveURL: nil
+        )
+        store.selection = .entities(["ent_000000000001"])
+        let session = ViewportLiveSession()
+        let size = PixelSize(width: 320, height: 320)
+        session.editorCamera = EditorCamera(target: Vec3(0, 0.3, 0), distance: 3, yaw: 0, pitch: 0)
+        session.sync(with: store, frame: store.frame, size: size)
+
+        let marksGroup = try #require(session.overlayRoot.children.first { $0.name == ViewportOverlays.marksGroupName })
+        let firstMark = try #require(marksGroup.children.first)
+        let markBadge = try #require(firstMark.children.first { $0.name.hasPrefix("mark.number.") })
+        let markAcross = try #require(firstMark.children.first { $0.name == "mark.across" })
+        let pathsGroup = try #require(session.overlayRoot.children.first { $0.name == ViewportOverlays.pathsGroupName })
+        let timeLabel = try #require(pathsGroup.children.first { $0.name.hasPrefix("viewport.path.timeLabel:") })
+
+        // Orbiting without playhead/frame change updates live mark-number and path-time label orientations.
+        session.editorCamera.orbit(deltaYaw: .pi * 0.5, deltaPitch: 0)
+        session.syncCamera()
+        let expectedSideQuat = ViewportOverlays.simd(session.editorCamera.orientation)
+        #expect(simd_length(markBadge.orientation.vector - expectedSideQuat.vector) < 1e-5)
+        #expect(simd_length(timeLabel.orientation.vector - expectedSideQuat.vector) < 1e-5)
+        #expect(simd_length(markAcross.orientation.vector - simd_quatf(ix: 0, iy: 0, iz: 0, r: 1).vector) < 1e-5)
+
+        // Rendering a snapshot with a different camera must orient only overlayClone, leaving live overlayRoot
+        // untouched.
+        let look = try PrevisLook(scene: #require(store.currentScene))
+        let renderer = try ShotFrameRenderer()
+        var emptyFrame = try #require(store.frame)
+        emptyFrame.entities = []
+        let alternateCamera = EditorCamera(target: Vec3(0, 0.3, 0), distance: 3, yaw: -.pi / 3, pitch: -0.25)
+        _ = try await ViewportSnapshotRenderer.renderSnapshot(
+            frame: emptyFrame, look: look, camera: alternateCamera,
+            overlayRoot: session.overlayRoot, size: size, renderer: renderer
+        )
+        #expect(simd_length(markBadge.orientation.vector - expectedSideQuat.vector) < 1e-5)
+        #expect(simd_length(timeLabel.orientation.vector - expectedSideQuat.vector) < 1e-5)
+
+        // Offscreen pixel visibility across front (yaw = 0) and 90-degree side orbit (yaw = pi/2) vs bare render.
+        let markProbe = ViewportOverlays.makeMarkEntity(
+            name: "probe", color: ViewportOverlays.defaultActorMarkRGB, number: 8, position: .zero
+        )
+        let badgeRoot = Entity()
+        try badgeRoot.addChild(#require(markProbe.children.first { $0.name == "mark.number.8" }))
+        let frontMark = try await changedLabelPixels(
+            root: badgeRoot, target: Vec3(0, 0.3, 0), yaw: 0, frame: emptyFrame, look: look, renderer: renderer
+        )
+        let sideMark = try await changedLabelPixels(
+            root: badgeRoot, target: Vec3(0, 0.3, 0), yaw: .pi * 0.5, frame: emptyFrame, look: look, renderer: renderer
+        )
+        #expect(frontMark > 100 && sideMark >= frontMark / 4)
+
+        let timeRoot = Entity()
+        let clonedTimeLabel = timeLabel.clone(recursive: true)
+        clonedTimeLabel.position = SIMD3<Float>(0, 0.55, 0)
+        timeRoot.addChild(clonedTimeLabel)
+        let frontTime = try await changedLabelPixels(
+            root: timeRoot, target: Vec3(0, 0.55, 0), yaw: 0, frame: emptyFrame, look: look, renderer: renderer
+        )
+        let sideTime = try await changedLabelPixels(
+            root: timeRoot, target: Vec3(0, 0.55, 0), yaw: .pi * 0.5, frame: emptyFrame, look: look, renderer: renderer
+        )
+        #expect(frontTime > 100 && sideTime >= frontTime / 4)
+    }
+}
+
 private struct SignCheckPoseSpec {
     let id: String
     let name: String
@@ -495,4 +565,33 @@ private struct OverlaySnapshotPixels {
         let (r2, g2, b2) = other.rgb(at: point)
         return abs(r1 - r2) + abs(g1 - g2) + abs(b1 - b2) > 12
     }
+}
+
+@MainActor
+private func changedLabelPixels(
+    root: Entity,
+    target: Vec3,
+    yaw: Double,
+    frame: SceneFrame,
+    look: PrevisLook,
+    renderer: ShotFrameRenderer
+) async throws -> Int {
+    let size = PixelSize(width: 320, height: 320)
+    let camera = EditorCamera(target: target, distance: 3, yaw: yaw, pitch: 0)
+    let image = try await ViewportSnapshotRenderer.renderSnapshot(
+        frame: frame, look: look, camera: camera, overlayRoot: root, size: size, renderer: renderer
+    )
+    let bare = try await ViewportSnapshotRenderer.renderSnapshot(
+        frame: frame, look: look, camera: camera, size: size, renderer: renderer
+    )
+    let data = try [UInt8](#require(image.dataProvider?.data) as Data)
+    let control = try [UInt8](#require(bare.dataProvider?.data) as Data)
+    var count = 0
+    for offset in stride(from: 0, to: min(data.count, control.count), by: 4) {
+        let diff = abs(Int(data[offset]) - Int(control[offset]))
+            + abs(Int(data[offset + 1]) - Int(control[offset + 1]))
+            + abs(Int(data[offset + 2]) - Int(control[offset + 2]))
+        if diff > 30 { count += 1 }
+    }
+    return count
 }

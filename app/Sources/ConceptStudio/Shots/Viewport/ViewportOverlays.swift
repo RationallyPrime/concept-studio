@@ -455,6 +455,25 @@ import SwiftUI
         return group
     }
 
+    static func isBillboardLabel(_ entity: Entity) -> Bool {
+        entity.name.hasPrefix("mark.number.") || entity.name.hasPrefix("viewport.path.timeLabel:")
+    }
+
+    /// Orients floating mark-number and path-time badge planes to face the active `EditorCamera`
+    /// (`builders.ts:6172-6177, 6184-6217` `THREE.Sprite` camera-facing behavior).
+    static func orientLabels(in root: Entity, to camera: EditorCamera) {
+        let rotation = simd(camera.orientation)
+        func visit(_ entity: Entity) {
+            if isBillboardLabel(entity) {
+                entity.orientation = rotation
+            }
+            for child in entity.children {
+                visit(child)
+            }
+        }
+        visit(root)
+    }
+
     static func sync(
         overlayRoot: Entity,
         scene: PrevisScene?,
