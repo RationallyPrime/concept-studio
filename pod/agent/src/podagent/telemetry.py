@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -90,6 +91,9 @@ class RequestTelemetry:
         import logfire
 
         method = scope.get("method", "")
+        # Configuration is polled frequently. Decide after the response so failures still
+        # appear; do not export the concrete path, query, body, or exception.
+        config_poll = method == "GET" and re.fullmatch(r"/runs/[^/]+/config", scope.get("path", ""))
         if method not in {
             "GET",
             "POST",
@@ -111,6 +115,23 @@ class RequestTelemetry:
                 if type(value) is int and 100 <= value <= 599:
                     status = value
             await send(message)
+
+        if config_poll:
+            started = time.monotonic()
+            try:
+                await self.app(scope, receive, record_status)
+            finally:
+                if status >= 400:
+                    logfire.warning(
+                        "Agent request failed",
+                        **{
+                            "http.method": method,
+                            "http.route": "/runs/{run_id}/config",
+                            "http.status_code": status,
+                            "duration_s": time.monotonic() - started,
+                        },
+                    )
+            return
 
         span = logfire.span("Agent request", **{"http.method": method})
         span.__enter__()
@@ -147,3 +168,9 @@ def instrument(app: FastAPI) -> None:
     # The agent's lifecycle lines (service started, exited) are INFO; the default threshold is WARNING.
     agent_log.setLevel(logging.INFO)
     agent_log.addHandler(logfire.LogfireLoggingHandler())
+
+
+def report_collection_failure() -> None:
+    import logfire
+
+    logfire.warning("Training telemetry collection failed")

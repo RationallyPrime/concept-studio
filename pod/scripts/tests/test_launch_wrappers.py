@@ -1833,3 +1833,19 @@ def test_row_dataset_defaults_preserve_runtime_paths_and_user_extra():
         },
     ]
     assert merged["train"]["lr"] == 0.002
+
+
+@pytest.mark.parametrize("trainer", ALL_WRAPPERS)
+@pytest.mark.parametrize("exit_code,expected", [(0, "success"), (1, "failed")])
+def test_export_marker_is_attempt_scoped(trainer, exit_code, expected, tmp_path, monkeypatch):
+    wrapper = load_script("launch_" + trainer)
+    old = ".export-outcome-" + "a" * 32
+    current = ".export-outcome-" + "b" * 32
+    (tmp_path / old).write_text("success")
+    monkeypatch.setenv("PODAGENT_EXPORT_MARKER", current)
+    monkeypatch.setattr(wrapper, "push_lora_argv", lambda *args: ["push"])
+    monkeypatch.setattr(wrapper, "tee", lambda *args, **kwargs: exit_code)
+    cfg = {"hub": {"push_on_finish": True, "repo_id": "private", "private": True}}
+    assert wrapper.finish(tmp_path, cfg, 0, io.StringIO()) == exit_code
+    assert (tmp_path / current).read_text() == expected
+    assert (tmp_path / old).read_text() == "success"
