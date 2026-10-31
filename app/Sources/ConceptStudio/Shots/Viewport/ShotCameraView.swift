@@ -21,6 +21,8 @@ struct ShotCameraView: View {
     }
 
     var body: some View {
+        let currentSelection = store.selection
+
         GeometryReader { geometry in
             let currentSize = PixelSize(
                 width: max(Int(geometry.size.width.rounded()), 1),
@@ -53,11 +55,16 @@ struct ShotCameraView: View {
 
                 ViewportKeyCaptureOverlay(
                     session: session,
+                    selection: currentSelection,
                     claimFocusOnAppear: claimFocusOnAppear,
                     onClaimedFocus: onClaimedFocus,
+                    onSync: {
+                        session.viewportSize = currentSize
+                        session.syncSelectionAnnouncement(with: store)
+                    },
                     onKeyDown: { characters, keyCode, modifiers in
                         session.viewportSize = currentSize
-                        return ViewportKeyboard.handleKeyDown(
+                        let handled = ViewportKeyboard.handleKeyDown(
                             charactersIgnoringModifiers: characters,
                             keyCode: keyCode,
                             modifiers: modifiers,
@@ -65,8 +72,19 @@ struct ShotCameraView: View {
                             session: session,
                             onToggleLookThrough: onToggleLookThrough
                         )
+                        if handled {
+                            session.syncSelectionAnnouncement(with: store)
+                        }
+                        return handled
                     }
                 )
+            }
+            .onAppear {
+                session.viewportSize = currentSize
+                session.syncSelectionAnnouncement(with: store)
+            }
+            .onChange(of: currentSelection) { _, _ in
+                session.syncSelectionAnnouncement(with: store)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -76,7 +94,12 @@ struct ShotCameraView: View {
                 .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Shot camera preview. \(captionText)")
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        let selectionText = ViewportLiveSession.selectionAnnouncement(for: store.selection, in: store)
+        return "Shot camera preview. \(captionText). \(selectionText)"
     }
 
     private var captionText: String {

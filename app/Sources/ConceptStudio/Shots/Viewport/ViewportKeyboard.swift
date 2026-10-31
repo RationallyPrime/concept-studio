@@ -245,16 +245,12 @@ extension ViewportKeyboard {
             return false
         case let .entities(ids):
             guard !ids.isEmpty else { return false }
-            let commands: [ShotsCommand] = ids.map { id in
-                var placement = scene.entities.first(where: { $0.id == id })?.placement
-                    ?? Placement(position: .zero, heading: 0, scale: 1)
-                placement.position = Vec3(
-                    placement.position.x + delta.x,
-                    placement.position.y + delta.y,
-                    placement.position.z + delta.z
-                )
-                return .setPlacement(id, placement)
-            }
+            let commands = entityNudgeCommands(
+                for: ids,
+                by: delta,
+                in: scene,
+                currentShot: store.currentShot
+            )
             store.run(commands)
             guard store.document != before else { return false }
             session?.postAnnouncement("Nudged selection")
@@ -277,6 +273,44 @@ extension ViewportKeyboard {
 
 @MainActor
 extension ViewportKeyboard {
+    private static func entityNudgeCommands(
+        for ids: [EntityID],
+        by delta: Vec3,
+        in scene: PrevisScene,
+        currentShot: Shot?
+    ) -> [ShotsCommand] {
+        let shot = currentShot ?? scene.shots.first
+        let take = shot.flatMap { active in
+            scene.blocking.first { $0.id == active.blockingTakeID }
+        } ?? scene.blocking.first
+        var commands: [ShotsCommand] = []
+        for id in ids {
+            var placement = scene.entities.first(where: { $0.id == id })?.placement
+                ?? Placement(position: .zero, heading: 0, scale: 1)
+            placement.position = Vec3(
+                placement.position.x + delta.x,
+                placement.position.y + delta.y,
+                placement.position.z + delta.z
+            )
+            commands.append(.setPlacement(id, placement))
+            if let shotID = shot?.id,
+               let track = take?.tracks.first(where: { $0.entityID == id }) {
+                for var mark in track.marks {
+                    mark.position = Vec3(
+                        mark.position.x + delta.x,
+                        mark.position.y + delta.y,
+                        mark.position.z + delta.z
+                    )
+                    mark.via = mark.via.map { waypoint in
+                        Vec3(waypoint.x + delta.x, waypoint.y + delta.y, waypoint.z + delta.z)
+                    }
+                    commands.append(.updateActorMark(shotID, id, mark))
+                }
+            }
+        }
+        return commands
+    }
+
     private static func nudgeActorMark(
         entityID: EntityID,
         markID: MarkID,
@@ -459,21 +493,26 @@ extension ViewportKeyboard {
 /// text editing or non-viewport responders.
 struct ViewportKeyCaptureOverlay: NSViewRepresentable {
     var session: ViewportLiveSession?
+    var selection: ShotsSelection = .none
     var claimFocusOnAppear = false
     var onClaimedFocus: (() -> Void)?
+    var onSync: (() -> Void)?
     var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
 
     func makeNSView(context: Context) -> KeyCapturingView {
         let view = KeyCapturingView()
         configure(view)
+        onSync?()
         return view
     }
 
     func updateNSView(_ nsView: KeyCapturingView, context: Context) {
         configure(nsView)
+        onSync?()
     }
 
     private func configure(_ view: KeyCapturingView) {
+        view.session = session
         session?.hostView = view
         view.onKeyDown = onKeyDown
         view.onClaimedFocus = onClaimedFocus
@@ -483,6 +522,7 @@ struct ViewportKeyCaptureOverlay: NSViewRepresentable {
     }
 
     final class KeyCapturingView: NSView {
+        weak var session: ViewportLiveSession?
         var onClaimedFocus: (() -> Void)?
         var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
         private var pendingFocusRequest = false

@@ -56,6 +56,10 @@ final class ViewportLiveSession {
             size: size
         )
         syncCamera()
+        syncSelectionAnnouncement(with: store)
+    }
+
+    func syncSelectionAnnouncement(with store: ShotsStore) {
         if lastAnnouncedSelection != store.selection {
             lastAnnouncedSelection = store.selection
             postAnnouncement(Self.selectionAnnouncement(for: store.selection, in: store))

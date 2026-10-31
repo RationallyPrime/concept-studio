@@ -69,79 +69,63 @@ extension ViewportKeyboardTests {
     @Test
     func arrowKeysNudgeSingleAndMultiEntitySelectionsAndRollbackAtomicallyOnInvalidSecondTarget() throws {
         let catalog = try ContentCatalog.bundled()
-        let document = ShotsSamples.twoPersonWalk(small: true)
+        var document = ShotsSamples.twoPersonWalk(small: true)
+        document.scenes[0].blocking[0].tracks[0].marks[1].via = [Vec3(-0.80, 0, 0.15)]
         let store = ShotsStore(catalog: catalog, document: document, saveURL: nil)
         let session = ViewportLiveSession()
-        let firstID = "ent_000000000001"
-        let secondID = "ent_000000000002"
-        let initialFirst = try #require(store.currentScene?.entities.first(where: { $0.id == firstID })?.placement)
-        let initialSecond = try #require(store.currentScene?.entities.first(where: { $0.id == secondID })?.placement)
+        let manID = "ent_000000000001"
+        let womanID = "ent_000000000002"
+        let chairID = "ent_000000000003"
 
-        // Multi-entity selection: Left (-0.05 X), Shift+Right (+0.50 X), Up (-0.05 Z), Shift+Down (+0.50 Z)
-        store.selection = .entities([firstID, secondID])
-        #expect(
-            ViewportKeyboard.handleKeyDown(
-                charactersIgnoringModifiers: "\u{F702}",
-                keyCode: 123,
-                in: store,
-                session: session
-            )
-        )
-        #expect(
-            ViewportKeyboard.handleKeyDown(
-                charactersIgnoringModifiers: "\u{F703}",
-                keyCode: 124,
-                modifiers: [.shift],
-                in: store,
-                session: session
-            )
-        )
-        #expect(
-            ViewportKeyboard.handleKeyDown(
-                charactersIgnoringModifiers: "\u{F700}",
-                keyCode: 126,
-                in: store,
-                session: session
-            )
-        )
-        #expect(
-            ViewportKeyboard.handleKeyDown(
-                charactersIgnoringModifiers: "\u{F701}",
-                keyCode: 125,
-                modifiers: [.shift],
-                in: store,
-                session: session
-            )
-        )
+        // 1. P2-1 regression: at playhead 11, nudging blocked Man + static Chair shifts evaluated world positions & via
+        store.playhead = 11
+        store.selection = .entities([manID, chairID])
+        let originalDoc = store.document
+        let beforeFrame = try #require(store.frame)
+        #expect(pressKey("\u{F703}", keyCode: 124, in: store, session: session))
+        let afterFrame = try #require(store.frame)
+        for id in [manID, chairID] {
+            let beforeEntity = try #require(beforeFrame.entities.first { $0.id == id })
+            let afterEntity = try #require(afterFrame.entities.first { $0.id == id })
+            #expect(abs((afterEntity.position.x - beforeEntity.position.x) - 0.05) < 1e-9)
+        }
+        let shiftedTrack = try #require(store.currentScene?.blocking.first?.tracks.first { $0.entityID == manID })
+        #expect(abs((shiftedTrack.marks[1].via.first?.x ?? 0) - -0.75) < 1e-9)
+        #expect(shiftedTrack.marks[2].arriveHeading == .pi)
+        store.undo()
+        #expect(store.document == originalDoc)
+        #expect(!store.canUndo)
 
-        let movedFirst = try #require(store.currentScene?.entities.first(where: { $0.id == firstID })?.placement)
-        let movedSecond = try #require(store.currentScene?.entities.first(where: { $0.id == secondID })?.placement)
-        #expect(abs(movedFirst.position.x - (initialFirst.position.x + 0.45)) < 1e-6)
-        #expect(abs(movedFirst.position.z - (initialFirst.position.z + 0.45)) < 1e-6)
-        #expect(abs(movedSecond.position.x - (initialSecond.position.x + 0.45)) < 1e-6)
-        #expect(abs(movedSecond.position.z - (initialSecond.position.z + 0.45)) < 1e-6)
+        // 2. Multi-entity 4-direction nudge: Left (-0.05 X), Shift+Right (+0.50 X), Up (-0.05 Z), Shift+Down (+0.50 Z)
+        store.selection = .entities([manID, womanID])
+        let initialManEval = try #require(store.frame?.entities.first { $0.id == manID }?.position)
+        let initialWomanEval = try #require(store.frame?.entities.first { $0.id == womanID }?.position)
+        #expect(pressKey("\u{F702}", keyCode: 123, in: store, session: session))
+        #expect(pressKey("\u{F703}", keyCode: 124, modifiers: [.shift], in: store, session: session))
+        #expect(pressKey("\u{F700}", keyCode: 126, in: store, session: session))
+        #expect(pressKey("\u{F701}", keyCode: 125, modifiers: [.shift], in: store, session: session))
+
+        let movedManEval = try #require(store.frame?.entities.first { $0.id == manID }?.position)
+        let movedWomanEval = try #require(store.frame?.entities.first { $0.id == womanID }?.position)
+        #expect(abs(movedManEval.x - (initialManEval.x + 0.45)) < 1e-6)
+        #expect(abs(movedManEval.z - (initialManEval.z + 0.45)) < 1e-6)
+        #expect(abs(movedWomanEval.x - (initialWomanEval.x + 0.45)) < 1e-6)
+        #expect(abs(movedWomanEval.z - (initialWomanEval.z + 0.45)) < 1e-6)
 
         // Single Undo step undoes both entities from the last Shift+Down nudge
         store.undo()
-        let undoneFirst = try #require(store.currentScene?.entities.first(where: { $0.id == firstID })?.placement)
-        let undoneSecond = try #require(store.currentScene?.entities.first(where: { $0.id == secondID })?.placement)
-        #expect(abs(undoneFirst.position.z - (initialFirst.position.z - 0.05)) < 1e-6)
-        #expect(abs(undoneSecond.position.z - (initialSecond.position.z - 0.05)) < 1e-6)
+        let undoneManEval = try #require(store.frame?.entities.first { $0.id == manID }?.position)
+        let undoneWomanEval = try #require(store.frame?.entities.first { $0.id == womanID }?.position)
+        #expect(abs(undoneManEval.z - (initialManEval.z - 0.05)) < 1e-6)
+        #expect(abs(undoneWomanEval.z - (initialWomanEval.z - 0.05)) < 1e-6)
         #expect(store.canRedo)
 
-        // Adversarial atomic rollback: valid first entity + invalid second entity fails without mutating document or
-        // Redo
+        // 3. Adversarial atomic rollback: valid first entity + invalid second entity fails without mutating document
         let beforeFailureDoc = store.document
         var capturedError: String?
         store.onError = { capturedError = $0 }
-        store.selection = .entities([firstID, "ent_missing_invalid"])
-        let handled = ViewportKeyboard.handleKeyDown(
-            charactersIgnoringModifiers: "\u{F703}",
-            keyCode: 124,
-            in: store,
-            session: session
-        )
-        #expect(!handled)
+        store.selection = .entities([manID, "ent_missing_invalid"])
+        #expect(!pressKey("\u{F703}", keyCode: 124, in: store, session: session))
         #expect(capturedError != nil)
         #expect(store.document == beforeFailureDoc)
         #expect(store.canRedo)
@@ -305,29 +289,9 @@ extension ViewportKeyboardTests {
         let catalog = try ContentCatalog.bundled()
         var document = ShotsSamples.twoPersonWalk(small: true)
         document.scenes[0].shots[0].frameCount = 48
-        let studioSession = StudioSession()
         let store = ShotsStore(catalog: catalog, document: document, saveURL: nil)
-        studioSession.shots = store
-
-        let windowSize = CGSize(width: 960, height: 640)
-        let host = NSHostingView(
-            rootView: ShotsWorkspaceView(session: studioSession)
-                .frame(width: windowSize.width, height: windowSize.height)
-        )
-        host.frame = CGRect(origin: .zero, size: windowSize)
-        let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: windowSize),
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.contentView = host
-        defer {
-            window.contentView = nil
-            window.close()
-        }
-        host.layoutSubtreeIfNeeded()
+        let (window, host) = makeHostedWorkspace(store: store)
+        defer { window.contentView = nil; window.close() }
 
         let scrollOverlay = try #require(findView(
             ofType: ViewportScrollWheelOverlay.ScrollCapturingView.self,
@@ -337,9 +301,11 @@ extension ViewportKeyboardTests {
         var capturedAnnouncements: [String] = []
         sharedSession.announcementPoster = { capturedAnnouncements.append($0) }
 
-        // Focus viewport, select entity, switch handle mode to Rotate ('R'), and toggle look-through ('C')
+        // Focus viewport, select entity in Scene view, switch handle mode ('R'), and toggle look-through ('C')
         _ = window.makeFirstResponder(scrollOverlay)
         store.selection = .entities(["ent_000000000003"])
+        host.layoutSubtreeIfNeeded()
+        #expect(capturedAnnouncements.contains("Selected Chair"))
         sendKey(characters: "r", keyCode: 15, in: window, to: scrollOverlay)
         #expect(sharedSession.handleMode == .rotate)
 
@@ -475,29 +441,9 @@ extension ViewportKeyboardTests {
         let catalog = try ContentCatalog.bundled()
         var document = ShotsSamples.twoPersonWalk(small: true)
         document.scenes[0].shots[0].frameCount = 48
-        let studioSession = StudioSession()
         let store = ShotsStore(catalog: catalog, document: document, saveURL: nil)
-        studioSession.shots = store
-
-        let windowSize = CGSize(width: 960, height: 640)
-        let host = NSHostingView(
-            rootView: ShotsWorkspaceView(session: studioSession)
-                .frame(width: windowSize.width, height: windowSize.height)
-        )
-        host.frame = CGRect(origin: .zero, size: windowSize)
-        let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: windowSize),
-            styleMask: [.titled],
-            backing: .buffered,
-            defer: false
-        )
-        window.isReleasedWhenClosed = false
-        window.contentView = host
-        defer {
-            window.contentView = nil
-            window.close()
-        }
-        host.layoutSubtreeIfNeeded()
+        let (window, host) = makeHostedWorkspace(store: store)
+        defer { window.contentView = nil; window.close() }
 
         let scrollOverlay = try #require(findView(
             ofType: ViewportScrollWheelOverlay.ScrollCapturingView.self,
@@ -531,33 +477,105 @@ extension ViewportKeyboardTests {
         _ = window.makeFirstResponder(scrollOverlay)
         let actorMark = try #require(store.currentScene?.blocking.first?.tracks.first?.marks.first)
         store.selection = .actorMark("ent_000000000001", actorMark.id)
-        #expect(ViewportKeyboard.handleKeyDown(
-            charactersIgnoringModifiers: "f",
-            keyCode: 3,
-            in: store,
-            session: sharedSession
-        ))
+        #expect(pressKey("f", keyCode: 3, in: store, session: sharedSession))
         #expect(distance(sharedSession.editorCamera.target, actorMark.position) < 1e-9)
 
         let camMark = try #require(store.currentShot?.camera.marks.last)
         store.selection = .cameraMark(camMark.id)
-        #expect(ViewportKeyboard.handleKeyDown(
-            charactersIgnoringModifiers: "f",
-            keyCode: 3,
-            in: store,
-            session: sharedSession
-        ))
+        #expect(pressKey("f", keyCode: 3, in: store, session: sharedSession))
         #expect(distance(sharedSession.editorCamera.target, camMark.position) < 1e-9)
 
         store.selection = .camera
         let expectedCamPos = try #require(store.frame?.camera.position)
-        #expect(ViewportKeyboard.handleKeyDown(
-            charactersIgnoringModifiers: "f",
-            keyCode: 3,
-            in: store,
-            session: sharedSession
-        ))
+        #expect(pressKey("f", keyCode: 3, in: store, session: sharedSession))
         #expect(distance(sharedSession.editorCamera.target, expectedCamPos) < 1e-9)
+    }
+
+    @Test
+    func nudgeMovesEvaluatedBlockedActorAndStaticPropAtMidShotFrameAndUndoesAtomically() throws {
+        let store = try ShotsStore(
+            catalog: ContentCatalog.bundled(),
+            document: ShotsSamples.twoPersonWalk(small: true),
+            saveURL: nil
+        )
+        store.playhead = 11
+        let manID = "ent_000000000001"
+        let chairID = "ent_000000000003"
+        store.selection = .entities([manID, chairID])
+        let original = store.document
+        let before = try #require(store.frame)
+        #expect(pressKey(nil, keyCode: 124, in: store, session: ViewportLiveSession()))
+        let after = try #require(store.frame)
+        for id in [manID, chairID] {
+            let beforeEntity = try #require(before.entities.first { $0.id == id })
+            let afterEntity = try #require(after.entities.first { $0.id == id })
+            #expect(abs((afterEntity.position.x - beforeEntity.position.x) - 0.05) < 1e-9)
+        }
+        store.undo()
+        #expect(store.document == original)
+        #expect(!store.canUndo)
+    }
+
+    @Test
+    func lookThroughSelectionChangesDispatchSharedAnnouncementCallbackWithoutDuplicates() async throws {
+        let store = try ShotsStore(
+            catalog: ContentCatalog.bundled(),
+            document: ShotsSamples.twoPersonWalk(small: true),
+            saveURL: nil
+        )
+        let (window, host) = makeHostedWorkspace(store: store)
+        defer { window.contentView = nil; window.close() }
+        let sceneView = try #require(findView(ofType: ViewportScrollWheelOverlay.ScrollCapturingView.self, in: host))
+        let session = try #require(sceneView.session)
+        var messages: [String] = []
+        session.announcementPoster = { messages.append($0) }
+
+        store.selection = .entities(["ent_000000000003"])
+        for _ in 0 ..< 10 {
+            await Task.yield(); host.layoutSubtreeIfNeeded()
+        }
+        #expect(messages.contains("Selected Chair"))
+
+        _ = window.makeFirstResponder(sceneView)
+        sendKey(characters: "c", keyCode: 8, in: window, to: sceneView)
+        host.layoutSubtreeIfNeeded()
+        let lookView = try #require(findView(ofType: ViewportKeyCaptureOverlay.KeyCapturingView.self, in: host))
+        #expect(window.firstResponder === lookView)
+        #expect(messages.filter { $0 == "Selected Chair" }.count == 1)
+
+        messages.removeAll()
+        store.selection = .entities(["ent_000000000001"])
+        for _ in 0 ..< 10 {
+            await Task.yield(); host.layoutSubtreeIfNeeded()
+        }
+        #expect(messages == ["Selected Man"])
+
+        sendKey(characters: "c", keyCode: 8, in: window, to: lookView)
+        for _ in 0 ..< 10 {
+            await Task.yield(); host.layoutSubtreeIfNeeded()
+        }
+        #expect(messages.filter { $0 == "Selected Man" }.count == 1)
+    }
+
+    private func makeHostedWorkspace(store: ShotsStore) -> (NSWindow, NSHostingView<some View>) {
+        let studioSession = StudioSession()
+        studioSession.shots = store
+        let windowSize = CGSize(width: 960, height: 640)
+        let host = NSHostingView(
+            rootView: ShotsWorkspaceView(session: studioSession)
+                .frame(width: windowSize.width, height: windowSize.height)
+        )
+        host.frame = CGRect(origin: .zero, size: windowSize)
+        let window = NSWindow(
+            contentRect: CGRect(origin: .zero, size: windowSize),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        return (window, host)
     }
 
     private func distance(_ a: Vec3, _ b: Vec3) -> Double {
