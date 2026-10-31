@@ -59,9 +59,13 @@ class ProgressReporter:
             for s in self.supervisor.states()
             if s.name.startswith("trainer-") and s.run_id and s.started_at
         ]
-        current_keys = {(s.name, s.run_id, s.started_at.isoformat()) for s in all_states}
+        current_keys = set()
+        for state in all_states:
+            assert state.run_id is not None and state.started_at is not None
+            current_keys.add((state.name, state.run_id, state.started_at.isoformat()))
         self.terminal_seen.intersection_update(current_keys)
         for state in all_states:
+            assert state.run_id is not None and state.started_at is not None
             key = (state.name, state.run_id, state.started_at.isoformat())
             if (
                 state.state in ("failed", "exited", "stopped")
