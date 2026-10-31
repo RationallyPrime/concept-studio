@@ -192,3 +192,18 @@ def test_excluded_requests_emit_no_spans(
         # Unauthorized requests exercise the exclusion without opening log streams or services.
         client.get(path + "?note=NORA7-private-query")
     assert capfire.exporter.exported_spans_as_dict() == []
+
+
+def test_config_poll_success_is_suppressed_but_failure_is_safe(settings, capfire):
+    app = create_app(settings, FakeBackend(0))
+    telemetry.instrument(app)
+    run = settings.paths.run_dir("private-run")
+    run.mkdir()
+    (run / "run.json").write_text("{}")
+    with TestClient(app, headers=AUTH) as client:
+        assert client.get("/runs/private-run/config").status_code == 200
+        assert client.get("/runs/missing-private/config").status_code == 404
+    exported = capfire.exporter.exported_spans_as_dict()
+    assert len(exported) == 1
+    assert exported[0]["attributes"]["http.status_code"] == 404
+    assert "private" not in json.dumps(exported, default=str)

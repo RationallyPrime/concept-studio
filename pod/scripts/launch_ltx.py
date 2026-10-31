@@ -795,6 +795,13 @@ def finish(run_dir: Path, cfg: dict[str, Any], code: int, out: TextIO) -> int:
     cmd = push_lora_argv(run_dir, cfg)
     say(f"pushing to {hub['repo_id']}: {shlex.join(cmd)}")
     push_code = tee(cmd, cwd=run_dir, env=child_env(cfg), out=out)
+    # This marker carries only a fixed outcome; telemetry failure must not fail training.
+    marker_name = os.environ.get("PODAGENT_EXPORT_MARKER", "")
+    if re.fullmatch(r"\.export-outcome-[0-9a-f]{32}", marker_name):
+        with contextlib.suppress(OSError):
+            fd = os.open(run_dir / marker_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w") as marker:
+                marker.write("success" if push_code == 0 else "failed")
     if push_code != 0:
         say(f"push_lora.py exited with {push_code}")
     return push_code
