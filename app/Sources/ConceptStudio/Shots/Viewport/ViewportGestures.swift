@@ -105,7 +105,15 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
     var onDragEnded: (() -> Void)?
     var onMagnify: ((CGFloat) -> Void)?
     var onClick: ((Point2, Bool, Bool) -> Void)?
+    var onHandleMouseDown: ((Point2) -> Bool)?
+    var onHandleMouseDragged: ((Point2, Bool) -> Void)?
+    var onHandleMouseUp: ((Point2, Bool) -> Void)?
+    var onHandleCancel: (() -> Void)?
     var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
+
+    static func dismantleNSView(_ nsView: ScrollCapturingView, coordinator: ()) {
+        nsView.cancelPendingGesture()
+    }
 
     func makeNSView(context: Context) -> ScrollCapturingView {
         let view = ScrollCapturingView()
@@ -126,6 +134,10 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         view.onDragEnded = onDragEnded
         view.onMagnify = onMagnify
         view.onClick = onClick
+        view.onHandleMouseDown = onHandleMouseDown
+        view.onHandleMouseDragged = onHandleMouseDragged
+        view.onHandleMouseUp = onHandleMouseUp
+        view.onHandleCancel = onHandleCancel
         view.onKeyDown = onKeyDown
     }
 
@@ -136,11 +148,42 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         var onDragEnded: (() -> Void)?
         var onMagnify: ((CGFloat) -> Void)?
         var onClick: ((Point2, Bool, Bool) -> Void)?
+        var onHandleMouseDown: ((Point2) -> Bool)?
+        var onHandleMouseDragged: ((Point2, Bool) -> Void)?
+        var onHandleMouseUp: ((Point2, Bool) -> Void)?
+        var onHandleCancel: (() -> Void)?
         var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
         private var mouseDownLocation: NSPoint?
         private var lastMouseLocation: NSPoint?
         private var accumulatedSubThresholdDelta: CGSize = .zero
         private var didDragBeyondThreshold = false
+        private var isDraggingHandle = false
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil {
+                cancelPendingGesture()
+            }
+        }
+
+        override func viewDidMoveToSuperview() {
+            super.viewDidMoveToSuperview()
+            if superview == nil {
+                cancelPendingGesture()
+            }
+        }
+
+        func cancelPendingGesture() {
+            let hadHandleDrag = isDraggingHandle || session?.activeHandleDrag != nil
+            isDraggingHandle = false
+            mouseDownLocation = nil
+            lastMouseLocation = nil
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
+            if hadHandleDrag {
+                onHandleCancel?()
+            }
+        }
 
         override var isFlipped: Bool {
             true
@@ -170,10 +213,26 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
             lastMouseLocation = local
             accumulatedSubThresholdDelta = .zero
             didDragBeyondThreshold = false
+            let converted = ViewportPicking.viewportPixel(
+                fromViewPoint: local,
+                viewBounds: bounds,
+                isFlipped: isFlipped
+            )
+            isDraggingHandle = onHandleMouseDown?(converted.pixel) == true
         }
 
         override func mouseDragged(with event: NSEvent) {
             let currentLocation = convert(event.locationInWindow, from: nil)
+            if isDraggingHandle {
+                lastMouseLocation = currentLocation
+                let converted = ViewportPicking.viewportPixel(
+                    fromViewPoint: currentLocation,
+                    viewBounds: bounds,
+                    isFlipped: isFlipped
+                )
+                onHandleMouseDragged?(converted.pixel, event.modifierFlags.contains(.shift))
+                return
+            }
             let delta = if let previousLocation = lastMouseLocation,
                            abs(currentLocation.x - previousLocation.x) > 1e-6
                            || abs(currentLocation.y - previousLocation.y) > 1e-6 {
@@ -212,6 +271,20 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
 
         override func mouseUp(with event: NSEvent) {
             let upLocation = convert(event.locationInWindow, from: nil)
+            if isDraggingHandle {
+                isDraggingHandle = false
+                mouseDownLocation = nil
+                lastMouseLocation = nil
+                accumulatedSubThresholdDelta = .zero
+                didDragBeyondThreshold = false
+                let converted = ViewportPicking.viewportPixel(
+                    fromViewPoint: upLocation,
+                    viewBounds: bounds,
+                    isFlipped: isFlipped
+                )
+                onHandleMouseUp?(converted.pixel, event.modifierFlags.contains(.shift))
+                return
+            }
             if let down = mouseDownLocation,
                hypot(upLocation.x - down.x, upLocation.y - down.y) >= ViewportScrollWheelOverlay.dragThresholdPoints,
                !didDragBeyondThreshold {
@@ -244,6 +317,14 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         }
 
         override func keyDown(with event: NSEvent) {
+            if let responder = window?.firstResponder {
+                if responder is NSText {
+                    return
+                }
+                if responder !== self, responder !== window {
+                    return
+                }
+            }
             if onKeyDown?(event.charactersIgnoringModifiers, event.keyCode, event.modifierFlags) == true {
                 return
             }
