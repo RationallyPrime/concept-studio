@@ -59,6 +59,10 @@ struct ShotsEntityInspector: View {
                     Text(parent.name).tag(parent.id)
                 }
             }
+            Button("Add mark here") {
+                do { try store.addInspectorMark(for: entity.id) } catch { store.onError?(error.localizedDescription) }
+            }
+            .help("Add a mark at the playhead using this entity’s current position and facing.")
             Divider()
             Picker("Action path", selection: $pathID) {
                 ForEach(store.catalog.actionPaths.filter { store.catalog.starter.actionPaths.contains($0.id) }) {

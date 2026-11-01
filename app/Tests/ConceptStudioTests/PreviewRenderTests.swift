@@ -269,6 +269,11 @@ struct PreviewRenderTests {
                 ("default", CGSize(width: 780, height: 720)),
             ]
         )
+        try await capture(
+            "help-credits", view: StudioHelpView(page: .credits).defaultAppStorage(preferences),
+            output: output, filter: filter, captures: &captures,
+            renderSizes: [("minimum", CGSize(width: 640, height: 480)), ("default", CGSize(width: 780, height: 720))]
+        )
         preferences.set(GlossaryReadingLevel.technical.rawValue, forKey: "studio.glossaryReadingLevel")
         try await capture(
             "help-technical", view: StudioHelpView().defaultAppStorage(preferences),
