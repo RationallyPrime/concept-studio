@@ -96,12 +96,26 @@ enum ViewportCameraGestures {
 /// Hit-testable AppKit input surface over `ShotsViewport` that receives wheel dolly, trackpad two-finger pan,
 /// trackpad pinch magnify, and click/drag orbit or `⌥`-pan events.
 struct ViewportScrollWheelOverlay: NSViewRepresentable {
+    static let dragThresholdPoints: CGFloat = 3.0
+
     var session: ViewportLiveSession?
+    var claimFocusOnAppear = false
+    var onClaimedFocus: (() -> Void)?
     var onSync: (() -> Void)?
     var onScroll: (NSEvent) -> Void
     var onDrag: ((CGSize, Bool) -> Void)?
     var onDragEnded: (() -> Void)?
     var onMagnify: ((CGFloat) -> Void)?
+    var onClick: ((Point2, Bool, Bool) -> Void)?
+    var onHandleMouseDown: ((Point2) -> Bool)?
+    var onHandleMouseDragged: ((Point2, Bool) -> Void)?
+    var onHandleMouseUp: ((Point2, Bool) -> Void)?
+    var onHandleCancel: (() -> Void)?
+    var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
+
+    static func dismantleNSView(_ nsView: ScrollCapturingView, coordinator: ()) {
+        nsView.cancelPendingGesture()
+    }
 
     func makeNSView(context: Context) -> ScrollCapturingView {
         let view = ScrollCapturingView()
@@ -117,19 +131,80 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
 
     private func configure(_ view: ScrollCapturingView) {
         view.session = session
+        session?.hostView = view
+        view.onClaimedFocus = onClaimedFocus
         view.onScroll = onScroll
         view.onDrag = onDrag
         view.onDragEnded = onDragEnded
         view.onMagnify = onMagnify
+        view.onClick = onClick
+        view.onHandleMouseDown = onHandleMouseDown
+        view.onHandleMouseDragged = onHandleMouseDragged
+        view.onHandleMouseUp = onHandleMouseUp
+        view.onHandleCancel = onHandleCancel
+        view.onKeyDown = onKeyDown
+        if claimFocusOnAppear {
+            view.requestFocusIfNeeded()
+        }
     }
 
     final class ScrollCapturingView: NSView {
         weak var session: ViewportLiveSession?
+        var onClaimedFocus: (() -> Void)?
         var onScroll: ((NSEvent) -> Void)?
         var onDrag: ((CGSize, Bool) -> Void)?
         var onDragEnded: (() -> Void)?
         var onMagnify: ((CGFloat) -> Void)?
+        var onClick: ((Point2, Bool, Bool) -> Void)?
+        var onHandleMouseDown: ((Point2) -> Bool)?
+        var onHandleMouseDragged: ((Point2, Bool) -> Void)?
+        var onHandleMouseUp: ((Point2, Bool) -> Void)?
+        var onHandleCancel: (() -> Void)?
+        var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
+        private var mouseDownLocation: NSPoint?
         private var lastMouseLocation: NSPoint?
+        private var accumulatedSubThresholdDelta: CGSize = .zero
+        private var didDragBeyondThreshold = false
+        private var isDraggingHandle = false
+        private var pendingFocusRequest = false
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil {
+                cancelPendingGesture()
+            } else if pendingFocusRequest {
+                requestFocusIfNeeded()
+            }
+        }
+
+        func requestFocusIfNeeded() {
+            guard let window else {
+                pendingFocusRequest = true
+                return
+            }
+            pendingFocusRequest = false
+            window.makeFirstResponder(self)
+            onClaimedFocus?()
+        }
+
+        override func viewDidMoveToSuperview() {
+            super.viewDidMoveToSuperview()
+            if superview == nil {
+                cancelPendingGesture()
+            }
+        }
+
+        func cancelPendingGesture() {
+            let hadHandleDrag = isDraggingHandle || session?.activeHandleDrag != nil
+            isDraggingHandle = false
+            mouseDownLocation = nil
+            lastMouseLocation = nil
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
+            if hadHandleDrag {
+                onHandleCancel?()
+            }
+        }
 
         override var isFlipped: Bool {
             true
@@ -153,11 +228,32 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         }
 
         override func mouseDown(with event: NSEvent) {
-            lastMouseLocation = convert(event.locationInWindow, from: nil)
+            window?.makeFirstResponder(self)
+            let local = convert(event.locationInWindow, from: nil)
+            mouseDownLocation = local
+            lastMouseLocation = local
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
+            let converted = ViewportPicking.viewportPixel(
+                fromViewPoint: local,
+                viewBounds: bounds,
+                isFlipped: isFlipped
+            )
+            isDraggingHandle = onHandleMouseDown?(converted.pixel) == true
         }
 
         override func mouseDragged(with event: NSEvent) {
             let currentLocation = convert(event.locationInWindow, from: nil)
+            if isDraggingHandle {
+                lastMouseLocation = currentLocation
+                let converted = ViewportPicking.viewportPixel(
+                    fromViewPoint: currentLocation,
+                    viewBounds: bounds,
+                    isFlipped: isFlipped
+                )
+                onHandleMouseDragged?(converted.pixel, event.modifierFlags.contains(.shift))
+                return
+            }
             let delta = if let previousLocation = lastMouseLocation,
                            abs(currentLocation.x - previousLocation.x) > 1e-6
                            || abs(currentLocation.y - previousLocation.y) > 1e-6 {
@@ -169,16 +265,91 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
                 CGSize(width: event.deltaX, height: event.deltaY)
             }
             lastMouseLocation = currentLocation
-            onDrag?(delta, event.modifierFlags.contains(.option))
+            let optionPressed = event.modifierFlags.contains(.option)
+
+            if didDragBeyondThreshold {
+                onDrag?(delta, optionPressed)
+                return
+            }
+
+            accumulatedSubThresholdDelta = CGSize(
+                width: accumulatedSubThresholdDelta.width + delta.width,
+                height: accumulatedSubThresholdDelta.height + delta.height
+            )
+            let distanceFromDown: CGFloat = if let down = mouseDownLocation {
+                hypot(currentLocation.x - down.x, currentLocation.y - down.y)
+            } else {
+                hypot(accumulatedSubThresholdDelta.width, accumulatedSubThresholdDelta.height)
+            }
+            let accumulatedDistance = hypot(accumulatedSubThresholdDelta.width, accumulatedSubThresholdDelta.height)
+            if max(distanceFromDown, accumulatedDistance) >= ViewportScrollWheelOverlay.dragThresholdPoints {
+                didDragBeyondThreshold = true
+                let initialDragDelta = accumulatedSubThresholdDelta
+                accumulatedSubThresholdDelta = .zero
+                onDrag?(initialDragDelta, optionPressed)
+            }
         }
 
         override func mouseUp(with event: NSEvent) {
+            let upLocation = convert(event.locationInWindow, from: nil)
+            if isDraggingHandle {
+                isDraggingHandle = false
+                mouseDownLocation = nil
+                lastMouseLocation = nil
+                accumulatedSubThresholdDelta = .zero
+                didDragBeyondThreshold = false
+                let converted = ViewportPicking.viewportPixel(
+                    fromViewPoint: upLocation,
+                    viewBounds: bounds,
+                    isFlipped: isFlipped
+                )
+                onHandleMouseUp?(converted.pixel, event.modifierFlags.contains(.shift))
+                return
+            }
+            if let down = mouseDownLocation,
+               hypot(upLocation.x - down.x, upLocation.y - down.y) >= ViewportScrollWheelOverlay.dragThresholdPoints,
+               !didDragBeyondThreshold {
+                didDragBeyondThreshold = true
+                let totalDelta = CGSize(width: upLocation.x - down.x, height: upLocation.y - down.y)
+                onDrag?(totalDelta, event.modifierFlags.contains(.option))
+            }
+            let wasDrag = didDragBeyondThreshold
+            mouseDownLocation = nil
             lastMouseLocation = nil
-            onDragEnded?()
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
+            if wasDrag {
+                onDragEnded?()
+            } else {
+                let converted = ViewportPicking.viewportPixel(
+                    fromViewPoint: upLocation,
+                    viewBounds: bounds,
+                    isFlipped: isFlipped
+                )
+                let shiftPressed = event.modifierFlags.contains(.shift)
+                let optionPressed = event.modifierFlags.contains(.option)
+                onClick?(converted.pixel, shiftPressed, optionPressed)
+                onDragEnded?()
+            }
         }
 
         override func magnify(with event: NSEvent) {
             onMagnify?(event.magnification)
+        }
+
+        override func keyDown(with event: NSEvent) {
+            if let responder = window?.firstResponder {
+                if responder is NSText {
+                    return
+                }
+                if responder !== self, responder !== window {
+                    return
+                }
+            }
+            if onKeyDown?(event.charactersIgnoringModifiers, event.keyCode, event.modifierFlags) == true {
+                return
+            }
+            super.keyDown(with: event)
         }
     }
 }

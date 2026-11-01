@@ -22,6 +22,7 @@ What a client can observe is decided here and in ``errors.py``:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import inspect
 import json
@@ -64,6 +65,7 @@ from .errors import (
 from .events import RUN_ID_RE, summarize_run
 from .gpus import FakeBackend, GpuBackend, InventoryUnavailable, NvidiaSmiBackend
 from .plan import PlanRequest, PlanResponse, plan
+from .progress_telemetry import INTERVAL_S, ProgressReporter
 from .settings import Settings, load_settings
 from .storage import storage_usage
 from .supervisor import Supervisor
@@ -269,7 +271,24 @@ def create_app(settings: Settings | None = None, backend: GpuBackend | None = No
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        yield
+        async def report_progress() -> None:
+            reporter = ProgressReporter(app.state.supervisor)
+            while True:
+                await asyncio.sleep(INTERVAL_S)
+                try:
+                    await run_in_threadpool(reporter.collect)
+                except Exception:
+                    # Telemetry must never stop the control service; no exception text is sent.
+                    telemetry.report_collection_failure()
+
+        task = asyncio.create_task(report_progress()) if settings.telemetry is not None else None
+        try:
+            yield
+        finally:
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
         # Agent shutdown is container shutdown: take every running child down with it. The
         # supervisor waits for each child (SIGTERM, then SIGKILL), so keep that off the loop.
         await run_in_threadpool(app.state.supervisor.shutdown)

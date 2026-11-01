@@ -356,12 +356,17 @@ def test_double_booking_refused(sup: Supervisor, settings: Settings) -> None:
 # --- exits the supervisor did not ask for ----------------------------------------------------------
 
 
-def test_failed_exit_is_captured_and_releases_gpus(sup: Supervisor, settings: Settings) -> None:
+def test_failed_exit_is_captured_and_releases_gpus(
+    sup: Supervisor, settings: Settings, caplog
+) -> None:
     cfg = run_config(settings, extra={"fail": True})
     started = sup.start("trainer-ltx", [1], cfg)
     state = wait_for_exit(sup, "trainer-ltx")
     assert state.state == "failed"
     assert state.exit_code == 3
+    failed = [r for r in caplog.records if r.getMessage() == "service exit: failed"]
+    assert len(failed) == 1 and failed[0].levelname == "ERROR"
+    assert failed[0].exit_code == 3 and failed[0].run_id == cfg["run_id"]
     assert state.stopped_by_request is False
     assert state.ended_at is not None and state.started_at == started.started_at
     assert state.pid == started.pid
