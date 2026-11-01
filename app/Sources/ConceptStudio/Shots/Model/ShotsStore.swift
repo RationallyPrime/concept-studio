@@ -4,12 +4,14 @@ import PrevisCore
 
 enum ShotsEditingError: Error, LocalizedError {
     case readOnly
+    case finishCurrentEdit
     case missing(String)
     case duplicate(String)
 
     var errorDescription: String? {
         switch self {
         case .readOnly: "This Shots file needs a newer version of ConceptStudio. Update the app to edit it."
+        case .finishCurrentEdit: "Finish or cancel the current edit before adding an entity or mark."
         case let .missing(name): "The \(name) is no longer in this project. Select it again and retry."
         case let .duplicate(id): "The identifier \(id) is already in this project. Create a new item instead."
         }
@@ -108,14 +110,33 @@ final class ShotsStore {
     }
 
     func perform(_ command: ShotsCommand, coalescing: Bool = false) throws {
+        try perform([command], coalescingKey: command.coalescingKey, coalescing: coalescing)
+    }
+
+    func perform(_ commands: [ShotsCommand]) throws {
+        try perform(commands, coalescingKey: nil, coalescing: false)
+    }
+
+    private func perform(
+        _ commands: [ShotsCommand],
+        coalescingKey key: ShotsCoalescingKey?,
+        coalescing: Bool
+    ) throws {
         guard !isReadOnly else { throw ShotsEditingError.readOnly }
+        guard !commands.isEmpty else { return }
         let before = document
         var candidate = before
-        try ShotsCommandApplication.apply(command, to: &candidate, catalog: catalog)
+        for command in commands {
+            try ShotsCommandApplication.apply(command, to: &candidate, catalog: catalog)
+        }
         guard candidate != before else { preview = nil; return }
         let failures = ShotsValidation.problems(in: candidate, catalog: catalog).filter { $0.severity == .error }
         guard failures.isEmpty else { throw ShotsError.invalid(failures) }
-        if case .setPrompt = command {} else {
+        let hasSceneMutation = commands.contains { command in
+            if case .setPrompt = command { return false }
+            return true
+        }
+        if hasSceneMutation {
             for index in candidate.scenes.indices {
                 let scene = candidate.scenes[index]
                 if let previous = before.scenes.first(where: { $0.id == scene.id }) {
@@ -126,7 +147,6 @@ final class ShotsStore {
             }
         }
         let now = ContinuousClock.now
-        let key = command.coalescingKey
         let joinsPrevious = coalescing && key != nil && lastEdit?.key == key
             && lastEdit.map { $0.time.duration(to: now) <= .milliseconds(800) } == true
         if !joinsPrevious {
@@ -144,6 +164,14 @@ final class ShotsStore {
     func run(_ command: ShotsCommand, coalescing: Bool = false) {
         do {
             try perform(command, coalescing: coalescing)
+        } catch {
+            onError?(error.localizedDescription)
+        }
+    }
+
+    func run(_ commands: [ShotsCommand]) {
+        do {
+            try perform(commands)
         } catch {
             onError?(error.localizedDescription)
         }

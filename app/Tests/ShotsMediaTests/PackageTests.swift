@@ -430,7 +430,7 @@ struct PackageTests {
     }
 }
 
-@MainActor private func exportSmallSample(
+@MainActor func exportSmallSample(
     to parent: URL,
     options: ExportOptions = .standard,
     progress: @escaping @MainActor (ExportProgress) -> Void = { _ in }
@@ -458,7 +458,7 @@ private func writtenManifest(_ package: URL) throws -> PackageManifest {
     )
 }
 
-@MainActor private final class ExportTaskBox {
+@MainActor final class ExportTaskBox {
     var task: Task<ExportedPackage, any Error>?
 }
 

@@ -21,6 +21,8 @@ private struct ShotsWorkspaceContent: View {
     let projectDirectory: URL?
     let session: StudioSession
     @State private var showsShotCamera = false
+    @State private var viewportSession = ViewportLiveSession()
+    @State private var preserveViewportFocusOnToggle = false
 
     var body: some View {
         VSplitView {
@@ -57,11 +59,29 @@ private struct ShotsWorkspaceContent: View {
             }
             .pickerStyle(.segmented).padding(12)
             if showsShotCamera {
-                ShotCameraView(store: store)
+                ShotCameraView(
+                    store: store,
+                    externalSession: viewportSession,
+                    onToggleLookThrough: toggleLookThroughFromViewport,
+                    claimFocusOnAppear: preserveViewportFocusOnToggle,
+                    onClaimedFocus: { preserveViewportFocusOnToggle = false }
+                )
             } else {
-                ShotsViewport(store: store)
+                ShotsViewport(
+                    store: store,
+                    externalSession: viewportSession,
+                    onToggleLookThrough: toggleLookThroughFromViewport,
+                    claimFocusOnAppear: preserveViewportFocusOnToggle,
+                    onClaimedFocus: { preserveViewportFocusOnToggle = false }
+                )
             }
         }
+    }
+
+    private func toggleLookThroughFromViewport() {
+        viewportSession.cancelActiveHandleDrag(in: store)
+        preserveViewportFocusOnToggle = true
+        showsShotCamera.toggle()
     }
 
     private var inspector: some View {

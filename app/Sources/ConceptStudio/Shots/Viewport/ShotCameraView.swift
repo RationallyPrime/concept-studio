@@ -183,11 +183,34 @@ final class ShotCameraPreviewSession {
 /// `src/renderer/viewport/Viewport.tsx:335-374, 540-588`.
 struct ShotCameraView: View {
     let store: ShotsStore
-    @State var session: ShotCameraPreviewSession
+    var externalSession: ViewportLiveSession?
+    var onToggleLookThrough: (() -> Void)?
+    var claimFocusOnAppear = false
+    var onClaimedFocus: (() -> Void)?
 
-    init(store: ShotsStore, session: ShotCameraPreviewSession? = nil) {
+    /// The look-through render queue (D5 rendering slice).
+    @State var session: ShotCameraPreviewSession
+    /// The viewport's live session, shared with the scene view for keys, focus and announcements (D5 keyboard slice).
+    @State private var ownedLiveSession = ViewportLiveSession()
+
+    init(
+        store: ShotsStore,
+        externalSession: ViewportLiveSession? = nil,
+        onToggleLookThrough: (() -> Void)? = nil,
+        claimFocusOnAppear: Bool = false,
+        onClaimedFocus: (() -> Void)? = nil,
+        session: ShotCameraPreviewSession? = nil
+    ) {
         self.store = store
+        self.externalSession = externalSession
+        self.onToggleLookThrough = onToggleLookThrough
+        self.claimFocusOnAppear = claimFocusOnAppear
+        self.onClaimedFocus = onClaimedFocus
         _session = State(initialValue: session ?? ShotCameraPreviewSession())
+    }
+
+    var liveSession: ViewportLiveSession {
+        externalSession ?? ownedLiveSession
     }
 
     static func letterboxRect(in containerSize: CGSize, canvas: ShotCanvas) -> CGRect {
@@ -214,7 +237,13 @@ struct ShotCameraView: View {
 
     var body: some View {
         let currentRequest = ShotCameraRenderRequest.make(from: store)
+        let currentSelection = store.selection
+
         GeometryReader { geometry in
+            let currentSize = PixelSize(
+                width: max(Int(geometry.size.width.rounded()), 1),
+                height: max(Int(geometry.size.height.rounded()), 1)
+            )
             let innerSize = CGSize(
                 width: max(geometry.size.width - 16, 1),
                 height: max(geometry.size.height - 16, 1)
@@ -230,8 +259,41 @@ struct ShotCameraView: View {
                         RoundedRectangle(cornerRadius: 4)
                             .strokeBorder(Color.primary.opacity(0.20), lineWidth: 1)
                     }
+
+                ViewportKeyCaptureOverlay(
+                    session: liveSession,
+                    selection: currentSelection,
+                    claimFocusOnAppear: claimFocusOnAppear,
+                    onClaimedFocus: onClaimedFocus,
+                    onSync: {
+                        liveSession.viewportSize = currentSize
+                        liveSession.syncSelectionAnnouncement(with: store)
+                    },
+                    onKeyDown: { characters, keyCode, modifiers in
+                        liveSession.viewportSize = currentSize
+                        let handled = ViewportKeyboard.handleKeyDown(
+                            charactersIgnoringModifiers: characters,
+                            keyCode: keyCode,
+                            modifiers: modifiers,
+                            in: store,
+                            session: liveSession,
+                            onToggleLookThrough: onToggleLookThrough
+                        )
+                        if handled {
+                            liveSession.syncSelectionAnnouncement(with: store)
+                        }
+                        return handled
+                    }
+                )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                liveSession.viewportSize = currentSize
+                liveSession.syncSelectionAnnouncement(with: store)
+            }
+            .onChange(of: currentSelection) { _, _ in
+                liveSession.syncSelectionAnnouncement(with: store)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -319,10 +381,15 @@ struct ShotCameraView: View {
         return "Shot \(shot.name) · \(canvas.width) × \(canvas.height) · Frame \(store.playhead)"
     }
 
+    /// The caption, then a render error if there is one, then the selection when something is selected.
     var accessibilityLabelText: String {
+        var parts = ["Shot camera preview", captionText]
         if let errorMessage = session.errorMessage {
-            return "Shot camera preview. \(captionText). \(errorMessage)"
+            parts.append(errorMessage)
         }
-        return "Shot camera preview. \(captionText)"
+        if store.selection != .none {
+            parts.append(ViewportLiveSession.selectionAnnouncement(for: store.selection, in: store))
+        }
+        return parts.joined(separator: ". ")
     }
 }

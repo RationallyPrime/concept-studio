@@ -27,6 +27,7 @@ import contextlib
 import json
 import logging
 import os
+import secrets
 import signal
 import subprocess
 import threading
@@ -144,6 +145,7 @@ class _Run:
     group_term_at: float | None = None
     group_killed: bool = False
     recorded_terminal: tuple[str, int | None, bool] | None = None
+    export_marker: str | None = None
 
 
 def _now() -> datetime:
@@ -458,6 +460,10 @@ class Supervisor:
             port=getattr(parsed, "port", spec.port),
             run_id=spec.run_id(parsed),
         )
+        marker = None
+        if spec.name.startswith("trainer-") and state.run_id:
+            marker = ".export-outcome-" + secrets.token_hex(16)
+            env["PODAGENT_EXPORT_MARKER"] = marker
         # Truncate at every start so a tail always shows the current run. The parent closes its
         # handle right after the spawn; the child keeps its own file descriptor.
         try:
@@ -489,8 +495,14 @@ class Supervisor:
         state.state = "running"
         state.pid = proc.pid
         self._record_training_state(state)
-        self._runs[spec.name] = _Run(state=state, proc=proc, finalized=False)
-        log.info("started %s pid=%d gpus=%s log=%s", spec.name, proc.pid, gpus, log_path)
+        self._runs[spec.name] = _Run(state=state, proc=proc, finalized=False, export_marker=marker)
+        log.info(
+            "started %s pid=%d gpus=%s",
+            spec.name,
+            proc.pid,
+            gpus,
+            extra={"service_name": spec.name, "run_id": state.run_id},
+        )
         return state
 
     # --- stopping ------------------------------------------------------------------------------
@@ -680,7 +692,41 @@ class Supervisor:
                 state.state = "failed"
             run.proc = None
             run.finalized = True
-            log.info("%s pid=%s exited with %d: %s", state.name, state.pid, code, state.state)
+            duration = (
+                (state.ended_at - state.started_at).total_seconds() if state.started_at else None
+            )
+            log.log(
+                logging.ERROR if state.state == "failed" else logging.INFO,
+                "service exit: %s",
+                state.state,
+                extra={
+                    "service_name": state.name,
+                    "run_id": state.run_id,
+                    "exit_code": code,
+                    "duration_s": duration,
+                },
+            )
+            if state.name.startswith("trainer-") and state.run_id and run.export_marker:
+                # The wrapper writes only a fixed outcome for its automatic export.
+                try:
+                    marker = self.settings.paths.run_dir(state.run_id) / run.export_marker
+                    fd = os.open(marker, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                    with os.fdopen(fd, "rb") as source:
+                        outcome = source.read(16)
+                    marker.unlink(missing_ok=True)
+                    if outcome in (b"success", b"failed"):
+                        log.log(
+                            logging.INFO if outcome == b"success" else logging.ERROR,
+                            "automatic export %s",
+                            outcome.decode(),
+                            extra={
+                                "service_name": state.name,
+                                "run_id": state.run_id,
+                                "outcome": outcome.decode(),
+                            },
+                        )
+                except OSError:
+                    pass
             if state.pid is not None and self._group_alive(state.pid):
                 state.group_alive = True
                 if run.group_term_at is None:

@@ -1,0 +1,9 @@
+# Reproducible telemetry overlay for each immutable v0.3.17 image variant.
+# The parent is provided by digest so all GPU and captioning dependencies are preserved.
+ARG PARENT_IMAGE
+FROM ${PARENT_IMAGE}
+COPY pod/agent/src/podagent/app.py pod/agent/src/podagent/supervisor.py pod/agent/src/podagent/telemetry.py pod/agent/src/podagent/progress_telemetry.py /opt/venvs/agent/lib/python3.12/site-packages/podagent/
+COPY pod/agent/src/podagent/app.py pod/agent/src/podagent/supervisor.py pod/agent/src/podagent/telemetry.py pod/agent/src/podagent/progress_telemetry.py /opt/src/podagent/src/podagent/
+COPY pod/scripts/launch_aitoolkit.py pod/scripts/launch_ltx.py pod/scripts/launch_musubi.py /opt/pod/scripts/
+RUN /opt/venvs/agent/bin/python -c 'import podagent.app, podagent.progress_telemetry, podagent.supervisor, podagent.telemetry' \
+ && for script in launch_aitoolkit launch_ltx launch_musubi; do /opt/venvs/agent/bin/python -I "/opt/pod/scripts/${script}.py" --help > /dev/null || exit 1; done
