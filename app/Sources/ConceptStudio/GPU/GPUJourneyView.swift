@@ -405,6 +405,15 @@ extension StudioSession {
             await gpu.stopEverything(discardingPendingResult: discardingPendingResult)
         }
     }
+
+    /// After RunPod refused to stop the cloud GPU: warn that it may still bill, then stop tracking it.
+    func requestForgetActivePod() {
+        guard let id = gpu.pod?.id else { return }
+        Task {
+            guard await ask(.forgetUnstoppablePod(id: id)) == .confirm else { return }
+            await gpu.forgetActivePod()
+        }
+    }
 }
 
 extension GPUJourneyView {
@@ -426,6 +435,10 @@ extension GPUJourneyView {
                 Button(workspace.isStopping ? "Stopping…" : "Stop everything", systemImage: "stop.circle") {
                     session.requestStopEverything()
                 }.disabled(workspace.isStopping)
+            }
+            if workspace.stopRefused, !workspace.isStopping {
+                Button("Stop tracking…") { session.requestForgetActivePod() }
+                    .help("RunPod did not stop this cloud GPU. Stop tracking it here to rent another.")
             }
         }
     }

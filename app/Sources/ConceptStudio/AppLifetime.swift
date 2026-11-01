@@ -23,6 +23,8 @@ struct StudioPrompt: Identifiable {
         case stopWithPendingResult
         /// Raise the spending limit of a running computer.
         case raiseBudget(from: Double, to: Double, hourlyRate: Double?)
+        /// Stop tracking a cloud GPU RunPod refused to stop.
+        case forgetUnstoppablePod(id: String)
     }
 
     let id = UUID()
@@ -38,6 +40,7 @@ struct StudioPrompt: Identifiable {
                 : "Cancel the current work before \(work.purpose.verb)?"
         case .stopWithPendingResult: "Your trained model has not been collected yet"
         case let .raiseBudget(_, to, _): "Raise the spending limit to \(StudioMoney.format(to))?"
+        case .forgetUnstoppablePod: "Stop tracking this cloud GPU?"
         }
     }
 
@@ -54,6 +57,10 @@ struct StudioPrompt: Identifiable {
                 ?? ""
             return "The cloud GPU stops automatically at \(StudioMoney.format(to)) "
                 + "instead of \(StudioMoney.format(from))." + hours
+        case let .forgetUnstoppablePod(id):
+            return "RunPod did not stop cloud GPU \(id). If ConceptStudio stops tracking it, it may keep running and "
+                + "billing your RunPod account with no spending or idle limit. Stop or delete it on runpod.io. Its "
+                + "disk, and any output not yet saved, stay with it on RunPod."
         }
     }
 
@@ -64,12 +71,15 @@ struct StudioPrompt: Identifiable {
             work.hasRunningPod ? "Stop and \(work.purpose.shortVerb)" : "Cancel work and \(work.purpose.shortVerb)"
         case .stopWithPendingResult: "Retrieve the model first"
         case .raiseBudget: "Raise limit"
+        case .forgetUnstoppablePod: "Stop tracking it"
         }
     }
 
     var confirmIsDestructive: Bool {
-        if case .discardCaptionDrafts = kind { return true }
-        return false
+        switch kind {
+        case .discardCaptionDrafts, .forgetUnstoppablePod: true
+        default: false
+        }
     }
 
     /// Return answers with the confirm button only where confirming is the safe choice: stopping a billing
@@ -78,7 +88,7 @@ struct StudioPrompt: Identifiable {
     var confirmIsDefault: Bool {
         switch kind {
         case .stopWork, .stopWithPendingResult: true
-        case .discardCaptionDrafts, .raiseBudget: false
+        case .discardCaptionDrafts, .raiseBudget, .forgetUnstoppablePod: false
         }
     }
 
@@ -93,7 +103,7 @@ struct StudioPrompt: Identifiable {
     var cancelTitle: String {
         switch kind {
         case .discardCaptionDrafts: "Keep editing"
-        case .stopWork, .stopWithPendingResult, .raiseBudget: "Cancel"
+        case .stopWork, .stopWithPendingResult, .raiseBudget, .forgetUnstoppablePod: "Cancel"
         }
     }
 
