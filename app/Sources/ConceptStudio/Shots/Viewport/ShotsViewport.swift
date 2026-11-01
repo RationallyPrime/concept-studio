@@ -135,6 +135,29 @@ struct ShotsViewport: View {
                             magnification: magnification
                         )
                         session.syncCamera()
+                    },
+                    onClick: { pixel, shiftPressed, optionPressed in
+                        ViewportPicking.handleClick(
+                            at: pixel,
+                            in: store,
+                            camera: session.editorCamera,
+                            size: currentSize,
+                            shiftPressed: shiftPressed,
+                            optionPressed: optionPressed
+                        )
+                        session.sync(with: store, frame: store.frame, size: currentSize)
+                    },
+                    onKeyDown: { characters, keyCode, modifiers in
+                        let handled = ViewportPicking.handleKeyDown(
+                            charactersIgnoringModifiers: characters,
+                            keyCode: keyCode,
+                            modifiers: modifiers,
+                            in: store
+                        )
+                        if handled {
+                            session.sync(with: store, frame: store.frame, size: currentSize)
+                        }
+                        return handled
                     }
                 )
 
@@ -181,6 +204,14 @@ struct ShotsViewport: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
+            if !store.isReadOnly, let badge = activeToolBadge {
+                Text(badge)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(InstantPrint.chipText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(InstantPrint.chip, in: RoundedRectangle(cornerRadius: 4))
+            }
             if store.isReadOnly {
                 Text("Read-only")
                     .font(.system(size: 11, weight: .semibold))
@@ -238,5 +269,17 @@ struct ShotsViewport: View {
             return "3D blocking viewport, read-only. \(summaryText)"
         }
         return "3D blocking viewport. \(summaryText)"
+    }
+
+    private var activeToolBadge: String? {
+        switch store.tool {
+        case .select:
+            return nil
+        case let .place(assetID):
+            let name = store.catalog.asset(assetID)?.name ?? assetID
+            return "Place: \(name)"
+        case .dropMarks:
+            return "Drop marks"
+        }
     }
 }

@@ -96,12 +96,16 @@ enum ViewportCameraGestures {
 /// Hit-testable AppKit input surface over `ShotsViewport` that receives wheel dolly, trackpad two-finger pan,
 /// trackpad pinch magnify, and click/drag orbit or `⌥`-pan events.
 struct ViewportScrollWheelOverlay: NSViewRepresentable {
+    static let dragThresholdPoints: CGFloat = 3.0
+
     var session: ViewportLiveSession?
     var onSync: (() -> Void)?
     var onScroll: (NSEvent) -> Void
     var onDrag: ((CGSize, Bool) -> Void)?
     var onDragEnded: (() -> Void)?
     var onMagnify: ((CGFloat) -> Void)?
+    var onClick: ((Point2, Bool, Bool) -> Void)?
+    var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
 
     func makeNSView(context: Context) -> ScrollCapturingView {
         let view = ScrollCapturingView()
@@ -121,6 +125,8 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         view.onDrag = onDrag
         view.onDragEnded = onDragEnded
         view.onMagnify = onMagnify
+        view.onClick = onClick
+        view.onKeyDown = onKeyDown
     }
 
     final class ScrollCapturingView: NSView {
@@ -129,7 +135,12 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         var onDrag: ((CGSize, Bool) -> Void)?
         var onDragEnded: (() -> Void)?
         var onMagnify: ((CGFloat) -> Void)?
+        var onClick: ((Point2, Bool, Bool) -> Void)?
+        var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
+        private var mouseDownLocation: NSPoint?
         private var lastMouseLocation: NSPoint?
+        private var accumulatedSubThresholdDelta: CGSize = .zero
+        private var didDragBeyondThreshold = false
 
         override var isFlipped: Bool {
             true
@@ -153,7 +164,12 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         }
 
         override func mouseDown(with event: NSEvent) {
-            lastMouseLocation = convert(event.locationInWindow, from: nil)
+            window?.makeFirstResponder(self)
+            let local = convert(event.locationInWindow, from: nil)
+            mouseDownLocation = local
+            lastMouseLocation = local
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
         }
 
         override func mouseDragged(with event: NSEvent) {
@@ -169,16 +185,69 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
                 CGSize(width: event.deltaX, height: event.deltaY)
             }
             lastMouseLocation = currentLocation
-            onDrag?(delta, event.modifierFlags.contains(.option))
+            let optionPressed = event.modifierFlags.contains(.option)
+
+            if didDragBeyondThreshold {
+                onDrag?(delta, optionPressed)
+                return
+            }
+
+            accumulatedSubThresholdDelta = CGSize(
+                width: accumulatedSubThresholdDelta.width + delta.width,
+                height: accumulatedSubThresholdDelta.height + delta.height
+            )
+            let distanceFromDown: CGFloat = if let down = mouseDownLocation {
+                hypot(currentLocation.x - down.x, currentLocation.y - down.y)
+            } else {
+                hypot(accumulatedSubThresholdDelta.width, accumulatedSubThresholdDelta.height)
+            }
+            let accumulatedDistance = hypot(accumulatedSubThresholdDelta.width, accumulatedSubThresholdDelta.height)
+            if max(distanceFromDown, accumulatedDistance) >= ViewportScrollWheelOverlay.dragThresholdPoints {
+                didDragBeyondThreshold = true
+                let initialDragDelta = accumulatedSubThresholdDelta
+                accumulatedSubThresholdDelta = .zero
+                onDrag?(initialDragDelta, optionPressed)
+            }
         }
 
         override func mouseUp(with event: NSEvent) {
+            let upLocation = convert(event.locationInWindow, from: nil)
+            if let down = mouseDownLocation,
+               hypot(upLocation.x - down.x, upLocation.y - down.y) >= ViewportScrollWheelOverlay.dragThresholdPoints,
+               !didDragBeyondThreshold {
+                didDragBeyondThreshold = true
+                let totalDelta = CGSize(width: upLocation.x - down.x, height: upLocation.y - down.y)
+                onDrag?(totalDelta, event.modifierFlags.contains(.option))
+            }
+            let wasDrag = didDragBeyondThreshold
+            mouseDownLocation = nil
             lastMouseLocation = nil
-            onDragEnded?()
+            accumulatedSubThresholdDelta = .zero
+            didDragBeyondThreshold = false
+            if wasDrag {
+                onDragEnded?()
+            } else {
+                let converted = ViewportPicking.viewportPixel(
+                    fromViewPoint: upLocation,
+                    viewBounds: bounds,
+                    isFlipped: isFlipped
+                )
+                let shiftPressed = event.modifierFlags.contains(.shift)
+                let optionPressed = event.modifierFlags.contains(.option)
+                onClick?(converted.pixel, shiftPressed, optionPressed)
+                onDragEnded?()
+            }
         }
 
         override func magnify(with event: NSEvent) {
             onMagnify?(event.magnification)
+        }
+
+        override func keyDown(with event: NSEvent) {
+            if onKeyDown?(event.charactersIgnoringModifiers, event.keyCode, event.modifierFlags) == true {
+                return
+            }
+            super.keyDown(with: event)
         }
     }
 }
