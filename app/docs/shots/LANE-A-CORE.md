@@ -266,7 +266,7 @@ Parity stays green on scenes that don't use the changed features.
 | torsoX / torsoY / torsoZ | torso `.x` `+=`, `.y` `+=`, `.z` `−=` | |
 | headX / headY / headZ | head `.x` `+=`, `.y` `+=`, `.z` `−=` | |
 
-**Convention.** The table above is Blockout's renderer. Where it contradicts Blockout's header and motion data, the header governs, because the data was authored to it. Positive X on a shoulder, elbow or hip swings the limb forward, and negative X on the torso or head pitches it forward (A3's mapping, recorded in `status/lane-a.md`). Positive `shoulderLZ`, `shoulderRZ`, `hipLZ` and `hipRZ` abduct the limb outward on both sides. Positive `torsoZ` and `headZ` tilt right, as the table gives. The mapping lives in one place, the rig's sign mapping.
+**Convention.** The table above is Blockout's renderer. Where it contradicts Blockout's header and motion data, the header governs, because the data was authored to it. In stored values, a negative shoulder or hip X swings the limb forward, a positive elbow or knee bends it, and a positive torso or head X pitches forward; A3's rig maps them onto its pivots (recorded in `status/lane-a.md`). Positive `shoulderLZ`, `shoulderRZ`, `hipLZ` and `hipRZ` abduct the limb outward on both sides. Positive `torsoZ` and `headZ` tilt right, as the table gives. The mapping lives in one place, the rig's sign mapping. CONTRACTS section 4 lists every joint's sign.
 
 - **Gait poses.** Let `p` be the phase and `swing = sin(2πp)`.
   - **stand / gesture:** `root.y = sin(1.5t)·.005`. Gesture adds `shoulderR.x −2.3`,
