@@ -353,3 +353,72 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         }
     }
 }
+
+/// Hit-testable AppKit HUD toggle buttons (`Marks` and `Paths`) mounted above `ViewportScrollWheelOverlay`
+/// so clicking either pill toggles the corresponding overlay group while stage drags still reach `ScrollCapturingView`.
+struct ViewportOverlayTogglesRepresentable: NSViewRepresentable {
+    var session: ViewportLiveSession
+
+    func makeNSView(context: Context) -> ToggleBarView {
+        let view = ToggleBarView()
+        view.session = session
+        view.refreshState()
+        return view
+    }
+
+    func updateNSView(_ nsView: ToggleBarView, context: Context) {
+        nsView.session = session
+        nsView.refreshState()
+    }
+
+    final class ToggleBarView: NSView {
+        weak var session: ViewportLiveSession?
+        let marksButton = NSButton(title: "Marks", target: nil, action: nil)
+        let pathsButton = NSButton(title: "Paths", target: nil, action: nil)
+
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+            setupButton(marksButton, id: "viewport.hud.toggle.marks", action: #selector(handleMarksToggle))
+            setupButton(pathsButton, id: "viewport.hud.toggle.paths", action: #selector(handlePathsToggle))
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        private func setupButton(_ button: NSButton, id: String, action: Selector) {
+            button.identifier = NSUserInterfaceItemIdentifier(id)
+            button.setButtonType(.pushOnPushOff)
+            button.bezelStyle = .recessed
+            button.controlSize = .small
+            button.font = .systemFont(ofSize: 11, weight: .medium)
+            button.target = self
+            button.action = action
+            addSubview(button)
+        }
+
+        override func layout() {
+            super.layout()
+            let spacing: CGFloat = 4
+            let buttonWidth = max((bounds.width - spacing) * 0.5, 1)
+            marksButton.frame = NSRect(x: 0, y: 0, width: buttonWidth, height: bounds.height)
+            pathsButton.frame = NSRect(x: buttonWidth + spacing, y: 0, width: buttonWidth, height: bounds.height)
+        }
+
+        func refreshState() {
+            marksButton.state = (session?.showMarks ?? true) ? .on : .off
+            pathsButton.state = (session?.showPaths ?? true) ? .on : .off
+        }
+
+        @objc private func handleMarksToggle() {
+            session?.toggleMarks()
+            refreshState()
+        }
+
+        @objc private func handlePathsToggle() {
+            session?.togglePaths()
+            refreshState()
+        }
+    }
+}
