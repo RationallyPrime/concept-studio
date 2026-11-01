@@ -99,6 +99,8 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
     static let dragThresholdPoints: CGFloat = 3.0
 
     var session: ViewportLiveSession?
+    var claimFocusOnAppear = false
+    var onClaimedFocus: (() -> Void)?
     var onSync: (() -> Void)?
     var onScroll: (NSEvent) -> Void
     var onDrag: ((CGSize, Bool) -> Void)?
@@ -129,6 +131,8 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
 
     private func configure(_ view: ScrollCapturingView) {
         view.session = session
+        session?.hostView = view
+        view.onClaimedFocus = onClaimedFocus
         view.onScroll = onScroll
         view.onDrag = onDrag
         view.onDragEnded = onDragEnded
@@ -139,10 +143,14 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         view.onHandleMouseUp = onHandleMouseUp
         view.onHandleCancel = onHandleCancel
         view.onKeyDown = onKeyDown
+        if claimFocusOnAppear {
+            view.requestFocusIfNeeded()
+        }
     }
 
     final class ScrollCapturingView: NSView {
         weak var session: ViewportLiveSession?
+        var onClaimedFocus: (() -> Void)?
         var onScroll: ((NSEvent) -> Void)?
         var onDrag: ((CGSize, Bool) -> Void)?
         var onDragEnded: (() -> Void)?
@@ -158,12 +166,25 @@ struct ViewportScrollWheelOverlay: NSViewRepresentable {
         private var accumulatedSubThresholdDelta: CGSize = .zero
         private var didDragBeyondThreshold = false
         private var isDraggingHandle = false
+        private var pendingFocusRequest = false
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if window == nil {
                 cancelPendingGesture()
+            } else if pendingFocusRequest {
+                requestFocusIfNeeded()
             }
+        }
+
+        func requestFocusIfNeeded() {
+            guard let window else {
+                pendingFocusRequest = true
+                return
+            }
+            pendingFocusRequest = false
+            window.makeFirstResponder(self)
+            onClaimedFocus?()
         }
 
         override func viewDidMoveToSuperview() {
