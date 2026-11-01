@@ -1,6 +1,6 @@
 # Lane D status
 
-Owner: Metis (Gemini). On 2026-11-01, on the owner's instruction to merge every solid Shots PR, D3 [#82](https://github.com/RationallyPrime/concept-studio/pull/82), D4 [#84](https://github.com/RationallyPrime/concept-studio/pull/84) and the D5 keyboard slice [#85](https://github.com/RationallyPrime/concept-studio/pull/85) landed on `main` with merge commits, and D2 `shots/d-overlays` ([#81](https://github.com/RationallyPrime/concept-studio/pull/81)) was composed with them (both overlay syncs share `overlayRoot`; each rebuilds only its own named children). The D5 rendering slice `shots/d-look-through` ([#83](https://github.com/RationallyPrime/concept-studio/pull/83)) is composed next. All branches are preserved.
+Owner: Metis (Gemini). On 2026-11-01, on the owner's instruction to merge every solid Shots PR, D3 [#82](https://github.com/RationallyPrime/concept-studio/pull/82), D4 [#84](https://github.com/RationallyPrime/concept-studio/pull/84) and the D5 keyboard slice [#85](https://github.com/RationallyPrime/concept-studio/pull/85) landed on `main` with merge commits, and D2 `shots/d-overlays` ([#81](https://github.com/RationallyPrime/concept-studio/pull/81)) was composed with them (both overlay syncs share `overlayRoot`; each rebuilds only its own named children). The D5 rendering slice `shots/d-look-through` ([#83](https://github.com/RationallyPrime/concept-studio/pull/83)) was then composed with all of it: `ShotCameraView` keeps the look-through render session as `session` and the keyboard slice's live session as `liveSession`. All branches are preserved.
 Reference implementation: [Blockout](https://github.com/wassermanproductions/blockout) at `3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9` (`scripts/blockout/fetch.sh`).
 
 ## Checkpoints
@@ -125,6 +125,16 @@ cd app && mise exec -- swiftlint lint --strict && \
 
 ### Verification results (macOS Apple silicon, local Xcode / RealityKit, base `139a2e42095fd509241377286b636ff8d3c18cda`)
 
+- **Run and passed:**
+  - `ViewportEditorCameraTests|ViewportDisplayTests` (default env): 12 tests in 2 suites — 11 ran and passed (including `verticalAndNearVerticalTrackpadScrollStayInPanModeWhileMouseWheelDollies`, `appKitHitTestingRoutesScrollAndDragEventsThroughViewportOverlay`, `deletingLastShotOrSceneClearsMappedEntitiesFromViewportStage`, `liveViewportAppliesSelectedLookCanonicalBackgroundInLightAndDarkAppearances`, `defaultAndTopSnapshotsDrawEveryEntityAboveBackgroundAndKeepOverlaySeparate`, and `groundGridMatchesBlockoutSixtyMetreReference`), 0 failed, 1 skipped (`writesFullSizeDefaultAndTopSnapshotsWhenSnapshotDirectoryIsSet` when `SHOTS_SNAPSHOT_DIR` is unset).
+  - `ViewportEditorCameraTests|ViewportDisplayTests` (with `SHOTS_SNAPSHOT_DIR` set): 12 tests in 2 suites — 12 ran and passed (`1.009s`), 0 failed, 0 skipped, writing `d1-sample-default.png` and `d1-sample-top.png`.
+  - Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 84 tests in 23 suites — 82 ran and passed (`4.854s`), 0 failed, 2 skipped (`writesTheSampleFrameForReview` and `writesFullSizeDefaultAndTopSnapshotsWhenSnapshotDirectoryIsSet` when snapshot env vars are unset).
+  - `PrevisCoreTests`: 148 tests in 20 suites — 144 ran and passed (`1.660s`), 0 failed, 4 skipped (`correctedEvaluatorAgreesWithBlockoutWhereTheCorrectionsDoNotApply`, `everyScenePasses`, `cameraMovesMatchBlockout`, `actionPathsMatchBlockout`, gated on `PREVIS_GOLDENS`/`PREVIS_VECTORS`).
+  - `swiftlint lint --strict` (from `app/`): 0 violations, 0 serious across 396 files.
+  - `swiftformat --lint` (from `app/`): 0/8 Lane D files require formatting.
+- **Not run locally in D1:**
+  - Unfiltered full `ConceptStudioTests` suite.
+  - Live window interactive walkthrough and signed sandbox UI verification.
 - **Run and passed (post-repair final source):**
   - `--filter Viewport` (`SHOTS_SNAPSHOT_DIR` set): 19 tests reported in 3 suites (`ViewportEditorCameraTests`, `ViewportDisplayTests`, `ViewportOverlaysTests`) — 19 executed and passed (`1.819s`), 0 failed, 0 skipped. Includes the label-orbit regression (`markNumbersAndPathTimeLabelsFaceCameraAcrossOrbitWithoutMutatingLiveOverlay`) and the explicit backward-sit diagnostic (`sideViewSignCheckSnapshotReproducesAuthoredSitDownPeakKeyframeDiscrepancy`, which is a reproducer rather than sign-check acceptance).
   - `--filter 'Shots|Viewport'` (`SHOTS_SNAPSHOT_DIR` set): 180 tests reported in 32 suites — 178 executed and passed (`7.837s`), 0 failed, 2 skipped (`everyPresetReadsAsItsName` and `zoomsRollsAndWhipsReadAsBlockoutDescribesThem` when `PREVIS_PRESETS` is unset).
@@ -242,6 +252,34 @@ cd app && mise exec -- swiftlint lint --strict && \
 - `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 419 files (`0/419` require formatting).
 - Not run / remaining: post-review composition of `shots/d-look-through` (Draft PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83)) + `shots/d-keyboard-a11y` (Draft PR [#85](https://github.com/RationallyPrime/concept-studio/pull/85)), and physical native VoiceOver speech/navigation and live focus walkthrough.
 
+## Delivered in D5 Look-Through Rendering Slice (`shots/d-look-through`)
+
+### Reference files inspected for D5 (`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`)
+- `src/renderer/viewport/SceneManager.ts:2099-2112, 2218-2296, 2371-2455` (`applyTime(t)` shot-camera projection, letterboxed look-through viewport `vw`/`vh`/`vx`/`vy`, PiP live shot preview hiding editor chrome, and `renderFrameAt` deterministic export rendering).
+- `src/renderer/viewport/Viewport.tsx:331-375, 398-417, 470-531, 540-588` (`viewRect` letterbox state, `"🎥 Look through"` control, PiP preview chrome, and letterbox frame overlay).
+- `tests/e2e/smoke.spec.ts:114-130` (deterministic frame rendering across interleaved renders).
+
+### Preserved behaviors and intentional Swift/RealityKit adaptations in D5 (`ShotCameraView.swift`, `ViewportLookThroughTests.swift`)
+1. **Shared export renderer and canonical look (`ShotCameraView`, `ShotCameraPreviewSession` ← `LANE-D-VIEWPORT.md` lines 47-49, 136-144, 166; `SHOTS-PLAN.md` section 4):**
+   - RealityKit's `RealityView` supports a single active camera, and Blockout's live WebGL viewport applied tone mapping/exposure that differed from its exporter. `ShotCameraView` renders `store.frame` offscreen via `ShotFrameRenderer.image(of: frame, look: PrevisLook(scene: scene))` with no editor overlay (`overlay == nil`), matching `ShotExporter`'s `.clean` pass pixel-for-pixel by construction.
+2. **Latest-wins request coalescing & displayed-image metadata identity (`ShotCameraPreviewSession`, `ShotCameraView.activeRenderedRequest`):**
+   - Keeps at most one render in flight and at most one newest pending `ShotCameraRenderRequest` (`sceneID`, `sceneRevision`, `shotID`, `shotName`, `frame`, `look`), collapsing intermediate playhead/document updates while preventing stale in-flight completions from overwriting a switched or cleared shot context.
+   - `ShotCameraView.activeRenderedRequest` shares the exact displayed-image predicate between `canvasSurface(size:)` and `captionText` / `accessibilityLabelText`: whenever `session.renderedImage` is shown on screen (including while a newer playhead/document render is still in flight), both the HUD pill and the accessibility label identify `rendered.shotName`, `rendered.frame.canvas`, and `rendered.frame.index` of the displayed pixels rather than the unrendered `store.playhead` target (PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83) Round 1 P2 repair). When no rendered image is active, `captionText` falls back to `store.currentShot` / `store.playhead`.
+   - Render failures set `session.errorMessage`, clear `renderedImage` (never silently succeeding), report through `store.onError`, and recover on subsequent requests.
+3. **Canvas letterboxing (`ShotCameraView.letterboxRect(in:canvas:)` ← `SceneManager.ts:2220-2240`):**
+   - Fits the active `ShotCanvas` aspect ratio centered inside the available view bounds while preserving `InstantPrint.ground` contrast and accessibility labeling in both `.aqua` and `.darkAqua` appearances.
+
+### Verification results for D5 rendering slice (`shots/d-look-through`, base `139a2e4`, PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83))
+- `ViewportLookThroughTests`: 7 tests in 1 suite reported (`0.622s`; 7 executed, 0 skipped, 0 failed), including `lookThroughFrameElevenMatchesExportedMiddleGuideCleanPNGAsDecodedRGB` (`twoPersonWalk(small: true)`, 22 frames, `320×576`, frame 11 look-through image equals exported `guides/middle-f0011-clean.png` as decoded sRGB bytes) and `retainedImageCaptionAndAccessibilityIdentifyDisplayedFrameWhileNewerRenderIsPending` (Round 1 P2 regression verifying retained Frame 0 pixels report Frame 0 in both `captionText` and `accessibilityLabelText` while Frame 11 is in flight, then advance to Frame 11 once the render completes).
+- Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 180 tests in 32 suites reported (`7.113s`; 176 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
+- Full unfiltered `app` test suite: 951 tests in 156 suites reported (`26.997s`; 943 executed, 8 skipped, 0 failed).
+- `PrevisCoreTests` (no fixture env): 148 tests in 20 suites reported (`1.370s`; 144 executed, 4 skipped, 0 failed).
+- `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.678s`; 148 executed, 0 skipped, 0 failed).
+- `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 412 files (`0/412` require formatting).
+- **Not run / separately pending:**
+  - Remaining D5 focused viewport keyboard shortcuts (`CONTRACTS.md` section 7) and VoiceOver selection announcements.
+  - Physical native desktop walkthrough, VoiceOver interactive check, M1/M2 release-build frame-time measurements, and signed sandbox verification.
+
 ## Blockers and dependencies
 
 - **D2:** Composed with merged D3–D5 on 2026-11-01 for merge on the owner's instruction; the raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check disposition remains open with Lane A (see Open questions). It is a motion-data question in PrevisCore, already on `main`.
@@ -252,6 +290,7 @@ cd app && mise exec -- swiftlint lint --strict && \
 
 ## Open questions (UNRESOLVED — blocks D2 sign-check acceptance)
 
+- None for the D5 look-through rendering slice.
 - **D2 side-view sign check (`LANE-D-VIEWPORT.md` lines 101-103 vs `LANE-A-CORE.md` line 132 & `BodyTests.swift:73`):**
   - Procedural `Gait.sit` (`d2-sign-check-side.png`) places knees `0.409` m ahead of hips (`rightHip.z - rightKnee.z > 0.2` m), matching `BodyTests.sittingPutsTheKneesAheadOfTheHips()`.
   - However, applying the literal peak keyframe (`t = 1.1`) of catalog motion `"sit-down"` (`motions.v1.json` / Blockout `motions.ts:2590-2595`, which authors `hipLX: +1.4, hipRX: +1.4` despite `motions.ts:20-21` stating positive `hipX` is backward) on `gait: .stand` (`d2-sign-check-sit-down-peak.png`) swings the thighs backward (`+Z`) under `PersonRig.angles` (`a.hipL.x -= joint(.hipLX)`), placing knees `> 0.3` m **behind** the hips (`rightKnee.z - rightHip.z > 0.3` m) while `ActorMark.joints` leaves the pelvis at standing height.
