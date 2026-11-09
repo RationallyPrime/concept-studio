@@ -282,12 +282,16 @@ covers the width fit in PrevisCore.
 builds the move around one subject, the first of `framingSubjects()`: the first selected entity in document order when two or more
 are selected, else the first person, else the first entity. A following move (`track`) then aim-locks onto that subject and any
 other move clears aim lock (lines 1756-1759). Shots took the subjects from aim lock instead. `ShotsFramingSubjects.cameraMoveSubject`
-now applies Blockout's rule, the store passes that one subject to `CameraMoves.marks` (several selected entities are not merged into a
+now picks one subject from the selection, the store passes it to `CameraMoves.marks` (several selected entities are not merged into a
 midpoint subject, as in Blockout), and the move picker sits beside the framing buttons in the camera inspector and in a selected
-person's or prop's inspector. `ShotsFramingTests.aCameraMoveIsBuiltAroundTheSubjectBlockoutPicks` fails with the aim-lock subjects
-restored.
+person's or prop's inspector, with a note naming the subject.
 
-**Kept from Blockout (integrator ruling).** With exactly one entity selected, the non-size framings ignore it and use every person,
-so Low angle looks up at the scene's first person rather than the selected one; for the same reason a camera move with one entity
-selected is built around the first person. Blockout's own button help says to select the entity to build the move around
-(`Inspector.tsx` line 1451), but its code does not, and Shots follows the code; the inspector names the subject before you apply.
+**Deviation: one selected entity is the move's subject** (integrator ruling 2026-11-09). Blockout's code (lines 1704-1709) ignores a
+single selection, because `framingSubjects()` needs two, and builds the move around the first person; its button help says "Select an
+entity first to build the move around it" (`Inspector.tsx` line 1451). A camera move has one subject, so Shots follows the help text:
+exactly one selected gives that entity, two or more give the first selected in document order (as Blockout's code), none gives the
+first person, else the first entity. `ShotsFramingTests.aCameraMoveIsBuiltAroundTheSelectedSubject` fails with the aim-lock subjects
+restored and with Blockout's code rule.
+
+**Kept from Blockout (integrator ruling).** With exactly one entity selected, the non-size framings (several subjects) ignore it and
+use every person, so Low angle looks up at the scene's first person rather than the selected one.

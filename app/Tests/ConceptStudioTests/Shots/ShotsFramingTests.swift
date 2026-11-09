@@ -140,8 +140,9 @@ struct ShotsFramingTests {
         #expect(added.roll == 0.35)
     }
 
-    /// Blockout `applyCameraMove` builds the move around the first of `framingSubjects()`, not around aim lock.
-    @Test func aCameraMoveIsBuiltAroundTheSubjectBlockoutPicks() throws {
+    /// A camera move is built around the selection, not aim lock: the selected entity (Blockout's button help,
+    /// `Inspector.tsx` 1451), the first of several (`applyCameraMove`), else the first person.
+    @Test func aCameraMoveIsBuiltAroundTheSelectedSubject() throws {
         var document = ShotsSamples.twoPersonWalk()
         document.scenes[0].shots[0].camera.trackIDs = [man]
         let store = try ShotsStore(catalog: ContentCatalog.bundled(), document: document, saveURL: nil)
@@ -160,8 +161,14 @@ struct ShotsFramingTests {
         func subject(_ selection: ShotsSelection) -> EntityID? {
             ShotsFramingSubjects.cameraMoveSubject(in: scene, selection: selection)
         }
-        #expect(subject(.entities([woman])) == man, "one selected: Blockout still uses the first person")
+        // One selected: the selected entity, as Blockout's button help says (its code uses the first person).
+        #expect(subject(.entities([woman])) == woman)
+        #expect(subject(.entities([chair])) == chair)
         #expect(subject(.none) == man)
+        store.selection = .entities([woman])
+        store.applyCameraMove("side-track-left")
+        #expect(errors.isEmpty, "\(errors)")
+        #expect(store.currentShot?.camera.trackIDs == [woman], "one selected person is the move's subject")
         var props = scene
         props.entities.removeAll { $0.assetID.hasPrefix("person.") }
         #expect(ShotsFramingSubjects.cameraMoveSubject(in: props, selection: .camera) == chair)

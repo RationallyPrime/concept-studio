@@ -30,7 +30,7 @@ struct ShotsCameraMoveSection: View {
 
     private var note: String {
         guard let name = subjectName else { return "Add a person or prop to build a camera move around." }
-        return "Camera moves are built around \(name): the first of two or more selected people or props, "
-            + "otherwise the scene's first person."
+        return "Camera moves are built around \(name): the selected person or prop (the first, if several are "
+            + "selected), otherwise the scene's first person."
     }
 }

@@ -29,13 +29,16 @@ enum ShotsFramingSubjects {
         }
     }
 
-    /// The one subject a camera move is built around. Blockout's `applyCameraMove` (lines 1704-1709) takes the first
-    /// of `framingSubjects()`, the rule of the non-size framings: the first selected entity in document order when
-    /// two or more are selected, else the first person, else the first entity. Several selected entities do not make
-    /// a midpoint subject, and with exactly one selected Blockout still uses the first person, although its button
-    /// help says to select the entity to build around (`Inspector.tsx` line 1451); Shots follows the code.
+    /// The one subject a camera move is built around: the first selected entity in document order, else the first
+    /// person, else the first entity. Blockout's `applyCameraMove` (lines 1704-1709) takes the first of
+    /// `framingSubjects()`, which ignores a single selection and uses the first person; Shots follows its button
+    /// help instead ("Select an entity first to build the move around it", `Inspector.tsx` line 1451), an
+    /// intentional deviation (integrator ruling 2026-11-09). Several selected entities do not make a midpoint subject.
     static func cameraMoveSubject(in scene: PrevisScene, selection: ShotsSelection) -> EntityID? {
-        subjects(for: .twoShot, in: scene, selection: selection).first
+        if case let .entities(ids) = selection, let first = scene.entities.first(where: { ids.contains($0.id) }) {
+            return first.id
+        }
+        return subjects(for: .twoShot, in: scene, selection: .none).first
     }
 }
 

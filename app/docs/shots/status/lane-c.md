@@ -169,7 +169,7 @@ substitute for it; M1/M2 acceptance remains separate.
 - **Framing and aim lock.** Closed by the owner's ruling (2026-11-09) that Shots framing behaves like Blockout:
   framing frames the selection by Blockout's rules and no longer needs aim lock (`ShotsFramingSubjects`); see
   "Framing like Blockout" in lane-a.md. Aim lock still re-aims a framing while it is on, as in Blockout, and the
-  inspector says so. Camera moves now take their subject by Blockout's rule as well (integrator ruling,
+  inspector says so. Camera moves now take their subject from the selection as well (integrator rulings,
   same day), not from aim lock.
 - **Lane A:** Blockout import notes still print raw identifiers ("it became super35/sticks",
   `BlockoutImport.swift`). **Lane B:** export step text uses film-pass jargon ("Drawing the pose pass…").
@@ -206,5 +206,5 @@ unchanged.
   others, else every person) and work without aim lock; a framing on a camera mark's frame rewrites that mark,
   and a new mark keeps the roll of the one before it. The framing note names who each group frames and warns
   when aim lock is on; the button help no longer says "aim-lock subject". Camera moves (`ShotsCameraMoveSection`,
-  beside the framing buttons in both inspectors) are built around Blockout's subject, the first of two or more
-  selected or else the first person, instead of the aim-lock subjects; the note names it.
+  beside the framing buttons in both inspectors) are built around the selected person or prop (the first of several), else the first
+  person, instead of the aim-lock subjects; the note names it.
