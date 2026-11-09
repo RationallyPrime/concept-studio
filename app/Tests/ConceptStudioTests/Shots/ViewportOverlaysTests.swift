@@ -308,7 +308,7 @@ struct ViewportOverlaysTests {
 
     @Test(.enabled(if: overlaysRenderingEnabled))
     @MainActor
-    func sideViewSignCheckSnapshotReproducesAuthoredSitDownPeakKeyframeDiscrepancy() async throws {
+    func sideViewSignCheckSnapshotShowsTheCorrectedSitDownPeakWithKneesAhead() async throws {
         let catalog = try ContentCatalog.bundled()
         #expect(catalog.motion("sit") == nil)
         let doc = try makeSideViewSignCheckDocument(catalog: catalog, useSitDownPeakKeyframe: true)
@@ -330,10 +330,10 @@ struct ViewportOverlaysTests {
         let sitDownActor = try #require(frame.entities.first { $0.id == "ent_sit" })
         let sitDownKnee = try keypoint(.rightKnee, in: sitDownActor)
         let sitDownHip = try keypoint(.rightHip, in: sitDownActor)
-        // Discrepancy reproducer: motions.v1.json "sit-down" peak (t = 1.1) authors positive hipLX/hipRX = +1.4,
-        // which under PersonRig.angles (a.hipL.x -= joint(.hipLX)) swings thighs backward (+Z) so knees land
-        // behind the hips (sitDownKnee.z > sitDownHip.z) rather than ahead of the hips (-Z).
-        #expect(sitDownKnee.z - sitDownHip.z > 0.3)
+        // motions.v1.json authors the "sit-down" peak (t = 1.1) with hipLX/hipRX = +1.4, against Blockout's header;
+        // the bundled catalog corrects bilateral knee bends (PrevisCore `MotionCorrections`, owner ruling 2026-11-09),
+        // so the knees land ahead of the hips (-Z), as the procedural `Gait.sit` does.
+        #expect(sitDownHip.z - sitDownKnee.z > 0.3)
 
         let tempFolder = FileManager.default.temporaryDirectory
             .appendingPathComponent("d2-sign-check-sitdown-\(UUID().uuidString)", isDirectory: true)

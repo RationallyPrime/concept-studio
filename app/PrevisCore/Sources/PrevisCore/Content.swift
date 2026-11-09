@@ -34,7 +34,7 @@ public struct ContentCatalog: Sendable {
         let starter: StarterSet = try load("starter.v1.json")
         let parts = try load("parts.v1.json", as: PartsFile.self).assets
         let catalog = try ContentCatalog(
-            motions: load("motions.v1.json", as: MotionsFile.self).motions,
+            motions: authoredMotions().map(MotionCorrections.corrected),
             assets: load("assets.v1.json", as: AssetsFile.self).assets.map { spec in
                 var spec = spec
                 spec.parts = parts[spec.id]
@@ -63,6 +63,11 @@ public struct ContentCatalog: Sendable {
                 )
             }
         }
+    }
+
+    /// `motions.v1.json` as Blockout wrote it, before `MotionCorrections`.
+    static func authoredMotions() throws -> [MotionPreset] {
+        try load("motions.v1.json", as: MotionsFile.self).motions
     }
 
     private static func load<T: Decodable>(_ name: String, as type: T.Type = T.self) throws -> T {

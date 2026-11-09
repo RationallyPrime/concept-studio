@@ -6,9 +6,10 @@
 | A1 content, catalog, import | **Merged** (PR #59, `93dbb76`; round 1 repaired in `913fd2b`, closed by independent review). |
 | A2 evaluator parity and paths | **Merged** (PR #64, `89d9e7d`). Real `ShotEvaluator` (legs, paths, easing, holds, joint blending, boarding and attachments as Blockout's four passes, camera lens, aim lock, mount, rig noise), `EntityFrame.joints` and `speed`, `paths()`, and the parity test. |
 | A3 bodies | **Merged** (PR #65, `0bdb09a`; two review rounds: the quadruped gait scale and the outward Z overrides). |
-| A4 generators | **Draft PR, targeting `main`** (branch `shots/a-core-a4`, three commits on `0bdb09a`). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
+| A4 generators | **Merged** (PR #67, `c501e7b`). `CameraMoves` (20 starter moves), `ActionPaths` (14), `Motions.apply` and `overlay`, `Framing` (all ten kinds) and `Attachments`. |
 | A5 corrections | **Merged** (PR #73, `c23dea8`; independent review R1 and two closure rounds repaired simultaneous nested boardings, non-finite attachment rotation and inactive-attachment capture order). |
-| A6 hardening | **Draft checkpoint, not accepted** (branch `shots/a-core-a6` on `c23dea8`). `TimingTests` (suite `Timing`, gated by `SHOTS_TIMING=1`, CONTRACTS section 10: `init` under 5 ms, `frame` under 2 ms, ten entities). `TranslatedHeaderTests` audits that the twelve translating files carry the Blockout header, pinned commit, licence and author, and that no other file claims to be a translation. No integration fixes: no lane has reported a defect in PrevisCore. See the A6 notes below. |
+| A6 hardening | **Merged** (PR #75, `42be3e9`, 2026-11-01, on the owner's instruction to merge every solid Shots PR). `TimingTests` (suite `Timing`, gated by `SHOTS_TIMING=1`, CONTRACTS section 10: `init` under 5 ms, `frame` under 2 ms, ten entities). `TranslatedHeaderTests` audits that the twelve translating files carry the Blockout header, pinned commit, licence and author, and that no other file claims to be a translation. No integration fixes: no lane has reported a defect in PrevisCore. See the A6 notes below. |
+| A7 motion-data signs | **In review** (branch `shots/a-seated-hip-signs`, by the integration owner). The bundled catalog changes the sign of `hipLX` and `hipRX` in 171 keyframes of Blockout's bilateral knee bends; see "Seated and crouched hips" below. |
 
 **A5 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS` and `PREVIS_GOLDENS` set): 101 run, 101 passed, 0 failed.
 
@@ -199,6 +200,41 @@ and 282-285), so the reference does not decide the turn timing above.
 - Closed: the Z overrides (plan maintainer's disposition, PR 65 comment 6415969304). A positive `shoulderLZ`, `shoulderRZ`,
   `hipLZ` or `hipRZ` abducts the limb outward on both sides; the lane table transcribed Blockout's renderer, which turns them the
   other way. The four signs are flipped in the same place as the X mapping, and the convention is stated once beside the override
-  table in LANE-A-CORE.md. Open and separate: `torsoY` (the table keeps it; header and geometry agree, but most annotated
-  keyframes pair a positive value with "twist right").
+  table in LANE-A-CORE.md.
+- Closed: `torsoY` (owner ruling 2026-11-09). Positive turns counter-clockwise seen from above, toward the character's left, as
+  Blockout's header, the geometry and the rig agree and CONTRACTS section 4 states (#69, `ef21251`). Blockout's keyframe comments
+  that call a positive value "twist right" are not followed.
+- Closed: Lane D's D2 sit-down sign check (owner ruling 2026-11-09). D2's side-view check means the procedural `Gait.sit`, which
+  passes; the authored `sit-down` keyframes are corrected in the catalog by A7.
 - `FrameGrid.frame(atTime:)` rounds to the nearest frame (contract does not say floor or nearest).
+
+## Seated and crouched hips (A7, owner ruling 2026-11-09)
+
+**The defect.** Blockout's header (`src/engine/motions.ts` lines 20-21 at `3f2d056`) says a positive `hipLX`/`hipRX` swings the leg
+back, and every one-leg raise in its data follows it (`front-kick` `hipRX: -1.5`, `knee-strike` `-1.75`). Every keyframe that bends
+both knees does the opposite: it writes the thighs' forward swing as a positive value, nearly always about half the knee bend
+(`squat-exercise` `hip 0.8, knee 1.4`; the seated pose of `sit-down`, `stand-up` and `drink-seated` `hip 1.4, knee 1.5`; boxing
+guards `hip 0.1, knee 0.3`). The rig reads every value by the header (A3), so those poses swung both thighs back and folded the shins
+up behind: the seated figure knelt on air with its feet about 0.8 m off the floor. Lane D found it in D2's sign check.
+
+**The correction** (`MotionCorrections.swift`, applied in `ContentCatalog.bundled()`): in every keyframe where both hips are positive
+and each knee bends at least as far as its hip swings, both hip values change sign. 171 keyframes in 60 motions change; nothing
+else does. `motions.v1.json` stays a verbatim extract (`ContentCatalog.authoredMotions()` reads it unchanged), and documents imported
+from Blockout keep the values they carry.
+
+**Exceptions, each tested.**
+- `soccer-kicks` and `soccer-kick` keyframe 1: their comments say the kicking leg swings back to load; the foot stays behind the hip.
+- `crawl-fast-military` and `trip-and-fall-flat`: the figure lies face down (torso X ≥ 1.3), which this upright rig cannot show.
+  On the rig, flipping lifts the feet farther off the floor in some of their knee bends, so the authoring style alone does not
+  decide them, and flipping only the rest would swing the thighs through between keyframes. They stay as authored.
+
+**Evidence** (`MotionCorrectionTests`, measured on the posed rig with each keyframe's pelvis drop):
+- The seated pose has both knees more than 0.3 m ahead of the hips and the feet within 0.15 m of the floor; as authored, the feet
+  were more than 0.5 m up. The squat's feet are within 0.2 m of the floor; as authored, more than 0.3 m up.
+- Every corrected keyframe whose pelvis stays at or below standing height puts the feet nearer the floor than the authored value,
+  or within 8 cm where the bend is too slight to tell (`stand-up` keyframe 2 and `get-up-from-ground` keyframe 3).
+- One-leg moves and split stances (`front-kick`, `knee-strike`, `high-kick`, `takedown-lunge`, `kneel-tie-shoe`) are unchanged.
+- Lane D's D2 sign-check snapshot test now expects the corrected sit-down peak's knees ahead of the hips.
+
+**Not established.** No one has looked at the 60 motions in the app yet; the owner's M2 walkthrough should play `sit-down`,
+`squat-exercise`, `jump`, `duck-under` and `ko-collapse` and look at them from the side.
