@@ -355,16 +355,16 @@ An earlier variant, with a static prop selected during playback, measured 15.5 /
 
 The run took 19.4 minutes. Its draw half was 18–32 ms median; nearly all the time was the overlay rebuild in the update half. The look-through figure includes the hosted scene view's own SwiftUI pass, because the test keeps that view mounted. The real app unmounts it in look-through mode, so this inflates both before and after.
 
-### Verification results for D6 (`shots/d-integration`, base `acfd417`)
+### Verification results for D6 (`shots/d-integration`, rebased on `9ff8741`)
 - `ViewportIntegrationTests` (IT4 and the rebuild-trigger test): 2 tests in 1 suite, both passed.
 - Unfiltered `app` (`swift test`, debug): 996 Swift Testing tests in 166 suites reported, 0 failed, 11 skipped by their gates:
   - `SHOTS_TIMING`: this lane's `ViewportTiming` and Lane B's two timing tests;
   - snapshot directories, `PREVIS_PRESETS`, real-model and screen-render gates.
 
   XCTest reported 0 tests.
-- `PrevisCore` (`swift test --package-path PrevisCore`, no fixture env): 152 tests in 22 suites reported, 0 failed, 5 skipped by the `PREVIS_GOLDENS`, `PREVIS_VECTORS` and `SHOTS_TIMING` gates.
-- `swiftlint lint --strict --quiet` and `swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint`, from `app/` through `mise exec --`: 0 violations; 0/431 files need formatting.
-- `SHOTS_TIMING=1 swift test -c release --filter ViewportTiming`: passed twice on the final code, with the numbers above.
+- `PrevisCore` (`swift test --package-path PrevisCore`, no fixture env): 159 tests in 23 suites reported, 0 failed, 5 skipped by the `PREVIS_GOLDENS`, `PREVIS_VECTORS` and `SHOTS_TIMING` gates.
+- `swiftlint lint --strict --quiet` and `swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint`, from `app/` through `mise exec --`: 0 violations; 0/433 files need formatting.
+- `SHOTS_TIMING=1 swift test -c release --filter ViewportTiming`: passed twice with the numbers above, on `d8806a6` (this branch before its rebase onto `9ff8741`). The rebase brought only #89's PrevisCore motion-data correction; no viewport code changed.
 - Not run here: on-screen M1/M2 frame rate, VoiceOver, physical keyboard and trackpad, signed sandbox. These are the owner's walkthroughs.
 
 ## Blockers and dependencies
@@ -374,5 +374,5 @@ The run took 19.4 minutes. Its draw half was 18–32 ms median; nearly all the t
 
 ## Open questions
 
-- **Closed — D2 side-view sign check.** The owner ruled on 2026-11-09 that the check means the procedural `Gait.sit`, which passes: `d2-sign-check-side.png` puts the knees `0.409` m ahead of the hips, matching `BodyTests.sittingPutsTheKneesAheadOfTheHips()`. Blockout's seated motions (`sit-down`, `stand-up`, …) author `hipX` with the opposite sign to Blockout's own header (`motions.ts:20-21` against `motions.ts:2590-2595`); the integrator corrects that motion data in PrevisCore separately, as a recorded deviation. `torsoY` keeps the header and rig convention, positive turning counter-clockwise seen from above. Lane D changes no rig or motion data. The `sit-down` peak diagnostic (`d2-sign-check-sit-down-peak.png`) stays as a reproducer until that correction lands.
+- **Closed — D2 side-view sign check.** The owner ruled on 2026-11-09 that the check means the procedural `Gait.sit`, which passes: `d2-sign-check-side.png` puts the knees `0.409` m ahead of the hips, matching `BodyTests.sittingPutsTheKneesAheadOfTheHips()`. Blockout's seated motions (`sit-down`, `stand-up`, …) author `hipX` with the opposite sign to Blockout's own header (`motions.ts:20-21` against `motions.ts:2590-2595`); the integrator corrected that motion data in PrevisCore as a recorded deviation. The fix is `MotionCorrections`, [#89](https://github.com/RationallyPrime/concept-studio/pull/89), merge `9ff8741`, and CONTRACTS section 4 now records the joint-override signs. `torsoY` keeps the header and rig convention, positive turning counter-clockwise seen from above. Lane D changes no rig or motion data. The `sit-down` peak diagnostic (`d2-sign-check-sit-down-peak.png`, now `sideViewSignCheckSnapshotShowsTheCorrectedSitDownPeakWithKneesAhead`) shows the knees ahead of the hips since #89.
 - **Open — dragging a blocked actor (D4, found in D6).** Selecting an actor that has marks and dragging its move or rotate handle edits only `placement`, which the evaluator uses only before the first mark (`Document.swift`: "pose before the first mark"). The handle sits at the placement, not where the actor is drawn at the playhead (`twoPersonWalk(small: true)` frame 11: handle at x −1.30, Man drawn at x −0.50), and the release commits a change nothing on screen shows. Blockout puts the gizmo on the drawn body and moves the entity's marks with it ("choreography rides along", `SceneManager.ts:1130-1149, 1250-1270`), as the D5 arrow-key nudge already does here. Fixing it needs a preview of several commands at once (the placement plus every mark), and `ShotsStore.preview` holds one `ShotsCommand` (CONTRACTS section 7). That is a contract change for the owner: for example a `preview` that holds a command list, applied like `perform(_ commands:)`. D6 leaves the handle as it is; dragging a mark (`updateActorMark`), which IT4 does, is unaffected.
