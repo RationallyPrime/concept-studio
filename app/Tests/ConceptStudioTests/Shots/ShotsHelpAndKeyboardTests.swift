@@ -129,6 +129,7 @@ struct ShotsHelpAndKeyboardTests {
             to: FolderDestination(parent: destination)
         ) { _ in }
         #expect(package.manifest.frameCount == 22)
+        #expect(package.manifest.canvas == ShotCanvas(width: 320, height: 576))
         #expect(package.manifest.shot.id == shotID)
         let problems = await PackageValidator.problems(at: package.url)
         #expect(problems.isEmpty)

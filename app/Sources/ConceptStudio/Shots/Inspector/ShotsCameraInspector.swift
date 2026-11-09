@@ -15,7 +15,7 @@ struct ShotsCameraInspector: View {
             })) {
                 ForEach(Sensor.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
-            .help("The camera's image size. A larger sensor shows a wider view with the same lens.")
+            .help("The camera's image size. A bigger sensor generally shows more of the scene with the same lens.")
             Picker("Rig", selection: Binding(get: { shot.camera.rig }, set: {
                 store.run(.setCameraRig(
                     shot.id,
@@ -26,7 +26,8 @@ struct ShotsCameraInspector: View {
             })) {
                 ForEach(Rig.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
-            .help("What holds the camera. It sets the kind of natural shake the camera has.")
+            .help("What holds the camera. It sets the kind of natural shake the camera has. "
+                + "Car mount lets the camera ride on the entity chosen under Mount.")
             ShotsInspectorSlider(
                 title: "Rig intensity",
                 value: shot.camera.rigIntensity,
@@ -52,7 +53,8 @@ struct ShotsCameraInspector: View {
                 Text("Nothing").tag("")
                 ForEach(store.currentScene?.entities ?? []) { Text($0.name).tag($0.id) }
             }
-            .help("Carry the camera on a person or prop, such as a car, so it travels with them.")
+            .help("With Rig set to Car mount, the camera rides on this person or prop, such as a car, "
+                + "and its marks are measured from it. Other rigs ignore it.")
             Text("Framing").font(.subheadline).accessibilityAddTraits(.isHeader)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96))], alignment: .leading) {
                 ForEach(Framing.Kind.allCases, id: \.self) { kind in
@@ -65,17 +67,18 @@ struct ShotsCameraInspector: View {
             }
             Text(shot.camera.trackIDs.isEmpty
                 ? "Turn on aim lock for at least one person or prop to use framing."
-                : "Each framing adds a camera mark at the playhead.")
+                : "Each framing adds a camera mark at the playhead. Aim lock keeps choosing where the camera points.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Picker("Camera move", selection: $moveID) {
                 ForEach(store.catalog.cameraMoves.filter { store.catalog.starter.cameraMoves.contains($0.id) }) {
                     Text($0.name).tag($0.id)
                 }
             }
-            .help("A ready-made camera movement, such as a slow push in, written as camera marks for this shot.")
+            .help("A ready-made camera movement, such as a slow push in.")
             Button("Apply camera move") {
                 store.run(.applyCameraMove(shot.id, moveID: moveID, subjects: shot.camera.trackIDs))
             }
+            .help("Replace this shot's camera marks and aim lock with the chosen movement.")
         }
     }
 }

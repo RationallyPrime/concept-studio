@@ -28,7 +28,7 @@ struct ShotsEntityInspector: View {
                     store.run(.setLabel(entity.id, label), coalescing: true)
                 }),
                 explanation: "A short tag, such as W, that names this entity's timeline row. Its colour marks its path "
-                    + "in the scene view."
+                    + "in the scene view and its box in the exported layout pictures."
             )
             if let label = entity.label {
                 Picker("Label colour", selection: Binding(get: { label.color }, set: {
@@ -39,6 +39,7 @@ struct ShotsEntityInspector: View {
                         Text(swatch.name).tag(RGB(hex: swatch.hex))
                     }
                 }
+                .help("The colour of this entity's path in the scene view and its box in the layout pictures.")
             }
             ShotsPositionFields(position: placement(\.position))
             ShotsNumberField(title: "Heading (°)", value: Binding(
@@ -78,12 +79,13 @@ struct ShotsEntityInspector: View {
                     Text($0.name).tag($0.id)
                 }
             }
-            .help("A ready-made route, such as walking forward, added as marks from the playhead.")
+            .help("A ready-made route, such as walking forward.")
             ShotsNumberField(
                 title: "Duration (s)", value: $duration, range: 0.05 ... 3600,
-                explanation: "How long the route takes, in seconds."
+                explanation: "How long the route takes, in seconds. With Set speed on, the speed decides instead."
             )
             Toggle("Set speed", isOn: $usesSpeed)
+                .help("Time the route by walking speed instead of by duration.")
             if usesSpeed {
                 ShotsNumberField(
                     title: "Speed (m/s)", value: $speed, range: 0.01 ... 1000,
@@ -100,6 +102,7 @@ struct ShotsEntityInspector: View {
                     speed: usesSpeed ? speed : nil
                 ))
             }
+            .help("Replace this entity's marks with the route. It starts at the playhead, from the entity's placement.")
         }
     }
 

@@ -17,7 +17,7 @@ struct ShotsNumberField: View {
                 .textFieldStyle(.roundedBorder).labelsHidden()
                 .accessibilityLabel(ShotsAccessibility.spokenTitle(title))
         }
-        .help(explanation ?? ShotsAccessibility.fieldExplanation(title) ?? "")
+        .help(explanation ?? "")
     }
 }
 
@@ -52,11 +52,22 @@ struct ShotsTextField: View {
 
 struct ShotsPositionFields: View {
     @Binding var position: Vec3
+    /// A car-mounted camera's marks are offsets from its mount, not stage positions (PrevisCore `MountFrame`).
+    var fromMount = false
 
     var body: some View {
-        ShotsNumberField(title: "X (m)", value: $position.x, explanation: "Left and right across the stage, in metres.")
-        ShotsNumberField(title: "Y (m)", value: $position.y, explanation: "Height above the ground, in metres.")
-        ShotsNumberField(title: "Z (m)", value: $position.z, explanation: "Toward and away from the front, in metres.")
+        let origin = fromMount ? ", measured from the camera's mount" : ""
+        ShotsNumberField(
+            title: "X (m)", value: $position.x, explanation: "Left and right across the stage, in metres\(origin)."
+        )
+        ShotsNumberField(
+            title: "Y (m)",
+            value: $position.y,
+            explanation: "Height above the ground, in metres\(origin)."
+        )
+        ShotsNumberField(
+            title: "Z (m)", value: $position.z, explanation: "Toward and away from the front, in metres\(origin)."
+        )
     }
 }
 

@@ -35,10 +35,13 @@ VoiceOver labels, values and hints:
   longer take locale digit grouping ("640 × 1,152").
 - *Fields keep their names.* Entity name/label and the shot notes were bare macOS text fields whose only name was
   a placeholder that vanished once filled; they are now labelled fields. Number fields are spoken with whole
-  units ("X in metres", "Pan in degrees"). Every inspector field, picker and action has a plain explanation as
-  its tooltip, which VoiceOver also reads: position axes, heading, scale, time, hold, ease in/out (Blockout
-  `evaluate.ts`: a leg uses `from.easeOut` and `to.easeIn`), pan/tilt/roll, focal length, focus, sensor, rig,
-  aim lock, mount, each framing, action paths, motions and overlay, guide frames, lighting, canvas and export.
+  units ("X in metres", "Pan in degrees"). Inspector fields, pickers and generator actions carry a plain
+  explanation as their tooltip, which VoiceOver also reads: position axes (noting mount-relative camera marks),
+  heading, scale, time, hold, ease in/out (Blockout `evaluate.ts`: a leg uses `from.easeOut` and `to.easeIn`),
+  pan/tilt/roll, focal length, focus, sensor, rig, aim lock, mount (only with the Car mount rig), each framing,
+  action paths and their duration/speed, camera moves (which replace the camera marks and aim lock), motions and
+  overlay, guide frames, lighting, canvas, notes and export. Each explanation was checked against PrevisCore,
+  ShotsMedia or Blockout by the independent review. Self-explanatory buttons (Remove, Width/Height) have none.
 - *Containers and headings.* The asset library, inspector, timeline and each timeline row are labelled
   accessibility containers whose children stay reachable; section titles carry the heading trait.
 - *Library.* The armed asset reports the selected trait instead of an empty value; a search that matches
@@ -47,7 +50,8 @@ VoiceOver labels, values and hints:
   actions on each shot row and a "Chosen shot" section of the scene's actions menu, which the keyboard reaches.
 - *Inspect menu.* Its value names what the inspector edits ("Man, mark at 3.50 seconds, walk"); each entity's
   mark submenu is named "Man marks" rather than repeating the entity's name. With several entities selected,
-  the "Editing …" note now sits above the fields. With no shot, the inspector says how to get one.
+  the "Editing …" note now sits above the fields, and the menu value names the same entity the inspector edits
+  (scene order, not click order). With no shot, the inspector says how to get one.
 - *Timeline.* Pills read entity (the entity's name even when the row shows its label), time and gait; camera
   pills read "Camera mark at 2.00 seconds" instead of "Camera, camera". Hold is spoken in seconds. The
   timeline's tooltip lists its keys. Ruler labels clear the playhead line; the empty-state text sits at the top.
@@ -62,7 +66,7 @@ VoiceOver labels, values and hints:
   and the timeline at 250, so the viewport gets about 330 points at the minimum size; the inspector's minimum is
   200 so Export never truncates.
 
-Tests: `ShotsAccessibilityTests` (5) cover pill labels, spoken units and field explanations, readable unique
+Tests: `ShotsAccessibilityTests` (5) cover pill labels, spoken units, readable unique
 names for every sensor/rig/framing/gait, the Inspect value for each selection kind (never a raw mark id) and
 the export progress value and canvas names. This follows the codebase's existing pattern of testing the text a
 view hands VoiceOver (`ShotCameraView.accessibilityLabelText`).
@@ -82,8 +86,9 @@ between text fields and lists, not buttons and menus.
 
 1. Open a project and press **⌘0** (Go › Shots). If there is no scene, Tab to **New scene** and press Space:
    a scene with one shot is created and chosen.
-2. Tab past the scene list, New scene, Import and **Find an asset** to the first library row's **Add** button
-   (VoiceOver: "Add Man at stage centre"). Press Space. A person named Man is added at the stage centre and
+2. Tab past the scene list, New scene, Import, **Find an asset** and the first library row's name (that button,
+   "Place Man", arms pointer placement) to the row's **Add** button (VoiceOver: "Add Man at stage centre").
+   Press Space. A person named Man is added at the stage centre and
    selected; the inspector shows **Entity**.
 3. Tab into the inspector's **X (m)** field, type `1.5`, press Tab; in **Z (m)** type `-2` and press Return.
    Each committed field is one placement edit; edits to the same entity within 0.8 seconds are one Undo step.
@@ -154,6 +159,19 @@ project or any project, and keep the pointer away from the window unless a step 
 
 Record each step as passed or failed with what was heard or seen. Offscreen captures, tests and this list do not
 substitute for it; M1/M2 acceptance remains separate.
+
+## Open for the owner or other lanes
+
+- **Framing and aim lock (C5 behaviour, owner decision).** Framing buttons take their subjects from aim lock,
+  and while aim lock is on the evaluator replaces each mark's pan and tilt with an aim at the subjects
+  (`ShotEvaluator`), so a framing sets the camera's distance and side but not its exact crop (a "Close-up"
+  shows neck and chest; with two subjects it aims between them). Blockout takes framing subjects from the
+  selection instead (`SceneManager.ts:1480-1489`). C6 makes the copy honest about this and does not change
+  the behaviour; switching to selection-based framing is a design change for the owner.
+- **Lane A:** Blockout import notes still print raw identifiers ("it became super35/sticks",
+  `BlockoutImport.swift`). **Lane B:** export step text uses film-pass jargon ("Drawing the pose pass…").
+  **Lane D:** the viewport's selection announcement reads raw mark ids ("Selected actor mark mark_… for Man");
+  `ShotsAccessibility.markLabel` could supply a time-and-gait description.
 
 ## Product proposal
 

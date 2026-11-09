@@ -15,19 +15,13 @@ struct ShotsAccessibilityTests {
         #expect(ShotsAccessibility.seconds(1) == "1.00 second")
     }
 
-    @Test func fieldTitlesAreSpokenWithWholeUnitsAndMarkFieldsAreExplained() {
+    @Test func fieldTitlesAreSpokenWithWholeUnits() {
         #expect(ShotsAccessibility.spokenTitle("X (m)") == "X in metres")
         #expect(ShotsAccessibility.spokenTitle("Speed (m/s)") == "Speed in metres per second")
         #expect(ShotsAccessibility.spokenTitle("Focal length (mm)") == "Focal length in millimetres")
         #expect(ShotsAccessibility.spokenTitle("Pan (°)") == "Pan in degrees")
         #expect(ShotsAccessibility.spokenTitle("Hold (s)") == "Hold in seconds")
         #expect(ShotsAccessibility.spokenTitle("Ease in") == "Ease in")
-        for title in [
-            "Time (s)", "Hold (s)", "Ease in", "Ease out", "Heading (°)", "Pan (°)", "Tilt (°)", "Roll (°)",
-            "Focal length (mm)", "Focus (m)",
-        ] {
-            #expect(ShotsAccessibility.fieldExplanation(title)?.isEmpty == false, "\(title)")
-        }
     }
 
     /// Raw values such as `closeUp`, `carMount` and `super35` must never be shown or spoken.
@@ -67,6 +61,9 @@ struct ShotsAccessibilityTests {
         #expect(store.inspectedDescription == entity.name)
         store.selection = .entities(scene.entities.prefix(3).map(\.id))
         #expect(store.inspectedDescription == "\(scene.entities[0].name) and 2 more")
+        // Shift-click order differs from scene order; name the entity the inspector actually edits.
+        store.selection = .entities([scene.entities[1].id, scene.entities[0].id])
+        #expect(store.inspectedDescription == "\(scene.entities[0].name) and 1 more")
         store.selection = .actorMark(entity.id, mark.id)
         #expect(store.inspectedDescription == ShotsAccessibility.markLabel(
             lane: entity.name, time: mark.time, gait: mark.gait

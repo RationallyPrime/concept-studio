@@ -20,22 +20,19 @@ enum ShotsAccessibility {
         return "\(text) \(value == 1 ? "second" : "seconds")"
     }
 
-    /// Plain explanations of the mark and lens fields shared by the actor and camera mark inspectors.
+    /// Plain explanations of the mark and lens fields, passed explicitly by each inspector.
     /// Ease semantics follow Blockout evaluate.ts: a leg uses `from.easeOut` and `to.easeIn`.
-    static func fieldExplanation(_ title: String) -> String? {
-        switch title {
-        case "Time (s)": "When this mark is reached, in seconds from the start of the shot."
-        case "Hold (s)": "How long to stay on this mark before moving on, in seconds."
-        case "Ease in": "How gently movement slows on arriving at this mark: 0 is abrupt, 1 is gentle."
-        case "Ease out": "How gently movement starts on leaving this mark: 0 is abrupt, 1 is gentle."
-        case "Heading (°)": "Which way it faces, in degrees."
-        case "Pan (°)": "Turn the camera left or right, in degrees."
-        case "Tilt (°)": "Point the camera up or down, in degrees."
-        case "Roll (°)": "Lean the picture's horizon, in degrees."
-        case "Focal length (mm)": "Lens length: smaller numbers show more of the scene, larger numbers zoom in."
-        case "Focus (m)": "Distance that is sharp, in metres. Nearer and farther things blur."
-        default: nil
-        }
+    enum FieldHelp {
+        static let time = "When this mark is reached, in seconds from the start of the shot."
+        static let hold = "How long to stay on this mark before moving on, in seconds."
+        static let easeIn = "How gently movement slows on arriving at this mark: 0 is abrupt, 1 is gentle."
+        static let easeOut = "How gently movement starts on leaving this mark: 0 is abrupt, 1 is gentle."
+        static let arrivalHeading = "Which way the person faces on arriving at this mark, in degrees."
+        static let pan = "Turn the camera left or right, in degrees. Aim lock overrides it."
+        static let tilt = "Point the camera up or down, in degrees. Aim lock overrides it."
+        static let roll = "Lean the picture's horizon, in degrees."
+        static let focalLength = "Lens length: smaller numbers show more of the scene, larger numbers zoom in."
+        static let focus = "Distance that is sharp, in metres. Nearer and farther things blur."
     }
 
     /// A field title such as "X (m)" or "Pan (°)" read aloud as "X in metres" or "Pan in degrees".
@@ -64,8 +61,9 @@ extension ShotsStore {
         case .camera:
             return "Camera"
         case let .entities(ids):
-            guard let first = ids.first else { return "Shot \(shot.name)" }
-            return ids.count == 1 ? name(first) : "\(name(first)) and \(ids.count - 1) more"
+            // The entity the inspector edits: the first selected one in scene order, not click order.
+            guard let first = scene.entities.first(where: { ids.contains($0.id) }) else { return "Shot \(shot.name)" }
+            return ids.count == 1 ? first.name : "\(first.name) and \(ids.count - 1) more"
         case let .actorMark(entityID, markID):
             let mark = scene.blocking.first { $0.id == shot.blockingTakeID }?
                 .tracks.first { $0.entityID == entityID }?.marks.first { $0.id == markID }
@@ -137,17 +135,19 @@ extension Framing.Kind {
     }
 
     /// Plain description of the camera mark each button adds at the playhead (PrevisCore `Framing.cameraMark`).
+    /// Framing takes its subjects from aim lock, and aim lock then keeps choosing where the camera points
+    /// (`ShotEvaluator` replaces pan and tilt), so these describe where the camera is placed, not exact crops.
     var explanation: String {
         switch self {
-        case .wide: "Show all of the first aim-lock subject with room around them."
-        case .full: "Fit the first aim-lock subject from head to toe."
-        case .medium: "Show the first aim-lock subject from about the waist up."
-        case .closeUp: "Show the first aim-lock subject's head and shoulders."
-        case .twoShot: "Fit every aim-lock subject across the frame."
-        case .overShoulder: "Look past one subject's shoulder at the other. Needs two aim-lock subjects."
+        case .wide: "Place the camera far enough back to show the first aim-lock subject whole, with room around."
+        case .full: "Place the camera at full-body distance from the first aim-lock subject."
+        case .medium: "Place the camera at waist-up distance from the first aim-lock subject."
+        case .closeUp: "Place the camera close to the first aim-lock subject."
+        case .twoShot: "Place the camera to fit both aim-lock subjects. Needs two aim-lock subjects."
+        case .overShoulder: "Place the camera behind one subject's shoulder, facing the other. Needs two subjects."
         case .reverse: "Move the camera to the opposite side of the subjects."
-        case .top: "Look straight down from above."
-        case .low: "Look up from knee height."
+        case .top: "Place the camera above the subjects, looking down."
+        case .low: "Place the camera at knee height, looking up."
         case .dutch: "Tilt the horizon; press again to tilt the other way or level it."
         }
     }

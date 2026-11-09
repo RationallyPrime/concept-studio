@@ -188,7 +188,8 @@ struct ShotsTimelineView: View {
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.primary.opacity(0.3)))
         .offset(x: start)
-        .help(label + ". Click to edit it in the inspector, or drag to change its time.")
+        // Help only: the label already names the mark, and VoiceOver reads both.
+        .help("Click to edit this mark in the inspector, or drag to change its time.")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue("Hold \(ShotsAccessibility.seconds(mark.hold))")

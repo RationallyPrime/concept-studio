@@ -26,6 +26,7 @@ struct ShotsShotInspector: View {
             }
             Button("Add guide frame here") { store.addGuideAtPlayhead() }
                 .disabled(!store.canAddGuideAtPlayhead)
+                .help("Add the playhead's frame as a guide. Move the playhead between the first and last frames first.")
             Divider()
             Text("Shot notes").font(.headline).accessibilityAddTraits(.isHeader)
             Text("Describe what the blocking can't show. The prompt is written from these notes and the blocking.")
@@ -51,7 +52,11 @@ struct ShotsShotInspector: View {
                 title: "Sound", text: notes(\.sound),
                 explanation: "Sounds heard in the shot, such as rain or footsteps.", multiline: true
             )
-            ShotsTextField(title: "Music", text: notes(\.music), explanation: "Music, if any.", multiline: true)
+            ShotsTextField(
+                title: "Music", text: notes(\.music),
+                explanation: "Soundtrack music, if any. Music playing in the scene, such as a radio, goes under Sound.",
+                multiline: true
+            )
             Divider()
             Text("H3 prompt").font(.headline).accessibilityAddTraits(.isHeader)
             if let prompt = shot.prompt {
