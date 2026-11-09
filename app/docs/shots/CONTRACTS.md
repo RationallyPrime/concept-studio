@@ -158,6 +158,22 @@ PrevisCore imports Foundation and nothing else, so it stays portable. Tests use 
   looks up.
 - **Left and right.** Rig `L`/`R` joints and the `left`/`right` keypoints are the character's own sides. A
   character facing −Z has its right side toward +X.
+- **Joint overrides.** Stored values are radians added to the gait pose. For a person facing −Z, a positive value:
+  - `shoulderLX`/`shoulderRX` swings the arm back; a negative one raises it forward and up
+    (−2.3 ≈ straight up and forward);
+  - `shoulderLZ`/`shoulderRZ` raises the arm out to its own side;
+  - `elbowL`/`elbowR` bends the forearm toward the upper arm;
+  - `hipLX`/`hipRX` swings the leg back; a negative one swings it forward (−1.6 ≈ a high front kick);
+  - `hipLZ`/`hipRZ` swings the leg out to its own side;
+  - `kneeL`/`kneeR` bends the knee;
+  - `torsoX` leans forward, `torsoY` turns the chest toward the character's left (counterclockwise seen
+    from above), `torsoZ` leans right;
+  - `headX` nods down, `headY` turns the face toward the character's left, `headZ` tilts right.
+
+  These follow Blockout's sign header (`src/engine/motions.ts` lines 13–33 at `3f2d056`) and its motion data,
+  which govern where its renderer disagrees (LANE-A-CORE.md, person rig). The header gives no sign for `headX`
+  or `headY`: Blockout's `nod-yes` uses only positive `headX`, and A3's rig turns `headY` the same way as
+  `torsoY`. The person rig's sign mapping is the one place they are applied.
 - **Time.**
   - H3 runs at 24 fps. A shot stores a frame count on the grid 17k+5 (5, 22, 39, …, 124, …, 362).
   - Frame *i* samples t = i/24, and the last frame samples t = (N−1)/24, the shot's `duration`.
