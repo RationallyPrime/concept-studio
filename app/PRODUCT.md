@@ -63,8 +63,8 @@ adapter that has learned the concept, and knew what it cost before paying.
 - An offline demo with practice photos and simulated training runs without any account or charge.
 - The nine screens, in order and grouped into three phases: Prepare training data (Images,
   Concepts, Mapping), Write captions (Captioning, Review, Publish), Train your model (GPU pods,
-  Training, Monitor). Mapping appears only for concepts that need a locator. Settings and a Help
-  window with a glossary sit outside the journey.
+  Training, Monitor). Mapping appears only for concepts that need a locator. Shots (planning a video
+  shot), Settings and a Help window with a glossary sit outside the journey.
 
 ## Capabilities and Constraints
 
@@ -87,6 +87,14 @@ adapter that has learned the concept, and knew what it cost before paying.
     available only behind an Advanced user switch, labelled as unverified recipes.
   - Monitor shows the learning curve and log, retrieves the adapter, and compares base and trained
     models on the same prompts and seeds.
+- **Shots.** A second workspace, kept apart from the training journey, for planning a short video before a
+  video model makes it. On a simple 3D stage the user places stand-in people and props, sets where each one
+  stands and walks over time as marks on a timeline, and places and moves a virtual camera; every step can also
+  be done from the keyboard and with VoiceOver. The plan is saved with the project. Exporting a shot writes a
+  package into the project's Shots folder (guide pictures, reference and control videos, masks and a written
+  prompt for the H3 video model), ready to load into a ComfyUI workflow. The prompt is written by the language
+  model already chosen for captioning, or from a fixed template when there is none. Shots is derived from
+  Blockout by Sam Wasserman (Apache-2.0).
 - **Native and private.**
   - The app is sandboxed, keeps credentials in the Keychain and starts no subprocesses.
   - It has full keyboard operation: ⌘1–⌘9 for screens, ⌘[ ⌘] for back and next, ⌘↩ for each
