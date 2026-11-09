@@ -1,468 +1,199 @@
 # Lane C status
 
-Owner: Ari (Codex). Integration preparation: `shots/c6-b5-integration` (C5 preserved on `shots/c5-b5-integration`); published C5/C6 drafts #76/#77 remain preserved.
+Owner: Ari (Codex). C6 polish completion is on `shots/c-polish` (this PR). Reference implementation:
+[Blockout](https://github.com/wassermanproductions/blockout) at `3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`
+(`scripts/blockout/fetch.sh`).
 
 ## Checkpoints
 
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
-| C0: API skeleton | Accepted and merged, PR #53 (`84de1758`) | Signed quit/window walkthrough remains integration evidence. |
-| C1: workspace entry | Accepted and merged, PR #66 (`08cfd92`) | Live/signed keyboard and VoiceOver remain integration evidence. |
-| C2: commands, persistence and undo | Accepted and merged, PR #68 (`bf9ab74`) | Live keyboard/VoiceOver remains manual integration coverage. |
-| C3: lists, import and export | Accepted and merged, PR #70 (`427d185`) | Native walkthrough remains integration evidence. |
-| C4: timeline | Accepted and merged, PR #71 (`ec2cb5a`) | Native focus/keyboard walkthrough remains integration evidence. |
-| C5: inspectors, library and prompt | Draft PR #76; real B5 endpoint integration locally verified | B5 repair/acceptance, fresh final composition review/CI and native acceptance. |
-| C6: polish | Draft PR #77, stacked on C5 | Accepted dependencies, final composition and native keyboard/VoiceOver walkthrough. |
+| C0: API skeleton | Merged, PR #53 (`84de1758`) | None in source. |
+| C1: workspace entry | Merged, PR #66 (`08cfd92`) | None in source. |
+| C2: commands, persistence and undo | Merged, PR #68 (`bf9ab74`) | None in source. |
+| C3: lists, import and export | Merged, PR #70 (`427d185`) | None in source. |
+| C4: timeline | Merged, PR #71 (`ec2cb5a`) | None in source. |
+| C5: inspectors, library and prompt | Merged, PR #76 (`03a4fa8`) | None in source. |
+| C6: polish | Preparation merged, PR #77 (`f6b38b8`); completion on `shots/c-polish` | Review and merge; the owner's native walkthrough below. |
 
-### C5/B5 integration preparation (2026-10-27)
+Every checkpoint's live keyboard, VoiceOver and signed-app behaviour is checked once, by hand, with the
+**native walkthrough** at the end of this file. Headless tests and offscreen captures do not prove focus
+traversal, VoiceOver speech or pointer behaviour.
 
-Composed C5 `4fda2b5` with published B5 #79 `3679ad7` in an isolated worktree. The prompt boundary test now uses
-the actual `ShotPromptCompiler.facts` and `write` through `ResolvedEndpoint` and a fake `ModelClient`; no provider
-is contacted. It checks the facts received by the client, exact FL2VA header/sections, stored revision/model,
-unchanged scene revision and a single Undo. Stale-result and cancellation checks also use the real facts path.
+## C6 delivered
 
-Local verification: four inspector boundary tests pass; full app suite reports 918 tests/153 suites passing;
-PrevisCore reports 148/20 passing; strict lint and full formatting pass. Optional model/preview and Blockout
-vector tests skip without their opt-in inputs; no known-issue result is accepted. Existing source-aligned C5
-previews are unchanged. This is preparation against an explicitly unaccepted B5 draft: its open camera-reading
-findings remain with Lane B, and this evidence must be refreshed on the eventual accepted composition.
-Native UI, keyboard/VoiceOver, M1 ComfyUI and M2 walkthrough acceptance are not established by these tests.
+**From PR #77 (preparation):** the thirteen Shots glossary terms under "using-conceptstudio"; Help › Credits
+with the Blockout acknowledgement and `PrevisCoreAttribution.notice()`; keyboard alternatives to pointer
+placement: the library's per-asset **Add to scene** button (adds at the stage centre, selects it) and the entity
+inspector's **Add mark here** (a mark at the playhead from the evaluated position and facing).
 
-## C0 delivered
+**Accessibility pass (this PR).** Every Lane C view was audited in source for keyboard reachability and
+VoiceOver labels, values and hints:
 
-The store, evaluator/frame access, selection/tool/command seams, preview/commit, snapshot undo/redo,
-coalescing, debounced atomic saving and corruption/future-version handling are integrated. Project
-release, quit and window close flush first and veto saving failures. Prompt writes preserve blocking
-revision semantics. The real B2 self-test is integrated. W0, A0, B0, C0, B1, B2, A1 and A2 are merged.
-C0 independent closure and all seven checks passed before merge; 14 focused local tests passed.
+- *Names on screen and in speech.* Sensor, rig, framing and gait pickers showed raw identifiers (`super35`,
+  `sticks`, `closeUp`, `carMount`); they now show readable names (`ShotsAccessibility.swift`). Canvas sizes no
+  longer take locale digit grouping ("640 × 1,152").
+- *Fields keep their names.* Entity name/label and the shot notes were bare macOS text fields whose only name was
+  a placeholder that vanished once filled; they are now labelled fields. Number fields are spoken with whole
+  units ("X in metres", "Pan in degrees"). Inspector fields, pickers and generator actions carry a plain
+  explanation as their tooltip, which VoiceOver also reads: position axes (noting mount-relative camera marks),
+  heading, scale, time, hold, ease in/out (Blockout `evaluate.ts`: a leg uses `from.easeOut` and `to.easeIn`),
+  pan/tilt/roll, focal length, focus, sensor, rig, aim lock, mount (only with the Car mount rig), each framing,
+  action paths and their duration/speed, camera moves (which replace the camera marks and aim lock), motions and
+  overlay, guide frames, lighting, canvas, notes and export. Each explanation was checked against PrevisCore,
+  ShotsMedia or Blockout by the independent review. Self-explanatory buttons (Remove, Width/Height) have none.
+- *Containers and headings.* The asset library, inspector, timeline and each timeline row are labelled
+  accessibility containers whose children stay reachable; section titles carry the heading trait.
+- *Library.* The armed asset reports the selected trait instead of an empty value; a search that matches
+  nothing says so.
+- *Scene list.* Shot rename/duplicate/delete lived only in a pointer context menu; they are now also VoiceOver
+  actions on each shot row and a "Chosen shot" section of the scene's actions menu, which the keyboard reaches.
+- *Inspect menu.* Its value names what the inspector edits ("Man, mark at 3.50 seconds, walk"); each entity's
+  mark submenu is named "Man marks" rather than repeating the entity's name. With several entities selected,
+  the "Editing …" note now sits above the fields, and the menu value names the same entity the inspector edits
+  (scene order, not click order). With no shot, the inspector says how to get one.
+- *Timeline.* Pills read entity (the entity's name even when the row shows its label), time and gait; camera
+  pills read "Camera mark at 2.00 seconds" instead of "Camera, camera". Hold is spoken in seconds. The
+  timeline's tooltip lists its keys. Ruler labels clear the playhead line; the empty-state text sits at the top.
+- *Export and prompt.* Export has a heading, a spoken progress value ("42 percent, Drawing the pose pass…"),
+  a stated reason whenever it is unavailable, and announcements when it finishes or is cancelled. The prompt
+  section has a heading and explanation, "Write H3 prompt again" once one exists, a "Cancel writing the prompt"
+  label and an announcement when written. Failures still use the window alert, the app's single failure path.
+- *Attention notices.* "Older than the blocking" and the trained-range warning used dark red text directly on
+  the panel, unreadable in dark appearance; they now use the Instant Print pink attention slip.
+- *Layout.* The split view starts its panes at equal widths up to their maximums, which left the viewport the
+  narrowest pane at 980 × 680 (its toolbar wrapped "Move" mid-word). Side columns are capped at 200/230 points
+  and the timeline at 250, so the viewport gets about 330 points at the minimum size; the inspector's minimum is
+  200 so Export never truncates.
 
-## C1 delivered
+Tests: `ShotsAccessibilityTests` (5) cover pill labels, spoken units, readable unique
+names for every sensor/rig/framing/gait, the Inspect value for each selection kind (never a raw mark id) and
+the export progress value and canvas names. This follows the codebase's existing pattern of testing the text a
+view hands VoiceOver (`ShotCameraView.accessibilityLabelText`).
 
-- Shots entry beside Cloud GPU, plus Go > Shots (Command-0); existing nine training shortcuts and order
-  retained. Returning to Training restores the previous step; explicit training destinations select it.
-- Four regions: scene/shot list with starter asset names below, actual `ShotsViewport(store:)` and
-  `ShotCameraView(store:)` switched by a picker, read-only shot inspector, and a playhead slider.
-- Native scene creation goes through `store.run`. Selection clears preview and entity selection.
-- Training viewer/definitions and training navigation remain scoped to the training workspace.
-- Actual root previews gain shots-empty and shots-sample in both appearances and sizes.
+**Full preview set.** `scripts/render-app-preview.sh` now renders every Shots screen in both appearances.
+Window captures at 980 × 680 and 1240 × 820: `shots-empty`, `shots-sample`, `shots-read-only`,
+`shots-library-armed`, `shots-inspector-{shot,entity,entities,camera,actor-mark,camera-mark}`. Column captures
+(each whole inspector top to bottom, with a stale prompt and an out-of-range length so both notices show) at the
+inspector's narrowest and usual widths: `shots-inspector-column-{shot,entity,camera,actor-mark,camera-mark}` and
+`shots-export-{running,finished,unavailable}`. Plus `help-credits` (C6 credits). The Shot camera picker
+position is Lane D's view and is not captured offscreen (RealityKit content is blank there by design).
 
-These are C1 surfaces only. Library placement, full inspectors, timeline playback, export and prompt
-writing are later checkpoints. D0 PR #61 merged as `42871fbd`; A3 merged as `0bdb09a`.
-C1 PR #66 merged as `08cfd92` after exact-head green CI and supplemental independent acceptance
-[6418110709](https://github.com/RationallyPrime/concept-studio/pull/66#issuecomment-6418110709).
-The old external closure remains untouched; its terminal result was not claimed.
+## Keyboard-only path
 
-## Verification
+Turn on System Settings › Keyboard › **Keyboard navigation** first: without it macOS moves Tab focus only
+between text fields and lists, not buttons and menus.
 
-Initial isolated validation used main `93dbb764` plus published D0 and C1 sources. The current C1
-branch has been retargeted to main after D0 PR #61 landed as `42871fbd`. All five C1 patches
-rebased unchanged (`=` range proof). No replacement viewport implementation was used.
+1. Open a project and press **⌘0** (Go › Shots). If there is no scene, Tab to **New scene** and press Space:
+   a scene with one shot is created and chosen.
+2. Tab past the scene list, New scene, Import, **Find an asset** and the first library row's name (that button,
+   "Place Man", arms pointer placement) to the row's **Add** button (VoiceOver: "Add Man at stage centre").
+   Press Space. A person named Man is added at the stage centre and
+   selected; the inspector shows **Entity**.
+3. Tab into the inspector's **X (m)** field, type `1.5`, press Tab; in **Z (m)** type `-2` and press Return.
+   Each committed field is one placement edit; edits to the same entity within 0.8 seconds are one Undo step.
+4. Tab to the timeline (its focus ring surrounds the timeline) and press **End** to move the playhead to the
+   last frame (Right arrow: one frame; Shift-Right: one second; Home: start). Arrow keys act only while the
+   timeline has focus.
+5. Shift-Tab back to the inspector and activate **Add mark here**. A walk mark is added at the playhead from
+   the person's current position and facing, and the inspector switches to **Actor mark**.
+6. **⌘Z** removes the mark; **⇧⌘Z** restores it.
+7. Tab to **Export shot package…** and press Space. Progress and **Cancel export** appear; when it finishes,
+   Finder shows the package inside the project's `Shots` folder.
 
-- **Run and passed:** native SwiftPM `--filter 'Shots|Viewport'` on the actual published D0 base:
-  31 tests in nine suites. Includes
-  workspace entry/return and explicit training destination coverage, close/save, store and viewport math.
-- **Run and passed:** changed-file strict SwiftLint and pinned SwiftFormat, plus whitespace checks.
-- **Run and passed:** `CONCEPTSTUDIO_PREVIEW_SCREENS=shots-empty,shots-sample scripts/render-app-preview.sh`
-  wrote eight PNGs: empty/sample × light/dark × 980×680/1240×820. One preview test passed.
-- **Inspected:** both layouts fit the minimum size. The original dark-mode D0 contrast finding was routed to Metis in PR #61 comment 6415450470.
-  A new eight-PNG run with his committed repair confirms readable viewport text in both appearances.
-  The shot-list title now explicitly uses semantic primary text; another eight-PNG run confirms
-  readable dark-mode titles. Inactive native list-symbol rendering still needs the live/C6 walkthrough.
-  D0 subsequently passed independent acceptance/CI and landed separately.
-- **Not run locally:** complete app suite, signed/live interaction and keyboard/VoiceOver walkthrough.
-  Offscreen captures do not prove pointer, focus, accessibility or RealityKit live behavior.
-- **Run and passed after landed A3/D0:** native 31 tests/nine suites; exact-head C1 CI
-  `40331000428`, all seven jobs. Separate independent reviewer inspected actual code/tests/captures,
-  ran fresh 12 tests/three suites and 21 tests/six suites, and accepted the frame-label/compiler cures.
-  No specific-provider terminal requirement was found; the original provider status stayed disclosed.
+Backed by the headless integration test
+`ShotsHelpAndKeyboardTests.keyboardActionModelAddsMovesMarksUndoesRedoesAndExportsAValidPackage`, which follows
+these steps through the same store actions the controls call: `addLibraryAsset` (Add), two coalesced
+`setPlacement` runs (the X and Z fields), `navigateTimeline(.end)` (End in the focused timeline),
+`addInspectorMark` (Add mark here), Undo/Redo, and the exporter Export calls on `exportSnapshot()`. It checks the
+mark's time and position, Undo/Redo state, a 22-frame 320 × 576 package and zero `PackageValidator` problems.
+It does not send key events, move focus or speak.
 
-Isolated C2 command preparation and timeline geometry tests remain outside this checkpoint. They are
-not evidence that C2/C4 acceptance is complete.
+## Native walkthrough (owner, by hand)
 
-## Coordination and integration
+Use a signed build (`scripts/build-app.sh`) on an Apple-silicon Mac, with Keyboard navigation on. Open the demo
+project or any project, and keep the pointer away from the window unless a step says otherwise.
 
-Gnomon owns A, local Claude owns B, Ari owns C/integration, Metis owns D. Metis's dedicated Antigravity
-conversation is bound to `shots/d-viewport`; D1 preparation is separate. A3 is merged; B3/D1 owner
-refresh requests remain unacknowledged. A4 has a separate heading hold. Preserve owner branches/worktrees.
+**Keyboard**
 
-The user explicitly approved Shots checkpoint merges after required review/green CI and repeated
-verification after rebasing. Use non-squash merges per CONTRACTS and verify authoritative live main,
-not stale PR base metadata. This excludes release/deployment and paid infrastructure.
+1. ⌘0 opens Shots; ⌘1–⌘9 still open the nine training screens; Go › Training workspace returns.
+2. Run the keyboard-only path above, steps 1–7. Expected: every step reachable without the pointer, focus ring
+   visible at each stop, Finder opens on the package.
+3. With focus on any **button** (Add, Add mark here, Export), press Space. Expected: the button acts and
+   playback does **not** start. (Shots binds Space to Play/Pause at the workspace level; this checks the button
+   wins. If playback toggles instead, record it: the fix is in `ShotsWorkspaceView`.)
+4. With focus in the X field, press Space, Left, Right, Delete, Home, End. Expected: they edit the text only;
+   the playhead, playback and the selected mark do not change.
+5. With the timeline focused, Left/Right/Shift-Left/Shift-Right/Home/End move the playhead; select a mark
+   (Inspect › Man marks › a time) and press Delete in the timeline: the mark is removed; ⌘Z restores it.
+6. Inspect menu: Tab to it, open with Space, reach Shot, Camera, each entity and each mark submenu with arrows.
+7. Scene actions: Tab to the scene's "…" menu, open it; **Chosen shot** offers Rename, Duplicate and Delete for
+   the chosen shot. Rename's alert takes the new name and Return.
+8. Camera inspector: tick an aim-lock toggle with Space, then activate a framing button; one camera mark is
+   added at the playhead.
+9. Slider: Tab to Rig intensity, change it with arrows; one Undo step reverts it. Drag it with the pointer and
+   press Escape before releasing: nothing is committed.
+10. Shot inspector: Write H3 prompt (demo uses the template); Cancel stops a running write; edit the scene and
+    see the pink "Older than the blocking" slip.
+11. Library: Space on a library name (not Add) arms placement and shows the hint; Space again cancels.
+
+**VoiceOver** (⌘F5; VO = Control-Option)
+
+12. VO-U rotor › Headings lists Scenes and shots, Library, Inspector, the inspector's sections, Export and
+    Timeline.
+13. Library rows read "Place Man, button" (and "selected" once armed) and "Add Man at stage centre, button";
+    VO-Shift-H (help) reads each tooltip.
+14. Inspect menu reads its label and value ("Shot 1A", then "Man" after Add, then "Man, mark at …, walk").
+15. Number fields read "X in metres", "Pan in degrees" etc. and their explanation as help; Name and Label read
+    their names when filled.
+16. Shot rows: VO-Command-Space (actions) offers Rename shot…, Duplicate shot and Delete shot.
+17. Timeline: each row is a group named "Man marks"/"Camera marks"; pills read "Man, mark at 3.50 seconds,
+    walk", value "Hold 0.00 seconds", and "selected" when chosen; VO-Space selects a pill and the inspector
+    follows. Playhead reads "Frame N of M" and steps with VoiceOver's increment/decrement.
+18. Export: progress reads "Export progress, N percent, <step>"; finishing announces "Shot package exported.
+    Showing it in Finder."; Cancel announces "Export cancelled."; a failure raises the window alert, which
+    VoiceOver reads. With no shot, the reason under the disabled button is read.
+19. Prompt: "Write H3 prompt" and its help; "Writing prompt…" while running; "Cancel writing the prompt";
+    "H3 prompt written." when done.
+20. Read-only file (a `shots.json` with a future `version`): the inspector's lock line is read; edits are dimmed.
+
+Record each step as passed or failed with what was heard or seen. Offscreen captures, tests and this list do not
+substitute for it; M1/M2 acceptance remains separate.
+
+## Open for the owner or other lanes
+
+- **Framing and aim lock (C5 behaviour, owner decision).** Framing buttons take their subjects from aim lock,
+  and while aim lock is on the evaluator replaces each mark's pan and tilt with an aim at the subjects
+  (`ShotEvaluator`), so a framing sets the camera's distance and side but not its exact crop (a "Close-up"
+  shows neck and chest; with two subjects it aims between them). Blockout takes framing subjects from the
+  selection instead (`SceneManager.ts:1480-1489`). C6 makes the copy honest about this and does not change
+  the behaviour; switching to selection-based framing is a design change for the owner.
+- **Lane A:** Blockout import notes still print raw identifiers ("it became super35/sticks",
+  `BlockoutImport.swift`). **Lane B:** export step text uses film-pass jargon ("Drawing the pose pass…").
+  **Lane D:** the viewport's selection announcement reads raw mark ids ("Selected actor mark mark_… for Man");
+  `ShotsAccessibility.markLabel` could supply a time-and-gait description.
 
 ## Product proposal
 
-The existing proposal remains for owner review before editing PRODUCT.md: Shots prepares scene,
-motion, virtual camera, guide images/control videos/masks/shot details and an H3 prompt for ComfyUI.
-No PRODUCT.md change or C6 acceptance is claimed.
-
-## C2 review preparation (`shots/c-commands`)
-
-Based on actually merged C1 PR #66, main `08cfd92d432492a048b75c39f14ea46675b9d5d5`.
-Both C2 preparation commits replay unchanged (`=` range-diff). C2 subsequently passed independent acceptance and exact-head CI and merged; see the landing record below.
-
-- Extends the single document command entry with duplicate/import, camera settings, mark deletion and
-  entity-reference cleanup. Duplicate camera-mark identifiers derive deterministically from the supplied
-  new shot identifier; duplicates are refused before mutation.
-- Generator commands call actual PrevisCore declarations. Until A4 lands, their errors propagate without
-  committing document/history changes; no Lane A math is reimplemented.
-- Adds a removable native responder for standard Edit-menu Undo/Redo while the workspace is mounted.
-  Text editing uses its own UndoManager; the bridge restores the previous chain when dismantled and
-  handles overlapping SwiftUI view replacement. It does not replace the app's Edit commands.
-- Adds command, history-cap, debounced-save, invalid-preview and native routing tests.
-
-**Run and passed:** post-C1-main native SwiftPM `--filter 'Shots|Viewport'`: 45 tests in 12 suites.
-Includes the actual StudioSession scenario: scene, two entities, three actor marks, camera mark,
-undo twice/redo once, release/reopen, equal document. Pinned formatting and strict lint passed
-on all seven changed Swift files. The four native
-routing tests include real SwiftUI background mounting, document actions, text-editing priority and
-responder cleanup. These are headless in-process tests, not a live Cmd-Z/VoiceOver walkthrough.
-
-**CI:** first Swift 6.3 run `40337781017` failed during build: identifier collection was too complex
-for that compiler to type-check. The repair uses explicit collection steps with unchanged ordering.
-The compiler repair built successfully in CI `40338602319`, but its 816-test app run failed
-the debounce persistence test. Under main-actor contention the test's three-second wall-clock
-deadline expired before the saver could resume. A controlled 3.2-second actor stall reproduced
-the missing-file/empty-document failure; polling opportunities instead of wall time passed
-under the same stall. The injected stall is not committed, production debounce/save code and
-CI watchdog are unchanged, and file existence plus full document equality remain required.
-Post-repair: 45 focused tests/12 suites passed; core run passed with oracle parity explicitly
-skipped; full strict lint and pinned formatting passed. Fresh CI `40367485595` passed all seven jobs, including the complete app/core, lint and formatting gates.
-
-**Not run:** complete local app suite, live menu/keyboard/VoiceOver and signed integration.
-The foreground walkthrough is deferred while the user works on a time-sensitive grant form.
-The live walkthrough remains manual integration coverage; the actual C2 Verify section does not
-make it a separate checkpoint gate. No live keyboard/VoiceOver or M1/M2 claim is made.
-
-
-## C2 accepted and C3 preparation
-
-C2 PR #68 head `1c46f1932b22051cf6f05196ae1a14f40ed181d1` merged with a merge commit as
-`bf9ab743e61bf8bdae19f2c58b619e0b73879701`. All seven CI jobs passed in run `40367485595`;
-separate independent acceptance is recorded at
-[6422841587](https://github.com/RationallyPrime/concept-studio/pull/68#issuecomment-6422841587),
-with landing receipt 6423024829. The original slow provider job remains untouched.
-
-C3 preparation starts from that accepted main in the existing owned worktree, with the C2 branch
-preserved. Scene copies allocate new identifiers and remap internal attachment, blocking, camera and
-character-note references. Shot/scene creation, copying and actual Blockout import use the existing
-command boundary, select the created content and preserve undo. Invalid imports leave the document,
-preview and selection intact. These are model actions, not completed C3 surfaces.
-
-**Run and passed:** native SwiftPM `--filter 'Shots|Viewport'`: 50 tests in 13 suites. Five new scene
-and import tests cover graph identity/references, source preservation, selection, undo, real sample
-import notes and failed-import atomicity. Four changed Swift files pass strict lint and pinned format.
-An initial test fixture assumed the wrong sample entity index; the fixture now records the appended
-entity's actual index. The corrected test passes. No production behavior was changed for that fixture.
-
-**Not yet delivered/verified:** complete scene/shot controls and settings, file picker, export progress,
-Cancel/reveal, and IT3. B3 must be refreshed and accepted on current main before real export acceptance.
-The existing B3 owner request 6417151440 remains unacknowledged; no Lane B exporter is duplicated.
-
-
-### C3 visible controls and export preparation
-
-Scene menus and shot context menus now offer add, rename, copy and delete. The JSON file picker calls
-real Blockout import, scopes file access for the read, and displays import counts and notes. Shot
-settings offer frame-grid stepping and seconds/trained-range guidance, canvas presets or custom
-32-pixel steps, and lighting. All edits use existing commands. Read-only documents remain navigable.
-
-The export control captures committed scene/shot values (not transient previews or subsequent edits),
-flushes pending saves and calls Lane B's declared exporter with `<project>/Shots`, progress, Cancel,
-and Finder reveal. The exporter on main is still B0's stub: **working export and IT3 are not claimed**.
-No Lane B implementation or contract was replaced.
-
-**Run and passed:** native focused run: 51 tests in 13 suites, including the committed export-snapshot
-regression; strict lint on six changed Swift files; pinned formatting. Offscreen preview script passed
-one test and produced eight PNGs: empty/sample × light/dark × minimum/default sizes. Minimum-size
-light/dark sample captures inspected: the four regions and settings fit. Offscreen RealityKit remains
-blank by design; these captures do not prove live keyboard/VoiceOver or native picker interaction.
-
-**Pending:** B3 refresh and acceptance, real export/validator IT3, independent C3 review and exact-head
-CI. C2's original provider summary 6418233026 subsequently completed cleanly at `1c46f19` at 17:28 UTC;
-the supplemental independent record is retained.
-
-
-### Reference-first audit and C3 export unblock
-
-Applied Hákon's direction to inspect the original source/tests before further implementation.
-Reference remote and full pin verified: `wassermanproductions/blockout` at
-`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`, checkout `/tmp/shots-blockout-reference-3f2d056`.
-Read `src/renderer/panels/ProjectRail.tsx` (shot cloning, rename/delete),
-`src/renderer/store.ts` (selection, creation), `src/renderer/panels/Inspector.tsx` (shot settings),
-`src/renderer/export/exporter.ts`, and existing interaction/cancellation tests.
-
-- Shot cloning follows ProjectRail's fresh shot/camera-mark IDs, shared blocking and selection of the copy.
-- Found a reachable mismatch: selecting a shot retained frame61; `store.ts:330-341` resets time to0.
-  The added regression failed on our preimage, the store helper now resets the playhead, and the full
-  focused run passes **52 tests/13 suites**. Strict lint and pinned formatting pass on both changed files.
-- Intentional plan/architecture adaptations: native menus/alert/file picker instead of React controls;
-  empty scenes/projects remain allowed by C0/CONTRACTS instead of Blockout's last-scene/shot refusal;
-  scene/shot names use the Shots schema (which has no Blockout scene-number field);
-  full scene graph duplication remaps IDs because C3 requires scene duplication;
-  H3's explicit frame-grid/canvas rules replace Blockout's duration/aspect controls;
-  package rendering stays entirely in Lane B, not an extra export implementation in C.
-- Blockout export snapshots and locks its mutable renderer state; C3 captures committed scene/shot
-  values for the immutable native export pipeline. Independent later edits cannot change the snapshot.
-
-B3 PR58 is now accepted/merged as `f13b41b7bfefd7ac701923507adf347e180079df` at head`a386dd7`.
-Independent bounded acceptance6425352368 covers the audit repairs; all7CI40382518501passed,
-including826app/40core and actual matte/manifest/package regressions. B3 export is unblocked for C3.
-Next: refresh C3 onto accepted main, run real IT3, independent C3 review and exact-head CI.
-No M1/M2, live keyboard/VoiceOver or ComfyUI handoff claim.
-
-
-### C3 integration candidate on accepted B3
-
-Rebased our three C3 commits onto accepted main`f13b41b7`. Every row of
-`git range-diff bf9ab74..shots/c-scenes-pre-b3 origin/main..HEAD` is identical (`=`).
-The pre-refresh branch is retained; no owner branch or worktree was discarded.
-
-**IT3 run and passed:** a real temporary concept-free StudioProject opens a ShotsStore, imports the
-actual Blockout sample, commits shot edits ending in22frames/320×576/guide11, saves and releases,
-reopens with equal document, exports the committed store snapshot via actual ShotExporter into
-`<project>/Shots`, and gets zero PackageValidator problems. It also checks output metadata and terminal
-progress. The first build caught a missing `try` in the new assertion; that test-only compile error was
-corrected before execution. No acceptance condition or production save/export path was weakened.
-
-**Post-rebase run and passed:** native `--filter 'Shots|Viewport'`:63tests/17suites, including real IT3,
-B3's full sample package and pixel tests, store/history/save and viewport coverage. Changed8Swift files
-pass strict lint and pinned format. Existing8C3PNGs remain applicable: all visible C3 view sources are
-unchanged by the rebase/B3 export-only delta and IT3 addition; minimum light/dark sample already inspected.
-
-**Not run/claimed:** complete local app suite, live native menu/picker/keyboard/VoiceOver, ComfyUI graph
-handoff, signed app walkthrough, M1/M2. Current-head CI and independent C3 review remain required.
-
-### C4 source-aligned preparation; C3 acceptance still blocked
-
-C3 PR70 head`972060e` has terminal independent clean review6425635875. CI40388637232
-built successfully, then its full app test hit the300s watchdog. The process sample shows C3 IT3
-and two B3 package tests concurrently blocked at `VideoInspector.swift:49` in AVAssetReader sample
-reading. Six other jobs passed; standalone core/full lint/full format were skipped. This is not a
-complete suite pass or a presumed flake. Media-owner evidence/handoff:6425833845. No CI rerun or
-merge requested without diagnosis. Focused63tests/17suites previously passed remains separate evidence.
-
-C4 is isolated on `shots/c-timeline`, based on the frozen C3 draft head. Read pinned Blockout
-`src/renderer/panels/Timeline.tsx` first: ruler/scrub mapping, retime clamp preserving hold, hold
-stretch clamp preserving mark time, camera-first lanes and local drag preview/single release commit.
-Only the pure geometry preparation is implemented: time-to-position, clamped position-to-frame,
-retime and hold stretch. Intentional Shots adaptation:24fps snapping and explicit frame-count end;
-shared blocking beyond a short shot remains in the document. Source pin3f2d0564 is recorded in code.
-
-Run/passed:3geometry tests/1suite cover every124frame round trip, edges, rounding, zero width,
-retime/hold endpoints and a shared mark beyond the shot. Strict lint passed; formatter initially
-reported declaration-comment/property-layout style, automatically formatted, then pinned format passed.
-No production timeline UI, focus routing, playback, drag gesture, visual/accessibility acceptance or
-C4 checkpoint completion is claimed. No desktop UI automation used.
-
-C4 follow-up preparation: `ShotsTimelineDrag` captures an actor or camera mark and returns one typed
-update command from the original drag value, as Blockout Timeline.tsx beginDrag/onMove/onUp does.
-It uses the existing transient store preview and existing perform/undo path, preserving all non-time
-channels. Five geometry/transaction tests in two suites passed: repeated preview leaves committed
-document/history untouched, hold stretch commits one undo step, camera retime preserves channels,
-cancel leaves no history. Strict lint passed. No gesture wiring or C4 UI acceptance is claimed.
-
-Media diagnosis remains with Lane B: strict Swift cooperative-pool filter passed11tests/4suites on
-local Swift6.4; no reproduction or cure claim for the Xcode26.6 full-suite CI hang. Native build-system
-selection avoided a local generated-test-bundle code-sign failure without changing attributes/settings.
-
-C4 navigation preparation now also has pure store actions for focused timeline arrows/Home/End/Delete,
-24-frame Shift steps, text-edit protection, playback toggle/restart and idempotent guide insertion.
-Reference: Blockout App.tsx useKeyboard and store.ts setPlaying; CONTRACTS section7 intentionally
-narrows arrows/Delete to timeline focus and suppresses all actions in text editors. Seven tests in
-three suites passed, including unchanged playhead/selection/document/history when another region or
-text editor owns focus, boundary clamping, guide deduplication/one undo and restart at shot end.
-Strict lint and pinned format passed. Actual focus/event wiring and24fps transport loop remain to do.
-No native/global keyboard monitor is installed by this preparation.
-
-### C4 native UI candidate (stacked on unmerged C3; not accepted)
-
-The native timeline now has camera-first and tracked-entity lanes, frame/second ruler, guide markers
-and an Add guide action, scrubbing, mark selection, retime and hold-edge gestures. Gestures capture the
-original mark, use transient preview, follow a retimed mark with the playhead and commit one existing
-typed update on release; Escape/disappearance/shot change cancels preview. Read-only disables edits.
-Space routes at the Shots workspace; arrows/Home/End/Delete route only within the focused timeline,
-with Shift stepping24frames and text-edit/modifier protection. These are ordinary SwiftUI focus handlers,
-not global/local NSEvent monitors, CGEvent taps, CUA bindings or synthetic input. The elapsed-clock
-playback loop presents discrete24fps frames and includes the last frame before looping.
-
-Reference inspected: pinned3f2d0564 Timeline.tsx (lanes/ruler/capture-preview-single-commit and clamp
-after translation), App.tsx useKeyboard, store.ts setPlaying, SceneManager.ts playback loop. Existing
-evaluate.test.ts hold-window and audit-fixes.test.ts overlapping-hold fixtures remain evaluator behavior;
-C4 does not rewrite or clamp shared blocking when a shot changes. The e2e interaction.spec.ts was
-inspected as reference, not run (it launches Electron and injects real mouse input). Adaptations: explicit
-24fps frame grid, CONTRACTS focus ownership/single-mark selection, native controls/semantic colours.
-
-Verification run/passed:843full local app tests/145suites at the UI candidate (prior to only an equivalent
-transport-label local binding refactor/format); final frozen source then passed10tests/5suites in the
-isolated preview snapshot, including all9timeline tests and8actual empty/sample captures at both
-sizes/appearances. Full app strict lint and pinned format passed. Script render-app-preview.sh created
-the original source-hashed isolated snapshot; after visual repairs it was refreshed with all current
-source/test bytes, every hash rechecked, and rebuilt using explicit native SwiftPM. A temporary command
-wrapper selected native build system; no package/tool/security configuration changed.
-
-Visual inspection of minimum light/dark sample found short-label truncation and final-frame clipping
-in the first capture; fixed with numeric frame pills (gait remains in help/VoiceOver) and right gutter.
-Both corrected minimum sample images inspected; all8corrected PNGs and source manifest retained.
-The clamp-after-delta geometry regression covers a shared mark beyond the shot; playback tests cover
-delayed callbacks and presenting the last frame before wrap.
-
-Not run/claimed: actual native key/VoiceOver/pointer walkthrough, current-head remote C4CI or independent
-C4acceptance. C3 PR70 remains draft after two AVAssetReader watchdog failures; its media owner has been
-notified and parent provided manual delivery. C4 acceptance/landing waits for real C3 completion and its
-own review/CI/focus validation; no M1/M2, ComfyUI or release/deployment claim.
-
-### C4 review round1 repair (same PR71)
-
-Independent review atc1b3d3a found two P2s: Escape cancellation restarted on the next pointer callback,
-and Add guide persisted automatic endpoint frames. The repair uses an explicit idle/active/cancelled
-transaction whose cancelled phase lasts to pointer release. SwiftUI GestureState cleanup resets an
-abandoned gesture without committing; ordinary release performs one command. Guide insertion now
-guards the declared1..N-2extra-guide domain and deduplicates at the action boundary; the button uses
-the same eligibility. No LaneB/Core contract or validation file was changed.
-
-Run/passed:12timeline tests/5suites, including Escape→moremovement→release (no document/history
-change), following gesture recovery, abandoned gesture reset, both automatic endpoint no-ops and one
-interior guide undo. Controlled mutations reintroducing each old mechanism make the two corresponding
-regressions fail; fixed source restored byte-for-byte. An earlier control attempt failed to compile
-because the compiler reported a timestamp change in an unchanged source file; no tests ran in that
-attempt. The temporary mutation was restored. The isolated source-hashed snapshot control executed
-both regressions and failed as expected.
-
-Full repaired frozen app run:846tests/146suites passed. Its first attempt had4missing-fixture errors
-because the preview-only snapshot omitted3shared repo fixture files; exact immutable HEAD bytes
-were supplied without overwriting different data, then the full run passed. No assertion was weakened.
-Final snapshot run:13tests/6suites passed including all12timeline tests and8offscreencaptures.
-Native keyboard/VoiceOver/pointer walkthrough remains unrun. Independent bounded closure and fresh
-CI remain required; no accepted C4 claim.
-
-A4 acceptedmainc501e7be and the independently reviewed media-reader repairPR74/7fce98d4 have now
-landed. Next refreshC3 thenC4 onto real repaired main, preserving reviewed commits, and run actual
-current-head tests/review/CI including formerly skipped gates. Earlier C3/C4 AVAssetReader failures
-remain failed historical evidence; no unchanged rerun hides them.
-
-## C5 preparation after C4 — not an accepted checkpoint
-
-On accepted main `ec2cb5a`, the library now arms a starter asset for Lane D's place tool,
-changes the armed asset, and cancels by choosing it again. Search matches names and categories.
-Reference: Blockout `src/renderer/panels/Library.tsx:658–690` at
-`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`. Its arm/toggle semantics are retained;
-custom models/scans/sequences are outside this plan's starter content set. SwiftUI native buttons
-and fields adapt the reference to the existing workspace. Document edits remain Lane D commands;
-choosing a library tool changes neither document nor undo history.
-
-Three library boundary tests passed in a frozen source snapshot, covering arm/switch/cancel,
-read-only/missing-shot/unknown-asset guards, starter membership and case-insensitive filtering.
-The first in-place build failed because the compiler reported a Yams dependency source changed
-while compiling; it is not counted as a passing run. The isolated source build compiled the app
-and passed all three tests. Strict lint and full format checks passed. No native pointer,
-keyboard or VoiceOver walkthrough has been run.
-
-Still outstanding for C5: selection inspectors, continuous field preview/commit, prompt UI and
-fake-endpoint integration, every-inspector command/undo tests and previews. Acceptance waits for
-A5 and B5 merged. Prompt facts/write are still stubs on main; this preparation does not implement
-Lane B's compiler or claim that C5/M2 is complete.
-
-## C5 inspectors and prompt integration preparation
-
-Draft implementation now includes selection-driven shot/entity/camera/actor-mark/camera-mark
-inspectors, an Inspect menu for keyboard-accessible selection, and starter library search/arming.
-Blockout reference: `Inspector.tsx:65–120,397ff,567ff,1461ff,1671ff` and
-`Library.tsx:658–690` at the pinned commit above. Preserved: context-driven fields, radians in
-stored values/degrees in controls, captured mark channels, and generator actions through existing
-engine APIs. Adaptations: per-shot notes/H3 prompt and explicit ShotsCommand edits/undo, native
-SwiftUI forms, the contracted starter content set, and a single-entity inspector when several
-entities are selected (the panel names the entity it edits). Source swatch colours are retained.
-
-Continuous rig-intensity changes preview while dragging and commit one coalesced command on
-release; Escape latches cancellation through release. Other fields commit native field/picker
-edits through commands. Read-only files retain selection and library search but disable edits.
-
-The prompt action calls Lane B's facts/template/write seam; demo/no model uses template, otherwise
-it resolves the session endpoint. It captures the shot/revision before awaiting, checks cancellation
-before committing, preserves stale revision after concurrent edits, and routes errors through the
-store's session failure path. This is preparation: **B5 facts/write still throw notImplemented on
-accepted main**, so no real compiler/fake-endpoint acceptance is claimed. Integration will be
-reverified against B5's actual implementation; no alternate compiler is introduced here.
-
-Verification so far: seven focused tests pass, including sixteen inspector-bound command kinds
-individually undone, slider preview/cancel/recovery, and prompt revision/undo/cancellation boundary
-checks with injected synthetic facts/writer. Full app suite: 854 registered tests/148 suites passed;
-five optional preview/model functions skipped, not counted as executed. Initial test compile
-failed on mutating calls inside #require/#expect; locals fixed those tests before passing.
-Strict app lint and full format checks pass. All five inspectors rendered through the existing
-preview script in light/dark at minimum/default sizes (20 PNGs); minimum entity/light and camera/dark
-were visually checked. Native pointer/keyboard/VoiceOver walkthrough remains not run.
-
-A frozen non-offloaded source snapshot is used for tests. Files in the original Documents worktree
-became compressed/dataless and some reads stalled; that worktree and its uncommitted bytes remain
-preserved. Active C5 preparation moved to an isolated /tmp worktree from its saved Git objects and
-frozen source. No sync/security settings or apps/helpers were changed.
-
-Remaining C5 gates: B5 merged; actual compiler/fake ModelClient integration test; fresh full CI and
-independent exact-head review; refreshed final offscreen captures after the last read-only/idle-Escape
-safeguards; native interaction acceptance later. C5 and M2 are not complete.
-
-### C5 independent review R1 repairs (PR76)
-
-Initial review at5c88b0e found two P2s, preserved as r4383158847 (entity-name typing lacks a
-coalescing key) and r4383158863 (Undo/Redo clears a preview but stale slider release still commits).
-The additive repair gives entity-name and rig edits their command-kind/target coalescing keys.
-The slider now uses the shared store-facing gesture lifecycle for preview, invalidation, cancel
-and commit: every update notices lost preview ownership, cancellation latches through release,
-and commit requires the exact owned preview. Observing a foreign/history-cleared preview cancels
-without clearing another owner's preview. The view uses these same methods, rather than a test-only path.
-
-Five new store-level regression tests cover 240 typed characters without evicting an earlier edit,
-separate targets/non-coalescing controls, Undo with/without subsequent movement, Redo, replacement
-preview custody, normal one-step commit, Escape and the next drag. All12focused tests pass.
-Restoring the old mechanisms in the isolated snapshot makes the review regressions fail with13issues;
-fixed bytes were restored in finally. Fresh full app verification and closure/CI are tracked in PR76.
-Old-head green CI40411243246 and its20captures are not treated as acceptance of this repair.
-B5 real prompt integration and native acceptance remain outstanding as above.
-
-## C6 preparation: glossary, credits and keyboard action model
-
-Stacked on C5 PR76 at4fda2b5; C5 is not accepted until B5's actual compiler integration is verified.
-Thirteen required Shots terms now live under using-conceptstudio, with plain/technical readings and
-related links. The Help window gains Credits containing the required Blockout acknowledgment and
-PrevisCoreAttribution.notice(). PRODUCT.md is unchanged; its proposed paragraph is in this PR description
-for owner approval.
-
-The source accessibility audit found no non-pointer route to add a library asset or its first mark.
-Separate Add-to-scene buttons now create a selected entity at the stage centre, leaving the existing
-arm-click-place behavior intact. Add mark here in the entity inspector captures its committed evaluated
-position/facing at the playhead. Both use existing ShotsCommand edits and reject read-only or transient
-preview states; they do not edit Lane D picking/placement code.
-
-References at Blockout3f2d0564: types.ts (scene/shot/mark/gait semantics), store.ts:498–558
-(asset naming/selection and mark construction), and NOTICE. Destination-mark gait semantics are retained.
-Intentional adaptation: keyboard insertion at stage origin and exact playhead timing from the settled
-D3 plan, instead of Blockout's first-at-zero/next-at-least-two-second pointer spacing.
-
-Verification:8focused tests pass (including existing glossary invariants), and the full app suite reports
-863registered tests/150suites passed;5optional preview/model functions skipped, not counted as executed.
-The new headless action integration adds a person, moves it, adds a mark, undoes/redoes and exports a
-valid22frame320×576package. Lint and full format checks pass. Preview/independent review/CI results are
-tracked on this draft; old C5 captures are not presented as C6 output.
-
-Planned native walkthrough (NOT RUN): open Shots and a scene; keyboard-focus the library's Add person
-button; select the entity inspector; edit X/Y/Z; activate Add mark here; undo/redo; export and inspect the
-package. Verify focus traversal, field editing vs playback shortcuts, Escape, and VoiceOver labels for
-library actions, Inspect menu, mark pills, fields and export progress/error. No native input was injected.
-C6 completion still needs that actual keyboard/VoiceOver pass, final full preview set and C5 acceptance;
-M1/M2 and D-lane integration remain separate. No release, deployment or owner PRODUCT approval claimed.
-
-C6 visual follow-up: minimum Help capture exposed the three topic segments reaching the window edge.
-The title and full-width topic picker now occupy separate rows, retaining the existing topic wording;
-the new website link uses the established ink tint. Captures and full verification are refreshed after
-this source change. This changes Help layout only, not any training screen or shortcut.
-### C5 final composition (2026-10-27)
-
-B5 is accepted and merged as `9c6532b`. C5's final composition keeps its production and test bytes unchanged
-from the independently accepted `690172b` review, then merges the landed B5 history. Independent closure
-re-ran all four inspector-boundary tests with zero failures/skips; the full composed app run passes 936 tests
-in 154 suites with Blockout vectors enabled. All twenty inspector previews regenerated (five inspectors,
-two sizes, two appearances), and their source manifest has zero mismatches against this composition.
-The small entity/dark and camera-mark/light renders were inspected. Final exact-head CI remains required.
-These fulfill C5's command/Undo, real compiler/fake-endpoint and inspector-preview checks; native interaction,
-M1/M2 and C6's actual keyboard/VoiceOver walkthrough remain separate integration evidence.
+The proposed `app/PRODUCT.md` paragraph is in this PR's description for the owner to approve. PRODUCT.md is
+unchanged.
+
+## History
+
+- **C0** (#53): store, evaluator/frame access, selection/tool/command seams, preview/commit, snapshot
+  undo/redo, coalescing, debounced atomic saving, corruption and future-version handling; release, quit and
+  close flush first and veto on saving failures.
+- **C1** (#66): Shots entry beside Cloud GPU and Go › Shots (⌘0); four regions hosting Lane D's
+  `ShotsViewport` and `ShotCameraView`; training navigation untouched.
+- **C2** (#68): the single command entry (duplicate/import, camera settings, mark deletion, reference cleanup);
+  Edit-menu Undo/Redo bridge while Shots is mounted. A CI debounce failure under main-actor contention was
+  repaired by polling save opportunities instead of wall time; production debounce unchanged.
+- **C3** (#70): scene/shot menus (add, rename, copy, delete), Blockout JSON import with notes, shot settings
+  (frame grid, canvas, lighting) and export through Lane B with progress, Cancel and Finder reveal; IT3 exports
+  a reopened project with zero validator problems. Selecting a shot resets the playhead (Blockout
+  `store.ts:330-341`).
+- **C4** (#71): camera-first lanes, ruler, guides, scrubbing, mark selection, retime and hold stretch with a
+  single commit on release, Escape cancellation latched to release, focused-timeline keys and 24 fps playback.
+- **C5** (#76): selection inspectors, Inspect menu, starter library, coalesced field edits, slider
+  preview/cancel, and the prompt action through B5's real `ShotPromptCompiler` (fake-endpoint boundary test).
+- **C6 preparation** (#77): glossary, credits, Add to scene and Add mark here, as above.

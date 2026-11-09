@@ -27,11 +27,14 @@ private struct ShotsWorkspaceContent: View {
     var body: some View {
         VSplitView {
             HSplitView {
-                sceneColumn.frame(minWidth: 160, idealWidth: 180, maxWidth: 240)
+                // The split view starts its panes at equal widths up to their maximums, so these caps leave the
+                // viewport the most room: about 330 points at the 980-point minimum window.
+                sceneColumn.frame(minWidth: 160, idealWidth: 180, maxWidth: 200)
                 viewport.frame(minWidth: 260, maxWidth: .infinity, minHeight: 220)
-                inspector.frame(minWidth: 180, idealWidth: 210, maxWidth: 250)
+                inspector.frame(minWidth: 200, idealWidth: 220, maxWidth: 230)
             }
-            ShotsTimelineView(store: store).frame(minHeight: 150, idealHeight: 210, maxHeight: 360)
+            // Capped so the panes above keep most of the height; lanes scroll beyond four people.
+            ShotsTimelineView(store: store).frame(minHeight: 150, idealHeight: 210, maxHeight: 250)
         }
         .background(ShotsUndoBridge(store: store))
         .onKeyPress(keys: [.space]) { press in
@@ -87,17 +90,19 @@ private struct ShotsWorkspaceContent: View {
     private var inspector: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Inspector").font(.headline)
+                Text("Inspector").font(.headline).accessibilityAddTraits(.isHeader)
+                if store.isReadOnly {
+                    Label(ShotsEditingError.readOnly.localizedDescription, systemImage: "lock")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 Divider()
                 ShotsInspectorView(store: store, session: session)
                 Divider()
                 ShotsExportView(store: store, projectDirectory: projectDirectory)
-                if store.isReadOnly {
-                    Label("Read only", systemImage: "lock").foregroundStyle(.secondary)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
         }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Shot inspector")
     }
 }
