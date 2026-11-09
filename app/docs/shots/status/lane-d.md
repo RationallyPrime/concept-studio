@@ -1,19 +1,19 @@
 # Lane D status
 
-Owner: Metis (Gemini). On 2026-11-01, on the owner's instruction to merge every solid Shots PR, D3 [#82](https://github.com/RationallyPrime/concept-studio/pull/82), D4 [#84](https://github.com/RationallyPrime/concept-studio/pull/84) and the D5 keyboard slice [#85](https://github.com/RationallyPrime/concept-studio/pull/85) landed on `main` with merge commits, and D2 `shots/d-overlays` ([#81](https://github.com/RationallyPrime/concept-studio/pull/81)) was composed with them (both overlay syncs share `overlayRoot`; each rebuilds only its own named children). The D5 rendering slice `shots/d-look-through` ([#83](https://github.com/RationallyPrime/concept-studio/pull/83)) was then composed with all of it: `ShotCameraView` keeps the look-through render session as `session` and the keyboard slice's live session as `liveSession`. All branches are preserved.
+Owner: Metis (Gemini) for D0–D5; D6 by the integration owner's delegate (Claude), 2026-11-09. D0–D5 are all on `main`: D2 [#81](https://github.com/RationallyPrime/concept-studio/pull/81), D3 [#82](https://github.com/RationallyPrime/concept-studio/pull/82), D4 [#84](https://github.com/RationallyPrime/concept-studio/pull/84) and both D5 slices ([#85](https://github.com/RationallyPrime/concept-studio/pull/85) keyboard and accessibility, [#83](https://github.com/RationallyPrime/concept-studio/pull/83) look-through rendering) merged on 2026-11-01, last Shots merge `acfd417`. The two overlay syncs share `overlayRoot`, each rebuilding only its own named children; `ShotCameraView` keeps the look-through render session as `session` and the shared live session as `liveSession`. D6 is on `shots/d-integration`, in review.
 Reference implementation: [Blockout](https://github.com/wassermanproductions/blockout) at `3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9` (`scripts/blockout/fetch.sh`).
 
 ## Checkpoints
 
 | Checkpoint | State | Remaining work |
 | --- | --- | --- |
-| D0: shell and editor camera maths | **Merged** ([RationallyPrime/concept-studio#61](https://github.com/RationallyPrime/concept-studio/pull/61), `42871fbdec650df2f8436febb3d94858b71c9769`) | Complete. |
-| D1: RealityView display, gestures, grid and snapshots | **Merged** ([RationallyPrime/concept-studio#72](https://github.com/RationallyPrime/concept-studio/pull/72), `efbe83380dc387100c9059ce62b305de81a069a2`) | Complete. |
-| D2: overlays and playback | **Composed with merged D3–D5 for merge** ([#81](https://github.com/RationallyPrime/concept-studio/pull/81), `shots/d-overlays`; Round 1 P2 label-facing closure accepted at `cc2fa25`) | The raw `"sit-down"` peak keyframe sign-check disposition stays open (see Open questions); native UI/M1/M2 gates. |
-| D3: picking and tools | **Merged** ([#82](https://github.com/RationallyPrime/concept-studio/pull/82), merge commit `4916d80`; independent Round 1 closure ACCEPT at `fdb33e2`) | Native/M1/M2 walkthrough. |
-| D4: move and rotate handles | **Merged** ([#84](https://github.com/RationallyPrime/concept-studio/pull/84), merge commit `d903e54`; independent Round 1 closure ACCEPT at `b540cba`) | Native/M1/M2 walkthrough. |
-| D5: look-through view, keyboard and VoiceOver | **Keyboard and accessibility slice merged** ([#85](https://github.com/RationallyPrime/concept-studio/pull/85), merge commit `968d771`; ACCEPT at `816ab61`). Rendering slice ([#83](https://github.com/RationallyPrime/concept-studio/pull/83), ACCEPT at `36b0c18`) composed after D2 | Physical VoiceOver and focus walkthrough. |
-| D6: integration, performance and IT4 | Unblocked: B6 merged (`36b3af9`) | Scripted IT4 workflow and release-build frame-time measurements. |
+| D0: shell and editor camera maths | **Merged** ([#61](https://github.com/RationallyPrime/concept-studio/pull/61), `42871fbdec650df2f8436febb3d94858b71c9769`) | Complete. |
+| D1: RealityView display, gestures, grid and snapshots | **Merged** ([#72](https://github.com/RationallyPrime/concept-studio/pull/72), merge commit `139a2e4`) | Complete. |
+| D2: overlays and playback | **Merged** ([#81](https://github.com/RationallyPrime/concept-studio/pull/81), merge commit `1d34da3`) | Sign check closed by the owner's ruling of 2026-11-09 (see Open questions). |
+| D3: picking and tools | **Merged** ([#82](https://github.com/RationallyPrime/concept-studio/pull/82), merge commit `4916d80`) | Owner's native walkthrough. |
+| D4: move and rotate handles | **Merged** ([#84](https://github.com/RationallyPrime/concept-studio/pull/84), merge commit `d903e54`) | Owner's native walkthrough; the blocked-actor drag in Open questions. |
+| D5: look-through view, keyboard and VoiceOver | **Merged**: keyboard and accessibility ([#85](https://github.com/RationallyPrime/concept-studio/pull/85), merge commit `968d771`) and look-through rendering ([#83](https://github.com/RationallyPrime/concept-studio/pull/83), merge commit `acfd417`) | Owner's VoiceOver, physical keyboard and focus walkthrough. |
+| D6: integration, performance and IT4 | **In review** on `shots/d-integration` (see "Delivered in D6") | Owner's on-screen M1/M2 and signed-sandbox walkthrough; the blocked-actor drag in Open questions. |
 
 ## Blockout Reference Audit & Intentional Swift/RealityKit Deviations (D0 & D1)
 
@@ -78,9 +78,9 @@ Reference implementation: [Blockout](https://github.com/wassermanproductions/blo
 - **Shot camera representation:** Displayed with light housing/lens (`#f5f5f7`, housing at local origin, lens at `z = -0.28` pitched `+.pi / 2` around X) and `#f5a524` (`defaultActorMarkRGB`) wire pyramid frustum (with `#7dd3fc` `cameraOverlayRGB` used for camera marks, camera path ribbons, and secondary entity selection boxes; camera selection and primary entity selection use `#f5a524`); its materials, lens placement, and wire strut geometry are intentional RealityKit adaptations rather than an exact mesh/material copy.
 - **Selection boxes and HUD toggles:** Wireframe selection boxes (`viewport.selectionGroup`) live only in `overlayRoot` and never tint `mapper.root`. AppKit HUD buttons (`ViewportOverlayTogglesRepresentable`) fix `Marks`/`Paths` hit-testing while passive HUD chrome passes clicks through to `ScrollCapturingView`.
 
-## Delivered in D1 (`shots/d-viewport`) & D2 (`shots/d-overlays`, draft / unresolved sign-check)
+## Delivered in D1 (`shots/d-viewport`) & D2 (`shots/d-overlays`)
 
-- **D2 (`shots/d-overlays`, not accepted):** `ViewportOverlays`, `ViewportOverlayTogglesRepresentable`, `ShotsViewport` playback/selection/overlay sync, `ViewportSnapshotRenderer` clone-only label orientation, `spikeTapeMarksBuildNumberedTGeometryAndRespectShowMarksToggle` in `ViewportDisplayTests`, and `ViewportOverlaysTests` (live session sync without mutating `mapper.root`, hosted AppKit HUD button hit-testing, `twoPersonWalk(small: true)` first/guide/last snapshots, `gait: .sit` side-view snapshot `d2-sign-check-side.png`, raw `"sit-down"` peak keyframe diagnostic snapshot `d2-sign-check-sit-down-peak.png`, and `markNumbersAndPathTimeLabelsFaceCameraAcrossOrbitWithoutMutatingLiveOverlay`).
+- **D2 (`shots/d-overlays`, merged as #81):** `ViewportOverlays`, `ViewportOverlayTogglesRepresentable`, `ShotsViewport` playback/selection/overlay sync, `ViewportSnapshotRenderer` clone-only label orientation, `spikeTapeMarksBuildNumberedTGeometryAndRespectShowMarksToggle` in `ViewportDisplayTests`, and `ViewportOverlaysTests` (live session sync without mutating `mapper.root`, hosted AppKit HUD button hit-testing, `twoPersonWalk(small: true)` first/guide/last snapshots, `gait: .sit` side-view snapshot `d2-sign-check-side.png`, raw `"sit-down"` peak keyframe diagnostic snapshot `d2-sign-check-sit-down-peak.png`, and `markNumbersAndPathTimeLabelsFaceCameraAcrossOrbitWithoutMutatingLiveOverlay`).
 
 ### D1 (`shots/d-viewport`)
 
@@ -170,7 +170,7 @@ cd app && mise exec -- swiftlint lint --strict && \
 7. **PR #82 Round 1 P2 repair — sub-threshold pointer jitter during click (`ViewportGestures.swift:140-234`, `ViewportPickingTests.swift:389-463`):**
    - Deferred `onDrag?` dispatch in `ScrollCapturingView.mouseDragged(with:)` until pointer movement from `downPoint` (or cumulative delta) reaches `ViewportScrollWheelOverlay.dragThresholdPoints` (`3.0` pt), accumulating sub-threshold deltas in `accumulatedSubThresholdDelta` and flushing them on the first threshold-crossing drag event. This prevents `< 3.0` pt click jitter from orbiting or panning `session.editorCamera` before `mouseUp` commits placement, mark-drop, or selection (`< 1 cm` ground accuracy preserved for `2.0` pt jitter), while real drags (`>= 3.0` pt) still orbit/pan without triggering click actions.
 
-### Verification results for D3 (`shots/d-picking`, base `139a2e4`, Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82))
+### Verification results for D3 (`shots/d-picking`, base `139a2e4`, PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82))
 - `ViewportPickingTests`: 8 tests in 1 suite reported (`0.367s`; 8 executed, 0 skipped, 0 failed), including `subThresholdMouseJitterDoesNotOrbitCameraBeforeClickPlacementWhileTrueDragOrbitsWithoutPlacing`.
 - Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 181 tests in 32 suites reported (`6.877s`; 177 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
 - Full unfiltered `app` test suite: 952 tests in 156 suites reported (`26.402s`; 944 executed, 8 skipped, 0 failed).
@@ -210,7 +210,7 @@ cd app && mise exec -- swiftlint lint --strict && \
      - `ViewportHandles.syncOverlay` uses `Float(max(geometry.worldRadius, 1e-4))` rather than clamping at `0.05` m, keeping the close-zoom (`0.5` m) overlay entity scale matched to `geometry.worldRadius` (`56.0` px projected radius).
      - `ScrollCapturingView` (`dismantleNSView`, `viewDidMoveToWindow`, `viewDidMoveToSuperview`) and `ShotsViewport.onDisappear` cancel any active handle drag on teardown so `store.preview` is cleared to `nil`.
 
-### Verification results for D4 (`shots/d-handles`, stacked on `shots/d-picking` `fdb33e2`, Draft PR [#84](https://github.com/RationallyPrime/concept-studio/pull/84))
+### Verification results for D4 (`shots/d-handles`, stacked on `shots/d-picking` `fdb33e2`, PR [#84](https://github.com/RationallyPrime/concept-studio/pull/84))
 - `ViewportHandlesTests|ViewportHandlesHostedTests`: 10 tests in 2 suites reported (`0.415s`; 10 executed, 0 skipped, 0 failed).
 - All `Viewport` suites (`--filter 'Viewport'`): 30 tests in 5 suites reported (`1.227s`; 29 executed, 1 skipped when `SHOTS_SNAPSHOT_DIR` is unset, 0 failed).
 - Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 191 tests in 34 suites reported (`7.157s`; 187 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
@@ -243,14 +243,14 @@ cd app && mise exec -- swiftlint lint --strict && \
    - **P2-1 — Effective world-space nudge for blocked entities (`ViewportKeyboard.swift:246-310`):** `ViewportKeyboard.entityNudgeCommands(for:by:in:currentShot:)` now builds an atomic `[ShotsCommand]` batch for selected `.entities(ids)` that updates each entity's base `.setPlacement(id, placement)` AND translates all `ActorMark.position` and `ActorMark.via` waypoints in the active `BlockingTake` track via `.updateActorMark(shotID, id, mark)` (preserving `time`, `hold`, `easeIn`, `easeOut`, `gait`, `arriveHeading`, `joints`, and `boardID`). Blocked actors (`Man` at frame 11 in `ShotsSamples.twoPersonWalk`) and static props (`Chair`) now both shift by the exact requested `5 cm` (`⇧` `50 cm`) in evaluated `store.frame` world space and undo/redo in a single atomic step.
    - **P2-2 — Shared selection announcements in look-through mode (`ShotCameraView.swift:23-85`, `ShotsViewport.swift:58-67`, `ViewportKeyboard.swift:494-530`):** Extracted `ViewportLiveSession.syncSelectionAnnouncement(with:)` and wired `ShotCameraView` and `ViewportKeyCaptureOverlay` (`selection`, `onSync`, `onAppear`, `onChange(of: currentSelection)`) to the shared `ViewportLiveSession`, while including the current selection summary in `ShotCameraView`'s accessibility label. Selection changes made while `ShotCameraView` (look-through mode) is active now dispatch `"Selected ..."` once through `session.postAnnouncement(_:)` without duplicating announcements across `C` mode transitions.
 
-### Verification results for D5 Keyboard & Accessibility (`shots/d-keyboard-a11y`, stacked on `shots/d-handles` `b540cba`, Draft PR [#85](https://github.com/RationallyPrime/concept-studio/pull/85))
+### Verification results for D5 Keyboard & Accessibility (`shots/d-keyboard-a11y`, stacked on `shots/d-handles` `b540cba`, PR [#85](https://github.com/RationallyPrime/concept-studio/pull/85))
 - `ViewportKeyboardTests`: 9 tests in 1 suite reported (`1.720s`; 9 executed, 0 skipped, 0 failed), including `nudgeMovesEvaluatedBlockedActorAndStaticPropAtMidShotFrameAndUndoesAtomically` and `lookThroughSelectionChangesDispatchSharedAnnouncementCallbackWithoutDuplicates`.
 - All `Viewport` suites (`--filter 'Viewport'`): 39 tests in 6 suites reported (`2.596s`; 38 executed, 1 skipped when `SHOTS_SNAPSHOT_DIR` is unset, 0 failed).
 - Focused Shots & Viewport suites (`--filter 'Shots|Viewport'`): 200 tests in 35 suites reported (`10.246s`; 196 executed, 4 skipped when preset/snapshot env vars are unset, 0 failed).
 - Full unfiltered `app` test suite: 971 tests in 159 suites reported (`33.656s`; 963 executed, 8 skipped, 0 failed).
 - `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`11.462s`; 148 executed, 0 skipped, 0 failed; no-env run: 148 reported, 144 executed, 4 skipped, `1.686s`).
 - `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 419 files (`0/419` require formatting).
-- Not run / remaining: post-review composition of `shots/d-look-through` (Draft PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83)) + `shots/d-keyboard-a11y` (Draft PR [#85](https://github.com/RationallyPrime/concept-studio/pull/85)), and physical native VoiceOver speech/navigation and live focus walkthrough.
+- Not run / remaining: physical native VoiceOver speech/navigation and live focus walkthrough (the owner's). The composition of [#83](https://github.com/RationallyPrime/concept-studio/pull/83) with [#85](https://github.com/RationallyPrime/concept-studio/pull/85) is done and merged (`acfd417`).
 
 ## Delivered in D5 Look-Through Rendering Slice (`shots/d-look-through`)
 
@@ -276,23 +276,103 @@ cd app && mise exec -- swiftlint lint --strict && \
 - `PrevisCoreTests` (no fixture env): 148 tests in 20 suites reported (`1.370s`; 144 executed, 4 skipped, 0 failed).
 - `PrevisCoreTests` (with `PREVIS_GOLDENS` and `PREVIS_VECTORS` set): 148 tests in 20 suites reported (`1.678s`; 148 executed, 0 skipped, 0 failed).
 - `swiftlint lint --strict` & `swiftformat --lint`: 0 violations across 412 files (`0/412` require formatting).
-- **Not run / separately pending:**
-  - Remaining D5 focused viewport keyboard shortcuts (`CONTRACTS.md` section 7) and VoiceOver selection announcements.
-  - Physical native desktop walkthrough, VoiceOver interactive check, M1/M2 release-build frame-time measurements, and signed sandbox verification.
+- **Not run / separately pending:** the owner's physical desktop, VoiceOver and signed-sandbox walkthroughs. The keyboard and announcement work landed in [#85](https://github.com/RationallyPrime/concept-studio/pull/85); the frame-time measurements are in D6 below.
+
+## Delivered in D6 (`shots/d-integration`)
+
+### Reference files inspected for D6 (`3f2d0564fd575f70fc28e9bfaa7e94b05e3955d9`)
+- `src/renderer/viewport/SceneManager.ts:276-299` (store subscriptions: `syncFromStore`, and with it `rebuildOverlay`, only when the document, scene or shot changes; `syncSelection` only when the selection changes; `applyOverlayToggles` only on a toggle).
+- `src/renderer/viewport/SceneManager.ts:2119-2137` (the per-frame loop: advance the playhead, `applyTime(t)`, `controls.update()`; nothing rebuilt per frame).
+- `src/renderer/viewport/SceneManager.ts:1130-1149, 1171-1270` (`beginGizmoDrag`, `commitGizmo`: the gizmo sits on the drawn body and an entity drag carries the entity's marks; see Open questions).
+
+### What D6 changed
+1. **Overlay rebuilds follow Blockout's triggers (`ViewportOverlays.sync`, `ViewportOverlayInputs`, `ViewportLiveSession.sync`).** Every `sync` used to rebuild every spike-tape mark, path ribbon, chevron, time badge and selection box, generating new meshes each time. `sync` runs from `RealityView`'s update closure and from the input view's `updateNSView`, so a playback step or an orbit tick paid for it two or three times. The live session now keeps what the overlay was last drawn from:
+   - marks are rebuilt only when the scene or the shot changes;
+   - paths when the scene, the shot or the selection changes;
+   - selection boxes when the selection or the selected thing's evaluated pose changes.
+
+   The camera body and the label orientation are still re-posed every sync. Called without `previous`, `ViewportOverlays.sync` still rebuilds everything, as before.
+2. **Shared meshes.** All marks share one mesh per piece (bar, stem, badge plane), and every strut of a selection box or frustum is one unit box scaled to its length and thickness. Each mark and strut used to generate its own mesh.
+3. **Measured before and after** (below). Before the change, the release-build timing test did not finish its 244 frames in minutes; sampling showed `rebuildMarks` → `makeMarkEntity` mesh generation on nearly every stack.
+
+No PrevisCore motion data, rig, Lane C shell file or contract changed.
+
+### IT4 and integration tests (`ViewportIntegrationTests.swift`, `ViewportHostedWorkspace.swift`)
+- `scriptedViewportInputProducesTheExpectedDocumentAndLookThroughMatchesExport` (IT4) hosts `ShotsWorkspaceView` with Lane C's split layout in a window and drives the viewport with real `NSEvent`s through its AppKit input view on `twoPersonWalk(small: true)`:
+  1. The viewport fills its pane, and picking uses that same size.
+  2. With the library's place tool armed, a click places "Woman 2" within 3 cm of the aimed ground point; she is selected and the tool returns to select.
+  3. M, then clicks drop actor marks at frame 0 and at frame 15; Esc returns to select.
+  4. With the second mark selected, as the mark list does, its move handle drags through three points. While it drags, `store.preview` is set, the document is unchanged and the editor camera doesn't orbit. Release commits once.
+  5. Undo restores the pre-drag document and redo the post-drag one.
+  6. The final document equals one built independently by `perform` from the scripted pixels: `addEntity`, two `addActorMark`, `updateActorMark`.
+  7. C swaps the pane to `ShotCameraView`, and its key view takes focus. The look-through image for frame 11 of the edited shot equals the exported `guides/middle-f0011-clean.png` as decoded RGB. That image comes from a `ShotCameraPreviewSession` given the same request the mounted view builds (`ShotCameraRenderRequest.make(from:)`); the mounted view's own image is private `@State` and isn't read.
+  8. C returns to the focused scene view, where Space (Lane C's key) still starts playback.
+
+  Only Lane C's own controls are stood in for by setting the store: the library asset, the playhead and the mark selection.
+
+  How events are delivered:
+  - Each press first checks that AppKit's hit-testing of the whole layout lands on the viewport's input view and not on HUD chrome.
+  - Mouse events are then handed to that view directly: an unshown window in a test process doesn't route mouse events from `sendEvent`.
+  - Keys go through `NSWindow.sendEvent`, so they follow the real responder chain.
+- `orbitAndPlaybackReuseTheOverlayWhileAnEditRebuildsIt` checks the new triggers:
+  - an orbit and a playback step keep the same mark and path entities;
+  - the selected actor's box is rebuilt around the actor's evaluated bounds at the new frame;
+  - mark badges face the camera, both kept and rebuilt ones, and hiding marks still applies;
+  - an `addActorMark` rebuilds the overlay, and switching shots rebuilds the camera marks for the new shot.
+
+### Frame times (CONTRACTS section 10; `ViewportTimingTests.swift`)
+Run from `app/`: `SHOTS_TIMING=1 swift test -c release --filter ViewportTiming`. CI never sets `SHOTS_TIMING`.
+
+**What is measured, exactly.** `swift test` is not a running, active application, so RealityKit never draws a `RealityView` frame there. A probe subscribed to the hosted view's `SceneEvents.Update` and received no events in 3 s idle or during orbit. An on-screen frame rate can't be read headlessly, so each frame is measured as two halves:
+- **update:** the main-actor work one input step causes in the hosted workspace. For orbit that is a real `mouseDragged` event through the viewport's input view, the SwiftUI pass it triggers (body, `updateNSView`, `RealityView`'s update closure, which does run headlessly), and one more full `ViewportLiveSession.sync`. For playback it is the playhead step, the SwiftUI pass and one more sync.
+- **draw:** a RealityKit render of the same stage with the editor overlay, from the editor camera, at the viewport's size in Retina pixels (twice its points). It goes through `ShotFrameRenderer`, awaited, including the read-back to a `CGImage` that the live view doesn't do.
+
+The frame figure is update + draw, a conservative stand-in for the on-screen frame. Look-through playback is measured as one playhead step plus `ShotCameraPreviewSession`'s render of the 640 × 1152 canvas.
+
+**Scene.** The full two-person walk (124 frames, 640 × 1152) grown to 20 entities: ten people walking tracks of their own and ten props. During orbit an off-centre prop is selected, so its selection box and handles are live. During playback the walking Man is selected. The window is 1280 × 860 pt, which gives the viewport 788 × 451 pt (drawn at 1576 × 902 px).
+
+**Machine.** Apple M4, 10 cores, macOS 27.0.1, local Swift 6.4, release build. Two 1× external displays. No other build or test was running during the recorded runs; macOS storage-management services were using about two cores throughout. (A first run overlapped another worktree's debug `swift test`; its numbers are not recorded.)
+
+| Path, 20 entities | update median / p95 | draw median / p95 | frame median / p95 (max) | Budget |
+| --- | --- | --- | --- | --- |
+| Orbit, 120 drag steps | 1.05 / 1.14 ms | 9.68 / 11.15 ms | 10.73 / 12.33 ms (13.26) | 16.7 ms (60 fps) |
+| Playback in the scene view, 124 frames | 5.98 / 6.48 ms | 10.91 / 14.42 ms | 17.05 / 20.55 ms (22.78) | 41.7 ms (24 fps) |
+| Playback in the shot camera view, 124 frames | | | 10.54 / 11.95 ms (13.71) | 41.7 ms (24 fps) |
+
+A second run on the same build gave:
+- orbit frame 10.65 / 12.54 ms (max 15.92);
+- scene-view playback 16.91 / 20.73 ms;
+- look-through playback 10.41 / 12.71 ms.
+
+The test asserts all three p95s against the budgets. Orbit's p95 leaves about 4 ms of headroom. Playback runs with a walking actor selected, so its selection box is rebuilt every frame, the costliest case left after the fix.
+
+An earlier variant, with a static prop selected during playback, measured 15.5 / 16.5 ms. Drawn at 1× (788 × 451 px), it measured orbit 9.5 / 11.5 ms.
+
+**Before the fix.** The test's earlier variant, with the prop selected throughout, was run with the two viewport source files put back to `origin/main` (`acfd417`), on the same idle machine. It did not meet the budget:
+- orbit frame median 804 ms, p95 2,166 ms;
+- scene-view playback frame median 3,738 ms, p95 9,744 ms;
+- look-through playback median 4,013 ms.
+
+The run took 19.4 minutes. Its draw half was 18–32 ms median; nearly all the time was the overlay rebuild in the update half. The look-through figure includes the hosted scene view's own SwiftUI pass, because the test keeps that view mounted. The real app unmounts it in look-through mode, so this inflates both before and after.
+
+### Verification results for D6 (`shots/d-integration`, rebased on `9ff8741`)
+- `ViewportIntegrationTests` (IT4 and the rebuild-trigger test): 2 tests in 1 suite, both passed.
+- Unfiltered `app` (`swift test`, debug): 996 Swift Testing tests in 166 suites reported, 0 failed, 11 skipped by their gates:
+  - `SHOTS_TIMING`: this lane's `ViewportTiming` and Lane B's two timing tests;
+  - snapshot directories, `PREVIS_PRESETS`, real-model and screen-render gates.
+
+  XCTest reported 0 tests.
+- `PrevisCore` (`swift test --package-path PrevisCore`, no fixture env): 159 tests in 23 suites reported, 0 failed, 5 skipped by the `PREVIS_GOLDENS`, `PREVIS_VECTORS` and `SHOTS_TIMING` gates.
+- `swiftlint lint --strict --quiet` and `swiftformat Sources Tests PrevisCore/Sources PrevisCore/Tests --lint`, from `app/` through `mise exec --`: 0 violations; 0/433 files need formatting.
+- `SHOTS_TIMING=1 swift test -c release --filter ViewportTiming`: passed twice with the numbers above, on `d8806a6` (this branch before its rebase onto `9ff8741`). The rebase brought only #89's PrevisCore motion-data correction; no viewport code changed.
+- Not run here: on-screen M1/M2 frame rate, VoiceOver, physical keyboard and trackpad, signed sandbox. These are the owner's walkthroughs.
 
 ## Blockers and dependencies
 
-- **D2:** Composed with merged D3–D5 on 2026-11-01 for merge on the owner's instruction; the raw `"sit-down"` peak keyframe vs `Gait.sit` sign-check disposition remains open with Lane A (see Open questions). It is a motion-data question in PrevisCore, already on `main`.
-- **D3:** Accepted on Draft PR [#82](https://github.com/RationallyPrime/concept-studio/pull/82) (`fdb33e2` on `shots/d-picking`, independent Round 1 P2 closure `ACCEPT` [issuecomment-6459717747](https://github.com/RationallyPrime/concept-studio/pull/82#issuecomment-6459717747), 7/7 CI jobs green `40625014667`); held in Draft under current coordination no-merge instruction.
-- **D4:** Accepted on Draft PR [#84](https://github.com/RationallyPrime/concept-studio/pull/84) (`b540cba` on `shots/d-handles` stacked on `shots/d-picking`, independent Round 1 P2 closure `ACCEPT` [issuecomment-6462207823](https://github.com/RationallyPrime/concept-studio/pull/84#issuecomment-6462207823), 7/7 CI jobs green `40642600720`); held in Draft under current coordination no-merge instruction.
-- **D5:** Rendering slice accepted on Draft PR [#83](https://github.com/RationallyPrime/concept-studio/pull/83) (`36b0c18` on `shots/d-look-through`, independent Round 1 P2 closure `ACCEPT` [issuecomment-6460834801](https://github.com/RationallyPrime/concept-studio/pull/83#issuecomment-6460834801), 7/7 CI jobs green `40633111569`); keyboard & accessibility slice on Draft PR [#85](https://github.com/RationallyPrime/concept-studio/pull/85) (`shots/d-keyboard-a11y`, stacked on `shots/d-handles` `b540cba` / Draft PR `#84`) updated with Round 1 P2-1 & P2-2 repairs for independent closure review and CI; post-review composition of `#83` + `#85` and native VoiceOver/focus walkthrough remain separate.
-- **D6:** Blocked on merged B6.
+- None. D0–D5 are merged; D6's dependencies, C3 and B6 (`36b3af9`), are merged.
+- The owner's hands: on-screen walkthroughs (VoiceOver, physical keyboard, trackpad feel, signed sandbox, M1/M2 frame rate), which no headless test replaces.
 
-## Open questions (UNRESOLVED — blocks D2 sign-check acceptance)
+## Open questions
 
-- None for the D5 look-through rendering slice.
-- **D2 side-view sign check (`LANE-D-VIEWPORT.md` lines 101-103 vs `LANE-A-CORE.md` line 132 & `BodyTests.swift:73`):**
-  - Procedural `Gait.sit` (`d2-sign-check-side.png`) places knees `0.409` m ahead of hips (`rightHip.z - rightKnee.z > 0.2` m), matching `BodyTests.sittingPutsTheKneesAheadOfTheHips()`.
-  - However, applying the literal peak keyframe (`t = 1.1`) of catalog motion `"sit-down"` (`motions.v1.json` / Blockout `motions.ts:2590-2595`, which authors `hipLX: +1.4, hipRX: +1.4` despite `motions.ts:20-21` stating positive `hipX` is backward) on `gait: .stand` (`d2-sign-check-sit-down-peak.png`) swings the thighs backward (`+Z`) under `PersonRig.angles` (`a.hipL.x -= joint(.hipLX)`), placing knees `> 0.3` m **behind** the hips (`rightKnee.z - rightHip.z > 0.3` m) while `ActorMark.joints` leaves the pelvis at standing height.
-  - Procedural `gait: .sit` correctness does not settle the literal peak-keyframe-joints contract phrasing; maintainer / Lane A disposition is required on whether D2's sign check means `Gait.sit` or whether authored `"sit-down"` requires a separately owned `PrevisCore` correction. Lane D makes no rig or motion-data changes.
-- None for D5 keyboard & accessibility.
+- **Closed — D2 side-view sign check.** The owner ruled on 2026-11-09 that the check means the procedural `Gait.sit`, which passes: `d2-sign-check-side.png` puts the knees `0.409` m ahead of the hips, matching `BodyTests.sittingPutsTheKneesAheadOfTheHips()`. Blockout's seated motions (`sit-down`, `stand-up`, …) author `hipX` with the opposite sign to Blockout's own header (`motions.ts:20-21` against `motions.ts:2590-2595`); the integrator corrected that motion data in PrevisCore as a recorded deviation. The fix is `MotionCorrections`, [#89](https://github.com/RationallyPrime/concept-studio/pull/89), merge `9ff8741`, and CONTRACTS section 4 now records the joint-override signs. `torsoY` keeps the header and rig convention, positive turning counter-clockwise seen from above. Lane D changes no rig or motion data. The `sit-down` peak diagnostic (`d2-sign-check-sit-down-peak.png`, now `sideViewSignCheckSnapshotShowsTheCorrectedSitDownPeakWithKneesAhead`) shows the knees ahead of the hips since #89.
+- **Open — dragging a blocked actor (D4, found in D6).** Selecting an actor that has marks and dragging its move or rotate handle edits only `placement`, which the evaluator uses only before the first mark (`Document.swift`: "pose before the first mark"). The handle sits at the placement, not where the actor is drawn at the playhead (`twoPersonWalk(small: true)` frame 11: handle at x −1.30, Man drawn at x −0.50), and the release commits a change nothing on screen shows. Blockout puts the gizmo on the drawn body and moves the entity's marks with it ("choreography rides along", `SceneManager.ts:1130-1149, 1250-1270`), as the D5 arrow-key nudge already does here. Fixing it needs a preview of several commands at once (the placement plus every mark), and `ShotsStore.preview` holds one `ShotsCommand` (CONTRACTS section 7). That is a contract change for the owner: for example a `preview` that holds a command list, applied like `perform(_ commands:)`. D6 leaves the handle as it is; dragging a mark (`updateActorMark`), which IT4 does, is unaffected.

@@ -37,26 +37,17 @@ import SwiftUI
         group.position = SIMD3<Float>(Float(position.x), Float(position.y) + 0.01, Float(position.z))
 
         let material = UnlitMaterial(color: nsColor(color))
-        let across = ModelEntity(
-            mesh: .generateBox(width: 0.4, height: 0.02, depth: 0.08),
-            materials: [material]
-        )
+        let across = ModelEntity(mesh: markMeshes.across, materials: [material])
         across.name = "mark.across"
         across.position = SIMD3<Float>(0, 0.011, -0.14)
         group.addChild(across)
 
-        let stem = ModelEntity(
-            mesh: .generateBox(width: 0.08, height: 0.02, depth: 0.4),
-            materials: [material]
-        )
+        let stem = ModelEntity(mesh: markMeshes.stem, materials: [material])
         stem.name = "mark.stem"
         stem.position = SIMD3<Float>(0, 0.011, 0.06)
         group.addChild(stem)
 
-        let badge = ModelEntity(
-            mesh: .generatePlane(width: 0.35, height: 0.35),
-            materials: [badgeMaterial(text: "\(number)")]
-        )
+        let badge = ModelEntity(mesh: markMeshes.badge, materials: [badgeMaterial(text: "\(number)")])
         badge.name = "mark.number.\(number)"
         badge.position = SIMD3<Float>(0, 0.3, 0)
         group.addChild(badge)
@@ -64,6 +55,13 @@ import SwiftUI
         ViewportGrid.disableOcclusionCulling(on: group)
         return group
     }
+
+    /// Every mark shares one mesh per piece; only the material differs (D6: rebuilds stay cheap).
+    private static let markMeshes = (
+        across: MeshResource.generateBox(width: 0.4, height: 0.02, depth: 0.08),
+        stem: MeshResource.generateBox(width: 0.08, height: 0.02, depth: 0.4),
+        badge: MeshResource.generatePlane(width: 0.35, height: 0.35)
+    )
 
     private static var badgeMaterialCache: [String: UnlitMaterial] = [:]
 
@@ -347,6 +345,9 @@ import SwiftUI
         return group
     }
 
+    /// One unit box, scaled per strut, instead of a new mesh for every edge of every selection box and frustum.
+    private static let unitStrutMesh = MeshResource.generateBox(size: 1)
+
     static func addStrut(
         to parent: Entity,
         from a: SIMD3<Float>,
@@ -357,10 +358,8 @@ import SwiftUI
         let delta = b - a
         let length = simd_length(delta)
         guard length > 1e-5 else { return }
-        let strut = ModelEntity(
-            mesh: .generateBox(width: thickness, height: length, depth: thickness),
-            materials: [material]
-        )
+        let strut = ModelEntity(mesh: unitStrutMesh, materials: [material])
+        strut.scale = SIMD3<Float>(thickness, length, thickness)
         strut.position = (a + b) * 0.5
         strut.orientation = simd_quatf(from: SIMD3<Float>(0, 1, 0), to: delta / length)
         parent.addChild(strut)
@@ -474,6 +473,11 @@ import SwiftUI
         visit(root)
     }
 
+    /// Brings the overlay up to date. With `previous` (the inputs the last call returned), each group is rebuilt
+    /// only when what it draws from changed, the way Blockout rebuilds its overlay on a document, scene or shot
+    /// change and its selection decorations on a selection change, and only re-poses per frame
+    /// (`SceneManager.ts:279-299, 2119-2137`). Without `previous`, every group is rebuilt.
+    @discardableResult
     static func sync(
         overlayRoot: Entity,
         scene: PrevisScene?,
@@ -482,23 +486,76 @@ import SwiftUI
         frame: SceneFrame?,
         selection: ShotsSelection,
         showMarks: Bool,
-        showPaths: Bool
-    ) {
-        rebuildMarks(in: overlayRoot, scene: scene, shot: shot, showMarks: showMarks)
-        rebuildPaths(
-            in: overlayRoot,
-            scene: scene,
-            evaluator: evaluator,
-            selection: selection,
-            showPaths: showPaths
-        )
+        showPaths: Bool,
+        previous: ViewportOverlayInputs? = nil
+    ) -> ViewportOverlayInputs {
+        let inputs = ViewportOverlayInputs(scene: scene, shot: shot, frame: frame, selection: selection)
+        if previous?.drawsSameMarks(as: inputs) == true {
+            ensureGroup(named: marksGroupName, in: overlayRoot).isEnabled = showMarks
+        } else {
+            rebuildMarks(in: overlayRoot, scene: scene, shot: shot, showMarks: showMarks)
+        }
+        if previous?.drawsSamePaths(as: inputs) == true {
+            ensureGroup(named: pathsGroupName, in: overlayRoot).isEnabled = showPaths
+        } else {
+            rebuildPaths(
+                in: overlayRoot,
+                scene: scene,
+                evaluator: evaluator,
+                selection: selection,
+                showPaths: showPaths
+            )
+        }
         updateCameraBody(in: overlayRoot, shot: shot, frame: frame)
-        rebuildSelectionBoxes(
-            in: overlayRoot,
-            scene: scene,
-            shot: shot,
-            frame: frame,
-            selection: selection
-        )
+        if previous?.drawsSameSelection(as: inputs) != true {
+            rebuildSelectionBoxes(
+                in: overlayRoot,
+                scene: scene,
+                shot: shot,
+                frame: frame,
+                selection: selection
+            )
+        }
+        return inputs
+    }
+}
+
+/// What the overlay's rebuilt groups were drawn from, so a sync can skip a group whose inputs are unchanged.
+/// Marks and paths depend on the scene and shot only, never on the playhead; selection boxes also depend on the
+/// evaluated pose of whatever is selected.
+struct ViewportOverlayInputs: Equatable {
+    var scene: PrevisScene?
+    var shotID: ShotID?
+    var selection: ShotsSelection
+    var selectedBounds: [Box3?]
+    var selectedCamera: CameraFrame?
+
+    init(scene: PrevisScene?, shot: Shot?, frame: SceneFrame?, selection: ShotsSelection) {
+        self.scene = scene
+        shotID = shot?.id
+        self.selection = selection
+        switch selection {
+        case let .entities(ids):
+            selectedBounds = ids.map { id in frame?.entities.first { $0.id == id }?.bounds }
+            selectedCamera = nil
+        case .camera:
+            selectedBounds = []
+            selectedCamera = shot == nil ? nil : frame?.camera
+        case .none, .actorMark, .cameraMark:
+            selectedBounds = []
+            selectedCamera = nil
+        }
+    }
+
+    func drawsSameMarks(as other: Self) -> Bool {
+        scene == other.scene && shotID == other.shotID
+    }
+
+    func drawsSamePaths(as other: Self) -> Bool {
+        drawsSameMarks(as: other) && selection == other.selection
+    }
+
+    func drawsSameSelection(as other: Self) -> Bool {
+        self == other
     }
 }
