@@ -5,7 +5,6 @@ import SwiftUI
 struct ShotsCameraInspector: View {
     let store: ShotsStore
     let shot: Shot
-    @State private var moveID = "slow-push-in"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -55,30 +54,8 @@ struct ShotsCameraInspector: View {
             }
             .help("With Rig set to Car mount, the camera rides on this person or prop, such as a car, "
                 + "and its marks are measured from it. Other rigs ignore it.")
-            Text("Framing").font(.subheadline).accessibilityAddTraits(.isHeader)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96))], alignment: .leading) {
-                ForEach(Framing.Kind.allCases, id: \.self) { kind in
-                    Button(kind.displayName) {
-                        store.run(.applyFraming(shot.id, kind, subjects: shot.camera.trackIDs, atFrame: store.playhead))
-                    }
-                    .disabled(shot.camera.trackIDs.isEmpty)
-                    .help(kind.explanation)
-                }
-            }
-            Text(shot.camera.trackIDs.isEmpty
-                ? "Turn on aim lock for at least one person or prop to use framing."
-                : "Each framing adds a camera mark at the playhead. Aim lock keeps choosing where the camera points.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Picker("Camera move", selection: $moveID) {
-                ForEach(store.catalog.cameraMoves.filter { store.catalog.starter.cameraMoves.contains($0.id) }) {
-                    Text($0.name).tag($0.id)
-                }
-            }
-            .help("A ready-made camera movement, such as a slow push in.")
-            Button("Apply camera move") {
-                store.run(.applyCameraMove(shot.id, moveID: moveID, subjects: shot.camera.trackIDs))
-            }
-            .help("Replace this shot's camera marks and aim lock with the chosen movement.")
+            ShotsFramingSection(store: store, shot: shot)
+            ShotsCameraMoveSection(store: store)
         }
     }
 }

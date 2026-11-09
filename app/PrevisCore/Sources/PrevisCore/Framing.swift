@@ -2,8 +2,7 @@
 // SHOT_SIZES) and src/renderer/viewport/SceneManager.ts (autoFrame, applyFraming) at 3f2d0564, Apache-2.0, by Sam
 // Wasserman (wassermanproductions.com). Changes: pure functions over an evaluated frame; the camera aims at the framed
 // region (Blockout's tilt was always 0); every distance that fits something in the frame uses the canvas aspect, not
-// the
-// full sensor width. See Resources/NOTICE.
+// the full sensor width, and a shot size also fits a head's width across the canvas. See Resources/NOTICE.
 
 import Foundation
 
@@ -16,7 +15,8 @@ public enum Framing {
     /// aspect.
     ///
     /// The shot sizes (`wide`, `full`, `medium`, `closeUp`) frame the first subject from the side the camera is on, at
-    /// the camera's height, aimed at the middle of the visible part. `twoShot` fits every subject across the frame;
+    /// the camera's height, aimed at the middle of the visible part, and far enough back that a head's width fits
+    /// across the canvas. `twoShot` fits every subject across the frame;
     /// `overShoulder` needs two. `reverse` swings the camera to the opposite side of the subjects' midpoint, `top`
     /// looks
     /// straight down, `low` looks up from knee height and `dutch` cycles the horizon between level, right and left.
@@ -139,8 +139,15 @@ public enum Framing {
 
         func shotSize(_ kind: Kind, azimuthFrom camera: Vec3) -> Pose {
             let (visibleFraction, fill) = Framing.size(of: kind)
-            let visible = primary.height * visibleFraction
-            let distance = visible / fill / (2 * tan(optics.verticalFOV / 2))
+            // Blockout fits only the visible part's height. The width of a head (Blockout's person is 0.13 of its
+            // height across the head) is fitted across the canvas with the same fill too: on a portrait canvas a
+            // close-up framed by height alone is narrower than the head, and a face in profile leaves the frame.
+            // When the width needs more room, the visible part grows down from the top of the head to fill the
+            // frame, so the headroom stays the same.
+            let tall = primary.height * visibleFraction / fill / (2 * tan(optics.verticalFOV / 2))
+            let wide = primary.height * 0.13 / fill / (2 * tan(optics.horizontalFOV / 2))
+            let distance = max(tall, wide)
+            let visible = min(primary.height, distance * 2 * tan(optics.verticalFOV / 2) * fill)
             let targetHeight = primary.height - visible / 2
             var azimuth = atan2(camera.x - primary.position.x, camera.z - primary.position.z)
             if !azimuth.isFinite { azimuth = 0 }
@@ -150,8 +157,7 @@ public enum Framing {
                 primary.position.z + cos(azimuth) * distance
             )
             // Blockout set the camera height to the target height, which made the tilt always 0. The camera keeps its
-            // own
-            // height and tilts to the middle of the visible part.
+            // own height and tilts to the middle of the visible part.
             let target = Vec3(primary.position.x, primary.position.y + targetHeight, primary.position.z)
             let (pan, tilt) = panTilt(from: position, to: target)
             return Pose(position: position, pan: pan, tilt: tilt)
