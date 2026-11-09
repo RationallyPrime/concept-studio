@@ -17,7 +17,7 @@ struct ShotsAssetLibraryTests {
         #expect(store.tool == .select)
         #expect(store.document == before)
         #expect(!store.canUndo)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
     }
 
     @Test func onlyKnownStarterAssetsCanBeArmedInAnEditableShot() throws {

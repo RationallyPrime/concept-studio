@@ -356,11 +356,11 @@ extension ViewportKeyboardTests {
         let startPx = try #require(camera.project(pivot, size: size))
         #expect(session.beginHandleDrag(at: startPx, in: store))
         session.updateHandleDrag(at: Point2(x: startPx.x + 18, y: startPx.y - 12), shiftPressed: false, in: store)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
 
         #expect(pressKey("1", keyCode: 18, in: store, session: session))
         #expect(session.activeHandleDrag == nil)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
 
         // 2. Command/Control/Option modifiers are ignored so system shortcuts are never hijacked
         #expect(!pressKey("f", keyCode: 3, modifiers: [.command], in: store, session: session))

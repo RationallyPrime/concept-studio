@@ -67,10 +67,10 @@ struct ShotsHelpAndKeyboardTests {
         let entity = try store.addLibraryAsset("person.man")
         let before = store.document
         let preview = ShotsCommand.setPlacement(entity, Placement(position: Vec3(9, 0, 0), heading: 0, scale: 1))
-        store.preview = preview
+        store.preview = [preview]
         #expect(throws: ShotsEditingError.self) { _ = try store.addInspectorMark(for: entity) }
         #expect(throws: ShotsEditingError.self) { _ = try store.addLibraryAsset("person.woman") }
-        #expect(store.preview == preview)
+        #expect(store.preview == [preview])
         #expect(store.document == before)
         let readOnly = ShotsStore(catalog: store.catalog, document: before, saveURL: nil, readOnly: true)
         #expect(throws: ShotsEditingError.self) { _ = try readOnly.addLibraryAsset("person.man") }

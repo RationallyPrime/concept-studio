@@ -34,7 +34,8 @@ final class ShotsStore {
     }
 
     var isPlaying = false
-    var preview: ShotsCommand?
+    /// Drawn in order, never saved or undoable; empty between gestures (`CONTRACTS.md` section 7).
+    var preview: [ShotsCommand] = []
     var onError: (@MainActor (String) -> Void)?
 
     @ObservationIgnored private let saveURL: URL?
@@ -57,10 +58,10 @@ final class ShotsStore {
     }
 
     private var visibleDocument: ShotsDocument {
-        guard let preview, !isReadOnly else { return document }
+        guard !preview.isEmpty, !isReadOnly else { return document }
         var candidate = document
         do {
-            try ShotsCommandApplication.apply(preview, to: &candidate, catalog: catalog)
+            try apply(preview, to: &candidate)
             return candidate
         } catch {
             return document
@@ -99,9 +100,9 @@ final class ShotsStore {
 
     var problems: [ShotsProblem] {
         var candidate = document
-        if let preview, !isReadOnly {
+        if !preview.isEmpty, !isReadOnly {
             do {
-                try ShotsCommandApplication.apply(preview, to: &candidate, catalog: catalog)
+                try apply(preview, to: &candidate)
             } catch {
                 return [ShotsProblem(severity: .error, message: error.localizedDescription)]
             }
@@ -126,10 +127,8 @@ final class ShotsStore {
         guard !commands.isEmpty else { return }
         let before = document
         var candidate = before
-        for command in commands {
-            try ShotsCommandApplication.apply(command, to: &candidate, catalog: catalog)
-        }
-        guard candidate != before else { preview = nil; return }
+        try apply(commands, to: &candidate)
+        guard candidate != before else { preview = []; return }
         let failures = ShotsValidation.problems(in: candidate, catalog: catalog).filter { $0.severity == .error }
         guard failures.isEmpty else { throw ShotsError.invalid(failures) }
         let hasSceneMutation = commands.contains { command in
@@ -156,9 +155,15 @@ final class ShotsStore {
         lastEdit = key.map { ($0, now) }
         redoDocuments.removeAll()
         document = candidate
-        preview = nil
+        preview = []
         reconcileSelection()
         scheduleSave()
+    }
+
+    private func apply(_ commands: [ShotsCommand], to candidate: inout ShotsDocument) throws {
+        for command in commands {
+            try ShotsCommandApplication.apply(command, to: &candidate, catalog: catalog)
+        }
     }
 
     func run(_ command: ShotsCommand, coalescing: Bool = false) {
@@ -204,7 +209,7 @@ final class ShotsStore {
     }
 
     private func historyDidChange() {
-        preview = nil
+        preview = []
         lastEdit = nil
         reconcileSelection()
         scheduleSave()

@@ -53,7 +53,7 @@ struct ShotsInspectorReviewTests {
             }
             gesture.commit(in: store)
             #expect(store.document == before)
-            #expect(store.preview == nil)
+            #expect(store.preview.isEmpty)
             #expect(!store.canUndo)
             #expect(store.canRedo)
         }
@@ -74,12 +74,12 @@ struct ShotsInspectorReviewTests {
         #expect(store.document == redone)
         let replacement = ShotsCommand.setPlacement(entity.id, Placement(position: Vec3(4, 0, 1), heading: 0, scale: 1))
         gesture.preview(.setCameraRig(shot.id, sensor: .fullFrame, rig: .handheld, intensity: 0.6), in: store)
-        store.preview = replacement
+        store.preview = [replacement]
         gesture.invalidateIfNeeded(in: store)
         gesture.commit(in: store)
-        #expect(store.preview == replacement)
+        #expect(store.preview == [replacement])
         #expect(store.document == redone)
-        store.preview = nil
+        store.preview = []
         store.undo()
         #expect(!store.canUndo)
     }
@@ -103,7 +103,7 @@ struct ShotsInspectorReviewTests {
         gesture.preview(.setCameraRig(shot.id, sensor: .super35, rig: .handheld, intensity: 0.9), in: store)
         gesture.commit(in: store)
         #expect(store.document == before)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         gesture.preview(.setCameraRig(shot.id, sensor: .super35, rig: .handheld, intensity: 0.3), in: store)
         gesture.commit(in: store)
         #expect(store.currentShot?.camera.rigIntensity == 0.3)

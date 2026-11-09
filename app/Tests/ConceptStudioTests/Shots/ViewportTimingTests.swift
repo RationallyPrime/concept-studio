@@ -62,7 +62,7 @@ struct ViewportTimingTests {
             orbitDraw.append(drawn)
         }
         try workspace.endOrbit()
-        #expect(store.document == document && store.preview == nil, "the orbit press must not grab a handle")
+        #expect(store.document == document && store.preview.isEmpty, "the orbit press must not grab a handle")
 
         // Playback with a walking actor selected: its selection box is rebuilt every frame, the costliest case left.
         store.selection = .entities(["ent_000000000001"])

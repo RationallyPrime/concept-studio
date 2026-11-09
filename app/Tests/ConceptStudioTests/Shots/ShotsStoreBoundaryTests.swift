@@ -72,7 +72,7 @@ struct ShotsStoreBoundaryTests {
         let store = try sampleStore()
         let original = store.document
         store.playhead = 61
-        store.preview = .renameScene("missing_scene", name: "Preview")
+        store.preview = [.renameScene("missing_scene", name: "Preview")]
         #expect(store.problems.contains { $0.severity == .error })
         #expect(store.document == original)
         #expect(store.frame?.index == 61)

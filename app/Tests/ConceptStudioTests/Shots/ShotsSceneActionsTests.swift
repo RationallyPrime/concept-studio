@@ -11,11 +11,11 @@ struct ShotsSceneActionsTests {
         let shot = try #require(store.currentShot)
         let scene = try #require(store.currentScene)
         store.playhead = 61
-        store.preview = .renameScene(scene.id, name: "Preview")
+        store.preview = [.renameScene(scene.id, name: "Preview")]
         store.selection = .entities([scene.entities[0].id])
         store.selectShot(shot.id)
         #expect(store.playhead == 0)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.selection == .none)
     }
 
@@ -23,7 +23,7 @@ struct ShotsSceneActionsTests {
         let store = try makeStore(ShotsSamples.twoPersonWalk())
         let shot = try #require(store.currentShot)
         let committed = try #require(store.currentScene)
-        store.preview = .setFrameCount(shot.id, 22)
+        store.preview = [.setFrameCount(shot.id, 22)]
         #expect(store.currentShot?.frameCount == 22)
         let snapshot = try store.exportSnapshot()
         #expect(snapshot.scene == committed)
@@ -117,7 +117,7 @@ struct ShotsSceneActionsTests {
         let before = store.document
         let scene = try #require(store.currentScene)
         let shot = store.currentShotID
-        store.preview = .renameScene(scene.id, name: "Uncommitted")
+        store.preview = [.renameScene(scene.id, name: "Uncommitted")]
         store.selection = .entities([scene.entities[0].id])
         let preview = store.preview, selection = store.selection
         #expect(throws: (any Error).self) { try store.importBlockoutProject(Data("not JSON".utf8)) }

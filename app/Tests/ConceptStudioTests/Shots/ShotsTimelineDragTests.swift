@@ -18,11 +18,11 @@ struct ShotsTimelineDragTests {
             mark: .actor(shot.id, track.entityID, original), mode: .stretch,
             geometry: ShotsTimelineGeometry(frameCount: shot.frameCount, width: 600)
         )
-        store.preview = drag.command(delta: 30)
-        store.preview = drag.command(delta: 60)
+        store.preview = [drag.command(delta: 30)]
+        store.preview = [drag.command(delta: 60)]
         #expect(store.document == before)
         #expect(!store.canUndo)
-        guard case let .updateActorMark(_, _, changed) = store.preview else {
+        guard store.preview.count == 1, case let .updateActorMark(_, _, changed) = store.preview[0] else {
             Issue.record("Actor drag must preview one updateActorMark")
             return
         }
@@ -31,7 +31,7 @@ struct ShotsTimelineDragTests {
         #expect(changed == expected)
         #expect(changed.hold > original.hold)
         try store.perform(drag.command(delta: 60))
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document != before)
         store.undo()
         #expect(store.document == before)
@@ -59,8 +59,8 @@ struct ShotsTimelineDragTests {
         #expect(id == shot.id)
         #expect(changed == expected)
         #expect(changed.time > original.time)
-        store.preview = command
-        store.preview = nil
+        store.preview = [command]
+        store.preview = []
         #expect(store.document == before)
         #expect(!store.canUndo)
         #expect(drag.command(delta: 120) == command)

@@ -7,7 +7,7 @@ extension ShotsStore {
     func addLibraryAsset(_ assetID: String) throws -> EntityID {
         guard !isReadOnly else { throw ShotsEditingError.readOnly }
         guard let scene = currentScene, currentShot != nil else { throw ShotsEditingError.missing("shot") }
-        guard preview == nil else { throw ShotsEditingError.finishCurrentEdit }
+        guard preview.isEmpty else { throw ShotsEditingError.finishCurrentEdit }
         guard let asset = catalog.asset(assetID), catalog.starter.assets.contains(assetID) else {
             throw ShotsError.unknownContent(assetID)
         }
@@ -27,7 +27,7 @@ extension ShotsStore {
     @discardableResult
     func addInspectorMark(for entityID: EntityID) throws -> MarkID {
         guard !isReadOnly else { throw ShotsEditingError.readOnly }
-        guard preview == nil else { throw ShotsEditingError.finishCurrentEdit }
+        guard preview.isEmpty else { throw ShotsEditingError.finishCurrentEdit }
         guard let shot = currentShot, let entity = frame?.entities.first(where: { $0.id == entityID }) else {
             throw ShotsEditingError.missing("entity or shot")
         }

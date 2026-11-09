@@ -17,7 +17,7 @@ struct ShotsStoreTests {
         moved.position.x += 2
         store.playhead = 61
         #expect(store.frame?.index == 61)
-        store.preview = .setPlacement(original.id, moved)
+        store.preview = [.setPlacement(original.id, moved)]
         #expect(store.currentScene?.entities.first?.placement == moved)
         #expect(store.document == document)
         #expect(!store.canUndo)
@@ -27,7 +27,7 @@ struct ShotsStoreTests {
         try store.perform(.setPlacement(original.id, moved))
 
         #expect(invalidated.withLock { $0 })
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document.scenes.first?.revision == originalRevision + 1)
         let committed = store.document
         store.undo()

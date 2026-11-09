@@ -36,10 +36,23 @@ struct ViewportIntegrationTests {
         #expect(store.document == drag.before)
         store.redo()
         #expect(store.document == drag.after)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
+
+        // At frame 8 she is between her marks; her own move handle carries her and her marks together.
+        let actorDrag = try script.dragPlacedActor(placed)
+        store.undo()
+        #expect(store.document == actorDrag.before)
+        store.redo()
+        #expect(store.document == actorDrag.after)
 
         // The expected document, built by commands from the scripted pixels alone.
-        let expected = try script.expectedDocument(from: original, placed: placed, marks: marks, drag: drag)
+        let expected = try script.expectedDocument(
+            from: original,
+            placed: placed,
+            marks: marks,
+            drag: drag,
+            actorDrag: actorDrag
+        )
         #expect(store.document == expected)
 
         // C toggles to the shot camera view in the same pane, with the keys still live there.
@@ -266,7 +279,7 @@ private struct IT4Script {
         for point in path {
             try workspace.send(.leftMouseDragged, at: workspace.windowPoint(forViewportPixel: point))
             workspace.settle()
-            #expect(store.preview != nil)
+            #expect(!store.preview.isEmpty)
             #expect(store.document == before)
             #expect(session.editorCamera == camera, "a handle drag must not orbit")
         }
@@ -274,8 +287,51 @@ private struct IT4Script {
         #expect(distance(previewed.marks[1].position, Vec3(-0.9, 0, 0.2)) < 0.03)
         try workspace.send(.leftMouseUp, at: workspace.windowPoint(forViewportPixel: release))
         workspace.settle()
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document != before)
+        return Drag(grab: grab, release: release, before: before, after: store.document)
+    }
+
+    /// Frame 8, then a click on the woman's body selects her. Her handle is drawn on that body, not at her placement,
+    /// and its move handle drags her through three points: the preview carries her placement and both marks, the
+    /// document stays untouched until release, and release commits once with her body under the pointer.
+    func dragPlacedActor(_ placed: PrevisEntity) throws -> Drag {
+        store.playhead = 8
+        workspace.settle()
+        let drawn = try #require(store.frame?.entities.first { $0.id == placed.id })
+        try workspace.click(atViewportPixel: pixel(over: Vec3(drawn.position.x, 0.9, drawn.position.z)))
+        #expect(store.selection == .entities([placed.id]))
+        let handles = try #require(session.overlayRoot.findEntity(named: ViewportHandles.rootEntityName))
+        let drawnAt = SIMD3<Float>(Float(drawn.position.x), Float(drawn.position.y), Float(drawn.position.z))
+        #expect(handles.isEnabled && simd_distance(handles.position, drawnAt) < 1e-4)
+        #expect(distance(drawn.position, placed.placement.position) > 0.3)
+
+        let before = store.document
+        let grab = try pixel(over: drawn.position)
+        let path = try [Vec3(0.15, 0, -0.1), Vec3(0.3, 0, -0.25), Vec3(0.45, 0, -0.4)].map { offset in
+            try pixel(over: Vec3(drawn.position.x + offset.x, 0, drawn.position.z + offset.z))
+        }
+        let release = try #require(path.last)
+        try workspace.send(.leftMouseDown, at: workspace.windowPoint(forViewportPixel: grab))
+        workspace.settle()
+        for point in path {
+            try workspace.send(.leftMouseDragged, at: workspace.windowPoint(forViewportPixel: point))
+            workspace.settle()
+            #expect(store.preview.count == 3)
+            #expect(store.document == before)
+            #expect(session.editorCamera == camera, "a handle drag must not orbit")
+        }
+        try workspace.send(.leftMouseUp, at: workspace.windowPoint(forViewportPixel: release))
+        workspace.settle()
+        #expect(store.preview.isEmpty)
+        #expect(store.document != before)
+        let start = try ground(at: grab), end = try ground(at: release)
+        let landed = try #require(store.frame?.entities.first { $0.id == placed.id })
+        #expect(distance(landed.position, Vec3(
+            drawn.position.x + end.x - start.x,
+            drawn.position.y,
+            drawn.position.z + end.z - start.z
+        )) < 0.005)
         return Drag(grab: grab, release: release, before: before, after: store.document)
     }
 
@@ -283,7 +339,8 @@ private struct IT4Script {
         from original: ShotsDocument,
         placed: PrevisEntity,
         marks: DroppedMarks,
-        drag: Drag
+        drag: Drag,
+        actorDrag: Drag
     ) throws -> ShotsDocument {
         let expected = ShotsStore(catalog: store.catalog, document: original, saveURL: nil)
         let sceneID = try #require(expected.currentSceneID), shotID = try #require(expected.currentShotID)
@@ -306,6 +363,20 @@ private struct IT4Script {
         moved.position = Vec3(moved.position.x + end.x - start.x, 0, moved.position.z + end.z - start.z)
         #expect(distance(moved.position, Vec3(-0.9, 0, 0.2)) < 0.03)
         try expected.perform(.updateActorMark(shotID, placed.id, moved))
+        // The actor drag: her placement and both marks shift by the same ground delta, as one step.
+        let grabbed = try ground(at: actorDrag.grab), released = try ground(at: actorDrag.release)
+        let delta = Vec3(released.x - grabbed.x, 0, released.z - grabbed.z)
+        func shifted(_ point: Vec3) -> Vec3 {
+            Vec3(point.x + delta.x, point.y + delta.y, point.z + delta.z)
+        }
+        var first = try mark(0, frame: 0, at: marks.first), second = moved
+        first.position = shifted(first.position)
+        second.position = shifted(second.position)
+        try expected.perform([
+            .setPlacement(placed.id, Placement(position: shifted(ground(at: placedAt)), heading: 0, scale: 1)),
+            .updateActorMark(shotID, placed.id, first),
+            .updateActorMark(shotID, placed.id, second),
+        ])
         return expected.document
     }
 }
