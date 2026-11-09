@@ -322,14 +322,15 @@ extension GPUWorkspace {
             "resolution": trainingResolutions.count > 1
                 ? .array(trainingResolutions.map(JSONValue.int)) : .int(resolution),
             "seed": .int(seed),
-            "save_every": .int(saveInterval), "sample_every": .int(samplesEnabled ? saveInterval : 0),
+            "save_every": .int(saveInterval), "sample_every": .int(usesSamples ? saveInterval : 0),
         ]
         if effectiveAugmentation != .none {
             params["augmentation"] = .string(effectiveAugmentation.rawValue)
         }
         if isH3Training { params["train_audio"] = .bool(trainAudio) }
-        if samplesEnabled {
-            params["sample_prompts"] = .array([.string(words.joined(separator: " "))])
+        if usesSamples {
+            let prompt = samplePrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            params["sample_prompts"] = .array([.string(prompt.isEmpty ? defaultSamplePrompt : prompt)])
         }
         for setting in trainerSettingOverrides.pairs {
             params[setting.key] = setting.value

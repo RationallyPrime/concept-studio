@@ -32,7 +32,7 @@ struct GPUResultTests {
         ]))
         #expect(params["resolution"]?.intValue == 1024)
         #expect(params["sample_every"]?.intValue == 200)
-        #expect(params["sample_prompts"] == .array([.string("NORA7")]))
+        #expect(params["sample_prompts"] == .array([.string("A picture of NORA7.")]))
         await transport.finish("trainer-aitoolkit", state: "exited")
         await workspace.refresh()
         #expect(workspace.result?.state == .pushed(repo: "me/lora"))
