@@ -9,6 +9,7 @@ struct ShotsShotSettings: View {
         if let shot = store.currentShot {
             VStack(alignment: .leading, spacing: 12) {
                 Text(shot.name).font(.title3)
+                    .accessibilityLabel("Shot \(shot.name)").accessibilityAddTraits(.isHeader)
                 Stepper {
                     Text("\(shot.frameCount) frames")
                 } onIncrement: {
@@ -16,11 +17,15 @@ struct ShotsShotSettings: View {
                 } onDecrement: {
                     if shot.frameCount > 5 { store.run(.setFrameCount(shot.id, shot.frameCount - 17)) }
                 }
+                .help("Shot length. The video model accepts lengths 17 frames apart, so it changes in steps of 17.")
                 Text("\(shot.duration, specifier: "%.2f") seconds at 24 frames per second")
                     .font(.caption).foregroundStyle(.secondary)
                 if !FrameGrid.trainedRange.contains(shot.frameCount) {
-                    Label("The model was trained on 124–362 frames.", systemImage: "exclamationmark.triangle")
-                        .font(.caption).foregroundStyle(InstantPrint.attentionText)
+                    Label(
+                        "The model was trained on 124–362 frames; other lengths may look worse.",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .shotsAttention()
                 }
                 canvasSettings(shot)
                 if let scene = store.currentScene {
@@ -31,6 +36,7 @@ struct ShotsShotSettings: View {
                             Text(lightingName(preset)).tag(preset)
                         }
                     }
+                    .help("How the whole scene is lit in the scene view and the exported pictures.")
                 }
             }
             .disabled(store.isReadOnly)
@@ -52,22 +58,28 @@ struct ShotsShotSettings: View {
                 }
             )) {
                 ForEach(Array(ShotCanvas.presets.enumerated()), id: \.offset) { index, canvas in
-                    Text("\(canvas.width) × \(canvas.height)").tag(index)
+                    Text(Self.canvasName(canvas)).tag(index)
                 }
                 Text("Custom").tag(-1)
             }
+            .help("The exported picture size in pixels, width × height.")
             if showsCustomCanvas || !ShotCanvas.presets.contains(shot.canvas) {
-                Stepper("Width: \(shot.canvas.width)", value: Binding(
+                Stepper("Width: \(String(shot.canvas.width))", value: Binding(
                     get: { shot.canvas.width },
                     set: { store.run(.setCanvas(shot.id, ShotCanvas(width: $0, height: shot.canvas.height))) }
                 ), in: 64 ... 2048, step: 32)
-                Stepper("Height: \(shot.canvas.height)", value: Binding(
+                Stepper("Height: \(String(shot.canvas.height))", value: Binding(
                     get: { shot.canvas.height },
                     set: { store.run(.setCanvas(shot.id, ShotCanvas(width: shot.canvas.width, height: $0))) }
                 ), in: 64 ... 2048, step: 32)
                 Text("Canvas dimensions use multiples of 32 pixels.").font(.caption).foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// "640 × 1152": pixel sizes never take locale digit grouping ("1,152").
+    static func canvasName(_ canvas: ShotCanvas) -> String {
+        "\(String(canvas.width)) × \(String(canvas.height))"
     }
 
     private func lightingName(_ preset: LightingPreset) -> String {

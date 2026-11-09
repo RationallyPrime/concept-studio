@@ -141,6 +141,9 @@ struct PreviewRenderTests {
             filter: filter,
             captures: &captures
         )
+        try await captureShotsStates(
+            session: session, catalog: catalog, output: output, filter: filter, captures: &captures
+        )
     }
 
     /// Extra states of a journey screen: a prefilled suggestion, a multi-selection, a running computer, tabs.
@@ -366,6 +369,7 @@ struct PreviewRenderTests {
             "appearance": "Light/dark scheme with simulated controlActiveState.key; no key window or activation",
             "limits": "Content only; native sidebar vibrancy may differ from a visible window. "
                 + "Concept editor and trained-model result sections are standalone content. "
+                + "Shots inspector-column and export captures are standalone content at the inspector's widths. "
                 + "Window alerts (close, quit, discard, budget prompts) are not drawn offscreen. "
                 + "No titlebar, input, focus, VoiceOver or live-service proof.",
             "pixel_scale": 1, "captures": captures,

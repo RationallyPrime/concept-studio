@@ -5,6 +5,8 @@ struct ShotsNumberField: View {
     let title: String
     @Binding var value: Double
     var range: ClosedRange<Double> = -100_000 ... 100_000
+    /// What the number means, for a reader with no film or 3D background. Shown on hover and read by VoiceOver.
+    var explanation: String?
 
     var body: some View {
         LabeledContent(title) {
@@ -13,18 +15,69 @@ struct ShotsNumberField: View {
                 value = min(max($0, range.lowerBound), range.upperBound)
             }), format: .number.precision(.fractionLength(0 ... 3)))
                 .textFieldStyle(.roundedBorder).labelsHidden()
-                .accessibilityLabel(title)
+                .accessibilityLabel(ShotsAccessibility.spokenTitle(title))
         }
+        .help(explanation ?? "")
+    }
+}
+
+/// A text field that keeps its name beside it once it has text, unlike a bare macOS placeholder.
+struct ShotsTextField: View {
+    let title: String
+    @Binding var text: String
+    var explanation: String?
+    var multiline = false
+
+    var body: some View {
+        Group {
+            if multiline {
+                // Notes get the column's full width, with their name above.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).accessibilityHidden(true)
+                    field.lineLimit(2 ... 6)
+                }
+            } else {
+                LabeledContent(title) { field }
+            }
+        }
+        .help(explanation ?? "")
+    }
+
+    private var field: some View {
+        TextField(title, text: $text, axis: multiline ? .vertical : .horizontal)
+            .textFieldStyle(.roundedBorder).labelsHidden()
+            .accessibilityLabel(title)
     }
 }
 
 struct ShotsPositionFields: View {
     @Binding var position: Vec3
+    /// A car-mounted camera's marks are offsets from its mount, not stage positions (PrevisCore `MountFrame`).
+    var fromMount = false
 
     var body: some View {
-        ShotsNumberField(title: "X (m)", value: $position.x)
-        ShotsNumberField(title: "Y (m)", value: $position.y)
-        ShotsNumberField(title: "Z (m)", value: $position.z)
+        let origin = fromMount ? ", measured from the camera's mount" : ""
+        ShotsNumberField(
+            title: "X (m)", value: $position.x, explanation: "Left and right across the stage, in metres\(origin)."
+        )
+        ShotsNumberField(
+            title: "Y (m)",
+            value: $position.y,
+            explanation: "Height above the ground, in metres\(origin)."
+        )
+        ShotsNumberField(
+            title: "Z (m)", value: $position.z, explanation: "Toward and away from the front, in metres\(origin)."
+        )
+    }
+}
+
+extension View {
+    /// The Instant Print "Needs attention" treatment: pink slip, dark red words, readable in both appearances.
+    func shotsAttention() -> some View {
+        font(.caption).foregroundStyle(InstantPrint.attentionText)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(InstantPrint.attention, in: RoundedRectangle(cornerRadius: 5))
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

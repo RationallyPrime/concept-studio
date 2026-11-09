@@ -8,7 +8,7 @@ struct ShotsInspectorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            selectionMenu
+            if store.currentShot != nil { selectionMenu }
             inspectorContent.disabled(store.isReadOnly)
         }
     }
@@ -22,11 +22,12 @@ struct ShotsInspectorView: View {
                 ShotsCameraInspector(store: store, shot: shot)
             case let .entities(ids):
                 if let entity = scene.entities.first(where: { ids.contains($0.id) }) {
-                    ShotsEntityInspector(store: store, entity: entity, shot: shot)
                     if ids.count > 1 {
-                        Text("Editing \(entity.name). Choose another entity from Inspect to edit it.")
-                            .font(.caption).foregroundStyle(.secondary)
+                        // Above the fields, so it is read before them rather than below the fold.
+                        Text("\(ids.count) selected. Editing \(entity.name); choose another from Inspect to edit it.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
+                    ShotsEntityInspector(store: store, entity: entity, shot: shot)
                 }
             case let .actorMark(entityID, markID):
                 if let mark = scene.blocking.first(where: { $0.id == shot.blockingTakeID })?
@@ -38,6 +39,9 @@ struct ShotsInspectorView: View {
                     ShotsCameraMarkInspector(store: store, shot: shot, mark: mark)
                 }
             }
+        } else {
+            Text("Choose a shot in Scenes and shots, or add a scene, to see its settings here.")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -56,7 +60,8 @@ struct ShotsInspectorView: View {
                 }
                 if let take = store.currentScene?.blocking.first(where: { $0.id == shot.blockingTakeID }) {
                     ForEach(take.tracks, id: \.entityID) { track in
-                        Menu(store.currentScene?.entities.first { $0.id == track.entityID }?.name ?? "Actor marks") {
+                        let name = store.currentScene?.entities.first { $0.id == track.entityID }?.name
+                        Menu(name.map { "\($0) marks" } ?? "Actor marks") {
                             ForEach(track.marks) { mark in
                                 Button("\(mark.time, specifier: "%.2f") s") {
                                     store.selection = .actorMark(track.entityID, mark.id)
@@ -67,6 +72,8 @@ struct ShotsInspectorView: View {
                 }
             }
         }
+        .help("Choose what the inspector edits: the shot, its camera, a person or prop, or one of their marks.")
         .accessibilityLabel("Inspect shot, camera, entity or mark")
+        .accessibilityValue(store.inspectedDescription)
     }
 }

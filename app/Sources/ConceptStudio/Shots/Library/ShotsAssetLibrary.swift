@@ -8,13 +8,19 @@ struct ShotsAssetLibrary: View {
     @State private var query = ""
 
     var body: some View {
+        let assets = store.libraryAssets(matching: query)
         VStack(alignment: .leading, spacing: 8) {
-            Text("Library").font(.headline)
+            Text("Library").font(.headline).accessibilityAddTraits(.isHeader)
             TextField("Find an asset", text: $query)
                 .textFieldStyle(.roundedBorder)
+                .help("Search starter people and props by name or kind.")
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(store.libraryAssets(matching: query)) { asset in
+                    if assets.isEmpty {
+                        Text("No starter asset matches “\(query)”.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    ForEach(assets) { asset in
                         HStack {
                             Button {
                                 store.chooseAssetForPlacement(asset.id)
@@ -33,7 +39,7 @@ struct ShotsAssetLibrary: View {
                             .padding(.vertical, 3)
                             .help("Choose \(asset.name), then click the ground in the scene view to place it.")
                             .accessibilityLabel("Place \(asset.name)")
-                            .accessibilityValue(store.tool == .place(assetID: asset.id) ? "Selected" : "")
+                            .accessibilityAddTraits(store.tool == .place(assetID: asset.id) ? .isSelected : [])
                             Button("Add to scene", systemImage: "plus") {
                                 do { try store.addLibraryAsset(asset.id) } catch {
                                     store.onError?(error.localizedDescription)
@@ -57,6 +63,7 @@ struct ShotsAssetLibrary: View {
             }
         }
         .padding(12)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Asset library")
     }
 }
