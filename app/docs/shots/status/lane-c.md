@@ -129,9 +129,10 @@ project or any project, and keep the pointer away from the window unless a step 
 6. Inspect menu: Tab to it, open with Space, reach Shot, Camera, each entity and each mark submenu with arrows.
 7. Scene actions: Tab to the scene's "…" menu, open it; **Chosen shot** offers Rename, Duplicate and Delete for
    the chosen shot. Rename's alert takes the new name and Return.
-8. Camera inspector: with the Man selected and aim lock off, move the playhead between camera marks and activate
-   Close-up; one camera mark is added at the playhead and the camera view shows his face. On a camera mark's
-   frame, Close-up changes that mark instead of adding one.
+8. Framing: select the Woman (Inspect › Woman) with aim lock off, move the playhead between camera marks and
+   activate Close-up in her inspector; one camera mark is added at the playhead and the camera view shows her
+   face. On a camera mark's frame, Close-up changes that mark instead of adding one. The camera inspector's
+   Framing note names the Man, the first person, as who its shot sizes frame.
 9. Slider: Tab to Rig intensity, change it with arrows; one Undo step reverts it. Drag it with the pointer and
    press Escape before releasing: nothing is committed.
 10. Shot inspector: Write H3 prompt (demo uses the template); Cancel stops a running write; edit the scene and
@@ -197,8 +198,9 @@ unchanged.
 - **C5** (#76): selection inspectors, Inspect menu, starter library, coalesced field edits, slider
   preview/cancel, and the prompt action through B5's real `ShotPromptCompiler` (fake-endpoint boundary test).
 - **C6 preparation** (#77): glossary, credits, Add to scene and Add mark here, as above.
-- **Framing like Blockout** (`shots/framing-like-blockout`, owner ruling 2026-11-09): the camera inspector's
-  framing buttons frame the selection as Blockout does (one selected entity for shot sizes, else the first person;
-  two or more for the others, else every person) and work without aim lock; a framing on a camera mark's frame
-  rewrites that mark. The framing note names who the shot sizes frame and warns when aim lock is on; the button
-  help no longer says "aim-lock subject".
+- **Framing like Blockout** (`shots/framing-like-blockout`, owner ruling 2026-11-09): the framing buttons
+  (`ShotsFramingSection`, in the camera inspector and in a selected person's or prop's inspector) frame the
+  selection as Blockout does (one selected entity for shot sizes, else the first person; two or more for the
+  others, else every person) and work without aim lock; a framing on a camera mark's frame rewrites that mark,
+  and a new mark keeps the roll of the one before it. The framing note names who each group frames and warns
+  when aim lock is on; the button help no longer says "aim-lock subject".

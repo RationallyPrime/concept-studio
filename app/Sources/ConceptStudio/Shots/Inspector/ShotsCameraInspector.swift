@@ -55,16 +55,7 @@ struct ShotsCameraInspector: View {
             }
             .help("With Rig set to Car mount, the camera rides on this person or prop, such as a car, "
                 + "and its marks are measured from it. Other rigs ignore it.")
-            Text("Framing").font(.subheadline).accessibilityAddTraits(.isHeader)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96))], alignment: .leading) {
-                ForEach(Framing.Kind.allCases, id: \.self) { kind in
-                    Button(kind.displayName) { store.applyFraming(kind) }
-                        .disabled(store.currentScene?.entities.isEmpty ?? true)
-                        .help(kind.explanation)
-                }
-            }
-            Text(framingNote)
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ShotsFramingSection(store: store, shot: shot)
             Picker("Camera move", selection: $moveID) {
                 ForEach(store.catalog.cameraMoves.filter { store.catalog.starter.cameraMoves.contains($0.id) }) {
                     Text($0.name).tag($0.id)
@@ -76,22 +67,5 @@ struct ShotsCameraInspector: View {
             }
             .help("Replace this shot's camera marks and aim lock with the chosen movement.")
         }
-    }
-
-    /// Who the framing buttons frame, and what aim lock does to the result (Blockout `SceneManager.ts`).
-    private var framingNote: String {
-        guard let scene = store.currentScene,
-              let id = store.framingSubjects(for: .closeUp).first,
-              let subject = scene.entities.first(where: { $0.id == id })
-        else { return "Add a person or prop to use framing." }
-        var note = "Wide, Full body, Medium and Close-up frame \(subject.name). "
-            + "Select one person or prop to frame someone else; select two or more for the other framings, "
-            + "which otherwise use every person. Each framing sets the camera at the playhead: it changes the "
-            + "camera mark there, or adds one."
-        if !shot.camera.trackIDs.isEmpty {
-            note += " Aim lock is on, so it keeps choosing where the camera points and the framing sets only "
-                + "where the camera stands. Turn aim lock off to keep the framing's aim."
-        }
-        return note
     }
 }

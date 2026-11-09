@@ -103,6 +103,8 @@ struct ShotsEntityInspector: View {
                 ))
             }
             .help("Replace this entity's marks with the route. It starts at the playhead, from the entity's placement.")
+            Divider()
+            ShotsFramingSection(store: store, shot: shot)
         }
     }
 

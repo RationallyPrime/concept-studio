@@ -258,11 +258,14 @@ ran under aim lock and the evaluator re-aimed it: a Close-up showed neck and che
 
 **What changed.**
 - Lane C: `ShotsFramingSubjects` picks the subjects from the selection by Blockout's rules; the buttons work without aim lock, and
-  framing leaves aim lock as it is (Blockout's behaviour). With aim lock off, as in the sample, the camera view shows the framing.
+  framing leaves aim lock as it is (Blockout's behaviour). The buttons are in the camera inspector and also in the inspector of a
+  selected person or prop, since Shots shows one inspector per selection and Blockout keeps them reachable whatever is selected
+  (the viewport rows, `Viewport.tsx` 101-155, and the pinned Camera tab, `Inspector.tsx` 69-77). With aim lock off, as in the sample, the camera view shows the framing.
 - Lane C, deviation: Shots still adds a mark at the playhead rather than rewriting the earlier mark, so the camera view at the
   playhead is the framing; Blockout's view there is an interpolation when the playhead is between marks. A mark already on the
   playhead's frame is now rewritten Blockout's way; before, a second mark was added at the same time and the evaluator played the
-  old one first, so a framing on a mark's frame (frame 0 of the sample) did not show.
+  old one first, so a framing on a mark's frame (frame 0 of the sample) did not show. A new mark takes the roll of the mark before
+  it (except for dutch), as Blockout's rewritten mark keeps its roll; before, it was level.
 - `Framing`, new deviation (extends the canvas-aware distances): a shot size's distance also fits a head's width (0.13 of the subject's
   height, Blockout's person head) across the canvas with the size's fill, and when that needs more room the visible part grows down
   from the top of the head. On the 9:16 sample a Close-up framed by height alone is 0.20 m wide at the subject, narrower than the
@@ -270,9 +273,9 @@ ran under aim lock and the evaluator re-aimed it: a Close-up showed neck and che
   on the sample (the height fit is the larger), and the shot-size tilt is kept.
 
 **Tests** (each fails with its part of the change reverted): `ShotsFramingTests` (app) selects the sample's man and presses
-Close-up at frame 0 (on a mark) and 61 (between marks): nose, eyes and neck project inside the canvas, the head from its top to the
+Close-up at frame 0 (on a mark) and 61 (between marks), and the woman (not the first person) at 61: nose, eyes and neck project inside the canvas, the head from its top to the
 neck fills more than half the frame height, and the chest and hips are below it. It also checks Blockout's subject rules, that aim lock
-neither picks the subject nor changes, and the rewrite-or-add rule. `GeneratorTests.aCloseUpOnAPortraitCanvasKeepsAProfileFaceInsideTheFrame`
+neither picks the subject nor changes, the rewrite-or-add rule and the kept roll. `GeneratorTests.aCloseUpOnAPortraitCanvasKeepsAProfileFaceInsideTheFrame`
 covers the width fit in PrevisCore.
 
 **Kept from Blockout, for the owner to confirm.** With exactly one entity selected, the non-size framings ignore it and use every

@@ -2,8 +2,8 @@
 import PrevisCore
 import Testing
 
-/// The camera inspector's framing buttons, as Blockout frames (`SceneManager.ts` `autoFrame`, `framingSubjects`,
-/// `writeCameraPose` at 3f2d0564).
+/// The framing buttons (camera and entity inspectors), as Blockout frames (`SceneManager.ts` `autoFrame`,
+/// `framingSubjects`, `writeCameraPose` at 3f2d0564).
 @Suite("Shots framing")
 @MainActor
 struct ShotsFramingTests {
@@ -12,22 +12,23 @@ struct ShotsFramingTests {
     private let chair = "ent_000000000003"
     private let wall = "ent_000000000004"
 
-    /// Close-up on the selected man, with aim lock off as in the sample, shows his face in the camera view at the
-    /// playhead: on a frame that already has a camera mark (0) and between marks (61).
-    @Test(arguments: [0, 61])
-    func closeUpOnTheSelectedManFramesHisHead(frame index: Int) throws {
+    /// Close-up on the selected person, with aim lock off as in the sample, shows their face in the camera view at
+    /// the playhead: on a frame that already has a camera mark (0) and between marks (61). The woman is not the
+    /// scene's first person, so she is framed only because she is selected.
+    @Test(arguments: [("ent_000000000001", 0), ("ent_000000000001", 61), ("ent_000000000002", 61)])
+    func closeUpOnTheSelectedPersonFramesTheirHead(subject: EntityID, frame index: Int) throws {
         let store = try makeStore()
         var errors: [String] = []
         store.onError = { errors.append($0) }
         #expect(store.currentShot?.camera.trackIDs.isEmpty == true)
-        store.selection = .entities([man])
+        store.selection = .entities([subject])
         store.playhead = index
         store.applyFraming(.closeUp)
         #expect(errors.isEmpty, "\(errors)")
 
         let frame = try #require(store.frame)
         let size = frame.canvas.pixelSize
-        let body = try #require(frame.entities.first { $0.id == man })
+        let body = try #require(frame.entities.first { $0.id == subject })
         let points = Dictionary(body.keypoints.map { ($0.name, $0.position) }) { first, _ in first }
         let nose = try #require(points[.nose]), neck = try #require(points[.neck])
         let rightEye = try #require(points[.rightEye]), leftEye = try #require(points[.leftEye])
@@ -40,13 +41,13 @@ struct ShotsFramingTests {
             return (0 ..< Double(size.width)).contains(pixel.x) && (0 ..< Double(size.height)).contains(pixel.y)
         }
         for (label, point) in [("nose", nose), ("right eye", rightEye), ("left eye", leftEye), ("neck", neck)] {
-            #expect(inside(pixel(point)), "frame \(index): \(label) at \(String(describing: pixel(point)))")
+            #expect(inside(pixel(point)), "\(subject) frame \(index): \(label) at \(String(describing: pixel(point)))")
         }
         // The head, from the top of the body to the neck, fills most of the frame height.
         let top = Vec3(body.position.x, body.bounds.max.y, body.position.z)
         let headTop = try #require(pixel(top)), chin = try #require(pixel(neck))
         let share = abs(chin.y - headTop.y) / Double(size.height)
-        #expect(share > 0.5, "frame \(index): the head fills \(share) of the frame height")
+        #expect(share > 0.5, "\(subject) frame \(index): the head fills \(share) of the frame height")
         // Chest and hips are below the frame.
         func between(_ a: Vec3, _ b: Vec3, _ u: Double) -> Vec3 {
             Vec3(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u, a.z + (b.z - a.z) * u)
@@ -55,19 +56,19 @@ struct ShotsFramingTests {
         let chest = between(neck, hips, 0.4)
         for (label, below) in [("chest", chest), ("hips", hips)] {
             let located = pixel(below)
-            #expect(!inside(located), "frame \(index): \(label) at \(String(describing: located)) is in the frame")
+            #expect(!inside(located), "\(subject) frame \(index): \(label) at \(String(describing: located))")
         }
     }
 
     @Test func framingTakesItsSubjectsFromTheSelectionAndLeavesAimLockAlone() throws {
         var document = ShotsSamples.twoPersonWalk()
-        document.scenes[0].shots[0].camera.trackIDs = [woman]
+        document.scenes[0].shots[0].camera.trackIDs = [man]
         let store = try ShotsStore(catalog: ContentCatalog.bundled(), document: document, saveURL: nil)
-        store.selection = .entities([man])
+        store.selection = .entities([woman])
         store.playhead = 61
         store.applyFraming(.closeUp)
         let shot = try #require(store.currentShot)
-        #expect(shot.camera.trackIDs == [woman])
+        #expect(shot.camera.trackIDs == [man])
         let mark = try #require(shot.camera.marks.first { FrameGrid.frame(atTime: $0.time) == 61 })
         let frame = try #require(store.frame)
         let manAt = try #require(frame.entities.first { $0.id == man }).position
@@ -75,8 +76,8 @@ struct ShotsFramingTests {
         func flat(_ a: Vec3, _ b: Vec3) -> Double {
             ((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z)).squareRoot()
         }
-        #expect(flat(mark.position, manAt) < 0.6, "the close-up stands by the selected man")
-        #expect(flat(mark.position, womanAt) > 0.6)
+        #expect(flat(mark.position, womanAt) < 0.6, "the close-up stands by the selected woman")
+        #expect(flat(mark.position, manAt) > 0.6)
     }
 
     @Test func subjectsFollowBlockoutsRules() throws {
@@ -126,6 +127,17 @@ struct ShotsFramingTests {
         #expect(marks.count == before.count + 1)
         #expect(marks.map(\.time) == marks.map(\.time).sorted())
         #expect(marks.contains { FrameGrid.frame(atTime: $0.time) == 61 })
+    }
+
+    @Test func aNewMarkKeepsTheRollOfTheMarkBeforeIt() throws {
+        var document = ShotsSamples.twoPersonWalk()
+        document.scenes[0].shots[0].camera.marks[0].roll = 0.35
+        let store = try ShotsStore(catalog: ContentCatalog.bundled(), document: document, saveURL: nil)
+        store.selection = .entities([man])
+        store.playhead = 61
+        store.applyFraming(.medium)
+        let added = try #require(store.currentShot?.camera.marks.first { FrameGrid.frame(atTime: $0.time) == 61 })
+        #expect(added.roll == 0.35)
     }
 
     private func makeStore() throws -> ShotsStore {

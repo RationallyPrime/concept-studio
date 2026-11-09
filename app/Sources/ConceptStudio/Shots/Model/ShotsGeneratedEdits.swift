@@ -105,11 +105,18 @@ enum ShotsGeneratedEdits {
     /// marks its camera view at the playhead does not show the framing. Shots adds a mark at the playhead instead;
     /// a mark already on that frame is rewritten as Blockout does (position, pan and tilt, or only the roll for
     /// dutch; its timing, easing and focus stay), so the view there is the framing rather than a second mark at the
-    /// same time that the evaluator plays after the first.
+    /// same time that the evaluator plays after the first. A new mark takes the roll of the mark Blockout would have
+    /// rewritten.
     static func frame(_ mark: CameraMark, kind: Framing.Kind, into marks: inout [CameraMark]) {
         let target = FrameGrid.frame(atTime: mark.time)
         let onFrame = marks.indices.filter { FrameGrid.frame(atTime: marks[$0].time) == target }
         guard !onFrame.isEmpty else {
+            // Blockout's active mark keeps its roll unless the framing is dutch; the new mark takes that mark's roll.
+            var mark = mark
+            if kind != .dutch, let active = marks.filter({ $0.time <= mark.time }).max(by: { $0.time < $1.time })
+                ?? marks.min(by: { $0.time < $1.time }) {
+                mark.roll = active.roll
+            }
             marks.append(mark)
             marks = marks.enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }
                 .map(\.element)
