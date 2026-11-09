@@ -99,13 +99,11 @@ actor VisionInspector {
                 entry = CachedImageAnalysis(
                     analysis: ImageAnalysis(width: info.width, height: info.height), featurePrint: nil
                 )
+            } else if let cached = cache.entries[hash], cached.version == CachedImageAnalysis.version {
+                entry = cached
             } else {
-                if let cached = cache.entries[hash], cached.version == CachedImageAnalysis.version {
-                    entry = cached
-                } else {
-                    let data = try Data(contentsOf: url)
-                    entry = try await Self.performVision { _ in try Self.inspect(data) }
-                }
+                let data = try Data(contentsOf: url)
+                entry = try await Self.performVision { _ in try Self.inspect(data) }
             }
             cache.entries[hash] = entry
             let observation = entry.featurePrint.flatMap(Self.unarchive)
