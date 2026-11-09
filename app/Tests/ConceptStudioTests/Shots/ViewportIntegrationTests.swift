@@ -126,6 +126,16 @@ struct ViewportIntegrationTests {
         #expect(unchanged(ViewportOverlays.marksGroupName, marks))
         #expect(unchanged(ViewportOverlays.pathsGroupName, paths))
         #expect(!unchanged(ViewportOverlays.selectionGroupName, boxes))
+        // The twelve edges' midpoints average to the box's centre, which is the actor's centre at frame 11.
+        let box = try #require(children(ViewportOverlays.selectionGroupName).first)
+        let centroid = box.children.map(\.position).reduce(.zero, +) / Float(box.children.count)
+        let bounds = try #require(store.frame?.entities.first { $0.id == "ent_000000000001" }?.bounds)
+        let centre = SIMD3<Float>(
+            Float((bounds.min.x + bounds.max.x) / 2),
+            Float((bounds.min.y + bounds.max.y) / 2),
+            Float((bounds.min.z + bounds.max.z) / 2)
+        )
+        #expect(box.children.count == 12 && simd_distance(centroid, centre) < 1e-4)
         let badge = try #require(session.overlayRoot.findEntity(named: "mark.number.1"))
         #expect(badge.orientation == ViewportOverlays.simd(session.editorCamera.orientation))
 
@@ -143,6 +153,21 @@ struct ViewportIntegrationTests {
         session.sync(with: store, frame: store.frame, size: size)
         #expect(children(ViewportOverlays.marksGroupName).count == marks.count + 1)
         #expect(!unchanged(ViewportOverlays.pathsGroupName, paths))
+        // Rebuilt badges face the camera too.
+        let rebuiltBadge = try #require(session.overlayRoot.findEntity(named: "mark.number.1"))
+        #expect(rebuiltBadge !== badge)
+        #expect(rebuiltBadge.orientation == ViewportOverlays.simd(session.editorCamera.orientation))
+
+        // Switching shots rebuilds the camera marks for the new shot.
+        try store.perform(.duplicateShot(shotID, newID: "shot_other"))
+        let otherMarks = try #require(store.currentScene?.shots.first { $0.id == "shot_other" }?.camera.marks)
+        try store.perform(.deleteMarks("shot_other", [#require(otherMarks.first?.id)]))
+        store.currentShotID = "shot_other"
+        session.sync(with: store, frame: store.frame, size: size)
+        let cameraMarkNames = children(ViewportOverlays.marksGroupName).map(\.name)
+            .filter { $0.hasPrefix("viewport.mark.camera:") }
+        let expectedNames = try #require(store.currentShot?.camera.marks).map { "viewport.mark.camera:\($0.id)" }
+        #expect(cameraMarkNames == expectedNames && expectedNames.count == otherMarks.count - 1)
     }
 }
 
@@ -176,7 +201,10 @@ private struct IT4Script {
         let input = try #require(workspace.input)
         // The viewport fills its pane of the split layout, and picking uses that same size.
         size = session.viewportSize
-        #expect(size == PixelSize(width: Int(input.bounds.width), height: Int(input.bounds.height)))
+        #expect(size == PixelSize(
+            width: Int(input.bounds.width.rounded()),
+            height: Int(input.bounds.height.rounded())
+        ))
         #expect(size.width >= 260 && size.height >= 220)
         camera = session.editorCamera
         placedAt = try Self.pixel(over: Vec3(0.4, 0, 1.2), camera: camera, size: size)

@@ -64,6 +64,9 @@ struct ViewportTimingTests {
         try workspace.endOrbit()
         #expect(store.document == document && store.preview == nil, "the orbit press must not grab a handle")
 
+        // Playback with a walking actor selected: its selection box is rebuilt every frame, the costliest case left.
+        store.selection = .entities(["ent_000000000001"])
+        workspace.settle()
         var playUpdate: [Double] = [], playDraw: [Double] = []
         let frameCount = try #require(store.currentShot?.frameCount)
         for index in 0 ..< frameCount {

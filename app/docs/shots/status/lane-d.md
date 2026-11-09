@@ -305,15 +305,20 @@ No PrevisCore motion data, rig, Lane C shell file or contract changed.
   4. With the second mark selected, as the mark list does, its move handle drags through three points. While it drags, `store.preview` is set, the document is unchanged and the editor camera doesn't orbit. Release commits once.
   5. Undo restores the pre-drag document and redo the post-drag one.
   6. The final document equals one built independently by `perform` from the scripted pixels: `addEntity`, two `addActorMark`, `updateActorMark`.
-  7. C swaps the pane to `ShotCameraView`, and its key view takes focus. The look-through image for frame 11 of the edited shot equals the exported `guides/middle-f0011-clean.png` as decoded RGB.
+  7. C swaps the pane to `ShotCameraView`, and its key view takes focus. The look-through image for frame 11 of the edited shot equals the exported `guides/middle-f0011-clean.png` as decoded RGB. That image comes from a `ShotCameraPreviewSession` given the same request the mounted view builds (`ShotCameraRenderRequest.make(from:)`); the mounted view's own image is private `@State` and isn't read.
   8. C returns to the focused scene view, where Space (Lane C's key) still starts playback.
 
   Only Lane C's own controls are stood in for by setting the store: the library asset, the playhead and the mark selection.
+
+  How events are delivered:
+  - Each press first checks that AppKit's hit-testing of the whole layout lands on the viewport's input view and not on HUD chrome.
+  - Mouse events are then handed to that view directly: an unshown window in a test process doesn't route mouse events from `sendEvent`.
+  - Keys go through `NSWindow.sendEvent`, so they follow the real responder chain.
 - `orbitAndPlaybackReuseTheOverlayWhileAnEditRebuildsIt` checks the new triggers:
   - an orbit and a playback step keep the same mark and path entities;
-  - the selected actor's box follows playback;
-  - mark badges still face the camera, and hiding marks still applies;
-  - an `addActorMark` rebuilds the overlay.
+  - the selected actor's box is rebuilt around the actor's evaluated bounds at the new frame;
+  - mark badges face the camera, both kept and rebuilt ones, and hiding marks still applies;
+  - an `addActorMark` rebuilds the overlay, and switching shots rebuilds the camera marks for the new shot.
 
 ### Frame times (CONTRACTS section 10; `ViewportTimingTests.swift`)
 Run from `app/`: `SHOTS_TIMING=1 swift test -c release --filter ViewportTiming`. CI never sets `SHOTS_TIMING`.
@@ -324,19 +329,26 @@ Run from `app/`: `SHOTS_TIMING=1 swift test -c release --filter ViewportTiming`.
 
 The frame figure is update + draw, a conservative stand-in for the on-screen frame. Look-through playback is measured as one playhead step plus `ShotCameraPreviewSession`'s render of the 640 × 1152 canvas.
 
-**Scene.** The full two-person walk (124 frames, 640 × 1152) grown to 20 entities: ten people walking tracks of their own and ten props. A prop is selected, so its selection box and handles are live. The window is 1280 × 860 pt, which gives the viewport 788 × 451 pt (drawn at 1576 × 902 px).
+**Scene.** The full two-person walk (124 frames, 640 × 1152) grown to 20 entities: ten people walking tracks of their own and ten props. During orbit an off-centre prop is selected, so its selection box and handles are live. During playback the walking Man is selected. The window is 1280 × 860 pt, which gives the viewport 788 × 451 pt (drawn at 1576 × 902 px).
 
 **Machine.** Apple M4, 10 cores, macOS 27.0.1, local Swift 6.4, release build. Two 1× external displays. No other build or test was running during the recorded runs; macOS storage-management services were using about two cores throughout. (A first run overlapped another worktree's debug `swift test`; its numbers are not recorded.)
 
 | Path, 20 entities | update median / p95 | draw median / p95 | frame median / p95 (max) | Budget |
 | --- | --- | --- | --- | --- |
-| Orbit, 120 drag steps | 1.03 / 1.16 ms | 9.31 / 10.89 ms | 10.38 / 12.02 ms (17.51) | 16.7 ms (60 fps) |
-| Playback in the scene view, 124 frames | 5.26 / 5.65 ms | 10.19 / 11.13 ms | 15.49 / 16.49 ms (18.92) | 41.7 ms (24 fps) |
-| Playback in the shot camera view, 124 frames | | | 8.88 / 10.25 ms (13.61) | 41.7 ms (24 fps) |
+| Orbit, 120 drag steps | 1.05 / 1.14 ms | 9.68 / 11.15 ms | 10.73 / 12.33 ms (13.26) | 16.7 ms (60 fps) |
+| Playback in the scene view, 124 frames | 5.98 / 6.48 ms | 10.91 / 14.42 ms | 17.05 / 20.55 ms (22.78) | 41.7 ms (24 fps) |
+| Playback in the shot camera view, 124 frames | | | 10.54 / 11.95 ms (13.71) | 41.7 ms (24 fps) |
 
-A second run on the same build gave orbit 10.32 / 11.43 ms, scene-view playback 15.58 / 17.46 ms and look-through playback 8.96 / 9.83 ms. Drawn at 1× (788 × 451 px), the orbit frame was 9.51 / 11.45 ms and the playback frame 14.32 / 15.70 ms. The test asserts both p95s against the budgets. Orbit's p95 leaves about 4.7 ms of headroom, and its worst single step (17.5 ms) is just over a 60 fps frame.
+A second run on the same build gave:
+- orbit frame 10.65 / 12.54 ms (max 15.92);
+- scene-view playback 16.91 / 20.73 ms;
+- look-through playback 10.41 / 12.71 ms.
 
-**Before the fix.** The same test, with the two viewport source files put back to `origin/main` (`acfd417`), on the same idle machine, did not meet the budget:
+The test asserts all three p95s against the budgets. Orbit's p95 leaves about 4 ms of headroom. Playback runs with a walking actor selected, so its selection box is rebuilt every frame, the costliest case left after the fix.
+
+An earlier variant, with a static prop selected during playback, measured 15.5 / 16.5 ms. Drawn at 1× (788 × 451 px), it measured orbit 9.5 / 11.5 ms.
+
+**Before the fix.** The test's earlier variant, with the prop selected throughout, was run with the two viewport source files put back to `origin/main` (`acfd417`), on the same idle machine. It did not meet the budget:
 - orbit frame median 804 ms, p95 2,166 ms;
 - scene-view playback frame median 3,738 ms, p95 9,744 ms;
 - look-through playback median 4,013 ms.

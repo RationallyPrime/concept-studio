@@ -98,6 +98,9 @@ struct HostedWorkspace {
         dragPoint = nil
     }
 
+    /// Sends a mouse event to the viewport's input view. A press first checks that AppKit's hit-testing of the
+    /// whole layout lands on that view, not on chrome covering it. Delivery is direct: an unshown window in a test
+    /// process doesn't route mouse events from `sendEvent`.
     func send(_ type: NSEvent.EventType, at windowPoint: CGPoint, modifiers: NSEvent.ModifierFlags = []) throws {
         let input = try #require(input)
         let event = try #require(NSEvent.mouseEvent(
@@ -105,7 +108,11 @@ struct HostedWorkspace {
             windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
         ))
         switch type {
-        case .leftMouseDown: input.mouseDown(with: event)
+        case .leftMouseDown:
+            // The content view's superview, the window frame view, uses window coordinates.
+            let hit = host.hitTest(windowPoint)
+            #expect(hit === input, "the press at \(windowPoint) lands on \(String(describing: hit))")
+            input.mouseDown(with: event)
         case .leftMouseDragged: input.mouseDragged(with: event)
         case .leftMouseUp: input.mouseUp(with: event)
         default: Issue.record("unsupported event \(type)")
