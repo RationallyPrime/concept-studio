@@ -58,21 +58,22 @@ struct ShotsInspectorBoundaryTests {
                 sensor: .super35,
                 rig: .handheld,
                 intensity: intensity
-            ))
+            )).map { [$0] } ?? []
         }
         #expect(store.document == before)
         #expect(!store.canUndo)
         let finished = gesture.finish()
         let command = try #require(finished)
-        store.preview = nil
+        store.preview = []
         try store.perform(command, coalescing: true)
         #expect(store.currentShot?.camera.rigIntensity == 0.6)
         store.undo()
         #expect(store.document == before)
         #expect(!store.canUndo)
         store.preview = gesture.update(.setCameraRig(shot.id, sensor: .super35, rig: .handheld, intensity: 0.8))
+            .map { [$0] } ?? []
         gesture.cancel()
-        store.preview = nil
+        store.preview = []
         let cancelledUpdate = gesture.update(.setCameraRig(shot.id, sensor: .super35, rig: .handheld, intensity: 0.9))
         #expect(cancelledUpdate == nil)
         let cancelledFinish = gesture.finish()

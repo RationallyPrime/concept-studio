@@ -141,12 +141,12 @@ extension ViewportKeyboard {
             return true
         case "g":
             guard !store.isReadOnly, store.currentShot != nil else { return false }
-            if let session { session.setHandleMode(.move, in: store) } else { store.preview = nil }
+            if let session { session.setHandleMode(.move, in: store) } else { store.preview = [] }
             store.tool = .select
             return true
         case "r":
             guard !store.isReadOnly, store.currentShot != nil else { return false }
-            if let session { session.setHandleMode(.rotate, in: store) } else { store.preview = nil }
+            if let session { session.setHandleMode(.rotate, in: store) } else { store.preview = [] }
             store.tool = .select
             return true
         default:
@@ -189,7 +189,7 @@ extension ViewportKeyboard {
         if let session {
             session.cancelActiveHandleDrag(in: store)
         } else {
-            store.preview = nil
+            store.preview = []
         }
     }
 
@@ -271,11 +271,16 @@ extension ViewportKeyboard {
     }
 }
 
-@MainActor
 extension ViewportKeyboard {
-    private static func entityNudgeCommands(
+    /// Moves entities with their blocking, as one batch for `ShotsStore.run(_:)` or `ShotsStore.preview`. Each
+    /// entity's placement, and every mark and `via` waypoint of its track in the shot's take, turn by `turn.angle`
+    /// (heading convention, about world Y) around `turn.pivot`, then shift by `delta`. A turn also turns the
+    /// placement heading and each mark's `arriveHeading`. The arrow-key nudge only shifts; the D4 handle drag of an
+    /// entity with marks shifts or turns about its drawn body (Blockout `SceneManager.ts:1250-1270`).
+    static func entityNudgeCommands(
         for ids: [EntityID],
         by delta: Vec3,
+        turning turn: (pivot: Vec3, angle: Double)? = nil,
         in scene: PrevisScene,
         currentShot: Shot?
     ) -> [ShotsCommand] {
@@ -283,34 +288,44 @@ extension ViewportKeyboard {
         let take = shot.flatMap { active in
             scene.blocking.first { $0.id == active.blockingTakeID }
         } ?? scene.blocking.first
+        func moved(_ point: Vec3) -> Vec3 {
+            var point = point
+            if let turn {
+                let c = cos(turn.angle)
+                let s = sin(turn.angle)
+                let dx = point.x - turn.pivot.x
+                let dz = point.z - turn.pivot.z
+                point = Vec3(turn.pivot.x + dx * c + dz * s, point.y, turn.pivot.z - dx * s + dz * c)
+            }
+            return Vec3(point.x + delta.x, point.y + delta.y, point.z + delta.z)
+        }
+        func turned(_ heading: Double) -> Double {
+            guard let turn else { return heading }
+            return ViewportHandles.normalizeAngle(heading + turn.angle)
+        }
         var commands: [ShotsCommand] = []
         for id in ids {
             var placement = scene.entities.first(where: { $0.id == id })?.placement
                 ?? Placement(position: .zero, heading: 0, scale: 1)
-            placement.position = Vec3(
-                placement.position.x + delta.x,
-                placement.position.y + delta.y,
-                placement.position.z + delta.z
-            )
+            placement.position = moved(placement.position)
+            placement.heading = turned(placement.heading)
             commands.append(.setPlacement(id, placement))
             if let shotID = shot?.id,
                let track = take?.tracks.first(where: { $0.entityID == id }) {
                 for var mark in track.marks {
-                    mark.position = Vec3(
-                        mark.position.x + delta.x,
-                        mark.position.y + delta.y,
-                        mark.position.z + delta.z
-                    )
-                    mark.via = mark.via.map { waypoint in
-                        Vec3(waypoint.x + delta.x, waypoint.y + delta.y, waypoint.z + delta.z)
-                    }
+                    mark.position = moved(mark.position)
+                    mark.via = mark.via.map(moved)
+                    mark.arriveHeading = mark.arriveHeading.map(turned)
                     commands.append(.updateActorMark(shotID, id, mark))
                 }
             }
         }
         return commands
     }
+}
 
+@MainActor
+extension ViewportKeyboard {
     private static func nudgeActorMark(
         entityID: EntityID,
         markID: MarkID,

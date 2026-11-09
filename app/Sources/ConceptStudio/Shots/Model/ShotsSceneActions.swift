@@ -14,7 +14,7 @@ extension ShotsStore {
     func selectShot(_ id: ShotID?) {
         guard let id,
               let scene = document.scenes.first(where: { $0.shots.contains { $0.id == id } }) else { return }
-        preview = nil
+        preview = []
         selection = .none
         currentSceneID = scene.id
         currentShotID = id
@@ -48,7 +48,7 @@ extension ShotsStore {
         let copy = ShotsSceneCopy.duplicate(scene)
         try perform(.importScenes([copy]))
         if let shot = copy.shots.first { selectShot(shot.id) } else {
-            preview = nil
+            preview = []
             selection = .none
             currentSceneID = copy.id
             currentShotID = nil
@@ -70,7 +70,7 @@ extension ShotsStore {
         if let firstShot = imported.document.scenes.lazy.flatMap(\.shots).first {
             selectShot(firstShot.id)
         } else if let scene = imported.document.scenes.first {
-            preview = nil
+            preview = []
             selection = .none
             currentSceneID = scene.id
             currentShotID = nil

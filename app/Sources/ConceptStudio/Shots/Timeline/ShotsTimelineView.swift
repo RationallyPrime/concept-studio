@@ -211,7 +211,7 @@ struct ShotsTimelineView: View {
                 focused = true
                 store.isPlaying = false
                 store.selection = mark.selection
-                store.preview = command
+                store.preview = [command]
                 if mode == .move {
                     switch command {
                     case let .updateActorMark(_, _, mark): store.playhead = FrameGrid.frame(atTime: mark.time)
@@ -231,7 +231,7 @@ struct ShotsTimelineView: View {
     }
 
     private func cancelDrag() {
-        if drag.isActive { store.preview = nil; drag.cancel() }
+        if drag.isActive { store.preview = []; drag.cancel() }
     }
 
     @MainActor private func play() async {

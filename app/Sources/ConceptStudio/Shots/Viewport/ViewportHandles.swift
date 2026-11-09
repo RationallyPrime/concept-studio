@@ -23,19 +23,24 @@ enum ViewportHandleComponent: String, Sendable, Equatable {
 
 /// Resolved target of the active viewport manipulator handle (`LANE-D-VIEWPORT.md` lines 121-125).
 enum ViewportHandleTarget: Sendable, Equatable {
-    struct MountPose: Sendable, Equatable {
+    /// An evaluated world position and heading: a camera mount's, or an entity's body at the playhead.
+    struct Pose: Sendable, Equatable {
         var position: Vec3
         var heading: Double
     }
 
-    case entity(id: EntityID, initialPlacement: Placement)
+    /// `body` is the entity's evaluated pose at the playhead when it has marks in the shot's take. The handle
+    /// sits there, and a drag moves the placement, the marks and their `via` waypoints together (Blockout's
+    /// "choreography rides along", `SceneManager.ts:1250-1270`). Without marks it is nil: the handle sits on the
+    /// placement and edits only it.
+    case entity(id: EntityID, initialPlacement: Placement, body: Pose?)
     case actorMark(shotID: ShotID, entityID: EntityID, initialMark: ActorMark, initialHeading: Double)
-    case cameraMark(shotID: ShotID, initialMark: CameraMark, mountPose: MountPose?)
+    case cameraMark(shotID: ShotID, initialMark: CameraMark, mountPose: Pose?)
 
     var worldPivot: Vec3 {
         switch self {
-        case let .entity(_, placement):
-            return placement.position
+        case let .entity(_, placement, body):
+            return body?.position ?? placement.position
         case let .actorMark(_, _, mark, _):
             return mark.position
         case let .cameraMark(_, mark, mountPose):
@@ -52,8 +57,8 @@ enum ViewportHandleTarget: Sendable, Equatable {
 
     var worldHeading: Double {
         switch self {
-        case let .entity(_, placement):
-            placement.heading
+        case let .entity(_, placement, body):
+            body?.heading ?? placement.heading
         case let .actorMark(_, _, _, heading):
             heading
         case let .cameraMark(_, mark, mountPose):
@@ -136,7 +141,8 @@ struct ViewportHandleDragSession: Sendable, Equatable {
     var startAxisScalar: Double
     var startAngleY: Double
     var startTiltAngle: Double
-    var latestCommand: ShotsCommand?
+    /// What release commits as one undo step, and what `store.preview` holds meanwhile; empty before any move.
+    var latestCommands: [ShotsCommand]
 }
 
 /// Pure CPU handle math, hit-testing, drag-preview lifecycle, and editor-overlay entity synchronization
@@ -147,11 +153,13 @@ struct ViewportHandleDragSession: Sendable, Equatable {
 /// Intentional Swift/RealityKit deviations:
 /// - Hand-built constant-screen-size handle math replaces Three.js `TransformControls` (macOS has no visionOS
 ///   `ManipulationComponent`, `LANE-D-VIEWPORT.md` lines 164-165).
-/// - Handle drags write `store.preview` during movement and commit a single typed `ShotsCommand` (`setPlacement`,
-///   `updateActorMark`, `updateCameraMark`) via `store.run` on release rather than mutating the document in place.
+/// - Handle drags write `store.preview` during movement and commit it on release as one undo step via `store.run`
+///   rather than mutating the document in place: one typed command (`setPlacement`, `updateActorMark`,
+///   `updateCameraMark`), or, for an entity with marks, `setPlacement` plus an `updateActorMark` per mark, built by
+///   the arrow-key nudge's `ViewportKeyboard.entityNudgeCommands`.
 enum ViewportHandles {
     static let rootEntityName = "viewport.handles"
-    private static let maxTiltRadians: Double = .pi / 2.0 - 0.01
+    static let maxTiltRadians: Double = .pi / 2.0 - 0.01
 
     @MainActor
     static func resolveTarget(in store: ShotsStore, useCommittedDocument: Bool = false) -> ViewportHandleTarget? {
@@ -173,7 +181,20 @@ enum ViewportHandles {
             guard let anchorID = ids.last,
                   let entity = scene.entities.first(where: { $0.id == anchorID })
             else { return nil }
-            return .entity(id: entity.id, initialPlacement: entity.placement)
+            let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
+            guard take?.tracks.first(where: { $0.entityID == entity.id })?.marks.isEmpty == false else {
+                return .entity(id: entity.id, initialPlacement: entity.placement, body: nil)
+            }
+            // Blockout attaches the gizmo to the drawn body (`SceneManager.ts:1060`, posed by `applyTime`).
+            guard let body = evaluatedBody(
+                of: entity.id,
+                in: sourceDoc == nil || store.preview.isEmpty ? nil : scene,
+                shotID: shot.id,
+                store: store
+            ) else {
+                return nil
+            }
+            return .entity(id: entity.id, initialPlacement: entity.placement, body: body)
         case let .actorMark(entityID, markID):
             let take = scene.blocking.first { $0.id == shot.blockingTakeID } ?? scene.blocking.first
             guard let entity = scene.entities.first(where: { $0.id == entityID }),
@@ -328,6 +349,9 @@ extension ViewportHandles {
             size: size
         )
 
+        // Playback would slide the drawn body away from the pointer; Blockout freezes the dragged root
+        // (`SceneManager.ts:2003-2007`). The timeline's mark drag pauses the same way.
+        store.isPlaying = false
         return ViewportHandleDragSession(
             baselineDocument: store.document,
             sceneID: sceneID,
@@ -340,7 +364,7 @@ extension ViewportHandles {
             startAxisScalar: axisScalar,
             startAngleY: angleY,
             startTiltAngle: tiltAngle,
-            latestCommand: nil
+            latestCommands: []
         )
     }
 }
@@ -355,23 +379,23 @@ extension ViewportHandles {
         in store: ShotsStore,
         camera: EditorCamera,
         size: PixelSize
-    ) -> ShotsCommand? {
-        guard var current = drag else { return nil }
+    ) -> [ShotsCommand] {
+        guard var current = drag else { return [] }
         guard isDragStillValid(current, in: store) else {
             cancelDrag(&drag, in: store)
-            return nil
+            return []
         }
-        let nextCommand = command(
+        let nextCommands = commands(
             for: current,
             at: pixel,
             shiftPressed: shiftPressed,
             camera: camera,
             size: size
         )
-        current.latestCommand = nextCommand
+        current.latestCommands = nextCommands
         drag = current
-        store.preview = nextCommand
-        return nextCommand
+        store.preview = nextCommands
+        return nextCommands
     }
 
     @discardableResult
@@ -389,7 +413,7 @@ extension ViewportHandles {
             return false
         }
         if let pixel {
-            current.latestCommand = command(
+            current.latestCommands = commands(
                 for: current,
                 at: pixel,
                 shiftPressed: shiftPressed,
@@ -398,18 +422,19 @@ extension ViewportHandles {
             )
         }
         drag = nil
-        guard let finalCommand = current.latestCommand else {
-            store.preview = nil
-            return false
+        let finalCommands = current.latestCommands
+        if finalCommands.count == 1 {
+            store.run(finalCommands[0])
+        } else if !finalCommands.isEmpty {
+            store.run(finalCommands)
         }
-        store.run(finalCommand)
-        store.preview = nil
-        return true
+        store.preview = []
+        return !finalCommands.isEmpty
     }
 
     static func cancelDrag(_ drag: inout ViewportHandleDragSession?, in store: ShotsStore) {
         drag = nil
-        store.preview = nil
+        store.preview = []
     }
 
     static func isDragStillValid(_ drag: ViewportHandleDragSession, in store: ShotsStore) -> Bool {
@@ -424,160 +449,8 @@ extension ViewportHandles {
                   sceneID: drag.sceneID,
                   shotID: drag.shotID
               ),
-              drag.latestCommand == nil || store.preview != nil
+              drag.latestCommands.isEmpty || !store.preview.isEmpty
         else { return false }
         return true
-    }
-}
-
-extension ViewportHandles {
-    static func command(
-        for drag: ViewportHandleDragSession,
-        at pixel: Point2,
-        shiftPressed: Bool = false,
-        camera: EditorCamera,
-        size: PixelSize
-    ) -> ShotsCommand {
-        let pivot = drag.target.worldPivot
-        switch drag.component {
-        case .planeXZ:
-            let currentHit = intersectHorizontalPlane(
-                at: pixel,
-                planeY: pivot.y,
-                camera: camera,
-                size: size
-            ) ?? drag.startPlaneHit
-            let rawDelta = Vec3(
-                currentHit.x - drag.startPlaneHit.x,
-                0,
-                currentHit.z - drag.startPlaneHit.z
-            )
-            let delta: Vec3 = if !shiftPressed {
-                rawDelta
-            } else if abs(rawDelta.x) >= abs(rawDelta.z) {
-                Vec3(rawDelta.x, 0, 0)
-            } else {
-                Vec3(0, 0, rawDelta.z)
-            }
-            return applyMove(delta: delta, to: drag.target)
-
-        case .axisX, .axisY, .axisZ:
-            let axis = axisVector(for: drag.component)
-            let currentScalar = closestAxisScalar(
-                at: pixel,
-                pivot: pivot,
-                axis: axis,
-                camera: camera,
-                size: size
-            )
-            let step = currentScalar - drag.startAxisScalar
-            let delta = Vec3(axis.x * step, axis.y * step, axis.z * step)
-            return applyMove(delta: delta, to: drag.target)
-
-        case .rotateY:
-            let currentAngle = horizontalAngle(
-                at: pixel,
-                pivot: pivot,
-                camera: camera,
-                size: size
-            ) ?? drag.startAngleY
-            let deltaHeading = normalizeAngle(currentAngle - drag.startAngleY)
-            return applyRotation(deltaHeading: deltaHeading, deltaTilt: 0, to: drag.target)
-
-        case .rotateTilt:
-            let currentTilt = verticalTiltAngle(
-                at: pixel,
-                pivot: pivot,
-                heading: drag.target.worldHeading,
-                camera: camera,
-                size: size
-            )
-            let deltaTilt = currentTilt - drag.startTiltAngle
-            return applyRotation(deltaHeading: 0, deltaTilt: deltaTilt, to: drag.target)
-
-        case .rotatePanAndTilt:
-            let (deltaPan, deltaTilt) = panAndTiltDelta(
-                for: drag,
-                at: pixel,
-                camera: camera,
-                size: size
-            )
-            return applyRotation(deltaHeading: deltaPan, deltaTilt: deltaTilt, to: drag.target)
-        }
-    }
-}
-
-extension ViewportHandles {
-    private static func applyMove(delta: Vec3, to target: ViewportHandleTarget) -> ShotsCommand {
-        switch target {
-        case let .entity(id, initialPlacement):
-            var updated = initialPlacement
-            updated.position = Vec3(
-                initialPlacement.position.x + delta.x,
-                initialPlacement.position.y + delta.y,
-                initialPlacement.position.z + delta.z
-            )
-            return .setPlacement(id, updated)
-
-        case let .actorMark(shotID, entityID, initialMark, _):
-            var updated = initialMark
-            updated.position = Vec3(
-                initialMark.position.x + delta.x,
-                initialMark.position.y + delta.y,
-                initialMark.position.z + delta.z
-            )
-            return .updateActorMark(shotID, entityID, updated)
-
-        case let .cameraMark(shotID, initialMark, mountPose):
-            var updated = initialMark
-            let newWorldPos = Vec3(
-                target.worldPivot.x + delta.x,
-                target.worldPivot.y + delta.y,
-                target.worldPivot.z + delta.z
-            )
-            if let mount = mountPose {
-                let dx = newWorldPos.x - mount.position.x
-                let dz = newWorldPos.z - mount.position.z
-                let c = cos(mount.heading)
-                let s = sin(mount.heading)
-                updated.position = Vec3(
-                    dx * c - dz * s,
-                    newWorldPos.y - mount.position.y,
-                    dx * s + dz * c
-                )
-            } else {
-                updated.position = newWorldPos
-            }
-            return .updateCameraMark(shotID, updated)
-        }
-    }
-
-    private static func applyRotation(
-        deltaHeading: Double,
-        deltaTilt: Double,
-        to target: ViewportHandleTarget
-    ) -> ShotsCommand {
-        switch target {
-        case let .entity(id, initialPlacement):
-            guard abs(deltaHeading) > 1e-9 else { return .setPlacement(id, initialPlacement) }
-            var updated = initialPlacement
-            updated.heading = normalizeAngle(initialPlacement.heading + deltaHeading)
-            return .setPlacement(id, updated)
-
-        case let .actorMark(shotID, entityID, initialMark, initialHeading):
-            guard abs(deltaHeading) > 1e-9 else { return .updateActorMark(shotID, entityID, initialMark) }
-            var updated = initialMark
-            updated.arriveHeading = normalizeAngle(initialHeading + deltaHeading)
-            return .updateActorMark(shotID, entityID, updated)
-
-        case let .cameraMark(shotID, initialMark, _):
-            guard abs(deltaHeading) > 1e-9 || abs(deltaTilt) > 1e-9 else {
-                return .updateCameraMark(shotID, initialMark)
-            }
-            var updated = initialMark
-            updated.pan = normalizeAngle(initialMark.pan + deltaHeading)
-            updated.tilt = min(max(initialMark.tilt + deltaTilt, -maxTiltRadians), maxTiltRadians)
-            return .updateCameraMark(shotID, updated)
-        }
     }
 }

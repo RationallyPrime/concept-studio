@@ -55,10 +55,10 @@ struct ViewportHandlesHostedTests {
         let winEnd = overlayView.convert(CGPoint(x: endPx.x, y: endPx.y), to: nil)
         sendMouse(type: .leftMouseDown, at: winStart, in: window, to: overlayView)
         sendMouse(type: .leftMouseDragged, at: winEnd, in: window, to: overlayView)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         #expect(session.editorCamera == initialCamera)
         sendMouse(type: .leftMouseUp, at: winEnd, in: window, to: overlayView)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(session.editorCamera == initialCamera)
         let movedChair = try #require(store.currentScene?.entities.first(where: { $0.id == chairID }))
         #expect(distance(movedChair.placement.position, targetWorld) < 0.01)
@@ -208,17 +208,17 @@ extension ViewportHandlesHostedTests {
         let goalPx = try #require(camera.project(goalWorld, size: size))
         #expect(session.beginHandleDrag(at: startPx, in: store))
         session.updateHandleDrag(at: goalPx, shiftPressed: false, in: store)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
 
         // 3. Undo during active preview restores originalDoc; sync + release must NOT overwrite Undo or clear Redo
         store.undo()
         #expect(store.document == originalDoc)
         #expect(store.canRedo)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         session.sync(with: store, frame: store.frame, size: size)
         session.endHandleDrag(at: goalPx, shiftPressed: false, in: store)
         #expect(session.activeHandleDrag == nil)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document == originalDoc)
         #expect(store.canRedo)
 
@@ -226,14 +226,14 @@ extension ViewportHandlesHostedTests {
         let origPx = try #require(camera.project(initialChair.placement.position, size: size))
         #expect(session.beginHandleDrag(at: origPx, in: store))
         session.updateHandleDrag(at: goalPx, shiftPressed: false, in: store)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         var externalPlacement = initialChair.placement
         externalPlacement.position = Vec3(initialChair.placement.position.x, 0, initialChair.placement.position.z - 0.5)
         store.run(.setPlacement(chairID, externalPlacement))
         let committedDocAfterExternal = store.document
         session.endHandleDrag(at: goalPx, shiftPressed: false, in: store)
         #expect(session.activeHandleDrag == nil)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document == committedDocAfterExternal)
     }
 }
@@ -262,7 +262,7 @@ extension ViewportHandlesHostedTests {
         session.setHandleMode(.rotate, in: store)
         #expect(session.beginHandleDrag(at: ringPointPx, in: store))
         session.endHandleDrag(at: ringPointPx, shiftPressed: false, in: store)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document == beforeDoc)
         #expect(!store.canUndo)
 
@@ -314,10 +314,10 @@ extension ViewportHandlesHostedTests {
         let winDrag = overlayView.convert(CGPoint(x: dragPx.x, y: dragPx.y), to: nil)
         sendMouse(type: .leftMouseDown, at: winDown, in: window, to: overlayView)
         sendMouse(type: .leftMouseDragged, at: winDrag, in: window, to: overlayView)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         host.rootView = AnyView(EmptyView())
         host.layoutSubtreeIfNeeded()
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document == beforeDoc)
     }
 }

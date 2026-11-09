@@ -133,7 +133,7 @@ final class ViewportLiveSession {
     }
 
     func cancelActiveHandleDrag(in store: ShotsStore) {
-        if activeHandleDrag != nil || store.preview != nil {
+        if activeHandleDrag != nil || !store.preview.isEmpty {
             ViewportHandles.cancelDrag(&activeHandleDrag, in: store)
         }
     }

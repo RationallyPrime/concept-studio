@@ -182,13 +182,31 @@ extension ViewportHandles {
         for shot: Shot,
         at time: Double,
         in store: ShotsStore
-    ) -> ViewportHandleTarget.MountPose? {
+    ) -> ViewportHandleTarget.Pose? {
         guard shot.camera.rig == .carMount,
               let mountID = shot.camera.mountID
         else { return nil }
         let frameAtMark = store.evaluator?.frame(at: time) ?? store.frame
         guard let mountEntity = frameAtMark?.entities.first(where: { $0.id == mountID }) else { return nil }
-        return ViewportHandleTarget.MountPose(position: mountEntity.position, heading: mountEntity.heading)
+        return ViewportHandleTarget.Pose(position: mountEntity.position, heading: mountEntity.heading)
+    }
+
+    /// The entity's evaluated pose at the playhead. `committedScene` is nil to read `store.frame` (the preview
+    /// applied); otherwise that scene is evaluated, so a drag starts from the committed document.
+    @MainActor
+    static func evaluatedBody(
+        of entityID: EntityID,
+        in committedScene: PrevisScene?,
+        shotID: ShotID,
+        store: ShotsStore
+    ) -> ViewportHandleTarget.Pose? {
+        let frame = if let committedScene {
+            (try? ShotEvaluator(scene: committedScene, shotID: shotID, catalog: store.catalog))?.frame(store.playhead)
+        } else {
+            store.frame
+        }
+        guard let body = frame?.entities.first(where: { $0.id == entityID }) else { return nil }
+        return ViewportHandleTarget.Pose(position: body.position, heading: body.heading)
     }
 
     @MainActor
@@ -312,7 +330,7 @@ extension ViewportHandleTarget {
         else { return false }
 
         switch self {
-        case let .entity(id, initialPlacement):
+        case let .entity(id, initialPlacement, _):
             return scene.entities.first(where: { $0.id == id })?.placement == initialPlacement
 
         case let .actorMark(expectedShotID, entityID, initialMark, _):

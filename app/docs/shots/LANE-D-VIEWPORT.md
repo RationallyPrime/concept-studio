@@ -123,12 +123,13 @@ This is a recommendation; the lane owns the choice.
 - actor marks, through `updateActorMark`;
 - camera marks: position, and pan with tilt.
 
-During a drag `store.preview` holds the command; release calls `run` once. The handles keep a constant
+During a drag `store.preview` holds the commands; release calls `run` once. An actor with marks is
+moved by its body at the playhead, carrying its marks (the 2026-11-09 ruling in `status/lane-d.md`). The handles keep a constant
 size on screen. Esc cancels a drag and clears the preview.
 
 **Verify** with a headless drag script:
 - Press, move through three points, release. The document changed once, undo restores it, and the preview
-  is nil.
+  is empty.
 - A quarter-turn rotation sets the heading within 0.01 radians.
 
 ### D5: look-through and keyboard (days 3–4, after B3 for the exported still)

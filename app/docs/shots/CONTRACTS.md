@@ -712,7 +712,7 @@ enum ShotsTool: Equatable, Sendable { case select, place(assetID: String), dropM
     var tool: ShotsTool
     var playhead: Int                       // frame index in the current shot
     var isPlaying: Bool
-    var preview: ShotsCommand?              // drawn, never saved or undoable; nil between gestures
+    var preview: [ShotsCommand]             // applied in order: drawn, never saved or undoable; empty between gestures
     var onError: (@MainActor (String) -> Void)?   // set by the session to show the window alert
     var currentScene: PrevisScene? { get }  // preview applied
     var currentShot: Shot? { get }
@@ -725,7 +725,9 @@ enum ShotsTool: Equatable, Sendable { case select, place(assetID: String), dropM
     // Applies, bumps the scene revision (not for setPrompt), records one undo step and schedules a save.
     // coalescing: true merges into the previous step when that was the same command kind and target and
     // came within 0.8 s (inspector slider bursts). False, the default, is always its own step.
+    func perform(_ commands: [ShotsCommand]) throws   // all or none, in order, as one undo step; never coalesces
     func run(_ command: ShotsCommand, coalescing: Bool = false)   // UI entry: perform, errors to onError
+    func run(_ commands: [ShotsCommand])    // UI entry for a batch
     func undo()
     func redo()
     func newID(_ prefix: String) -> String
@@ -779,8 +781,10 @@ struct ShotCameraView: View { init(store: ShotsStore) }  // Lane D: the shot cam
 **C0 makes `evaluator` and `frame` work from day 1.** They wrap PrevisCore, and the viewport draws
 `store.frame`.
 
-**Gestures.** While dragging, the viewport sets `store.preview` to the command it would perform. On
-mouse-up it calls `run` once and sets `preview` back to nil. Inspector fields that change continuously use
+**Gestures.** While dragging, the viewport sets `store.preview` to the commands it would perform: usually
+one, or a batch when one gesture edits several things (dragging an actor that has marks moves its placement
+and every mark in the shot's take). On mouse-up it calls `run` once, with the one command or the batch, so
+the gesture is one undo step, and sets `preview` back to empty. Inspector fields that change continuously use
 `coalescing: true`.
 
 **Keyboard ownership.** Keys act on the focused region, and nothing fires while a text field is editing.

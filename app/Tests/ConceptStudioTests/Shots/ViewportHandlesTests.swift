@@ -50,7 +50,7 @@ struct ViewportHandlesTests {
                 camera: camera,
                 size: size
             )
-            #expect(previewCmd != nil)
+            #expect(!previewCmd.isEmpty)
             #expect(store.preview == previewCmd)
             #expect(store.document == beforeDocument)
             #expect(store.document.scenes[0].revision == initialRevision)
@@ -62,7 +62,7 @@ struct ViewportHandlesTests {
         let committed = ViewportHandles.endDrag(&drag, in: store, camera: camera, size: size)
         #expect(committed)
         #expect(drag == nil)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document.scenes[0].revision == initialRevision + 1)
         #expect(store.canUndo)
 
@@ -72,7 +72,7 @@ struct ViewportHandlesTests {
 
         store.undo()
         #expect(store.document == beforeDocument)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         store.redo()
         let redoneChair = try #require(store.currentScene?.entities.first(where: { $0.id == chairID }))
         #expect(distance(redoneChair.placement.position, waypoints[2]) < 0.005)
@@ -161,10 +161,10 @@ extension ViewportHandlesTests {
         )
         #expect(entityRotDrag != nil)
         _ = ViewportHandles.updateDrag(&entityRotDrag, at: ring45, in: store, camera: camera, size: size)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         _ = ViewportHandles.updateDrag(&entityRotDrag, at: ring90, in: store, camera: camera, size: size)
         #expect(ViewportHandles.endDrag(&entityRotDrag, in: store, camera: camera, size: size))
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
 
         let rotatedChair = try #require(store.currentScene?.entities.first(where: { $0.id == chairID }))
         let expectedChairHeading = ViewportHandles.normalizeAngle(chairStart.placement.heading + .pi / 2.0)
@@ -217,10 +217,10 @@ extension ViewportHandlesTests {
         for pt in markPts {
             let px = try #require(camera.project(pt, size: size))
             _ = ViewportHandles.updateDrag(&markMoveDrag, at: px, in: store, camera: camera, size: size)
-            #expect(store.preview != nil)
+            #expect(!store.preview.isEmpty)
         }
         #expect(ViewportHandles.endDrag(&markMoveDrag, in: store, camera: camera, size: size))
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
 
         let movedActorMark = try #require(
             store.currentScene?.blocking.first?.tracks.first?.marks.first(where: { $0.id == markID })
@@ -348,14 +348,14 @@ extension ViewportHandlesTests {
         session.viewportSize = size
         #expect(session.beginHandleDrag(at: startPx, in: store))
         session.updateHandleDrag(at: movedPx, shiftPressed: false, in: store)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         #expect(ViewportPicking.handleKeyDown(
             charactersIgnoringModifiers: "\u{1B}",
             keyCode: 53,
             in: store,
             session: session
         ))
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(session.activeHandleDrag == nil)
         session.updateHandleDrag(at: movedPx, shiftPressed: false, in: store)
         session.endHandleDrag(at: movedPx, shiftPressed: false, in: store)
@@ -365,17 +365,17 @@ extension ViewportHandlesTests {
         // 2. No-op drag (release at start point) does not bump revision or add undo entry
         #expect(session.beginHandleDrag(at: startPx, in: store))
         session.endHandleDrag(at: startPx, shiftPressed: false, in: store)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document == beforeDoc)
         #expect(!store.canUndo)
 
         // 3. Selection invalidation mid-drag cancels and clears preview
         #expect(session.beginHandleDrag(at: startPx, in: store))
         session.updateHandleDrag(at: movedPx, shiftPressed: false, in: store)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         store.selection = .none
         session.updateHandleDrag(at: movedPx, shiftPressed: false, in: store)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(session.activeHandleDrag == nil)
 
         // 4. Read-only store disables handles and G/R while preserving selection and camera orbit
@@ -496,13 +496,13 @@ extension ViewportHandlesTests {
         var capturedError: String?
         store.onError = { capturedError = $0 }
         var badDrag = ViewportHandles.beginDrag(at: mGoalPx, in: store, mode: .move, camera: camEditor, size: size)
-        badDrag?.latestCommand = .setPlacement(
+        badDrag?.latestCommands = [.setPlacement(
             "ent_000000000001",
             Placement(position: Vec3(.nan, 0, 0), heading: 0, scale: 1)
-        )
-        store.preview = badDrag?.latestCommand
+        )]
+        store.preview = badDrag?.latestCommands ?? []
         _ = ViewportHandles.endDrag(&badDrag, in: store, camera: camEditor, size: size)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(capturedError != nil)
     }
 }

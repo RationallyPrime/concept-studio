@@ -105,23 +105,23 @@ struct ShotsInspectorGesture {
 
     @MainActor mutating func preview(_ edit: ShotsCommand, in store: ShotsStore) {
         invalidateIfNeeded(in: store)
-        if let preview = update(edit) { store.preview = preview }
+        if let preview = update(edit) { store.preview = [preview] }
     }
 
     @MainActor mutating func invalidateIfNeeded(in store: ShotsStore) {
-        if let command, store.preview != command { cancel() }
+        if let command, store.preview != [command] { cancel() }
     }
 
     @MainActor mutating func commit(in store: ShotsStore) {
-        let ownsPreview = command != nil && store.preview == command
+        let ownsPreview = command.map { store.preview == [$0] } ?? false
         let edit = finish()
         guard ownsPreview else { return }
-        store.preview = nil
+        store.preview = []
         if let edit { store.run(edit, coalescing: true) }
     }
 
     @MainActor mutating func cancel(in store: ShotsStore) {
-        if let command, store.preview == command { store.preview = nil }
+        if let command, store.preview == [command] { store.preview = [] }
         cancel()
     }
 }

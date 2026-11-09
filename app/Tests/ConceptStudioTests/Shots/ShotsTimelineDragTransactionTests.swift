@@ -15,18 +15,18 @@ struct ShotsTimelineDragTransactionTests {
         let source = ShotsTimelineDrag.Mark.camera(shot.id, mark)
         let geometry = ShotsTimelineGeometry(frameCount: shot.frameCount, width: 600)
         var transaction = ShotsTimelineDragTransaction()
-        store.preview = transaction.update(mark: source, mode: .move, geometry: geometry, delta: 40)
+        store.preview = transaction.update(mark: source, mode: .move, geometry: geometry, delta: 40).map { [$0] } ?? []
         #expect(transaction.isActive)
-        #expect(store.preview != nil)
+        #expect(!store.preview.isEmpty)
         transaction.cancel()
-        store.preview = nil
+        store.preview = []
         // The SAME gesture emits more movement after Escape, then releases.
         let resumed = transaction.update(mark: source, mode: .move, geometry: geometry, delta: 80)
         #expect(resumed == nil)
         let cancelledEnd = transaction.finish(delta: 80)
         if let cancelledEnd { try store.perform(cancelledEnd) }
         #expect(cancelledEnd == nil)
-        #expect(store.preview == nil)
+        #expect(store.preview.isEmpty)
         #expect(store.document == before)
         #expect(!store.canUndo)
         // A new pointer gesture is allowed after release and commits exactly once.
