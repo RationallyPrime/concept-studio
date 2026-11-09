@@ -349,6 +349,9 @@ extension ViewportHandles {
             size: size
         )
 
+        // Playback would slide the drawn body away from the pointer; Blockout freezes the dragged root
+        // (`SceneManager.ts:2003-2007`). The timeline's mark drag pauses the same way.
+        store.isPlaying = false
         return ViewportHandleDragSession(
             baselineDocument: store.document,
             sceneID: sceneID,

@@ -46,6 +46,21 @@ struct ViewportBlockedActorHandleTests {
         #expect(target.worldHeading == drawn.heading)
         #expect(try #require(ViewportHandles.resolveTarget(in: store, useCommittedDocument: true)) == target)
 
+        // While another gesture previews a move of the Man, the drawn handle follows the preview, but a drag
+        // starts from the committed document's body.
+        let shotID = try #require(store.currentShotID)
+        let movedMarks = try marks(of: man, in: store.document).map { mark in
+            var mark = mark
+            mark.position.x += 1
+            mark.via = mark.via.map { Vec3($0.x + 1, $0.y, $0.z) }
+            return ShotsCommand.updateActorMark(shotID, man, mark)
+        }
+        store.preview = movedMarks
+        let previewed = try #require(ViewportHandles.resolveTarget(in: store))
+        #expect(abs(previewed.worldPivot.x - drawn.position.x - 1) < 1e-9)
+        #expect(try #require(ViewportHandles.resolveTarget(in: store, useCommittedDocument: true)) == target)
+        store.preview = []
+
         let overlayRoot = Entity()
         ViewportHandles.syncOverlay(in: overlayRoot, store: store, mode: .move, camera: camera, size: size)
         let handles = try #require(overlayRoot.findEntity(named: ViewportHandles.rootEntityName))
@@ -118,6 +133,20 @@ struct ViewportBlockedActorHandleTests {
         let target = try #require(ViewportHandles.resolveTarget(in: store, useCommittedDocument: true))
         let gizmo = ViewportHandles.gizmoGeometry(for: target, mode: .rotate, camera: camera, size: size)
         let ring = { (angle: Double) in camera.project(gizmo.ringPointWorld(angle: angle), size: size) }
+
+        // A click on the ring that does not turn it commits nothing, so leaves no undo step; a press pauses playback.
+        store.isPlaying = true
+        var click = try ViewportHandles.beginDrag(
+            at: #require(ring(0)),
+            in: store,
+            mode: .rotate,
+            camera: camera,
+            size: size
+        )
+        #expect(click != nil && !store.isPlaying)
+        _ = try ViewportHandles.endDrag(&click, at: #require(ring(0)), in: store, camera: camera, size: size)
+        #expect(store.document == before && !store.canUndo && store.preview.isEmpty)
+
         var drag = try ViewportHandles.beginDrag(
             at: #require(ring(0)),
             in: store,
@@ -152,6 +181,10 @@ struct ViewportBlockedActorHandleTests {
             }
         }
         #expect(try marks(of: man, in: before).last?.arriveHeading != nil)
+        let oldPlacement = try #require(before.scenes[0].entities.first { $0.id == man }?.placement)
+        let newPlacement = try #require(store.document.scenes[0].entities.first { $0.id == man }?.placement)
+        #expect(distance(newPlacement.position, turned(oldPlacement.position)) < 0.01)
+        #expect(abs(ViewportHandles.normalizeAngle(newPlacement.heading - oldPlacement.heading - .pi / 2)) < 0.01)
         store.undo()
         #expect(store.document == before && !store.canUndo)
     }

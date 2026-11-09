@@ -112,7 +112,9 @@ extension ViewportHandles {
         for drag: ViewportHandleDragSession
     ) -> [ShotsCommand] {
         if case let .entity(id, _, body?) = drag.target {
-            return blockedEntityCommands(id, for: drag, by: .zero, turning: (body.position, deltaHeading))
+            // No turn at all when the ring has not moved, so a click commits nothing (turning by 0 is not exact).
+            let turn = abs(deltaHeading) > 1e-9 ? (pivot: body.position, angle: deltaHeading) : nil
+            return blockedEntityCommands(id, for: drag, by: .zero, turning: turn)
         }
         return [applyRotation(deltaHeading: deltaHeading, deltaTilt: deltaTilt, to: drag.target)]
     }
