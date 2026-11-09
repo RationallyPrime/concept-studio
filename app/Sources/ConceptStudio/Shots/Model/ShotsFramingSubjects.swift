@@ -1,6 +1,7 @@
 import PrevisCore
 
-/// Who a framing button frames, as Blockout chooses at 3f2d0564 (`src/renderer/viewport/SceneManager.ts`).
+/// Who a framing button or camera move frames, as Blockout chooses at 3f2d0564
+/// (`src/renderer/viewport/SceneManager.ts`).
 ///
 /// - Shot sizes (`autoFrame`, lines 1416-1424): the selected entity when exactly one is selected, else the first
 ///   person in the scene, else its first entity.
@@ -27,6 +28,15 @@ enum ShotsFramingSubjects {
             return people.isEmpty ? scene.entities.prefix(2).map(\.id) : people
         }
     }
+
+    /// The one subject a camera move is built around. Blockout's `applyCameraMove` (lines 1704-1709) takes the first
+    /// of `framingSubjects()`, the rule of the non-size framings: the first selected entity in document order when
+    /// two or more are selected, else the first person, else the first entity. Several selected entities do not make
+    /// a midpoint subject, and with exactly one selected Blockout still uses the first person, although its button
+    /// help says to select the entity to build around (`Inspector.tsx` line 1451); Shots follows the code.
+    static func cameraMoveSubject(in scene: PrevisScene, selection: ShotsSelection) -> EntityID? {
+        subjects(for: .twoShot, in: scene, selection: selection).first
+    }
 }
 
 extension ShotsStore {
@@ -36,9 +46,21 @@ extension ShotsStore {
         return ShotsFramingSubjects.subjects(for: kind, in: scene, selection: selection)
     }
 
-    /// Frames the current subjects as `kind` at the playhead (the camera inspector's framing buttons).
+    /// Frames the current subjects as `kind` at the playhead (the framing buttons).
     func applyFraming(_ kind: Framing.Kind) {
         guard let shotID = currentShotID else { return }
         run(.applyFraming(shotID, kind, subjects: framingSubjects(for: kind), atFrame: playhead))
+    }
+
+    /// The subject a camera move would be built around now, from the current selection.
+    var cameraMoveSubject: EntityID? {
+        currentScene.flatMap { ShotsFramingSubjects.cameraMoveSubject(in: $0, selection: selection) }
+    }
+
+    /// Replaces the shot's camera marks with `moveID` built around `cameraMoveSubject`. A move that follows its
+    /// subject aim-locks onto it; any other move clears aim lock (`CameraMoves.marks`, Blockout `applyCameraMove`).
+    func applyCameraMove(_ moveID: String) {
+        guard let shotID = currentShotID else { return }
+        run(.applyCameraMove(shotID, moveID: moveID, subjects: cameraMoveSubject.map { [$0] } ?? []))
     }
 }

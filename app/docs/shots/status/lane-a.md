@@ -278,6 +278,16 @@ neck fills more than half the frame height, and the chest and hips are below it.
 neither picks the subject nor changes, the rewrite-or-add rule and the kept roll. `GeneratorTests.aCloseUpOnAPortraitCanvasKeepsAProfileFaceInsideTheFrame`
 covers the width fit in PrevisCore.
 
-**Kept from Blockout, for the owner to confirm.** With exactly one entity selected, the non-size framings ignore it and use every
-person, so Low angle looks up at the scene's first person rather than the selected one. Camera moves still take their subject from
-aim lock (`ShotsCameraInspector`); Blockout's `applyCameraMove` (line 1704) uses `framingSubjects()[0]`, the same rule as above.
+**Camera moves (integrator ruling 2026-11-09: follow Blockout).** Blockout's `applyCameraMove` (`SceneManager.ts` lines 1704-1709)
+builds the move around one subject, the first of `framingSubjects()`: the first selected entity in document order when two or more
+are selected, else the first person, else the first entity. A following move (`track`) then aim-locks onto that subject and any
+other move clears aim lock (lines 1756-1759). Shots took the subjects from aim lock instead. `ShotsFramingSubjects.cameraMoveSubject`
+now applies Blockout's rule, the store passes that one subject to `CameraMoves.marks` (several selected entities are not merged into a
+midpoint subject, as in Blockout), and the move picker sits beside the framing buttons in the camera inspector and in a selected
+person's or prop's inspector. `ShotsFramingTests.aCameraMoveIsBuiltAroundTheSubjectBlockoutPicks` fails with the aim-lock subjects
+restored.
+
+**Kept from Blockout (integrator ruling).** With exactly one entity selected, the non-size framings ignore it and use every person,
+so Low angle looks up at the scene's first person rather than the selected one; for the same reason a camera move with one entity
+selected is built around the first person. Blockout's own button help says to select the entity to build the move around
+(`Inspector.tsx` line 1451), but its code does not, and Shots follows the code; the inspector names the subject before you apply.
