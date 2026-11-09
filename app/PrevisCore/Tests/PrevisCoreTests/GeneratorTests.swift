@@ -171,6 +171,29 @@ struct GeneratorTests {
         #expect(wide > 0.5 && wide < 0.8 && full > 0.8 && full <= 1.0, "wide \(wide), full \(full)")
     }
 
+    @Test func aCloseUpOnAPortraitCanvasKeepsAProfileFaceInsideTheFrame() throws {
+        // At frame 61 the man walks across the camera, so he is in profile; the canvas is 9:16.
+        let (framedScene, _) = try framed(.closeUp, subjects: [man])
+        let frame = try frame(of: framedScene, 61)
+        let size = frame.canvas.pixelSize
+        let body = try entity(man.id, in: frame)
+        let top = try #require(frame.camera.project(
+            Vec3(body.position.x, body.bounds.max.y, body.position.z), size: size
+        ))
+        #expect(top.y > 0 && top.y < 0.15 * Double(size.height), "head top at \(top.y) of \(size.height)")
+        for name in [KeypointName.nose, .rightEye, .leftEye, .rightEar, .leftEar, .neck] {
+            let point = try #require(body.keypoints.first { $0.name == name }).position
+            let pixel = try #require(frame.camera.project(point, size: size), "\(name) is behind the camera")
+            #expect(
+                (0 ..< Double(size.width)).contains(pixel.x) && (0 ..< Double(size.height)).contains(pixel.y),
+                "\(name) at \(pixel)"
+            )
+        }
+        let hip = try #require(body.keypoints.first { $0.name == .rightHip }).position
+        let hipPixel = try #require(frame.camera.project(hip, size: size))
+        #expect(hipPixel.y > Double(size.height), "the hips are below a close-up: \(hipPixel)")
+    }
+
     @Test func aShotSizeTiltsTowardTheMiddleOfWhatItFrames() throws {
         // Blockout set the camera to the target height, so every shot-size mark had tilt 0.
         let wide = try framed(.wide, subjects: [man]).mark

@@ -129,8 +129,12 @@ project or any project, and keep the pointer away from the window unless a step 
 6. Inspect menu: Tab to it, open with Space, reach Shot, Camera, each entity and each mark submenu with arrows.
 7. Scene actions: Tab to the scene's "…" menu, open it; **Chosen shot** offers Rename, Duplicate and Delete for
    the chosen shot. Rename's alert takes the new name and Return.
-8. Camera inspector: tick an aim-lock toggle with Space, then activate a framing button; one camera mark is
-   added at the playhead.
+8. Framing: select the Woman (Inspect › Woman) with aim lock off, move the playhead between camera marks and
+   activate Close-up in her inspector; one camera mark is added at the playhead and the camera view shows her
+   face. On a camera mark's frame, Close-up changes that mark instead of adding one. The camera inspector's
+   Framing note names the Man, the first person, as who its shot sizes frame. Shift-click the Woman and the Chair,
+   apply Side-Track Left: the camera tracks the Woman and aim lock is on for her alone; apply Whip Pan: aim
+   lock turns off.
 9. Slider: Tab to Rig intensity, change it with arrows; one Undo step reverts it. Drag it with the pointer and
    press Escape before releasing: nothing is committed.
 10. Shot inspector: Write H3 prompt (demo uses the template); Cancel stops a running write; edit the scene and
@@ -162,12 +166,11 @@ substitute for it; M1/M2 acceptance remains separate.
 
 ## Open for the owner or other lanes
 
-- **Framing and aim lock (C5 behaviour, owner decision).** Framing buttons take their subjects from aim lock,
-  and while aim lock is on the evaluator replaces each mark's pan and tilt with an aim at the subjects
-  (`ShotEvaluator`), so a framing sets the camera's distance and side but not its exact crop (a "Close-up"
-  shows neck and chest; with two subjects it aims between them). Blockout takes framing subjects from the
-  selection instead (`SceneManager.ts:1480-1489`). C6 makes the copy honest about this and does not change
-  the behaviour; switching to selection-based framing is a design change for the owner.
+- **Framing and aim lock.** Closed by the owner's ruling (2026-11-09) that Shots framing behaves like Blockout:
+  framing frames the selection by Blockout's rules and no longer needs aim lock (`ShotsFramingSubjects`); see
+  "Framing like Blockout" in lane-a.md. Aim lock still re-aims a framing while it is on, as in Blockout, and the
+  inspector says so. Camera moves now take their subject from the selection as well (integrator rulings,
+  same day), not from aim lock.
 - **Lane A:** Blockout import notes still print raw identifiers ("it became super35/sticks",
   `BlockoutImport.swift`). **Lane B:** export step text uses film-pass jargon ("Drawing the pose pass…").
   **Lane D:** the viewport's selection announcement reads raw mark ids ("Selected actor mark mark_… for Man");
@@ -197,3 +200,11 @@ unchanged.
 - **C5** (#76): selection inspectors, Inspect menu, starter library, coalesced field edits, slider
   preview/cancel, and the prompt action through B5's real `ShotPromptCompiler` (fake-endpoint boundary test).
 - **C6 preparation** (#77): glossary, credits, Add to scene and Add mark here, as above.
+- **Framing like Blockout** (`shots/framing-like-blockout`, owner ruling 2026-11-09): the framing buttons
+  (`ShotsFramingSection`, in the camera inspector and in a selected person's or prop's inspector) frame the
+  selection as Blockout does (one selected entity for shot sizes, else the first person; two or more for the
+  others, else every person) and work without aim lock; a framing on a camera mark's frame rewrites that mark,
+  and a new mark keeps the roll of the one before it. The framing note names who each group frames and warns
+  when aim lock is on; the button help no longer says "aim-lock subject". Camera moves (`ShotsCameraMoveSection`,
+  beside the framing buttons in both inspectors) are built around the selected person or prop (the first of several), else the first
+  person, instead of the aim-lock subjects; the note names it.
