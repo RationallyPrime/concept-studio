@@ -28,6 +28,7 @@ final class ViewportLiveSession {
     @ObservationIgnored weak var hostView: NSView?
     private(set) var lastAnnouncement: String?
     private var lastAnnouncedSelection: ShotsSelection?
+    @ObservationIgnored private var overlayInputs: ViewportOverlayInputs?
     private(set) var activeLighting: LightingPreset = .day
     var showMarks = true
     var showPaths = true
@@ -73,8 +74,9 @@ final class ViewportLiveSession {
             )
             mapper.apply(emptyFrame)
         }
-        // D2's overlays and D4's handles share `overlayRoot`; each rebuilds only its own named children.
-        ViewportOverlays.sync(
+        // D2's overlays and D4's handles share `overlayRoot`; each rebuilds only its own named children, and the
+        // overlay only the groups whose inputs changed (D6: orbit and playback rebuild nothing).
+        overlayInputs = ViewportOverlays.sync(
             overlayRoot: overlayRoot,
             scene: store.currentScene,
             shot: store.currentShot,
@@ -82,7 +84,8 @@ final class ViewportLiveSession {
             frame: frame,
             selection: store.selection,
             showMarks: showMarks,
-            showPaths: showPaths
+            showPaths: showPaths,
+            previous: overlayInputs
         )
         ViewportHandles.syncOverlay(
             in: overlayRoot,
