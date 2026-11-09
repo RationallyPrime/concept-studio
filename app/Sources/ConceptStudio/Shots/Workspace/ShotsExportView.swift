@@ -11,18 +11,19 @@ struct ShotsExportView: View {
     @State private var summary: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if exportTask != nil {
-                ProgressView(value: progress?.fractionCompleted ?? 0)
-                Text(progress?.step ?? "Preparing the shot package…").font(.caption)
-                Button("Cancel export") { exportTask?.cancel() }
-            } else {
-                Button("Export shot package…", systemImage: "square.and.arrow.up", action: beginExport)
-                    .disabled(store.currentShotID == nil || projectDirectory == nil || store.isReadOnly)
-                if let summary { Text(summary).font(.caption).foregroundStyle(.secondary) }
-            }
-        }
+        ShotsExportControls(
+            running: exportTask != nil, progress: progress, summary: summary,
+            unavailableReason: unavailableReason, export: beginExport, cancel: { exportTask?.cancel() }
+        )
         .onDisappear { exportTask?.cancel() }
+    }
+
+    /// Why Export is off, in words, so a disabled button never leaves the reader guessing.
+    private var unavailableReason: String? {
+        if store.isReadOnly { return "This Shots file is read only." }
+        if store.currentShotID == nil { return "Choose a shot to export it." }
+        if projectDirectory == nil { return "Open a project folder to export into." }
+        return nil
     }
 
     private func beginExport() {
@@ -45,9 +46,11 @@ struct ShotsExportView: View {
                     ) { progress = $0 }
                     try Task.checkCancellation()
                     summary = "Shot package exported."
+                    AccessibilityNotification.Announcement("Shot package exported. Showing it in Finder.").post()
                     NSWorkspace.shared.activateFileViewerSelecting([package.url])
                 } catch is CancellationError {
                     summary = "Export cancelled."
+                    AccessibilityNotification.Announcement("Export cancelled.").post()
                 } catch {
                     store.onError?(error.localizedDescription)
                 }
@@ -55,5 +58,46 @@ struct ShotsExportView: View {
         } catch {
             store.onError?(error.localizedDescription)
         }
+    }
+}
+
+/// The export area's visible states. Failures go to the window alert, the app's single failure path.
+struct ShotsExportControls: View {
+    let running: Bool
+    let progress: ExportProgress?
+    let summary: String?
+    let unavailableReason: String?
+    let export: () -> Void
+    let cancel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Export").font(.headline).accessibilityAddTraits(.isHeader)
+            if running {
+                ProgressView(value: progress?.fractionCompleted ?? 0)
+                    .accessibilityLabel("Export progress")
+                    .accessibilityValue(Self.progressValue(progress))
+                Text(progress?.step ?? "Preparing the shot package…").font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Cancel export", action: cancel)
+            } else {
+                Button("Export shot package…", systemImage: "square.and.arrow.up", action: export)
+                    .disabled(unavailableReason != nil)
+                    .help("Save this shot's guide pictures, reference and control videos, masks and prompt "
+                        + "into the project's Shots folder, then show them in Finder.")
+                if let unavailableReason {
+                    Text(unavailableReason).font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let summary {
+                    Text(summary).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    static func progressValue(_ progress: ExportProgress?) -> String {
+        guard let progress else { return "Preparing" }
+        let percent = Int((min(max(progress.fractionCompleted, 0), 1) * 100).rounded())
+        return "\(percent) percent, \(progress.step)"
     }
 }

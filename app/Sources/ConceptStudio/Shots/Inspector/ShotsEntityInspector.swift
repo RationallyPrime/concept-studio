@@ -13,18 +13,23 @@ struct ShotsEntityInspector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Entity").font(.headline)
+            Text("Entity").font(.headline).accessibilityAddTraits(.isHeader)
             LabeledContent("Asset", value: store.catalog.asset(entity.assetID)?.name ?? entity.assetID)
-            TextField("Name", text: Binding(get: { entity.name }, set: {
+            ShotsTextField(title: "Name", text: Binding(get: { entity.name }, set: {
                 store.run(.renameEntity(entity.id, name: $0), coalescing: true)
             }))
-            TextField("Label", text: Binding(get: { entity.label?.text ?? "" }, set: { text in
-                let label = text.isEmpty ? nil : EntityLabel(
-                    text: text,
-                    color: entity.label?.color ?? RGB(r: 1, g: 1, b: 1)
-                )
-                store.run(.setLabel(entity.id, label), coalescing: true)
-            }))
+            ShotsTextField(
+                title: "Label",
+                text: Binding(get: { entity.label?.text ?? "" }, set: { text in
+                    let label = text.isEmpty ? nil : EntityLabel(
+                        text: text,
+                        color: entity.label?.color ?? RGB(r: 1, g: 1, b: 1)
+                    )
+                    store.run(.setLabel(entity.id, label), coalescing: true)
+                }),
+                explanation: "A short tag, such as W, that names this entity's timeline row. Its colour marks its path "
+                    + "in the scene view."
+            )
             if let label = entity.label {
                 Picker("Label colour", selection: Binding(get: { label.color }, set: {
                     store.run(.setLabel(entity.id, EntityLabel(text: label.text, color: $0)), coalescing: true)
@@ -42,8 +47,11 @@ struct ShotsEntityInspector: View {
                     placement.heading = $0 * .pi / 180
                     store.run(.setPlacement(entity.id, placement), coalescing: true)
                 }
-            ))
-            ShotsNumberField(title: "Scale", value: placement(\.scale), range: 0.01 ... 100)
+            ), explanation: "Which way it faces before its first mark, in degrees.")
+            ShotsNumberField(
+                title: "Scale", value: placement(\.scale), range: 0.01 ... 100,
+                explanation: "Size compared with the asset's normal size, which is 1."
+            )
             Picker("Attach to", selection: Binding(
                 get: { entity.attachment?.parentID ?? "" }, set: {
                     store.run(.attach(
@@ -59,6 +67,7 @@ struct ShotsEntityInspector: View {
                     Text(parent.name).tag(parent.id)
                 }
             }
+            .help("Carry this entity with another, such as a bag held by a person, until this entity's own first mark.")
             Button("Add mark here") {
                 do { try store.addInspectorMark(for: entity.id) } catch { store.onError?(error.localizedDescription) }
             }
@@ -69,9 +78,18 @@ struct ShotsEntityInspector: View {
                     Text($0.name).tag($0.id)
                 }
             }
-            ShotsNumberField(title: "Duration (s)", value: $duration, range: 0.05 ... 3600)
+            .help("A ready-made route, such as walking forward, added as marks from the playhead.")
+            ShotsNumberField(
+                title: "Duration (s)", value: $duration, range: 0.05 ... 3600,
+                explanation: "How long the route takes, in seconds."
+            )
             Toggle("Set speed", isOn: $usesSpeed)
-            if usesSpeed { ShotsNumberField(title: "Speed (m/s)", value: $speed, range: 0.01 ... 1000) }
+            if usesSpeed {
+                ShotsNumberField(
+                    title: "Speed (m/s)", value: $speed, range: 0.01 ... 1000,
+                    explanation: "Average travel speed in metres per second. The route is retimed to match it."
+                )
+            }
             Button("Apply action path") {
                 store.run(.applyActionPath(
                     shot.id,

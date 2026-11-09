@@ -11,15 +11,16 @@ struct ShotsActorMarkInspector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Actor mark").font(.headline)
+            Text("Actor mark").font(.headline).accessibilityAddTraits(.isHeader)
             ShotsNumberField(title: "Time (s)", value: field(\.time), range: 0 ... shot.duration)
             ShotsNumberField(title: "Hold (s)", value: field(\.hold), range: 0 ... shot.duration)
             ShotsNumberField(title: "Ease in", value: field(\.easeIn), range: 0 ... 1)
             ShotsNumberField(title: "Ease out", value: field(\.easeOut), range: 0 ... 1)
             ShotsPositionFields(position: field(\.position))
             Picker("Gait", selection: field(\.gait)) {
-                ForEach(Gait.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(Gait.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
+            .help("How the person moves on the way to this mark, and their pose while holding it.")
             Toggle("Set arrival heading", isOn: Binding(get: { mark.arriveHeading != nil }, set: { enabled in
                 update { $0.arriveHeading = enabled ? (mark.arriveHeading ?? 0) : nil }
             }))
@@ -41,7 +42,9 @@ struct ShotsActorMarkInspector: View {
                     atFrame: FrameGrid.frame(atTime: mark.time)
                 ))
             }
+            .help("Play the motion once from this mark's time. It replaces this mark and the ones after it.")
             Button("Apply motion as overlay") { store.run(.overlayMotion(shot.id, entityID, motionID: motionID)) }
+                .help("Add an upper-body motion, such as a wave, while the person keeps walking their marks.")
         }
     }
 
@@ -63,7 +66,7 @@ struct ShotsCameraMarkInspector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Camera mark").font(.headline)
+            Text("Camera mark").font(.headline).accessibilityAddTraits(.isHeader)
             ShotsNumberField(title: "Time (s)", value: field(\.time), range: 0 ... shot.duration)
             ShotsNumberField(title: "Hold (s)", value: field(\.hold), range: 0 ... shot.duration)
             ShotsNumberField(title: "Ease in", value: field(\.easeIn), range: 0 ... 1)

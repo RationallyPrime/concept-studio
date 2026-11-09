@@ -35,6 +35,7 @@ struct ShotsTimelineView: View {
                                             let label = entity.label?.text ?? ""
                                             lane(
                                                 name: label.isEmpty ? entity.name : label,
+                                                spokenName: entity.name,
                                                 marks: track.marks.map { .actor(shot.id, entity.id, $0) },
                                                 geometry: geometry
                                             )
@@ -50,9 +51,12 @@ struct ShotsTimelineView: View {
             }
         }
         .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .contentShape(Rectangle())
         .focusable().focused($focused)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Shots timeline")
+        .help(ShotsAccessibility.timelineHint)
         .onKeyPress(keys: [.leftArrow, .rightArrow, .home, .end, .delete]) { press in
             guard press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
             let key: ShotsTimelineKey = switch press.key {
@@ -92,7 +96,7 @@ struct ShotsTimelineView: View {
         let seconds = FrameGrid.time(ofFrame: store.playhead)
         let count = store.currentShot?.frameCount ?? 0
         return HStack(spacing: 12) {
-            Text("Timeline").font(.headline)
+            Text("Timeline").font(.headline).accessibilityAddTraits(.isHeader)
             Button(store.isPlaying ? "Pause" : "Play", systemImage: store.isPlaying ? "pause.fill" : "play.fill") {
                 store.toggleShotsPlayback()
             }
@@ -111,8 +115,10 @@ struct ShotsTimelineView: View {
             ZStack(alignment: .topLeading) {
                 Rectangle().fill(Color.primary.opacity(0.05))
                 ForEach(Array(stride(from: 0, to: shot.frameCount, by: 24)), id: \.self) { frame in
+                    // Starts just right of its tick, clear of the playhead line drawn on it.
+                    let tick = geometry.position(atTime: FrameGrid.time(ofFrame: frame))
                     Text("\(frame) · \(frame / 24)s").font(.caption2).monospacedDigit()
-                        .offset(x: min(geometry.width - 44, geometry.position(atTime: FrameGrid.time(ofFrame: frame))))
+                        .offset(x: min(geometry.width - 44, tick + 4))
                 }
                 ForEach(shot.guideFrames, id: \.self) { frame in
                     Image(systemName: "bookmark.fill").foregroundStyle(.orange).font(.caption2)
@@ -141,22 +147,30 @@ struct ShotsTimelineView: View {
         }
     }
 
-    private func lane(name: String, marks: [ShotsTimelineDrag.Mark], geometry: ShotsTimelineGeometry) -> some View {
-        HStack(spacing: 8) {
-            Text(name).font(.caption).lineLimit(1).help(name).frame(width: 112, alignment: .leading)
+    /// `name` is the row's visible tag (an entity's label when it has one); VoiceOver always hears `spokenName`.
+    private func lane(
+        name: String, spokenName: String? = nil, marks: [ShotsTimelineDrag.Mark], geometry: ShotsTimelineGeometry
+    ) -> some View {
+        let spokenName = spokenName ?? name
+        return HStack(spacing: 8) {
+            Text(name).font(.caption).lineLimit(1).help(spokenName).frame(width: 112, alignment: .leading)
+                .accessibilityHidden(true)
             ZStack(alignment: .leading) {
                 Rectangle().fill(Color.primary.opacity(0.04))
-                ForEach(marks, id: \.id) { mark in pill(mark, name: name, geometry: geometry) }
+                ForEach(marks, id: \.id) { mark in pill(mark, name: spokenName, geometry: geometry) }
                 playhead(geometry: geometry).allowsHitTesting(false)
             }
             .frame(height: 30)
             .clipped()
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(spokenName) marks")
     }
 
     private func pill(_ mark: ShotsTimelineDrag.Mark, name: String, geometry: ShotsTimelineGeometry) -> some View {
         let start = geometry.position(atTime: mark.time)
         let holdWidth = geometry.position(atTime: mark.time + mark.hold) - start
+        let label = ShotsAccessibility.markLabel(lane: name, time: mark.time, gait: mark.gait)
         return HStack(spacing: 0) {
             Text("\(FrameGrid.frame(atTime: mark.time))")
                 .font(.caption2).monospacedDigit().padding(.horizontal, 5)
@@ -174,10 +188,10 @@ struct ShotsTimelineView: View {
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.primary.opacity(0.3)))
         .offset(x: start)
-        .help("\(name), \(mark.gait), \(mark.time.formatted(.number.precision(.fractionLength(2)))) seconds")
+        .help(label + ". Click to edit it in the inspector, or drag to change its time.")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name), \(mark.gait), mark at \(mark.time, specifier: "%.2f") seconds")
-        .accessibilityValue("Hold \(mark.hold, specifier: "%.2f") seconds")
+        .accessibilityLabel(label)
+        .accessibilityValue("Hold \(ShotsAccessibility.seconds(mark.hold))")
         .accessibilityAddTraits(store.selection == mark.selection ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction { focused = true; store.selection = mark.selection }
     }
@@ -263,10 +277,10 @@ private extension ShotsTimelineDrag.Mark {
         }
     }
 
-    var gait: String {
+    var gait: Gait? {
         switch self {
-        case let .actor(_, _, mark): mark.gait.rawValue
-        case .camera: "camera"
+        case let .actor(_, _, mark): mark.gait
+        case .camera: nil
         }
     }
 

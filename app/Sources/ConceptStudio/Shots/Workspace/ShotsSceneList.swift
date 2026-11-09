@@ -12,13 +12,14 @@ struct ShotsSceneList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Scenes and shots").font(.headline).padding(12)
+            Text("Scenes and shots").font(.headline).accessibilityAddTraits(.isHeader).padding(12)
             sceneList
             HStack {
                 Button("New scene", systemImage: "plus") { attempt { try store.createScene() } }
                 Spacer(minLength: 0)
                 Button("Import Blockout", systemImage: "square.and.arrow.down") { showsImporter = true }
                     .labelStyle(.iconOnly).help("Import a Blockout project")
+                    .accessibilityLabel("Import a Blockout project")
             }
             .disabled(store.isReadOnly).padding(12)
             if let importSummary {
@@ -54,14 +55,8 @@ struct ShotsSceneList: View {
                 Section {
                     ForEach(scene.shots, id: \.id) { shot in
                         Label(shot.name, systemImage: "film").foregroundStyle(.primary).tag(shot.id)
-                            .contextMenu {
-                                Group {
-                                    Button("Rename shot…") { beginRename(.shot(shot.id), name: shot.name) }
-                                    Button("Duplicate shot") { attempt { try store.copyShot(shot.id) } }
-                                    Button("Delete shot", role: .destructive) { store.run(.deleteShot(shot.id)) }
-                                }
-                                .disabled(store.isReadOnly)
-                            }
+                            .contextMenu { shotActions(shot).disabled(store.isReadOnly) }
+                            .accessibilityActions { if !store.isReadOnly { shotActions(shot) } }
                     }
                 } header: {
                     HStack {
@@ -72,6 +67,10 @@ struct ShotsSceneList: View {
                             Button("Rename scene…") { beginRename(.scene(scene.id), name: scene.name) }
                             Button("Duplicate scene") { attempt { try store.copyScene(scene.id) } }
                             Button("Delete scene", role: .destructive) { store.run(.deleteScene(scene.id)) }
+                            // The shot context menu needs a pointer, so the chosen shot's actions are here too.
+                            if let shot = scene.shots.first(where: { $0.id == store.currentShotID }) {
+                                Section("Chosen shot: \(shot.name)") { shotActions(shot) }
+                            }
                         } label: {
                             Image(systemName: "ellipsis")
                         }
@@ -88,6 +87,12 @@ struct ShotsSceneList: View {
                     .font(.callout).foregroundStyle(.secondary).padding()
             }
         }
+    }
+
+    @ViewBuilder private func shotActions(_ shot: Shot) -> some View {
+        Button("Rename shot…") { beginRename(.shot(shot.id), name: shot.name) }
+        Button("Duplicate shot") { attempt { try store.copyShot(shot.id) } }
+        Button("Delete shot", role: .destructive) { store.run(.deleteShot(shot.id)) }
     }
 
     private func beginRename(_ target: RenameTarget, name: String) {
