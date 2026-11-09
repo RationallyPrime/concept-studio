@@ -173,7 +173,10 @@ PrevisCore imports Foundation and nothing else, so it stays portable. Tests use 
   These follow Blockout's sign header (`src/engine/motions.ts` lines 13–33 at `3f2d056`) and its motion data,
   which govern where its renderer disagrees (LANE-A-CORE.md, person rig). The header gives no sign for `headX`
   or `headY`: Blockout's `nod-yes` uses only positive `headX`, and A3's rig turns `headY` the same way as
-  `torsoY`. The person rig's sign mapping is the one place they are applied.
+  `torsoY`. The person rig's sign mapping is the one place they are applied. Blockout's keyframes that bend
+  both knees write the thighs' forward swing with a positive `hipX`, against this table; the bundled catalog
+  changes those signs (PrevisCore `MotionCorrections`, owner ruling 2026-11-09), so every catalog motion follows
+  the table. A document imported from Blockout keeps the values it carries.
 - **Time.**
   - H3 runs at 24 fps. A shot stores a frame count on the grid 17k+5 (5, 22, 39, …, 124, …, 362).
   - Frame *i* samples t = i/24, and the last frame samples t = (N−1)/24, the shot's `duration`.

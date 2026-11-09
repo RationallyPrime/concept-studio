@@ -1,6 +1,6 @@
 # Lane B status
 
-This file travels at the top of each Lane B checkpoint (now B6's `shots/b-media-b6`), so checkpoints that have passed review keep their exact heads.
+All Lane B checkpoints are on `main`; B6 was the last (2026-11-01). Lane B's open question, `excludeFromExport`, remains open.
 
 | Checkpoint | State |
 |---|---|
@@ -218,7 +218,7 @@ This file travels at the top of each Lane B checkpoint (now B6's `shots/b-media-
   - **A subject's own jump** to a mark at the same time is cut as a one-frame stretch but not as a jump, so the aimed camera's re-aim reads as a one-frame fast pan.
   - **A camera jump just before a frame,** or two marks a fraction of a frame apart, is sampled partway across; that frame counts as a step, and its leg reads as a push.
 - **A jump in an aimed push, pull or crane:** how far it goes is still measured end to end, jump included. Pushing 2 m on a man standing still with a 2.5 m jump between reads fast and large, where the same 2 m in one push reads medium. |
-| B6 app support and budgets | **Draft PR [RationallyPrime/concept-studio#80](https://github.com/RationallyPrime/concept-studio/pull/80) on `main` at `139a2e4`: code head `c261b67`, with this status commit on top.** Unblocks D6.
+| B6 app support and budgets | **Landed on `main`** as merge commit `36b3af9` ([RationallyPrime/concept-studio#80](https://github.com/RationallyPrime/concept-studio/pull/80), head `3551860`, 2026-11-01, on the owner's instruction to merge every solid Shots PR). D6 is unblocked.
 
 **Progress steps Lane C can show.** Lane C's export view (`ShotsExportView`) shows each step as it comes. The steps used to be file paths ("Writing control/pose.mp4"); they are now plain words, after Blockout's `Rendering <pass> pass…` (`src/renderer/export/exporter.ts:295`):
 - one step per video, in pass order: "Rendering the clean pass…", "Drawing the pose pass…", "Drawing the layout pass…", then "Rendering the matte of <name>…" for each actor;
@@ -241,7 +241,7 @@ This file travels at the top of each Lane B checkpoint (now B6's `shots/b-media-
   - The app's `Timing` filter also matches one unrelated test, `eachModelKeepsItsOwnFrameGridAndTiming`, which passes.
 - **Lane D's** viewport budget is measured in D6.
 
-**Reports from C and D:** none is open for Lane B. D6 waits on B6. Lane C's note on an Xcode 26.6 CI hang has no reproduction, and `main`'s CI at `139a2e4` passed.
+**Reports from C and D:** none is open for Lane B. D6 was unblocked when B6 landed. Lane C's note on an Xcode 26.6 CI hang has no reproduction, and `main`'s CI at `139a2e4` passed.
 
 **Gates on `c261b67` with this file:**
 - **Tests:** the app passes 948 tests in 157 suites. ShotsMedia passes 102 tests in 13 suites with `PREVIS_VECTORS` set and without it. PrevisCore passes 148.
