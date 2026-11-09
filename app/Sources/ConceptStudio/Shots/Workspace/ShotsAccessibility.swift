@@ -134,20 +134,20 @@ extension Framing.Kind {
         }
     }
 
-    /// Plain description of the camera mark each button adds at the playhead (PrevisCore `Framing.cameraMark`).
-    /// Framing takes its subjects from aim lock, and aim lock then keeps choosing where the camera points
-    /// (`ShotEvaluator` replaces pan and tilt), so these describe where the camera is placed, not exact crops.
+    /// Plain description of the camera pose each button sets at the playhead (PrevisCore `Framing.cameraMark`), for
+    /// the subjects `ShotsFramingSubjects` picks from the selection as Blockout does. With aim lock off the camera
+    /// view shows the framing as described; with it on, aim lock still chooses where the camera points.
     var explanation: String {
         switch self {
-        case .wide: "Place the camera far enough back to show the first aim-lock subject whole, with room around."
-        case .full: "Place the camera at full-body distance from the first aim-lock subject."
-        case .medium: "Place the camera at waist-up distance from the first aim-lock subject."
-        case .closeUp: "Place the camera close to the first aim-lock subject."
-        case .twoShot: "Place the camera to fit both aim-lock subjects. Needs two aim-lock subjects."
-        case .overShoulder: "Place the camera behind one subject's shoulder, facing the other. Needs two subjects."
-        case .reverse: "Move the camera to the opposite side of the subjects."
-        case .top: "Place the camera above the subjects, looking down."
-        case .low: "Place the camera at knee height, looking up."
+        case .wide: "Frame the selected person or prop whole, with room around them."
+        case .full: "Frame the selected person or prop from head to toe."
+        case .medium: "Frame the selected person from the waist up."
+        case .closeUp: "Frame the selected person's face."
+        case .twoShot: "Fit the selected people side by side, or every person when fewer than two are selected."
+        case .overShoulder: "Look past the nearer person's shoulder at the other. Needs two people."
+        case .reverse: "Swing the camera to the opposite side of the people."
+        case .top: "Look straight down from above, fitting everyone in."
+        case .low: "Look up from knee height at the first selected person, or at the scene's first person."
         case .dutch: "Tilt the horizon; press again to tilt the other way or level it."
         }
     }

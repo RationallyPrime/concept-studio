@@ -10,6 +10,7 @@
 | A5 corrections | **Merged** (PR #73, `c23dea8`; independent review R1 and two closure rounds repaired simultaneous nested boardings, non-finite attachment rotation and inactive-attachment capture order). |
 | A6 hardening | **Merged** (PR #75, `42be3e9`, 2026-11-01, on the owner's instruction to merge every solid Shots PR). `TimingTests` (suite `Timing`, gated by `SHOTS_TIMING=1`, CONTRACTS section 10: `init` under 5 ms, `frame` under 2 ms, ten entities). `TranslatedHeaderTests` audits that the twelve translating files carry the Blockout header, pinned commit, licence and author, and that no other file claims to be a translation. No integration fixes: no lane has reported a defect in PrevisCore. See the A6 notes below. |
 | A7 motion-data signs | **In review** (branch `shots/a-seated-hip-signs`, by the integration owner). The bundled catalog changes the sign of `hipLX` and `hipRX` in 171 keyframes of Blockout's bilateral knee bends; see "Seated and crouched hips" below. |
+| Framing like Blockout | **In review** (branch `shots/framing-like-blockout`, owner ruling 2026-11-09). `Framing`'s shot sizes also fit a head's width across the canvas; the shell frames the selection as Blockout does. See "Framing like Blockout" below. |
 
 **A5 tests** (Linux, Swift 6.3.3, debug; `PREVIS_VECTORS` and `PREVIS_GOLDENS` set): 101 run, 101 passed, 0 failed.
 
@@ -238,3 +239,42 @@ from Blockout keep the values they carry.
 
 **Not established.** No one has looked at the 60 motions in the app yet; the owner's M2 walkthrough should play `sit-down`,
 `squat-exercise`, `jump`, `duck-under` and `ko-collapse` and look at them from the side.
+
+## Framing like Blockout (owner ruling 2026-11-09)
+
+**What Blockout does** (`src/renderer/viewport/SceneManager.ts`, `src/engine/camera.ts` and `src/engine/evaluate.ts` at `3f2d056`):
+- *Subjects.* The shot sizes (`autoFrame`, lines 1416-1424) frame the selected entity when exactly one is selected, else the first
+  person, else the first entity. The other framings (`framingSubjects`, lines 1480-1489) use the selected entities when two or more
+  are selected, else every person, else the first two entities. Aim lock (`trackEntityId`) plays no part.
+- *What it writes.* Position, pan and tilt (and only the roll for dutch) into the active camera mark, the last one at or before the
+  playhead (`activeCameraMark` 1375-1383, `autoFrame` 1442-1470, `writeCameraPose` 1504-1543); a mark at the playhead only when the
+  shot has none. The mark's lens, time, easing, hold and focus stay. A shot size's distance (`frameSubject`, camera.ts 88-103) fits
+  only the visible part's height, and the camera stands at the aim height, so the tilt is 0.
+- *Aim lock* (evaluate.ts 453-476) replaces every mark's pan and tilt with an aim at 0.8 of the tracked subject's height, and
+  framing never changes it. So in Blockout too, a framing made with aim lock on sets only where the camera stands.
+
+**What Shots did.** C5's camera inspector took framing subjects from aim lock and disabled the buttons without it, so every framing
+ran under aim lock and the evaluator re-aimed it: a Close-up showed neck and chest (reported in lane-c.md).
+
+**What changed.**
+- Lane C: `ShotsFramingSubjects` picks the subjects from the selection by Blockout's rules; the buttons work without aim lock, and
+  framing leaves aim lock as it is (Blockout's behaviour). With aim lock off, as in the sample, the camera view shows the framing.
+- Lane C, deviation: Shots still adds a mark at the playhead rather than rewriting the earlier mark, so the camera view at the
+  playhead is the framing; Blockout's view there is an interpolation when the playhead is between marks. A mark already on the
+  playhead's frame is now rewritten Blockout's way; before, a second mark was added at the same time and the evaluator played the
+  old one first, so a framing on a mark's frame (frame 0 of the sample) did not show.
+- `Framing`, new deviation (extends the canvas-aware distances): a shot size's distance also fits a head's width (0.13 of the subject's
+  height, Blockout's person head) across the canvas with the size's fill, and when that needs more room the visible part grows down
+  from the top of the head. On the 9:16 sample a Close-up framed by height alone is 0.20 m wide at the subject, narrower than the
+  head, and the profile face (eyes and nose) fell outside the frame; Blockout has the same crop. Wide, Full and Medium are unchanged
+  on the sample (the height fit is the larger), and the shot-size tilt is kept.
+
+**Tests** (each fails with its part of the change reverted): `ShotsFramingTests` (app) selects the sample's man and presses
+Close-up at frame 0 (on a mark) and 61 (between marks): nose, eyes and neck project inside the canvas, the head from its top to the
+neck fills more than half the frame height, and the chest and hips are below it. It also checks Blockout's subject rules, that aim lock
+neither picks the subject nor changes, and the rewrite-or-add rule. `GeneratorTests.aCloseUpOnAPortraitCanvasKeepsAProfileFaceInsideTheFrame`
+covers the width fit in PrevisCore.
+
+**Kept from Blockout, for the owner to confirm.** With exactly one entity selected, the non-size framings ignore it and use every
+person, so Low angle looks up at the scene's first person rather than the selected one. Camera moves still take their subject from
+aim lock (`ShotsCameraInspector`); Blockout's `applyCameraMove` (line 1704) uses `framingSubjects()[0]`, the same rule as above.

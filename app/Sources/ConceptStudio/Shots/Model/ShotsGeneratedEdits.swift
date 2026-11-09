@@ -21,8 +21,7 @@ enum ShotsGeneratedEdits {
                 let mark = try Framing.cameraMark(
                     kind, scene: scene, shotID: shot.id, subjects: subjects, atFrame: atFrame, catalog: catalog
                 )
-                shot.camera.marks.append(mark)
-                shot.camera.marks.sort { $0.time < $1.time }
+                frame(mark, kind: kind, into: &shot.camera.marks)
             }
         default: return try applyActor(command, to: &document, catalog: catalog)
         }
@@ -99,6 +98,33 @@ enum ShotsGeneratedEdits {
             return
         }
         throw ShotsEditingError.missing("shot")
+    }
+
+    /// Puts a framing's camera pose on the playhead's frame. Blockout writes it into the active camera mark, the
+    /// last one at or before the playhead (`SceneManager.ts` `writeCameraPose`, `activeCameraMark`), so between
+    /// marks its camera view at the playhead does not show the framing. Shots adds a mark at the playhead instead;
+    /// a mark already on that frame is rewritten as Blockout does (position, pan and tilt, or only the roll for
+    /// dutch; its timing, easing and focus stay), so the view there is the framing rather than a second mark at the
+    /// same time that the evaluator plays after the first.
+    static func frame(_ mark: CameraMark, kind: Framing.Kind, into marks: inout [CameraMark]) {
+        let target = FrameGrid.frame(atTime: mark.time)
+        let onFrame = marks.indices.filter { FrameGrid.frame(atTime: marks[$0].time) == target }
+        guard !onFrame.isEmpty else {
+            marks.append(mark)
+            marks = marks.enumerated().sorted { ($0.element.time, $0.offset) < ($1.element.time, $1.offset) }
+                .map(\.element)
+            return
+        }
+        for index in onFrame {
+            // Dutch keeps the camera where it is and only turns the horizon; Blockout writes back the mark's own
+            // pan and tilt. Reading them from the evaluated camera would bake in aim lock and rig shake.
+            if kind == .dutch { marks[index].roll = mark.roll; continue }
+            marks[index].position = mark.position
+            marks[index].pan = mark.pan
+            marks[index].tilt = mark.tilt
+            // The distance was worked out for the lens at the playhead, which is this mark's own.
+            marks[index].focalLength = mark.focalLength
+        }
     }
 
     private static func edit(
