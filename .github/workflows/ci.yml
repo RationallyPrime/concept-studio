@@ -41,9 +41,12 @@ jobs:
           version: ${{ env.MISE_VERSION }}
           install_args: swiftlint swiftformat
       - run: swift --version
-      - run: swift build
+      # Tests are built here, outside the watchdog: compiling them takes two to five minutes on this runner, and
+      # the watchdog's five minutes are for a hung test run, not a slow compile.
+      - run: swift build --build-tests
       - name: swift test (sampled and killed if it hangs for 5 minutes)
         run: ../.github/scripts/swift-test-watchdog.sh
+      - run: swift build --build-tests --package-path PrevisCore
       - name: swift test PrevisCore (standalone package, same watchdog)
         run: ../.github/scripts/swift-test-watchdog.sh --package-path PrevisCore
       - run: swiftlint lint --strict --quiet

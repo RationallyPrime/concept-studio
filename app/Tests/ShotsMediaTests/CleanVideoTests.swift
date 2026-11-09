@@ -62,7 +62,9 @@ struct CleanVideoTests {
 @Suite("video writer")
 @MainActor
 struct VideoWriterTests {
-    @Test(.timeLimit(.minutes(1))) func appendingToAStoppedWriterFailsInsteadOfWaiting() async throws {
+    /// The limit only has to beat a writer that waits forever. This main-actor test queues behind the rest of the
+    /// parallel run, and on CI's three-core runner that alone takes 80 to 95 seconds.
+    @Test(.timeLimit(.minutes(3))) func appendingToAStoppedWriterFailsInsteadOfWaiting() async throws {
         let folder = try scratchFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let writer = try VideoWriter(
