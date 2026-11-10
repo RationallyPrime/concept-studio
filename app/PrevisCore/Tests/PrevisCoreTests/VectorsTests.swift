@@ -54,9 +54,9 @@ struct VectorsTests {
 
     private func subject(_ kind: String) throws -> (at: (Double) -> SubjectSample, height: Double) {
         switch kind {
-        case "still": return ({ _ in SubjectSample(x: 0, y: 0, z: 0, heading: 0) }, 1.75)
-        case "walk": return ({ SubjectSample(x: 0, y: 0, z: -1.4 * $0, heading: 0) }, 1.75)
-        case "fly": return ({ SubjectSample(x: 3 * $0, y: 8 + sin($0), z: -12 * $0, heading: 0.2) }, 5)
+        case "still": ({ _ in SubjectSample(x: 0, y: 0, z: 0, heading: 0) }, 1.75)
+        case "walk": ({ SubjectSample(x: 0, y: 0, z: -1.4 * $0, heading: 0) }, 1.75)
+        case "fly": ({ SubjectSample(x: 3 * $0, y: 8 + sin($0), z: -12 * $0, heading: 0.2) }, 5)
         default: throw ShotsError.importFailed("unknown vector subject \(kind)")
         }
     }
