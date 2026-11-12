@@ -202,7 +202,8 @@ public extension Shot {
             notes: c.value("notes", ShotNotes(description: "", sound: "", music: "")),
             prompt: c.optional("prompt"),
             results: c.value("results", []),
-            reference: c.optional("reference")
+            reference: c.optional("reference"),
+            editFrameCount: c.optional("editFrameCount")
         )
     }
 }

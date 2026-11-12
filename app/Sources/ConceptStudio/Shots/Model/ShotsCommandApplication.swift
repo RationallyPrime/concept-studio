@@ -88,6 +88,8 @@ enum ShotsCommandApplication {
             document.scenes[index.scene].shots.insert(copy, at: index.shot + 1)
         case let .renameShot(id, name):
             try editShot(id, in: &document) { $0.name = name }
+        case let .moveShot(id, offset):
+            try moveShot(id, by: offset, in: &document)
         case let .deleteShot(id):
             let index = try shotIndex(id, in: document)
             document.scenes[index.scene].shots.remove(at: index.shot)
@@ -96,7 +98,10 @@ enum ShotsCommandApplication {
                 $0.frameCount = FrameGrid.snap(count)
                 let last = $0.frameCount - 1
                 $0.guideFrames.removeAll { $0 <= 0 || $0 >= last }
+                if let edit = $0.editFrameCount, edit >= $0.frameCount { $0.editFrameCount = nil }
             }
+        case let .setEditFrameCount(id, frames):
+            try editShot(id, in: &document) { $0.editFrameCount = frames == $0.frameCount ? nil : frames }
         case let .setCanvas(id, canvas):
             try editShot(id, in: &document) { $0.canvas = canvas }
         case let .setGuideFrames(id, frames):
@@ -110,6 +115,16 @@ enum ShotsCommandApplication {
         default: return false
         }
         return true
+    }
+
+    private static func moveShot(_ id: ShotID, by offset: Int, in document: inout ShotsDocument) throws {
+        let index = try shotIndex(id, in: document)
+        let (destination, overflow) = index.shot.addingReportingOverflow(offset)
+        guard !overflow, document.scenes[index.scene].shots.indices.contains(destination) else {
+            throw ShotsEditingError.missing("place in the scene order")
+        }
+        let shot = document.scenes[index.scene].shots.remove(at: index.shot)
+        document.scenes[index.scene].shots.insert(shot, at: destination)
     }
 
     private static func applyMarks(_ command: ShotsCommand, to document: inout ShotsDocument) throws -> Bool {

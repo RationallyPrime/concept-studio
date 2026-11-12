@@ -141,7 +141,7 @@ There are no new SwiftPM dependencies. Shots uses only these:
 | Swift standard library, Foundation, Observation, Synchronization, `os.Logger` (subsystem `is.conceptstudio.app`, category `shots`) | all |
 | SwiftUI; AppKit only where SwiftUI cannot do it (event modifiers, scroll wheel) | C, D |
 | RealityKit | B (rendering), D (viewport) |
-| Metal (resources RealityKit needs; no `.metal` shader files), CoreVideo, CoreMedia, AVFoundation, CoreGraphics, ImageIO, UniformTypeIdentifiers | B |
+| Metal (resources RealityKit needs; no `.metal` shader files), CoreVideo, CoreMedia, AVFoundation, CoreGraphics, CoreText, ImageIO, UniformTypeIdentifiers | B |
 | ConceptCore: model clients, `StructuredStage`, Agent Skills loader, `AtomicFile`, `JSONValue` | B (prompt), C (persistence) |
 | bun (pinned in `mise.toml`) | `scripts/blockout/` only; never at app runtime |
 
@@ -370,6 +370,8 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var prompt: ShotPrompt?
     public var results: [ShotResult]        // reserved for later destinations; empty in v1
     public var reference: ShotReference?
+    public var editFrameCount: Int?
+    public var editFrames: Int { get }
     public var duration: Double { get }     // Double(frameCount - 1) / 24
     public static func make(id: ShotID, name: String, takeID: TakeID, cameraMarkID: MarkID) -> Shot
 }
@@ -777,8 +779,10 @@ enum ShotsCommand: Codable, Sendable, Equatable {  // Lane C
     case addShot(SceneID, id: ShotID, name: String, cameraMarkID: MarkID)
     case duplicateShot(ShotID, newID: ShotID)       // the copy's camera marks get new ids
     case renameShot(ShotID, name: String)
+    case moveShot(ShotID, by: Int)
     case deleteShot(ShotID)
     case setFrameCount(ShotID, Int)                 // snapped; drops guide frames that fall outside
+    case setEditFrameCount(ShotID, Int?)
     case setCanvas(ShotID, ShotCanvas)
     case setGuideFrames(ShotID, [Int])
     case setNotes(ShotID, ShotNotes)
@@ -833,6 +837,32 @@ names a copied image in `.conceptstudio/shots-references/` and an opacity from 0
 the `reference_<12 hex digits>` ID shape. The image is displayed over the shot-camera view only, scaled to
 fit the canvas. Replacing or removing the reference leaves the image available to undo. The reference,
 its file and its opacity do not appear in any package.
+
+**Scene edit.** The order of `PrevisScene.shots` is the scene order. A shot contributes its first
+`editFrameCount` frames, or all its generated frames when that field is absent. An edit length is any
+integer from 1 through the generated length. Playback uses the shot camera and resets the local frame
+at each cut. Scene playback stops after the last frame.
+
+```swift
+public struct SceneCut: Codable, Sendable, Equatable {
+    public var shotID: ShotID
+    public var startFrame: Int
+    public var endFrame: Int
+}
+public struct SceneCutList: Codable, Sendable, Equatable {
+    public var frameRate: Int
+    public var cuts: [SceneCut]
+    public var frameCount: Int { get }
+    public init(scene: PrevisScene) throws
+    public func cut(at frame: Int) -> SceneCut?
+}
+```
+
+`AnimaticExporter(catalog:)` writes `animatic.mp4` and `cut-list.json` together into a new scene
+export folder. Both use 24 fps. Cut ranges start at zero and are half-open, so an `endFrame` is the
+next shot's `startFrame` or the video's frame count. The first shot supplies the output canvas and
+shots of other sizes fit inside it with black margins. Optional burn-in shows the shot name and
+scene timecode as HH:MM:SS:FF. The animatic renders the same clean view as a shot package.
 
 **C0 makes `evaluator` and `frame` work from day 1.** They wrap PrevisCore, and the viewport draws
 `store.frame`.

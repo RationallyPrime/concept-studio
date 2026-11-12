@@ -174,6 +174,9 @@ private struct SceneChecker {
                 shot: shot.id
             ))
         }
+        if shot.editFrames < 1 || shot.editFrames > shot.frameCount {
+            out.append(error("\(label) has an edit length outside its generated frames.", shot: shot.id))
+        }
         if shot.reference?.isValid == false {
             out.append(error("\(label) has an invalid reference image or opacity.", shot: shot.id))
         }

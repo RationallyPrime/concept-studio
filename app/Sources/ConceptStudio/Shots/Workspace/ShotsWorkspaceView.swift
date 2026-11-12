@@ -37,6 +37,9 @@ private struct ShotsWorkspaceContent: View {
             ShotsTimelineView(store: store).frame(minHeight: 150, idealHeight: 210, maxHeight: 250)
         }
         .background(ShotsUndoBridge(store: store))
+        .onChange(of: store.isPlayingScene) { _, playing in
+            if playing { showsShotCamera = true }
+        }
         .onKeyPress(keys: [.space]) { press in
             guard press.modifiers.isDisjoint(with: [.command, .control, .option, .shift]),
                   !ShotsTimelineView.editingText,

@@ -9,12 +9,21 @@ struct ShotsExportView: View {
     @State private var exportTask: Task<Void, Never>?
     @State private var progress: ExportProgress?
     @State private var summary: String?
+    @State private var burnIn = true
 
     var body: some View {
-        ShotsExportControls(
-            running: exportTask != nil, progress: progress, summary: summary,
-            unavailableReason: unavailableReason, export: beginExport, cancel: { exportTask?.cancel() }
-        )
+        VStack(alignment: .leading, spacing: 8) {
+            ShotsExportControls(
+                running: exportTask != nil, progress: progress, summary: summary,
+                unavailableReason: unavailableReason, export: beginExport, cancel: { exportTask?.cancel() }
+            )
+            if exportTask == nil, unavailableReason == nil {
+                Toggle("Shot name and timecode", isOn: $burnIn)
+                    .help("Burn the shot name and scene timecode into the animatic.")
+                Button("Export scene animatic…", systemImage: "film") { beginAnimatic() }
+                    .help("Export the scene's cuts as an MP4 with a frame-accurate cut list.")
+            }
+        }
         .onDisappear { exportTask?.cancel() }
     }
 
@@ -36,27 +45,54 @@ struct ShotsExportView: View {
                 "Shots",
                 isDirectory: true
             ))
-            progress = nil
-            summary = nil
-            exportTask = Task { @MainActor in
-                defer { exportTask = nil }
-                do {
-                    let package = try await exporter.export(
-                        scene: snapshot.scene, shotID: snapshot.shotID, options: .standard, to: destination
-                    ) { progress = $0 }
-                    try Task.checkCancellation()
-                    summary = "Shot package exported."
-                    AccessibilityNotification.Announcement("Shot package exported. Showing it in Finder.").post()
-                    NSWorkspace.shared.activateFileViewerSelecting([package.url])
-                } catch is CancellationError {
-                    summary = "Export cancelled."
-                    AccessibilityNotification.Announcement("Export cancelled.").post()
-                } catch {
-                    store.onError?(error.localizedDescription)
+            startExport(success: "Shot package exported.") {
+                try await exporter.export(
+                    scene: snapshot.scene, shotID: snapshot.shotID, options: .standard, to: destination
+                ) { progress = $0 }.url
+            }
+        } catch {
+            store.onError?(error.localizedDescription)
+        }
+    }
+
+    private func beginAnimatic() {
+        guard exportTask == nil, let projectDirectory else { return }
+        do {
+            let scene = try store.exportSnapshot().scene
+            try store.flush()
+            let destination = projectDirectory.appendingPathComponent("Shots", isDirectory: true)
+            let burnIn = burnIn
+            startExport(success: "Scene animatic exported.") {
+                try await AnimaticExporter(catalog: store.catalog).export(
+                    scene: scene,
+                    burnIn: burnIn,
+                    to: destination
+                ) {
+                    progress = $0
                 }
             }
         } catch {
             store.onError?(error.localizedDescription)
+        }
+    }
+
+    private func startExport(success: String, run: @escaping @MainActor () async throws -> URL) {
+        progress = nil
+        summary = nil
+        exportTask = Task { @MainActor in
+            defer { exportTask = nil }
+            do {
+                let url = try await run()
+                try Task.checkCancellation()
+                summary = success
+                AccessibilityNotification.Announcement(success + " Showing it in Finder.").post()
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } catch is CancellationError {
+                summary = "Export cancelled."
+                AccessibilityNotification.Announcement("Export cancelled.").post()
+            } catch {
+                store.onError?(error.localizedDescription)
+            }
         }
     }
 }
