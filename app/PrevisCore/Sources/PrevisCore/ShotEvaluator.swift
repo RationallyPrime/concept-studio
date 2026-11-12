@@ -94,7 +94,7 @@ public struct ShotEvaluator: Sendable {
         catalog: ContentCatalog,
         corrections: Corrections
     ) throws -> [Resolved] {
-        var problems: [ShotsProblem] = []
+        var problems = scene.formationProblems(catalog: catalog)
         var resolved: [Resolved] = []
         for entity in scene.entities {
             if let asset = catalog.asset(entity.assetID) {
@@ -227,13 +227,29 @@ public struct ShotEvaluator: Sendable {
         for index in poses.indices {
             poses[index].time = time
         }
-        let frames = zip(entities, poses).map { EntityFrame.posed($0.entity, asset: $0.asset, state: $1) }
+        var frames = zip(entities, poses).map { item, pose -> EntityFrame? in
+            guard item.entity.formation == nil else { return nil }
+            return EntityFrame.posed(item.entity, asset: item.asset, state: pose)
+        }
+        let named = Dictionary(uniqueKeysWithValues: entities.indices.compactMap { index in
+            if let slot = entities[index].entity.formationSlot, let frame = frames[index] {
+                return (slot, frame)
+            }
+            return nil
+        } as [(FormationSlot, EntityFrame)])
+        for index in entities.indices {
+            let item = entities[index]
+            guard let formation = item.entity.formation else { continue }
+            frames[index] = EntityFrame.formed(
+                item.entity, asset: item.asset, layout: formation, state: poses[index], named: named
+            )
+        }
         return SceneFrame(
             index: index,
             time: time,
             canvas: shot.canvas,
             camera: cameraFrame(at: time, poses: poses),
-            entities: frames
+            entities: frames.compactMap(\.self)
         )
     }
 

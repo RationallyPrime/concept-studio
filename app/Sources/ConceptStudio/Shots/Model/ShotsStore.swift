@@ -255,7 +255,7 @@ final class ShotsStore {
 }
 
 enum ShotsCoalescingKey: Equatable {
-    case placement(EntityID), label(EntityID), entityName(EntityID), lighting(SceneID)
+    case placement(EntityID), formation(EntityID), label(EntityID), entityName(EntityID), lighting(SceneID)
     case frames(ShotID), canvas(ShotID), notes(ShotID), cameraRig(ShotID)
     case actorMark(ShotID, EntityID, MarkID), cameraMark(ShotID, MarkID)
 }
@@ -265,6 +265,7 @@ extension ShotsCommand {
         switch self {
         case let .setPlacement(id, _): .placement(id)
         case let .setLabel(id, _): .label(id)
+        case let .setFormation(id, _): .formation(id)
         case let .renameEntity(id, _): .entityName(id)
         case let .setLighting(id, _): .lighting(id)
         case let .setFrameCount(id, _): .frames(id)

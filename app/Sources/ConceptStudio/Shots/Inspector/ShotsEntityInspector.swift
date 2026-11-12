@@ -13,7 +13,7 @@ struct ShotsEntityInspector: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Entity").font(.headline).accessibilityAddTraits(.isHeader)
+            Text(entity.formation == nil ? "Entity" : "Formation").font(.headline).accessibilityAddTraits(.isHeader)
             LabeledContent("Asset", value: store.catalog.asset(entity.assetID)?.name ?? entity.assetID)
             ShotsTextField(title: "Name", text: Binding(get: { entity.name }, set: {
                 store.run(.renameEntity(entity.id, name: $0), coalescing: true)
@@ -41,18 +41,53 @@ struct ShotsEntityInspector: View {
                 }
                 .help("The colour of this entity's path in the scene view and its box in the layout pictures.")
             }
-            ShotsPositionFields(position: placement(\.position))
-            ShotsNumberField(title: "Heading (°)", value: Binding(
-                get: { entity.placement.heading * 180 / .pi }, set: {
-                    var placement = entity.placement
-                    placement.heading = $0 * .pi / 180
-                    store.run(.setPlacement(entity.id, placement), coalescing: true)
+            if let formation = entity.formation {
+                ShotsFormationInspector(store: store, entity: entity, formation: formation)
+            }
+            if let slot = entity.formationSlot,
+               let parent = store.currentScene?.entities.first(where: { $0.id == slot.formationID }) {
+                LabeledContent("Formation") {
+                    Button(parent.name) { store.selection = .entities([parent.id]) }
+                        .buttonStyle(.link)
                 }
-            ), explanation: "Which way it faces before its first mark, in degrees.")
-            ShotsNumberField(
-                title: "Scale", value: placement(\.scale), range: 0.01 ... 100,
-                explanation: "Size compared with the asset's normal size, which is 1."
-            )
+            }
+            if !isInFormation {
+                placementFields
+            }
+            Button(isInFormation ? "Leave formation here" : "Add mark here") {
+                do { try store.addInspectorMark(for: entity.id) } catch { store.onError?(error.localizedDescription) }
+            }
+            .help(isInFormation
+                ? "Start this member's own track at the playhead."
+                : "Add a mark at the playhead using this entity’s current position and facing.")
+            Divider()
+            if !isInFormation {
+                actionPath
+                Divider()
+            }
+            ShotsFramingSection(store: store, shot: shot)
+            ShotsCameraMoveSection(store: store)
+        }
+    }
+
+    private var isInFormation: Bool {
+        store.frame?.entities.first { $0.id == entity.id }?.formationID != nil
+    }
+
+    @ViewBuilder private var placementFields: some View {
+        ShotsPositionFields(position: placement(\.position))
+        ShotsNumberField(title: "Heading (°)", value: Binding(
+            get: { entity.placement.heading * 180 / .pi }, set: {
+                var placement = entity.placement
+                placement.heading = $0 * .pi / 180
+                store.run(.setPlacement(entity.id, placement), coalescing: true)
+            }
+        ), explanation: "Which way it faces before its first mark, in degrees.")
+        ShotsNumberField(
+            title: "Scale", value: placement(\.scale), range: 0.01 ... 100,
+            explanation: "Size compared with the asset's normal size, which is 1."
+        )
+        if entity.formationSlot == nil {
             Picker("Attach to", selection: Binding(
                 get: { entity.attachment?.parentID ?? "" }, set: {
                     store.run(.attach(
@@ -69,44 +104,39 @@ struct ShotsEntityInspector: View {
                 }
             }
             .help("Carry this entity with another, such as a bag held by a person, until this entity's own first mark.")
-            Button("Add mark here") {
-                do { try store.addInspectorMark(for: entity.id) } catch { store.onError?(error.localizedDescription) }
-            }
-            .help("Add a mark at the playhead using this entity’s current position and facing.")
-            Divider()
-            Picker("Action path", selection: $pathID) {
-                ForEach(store.catalog.actionPaths.filter { store.catalog.starter.actionPaths.contains($0.id) }) {
-                    Text($0.name).tag($0.id)
-                }
-            }
-            .help("A ready-made route, such as walking forward.")
-            ShotsNumberField(
-                title: "Duration (s)", value: $duration, range: 0.05 ... 3600,
-                explanation: "How long the route takes, in seconds. With Set speed on, the speed decides instead."
-            )
-            Toggle("Set speed", isOn: $usesSpeed)
-                .help("Time the route by walking speed instead of by duration.")
-            if usesSpeed {
-                ShotsNumberField(
-                    title: "Speed (m/s)", value: $speed, range: 0.01 ... 1000,
-                    explanation: "Average travel speed in metres per second. The route is retimed to match it."
-                )
-            }
-            Button("Apply action path") {
-                store.run(.applyActionPath(
-                    shot.id,
-                    entity.id,
-                    pathID: pathID,
-                    atFrame: store.playhead,
-                    duration: duration,
-                    speed: usesSpeed ? speed : nil
-                ))
-            }
-            .help("Replace this entity's marks with the route. It starts at the playhead, from the entity's placement.")
-            Divider()
-            ShotsFramingSection(store: store, shot: shot)
-            ShotsCameraMoveSection(store: store)
         }
+    }
+
+    @ViewBuilder private var actionPath: some View {
+        Picker("Action path", selection: $pathID) {
+            ForEach(store.catalog.actionPaths.filter { store.catalog.starter.actionPaths.contains($0.id) }) {
+                Text($0.name).tag($0.id)
+            }
+        }
+        .help("A ready-made route, such as walking forward.")
+        ShotsNumberField(
+            title: "Duration (s)", value: $duration, range: 0.05 ... 3600,
+            explanation: "How long the route takes, in seconds. With Set speed on, the speed decides instead."
+        )
+        Toggle("Set speed", isOn: $usesSpeed)
+            .help("Time the route by walking speed instead of by duration.")
+        if usesSpeed {
+            ShotsNumberField(
+                title: "Speed (m/s)", value: $speed, range: 0.01 ... 1000,
+                explanation: "Average travel speed in metres per second. The route is retimed to match it."
+            )
+        }
+        Button("Apply action path") {
+            store.run(.applyActionPath(
+                shot.id,
+                entity.id,
+                pathID: pathID,
+                atFrame: store.playhead,
+                duration: duration,
+                speed: usesSpeed ? speed : nil
+            ))
+        }
+        .help("Replace this entity's marks with the route. It starts at the playhead, from the entity's placement.")
     }
 
     private static let swatches = [

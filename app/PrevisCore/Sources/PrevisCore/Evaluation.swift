@@ -137,6 +137,8 @@ public struct EntityFrame: Sendable, Equatable {
     public var parts: [PosedPart]
     public var keypoints: [Keypoint] // COCO-18 world positions; empty unless rig == .person
     public var bounds: Box3
+    public var formationID: EntityID? // only while a named member is in formation
+    public var formationPoses: [FormationPose]
 
     public init(
         id: EntityID,
@@ -152,7 +154,9 @@ public struct EntityFrame: Sendable, Equatable {
         joints: [Joint: Double] = [:],
         parts: [PosedPart] = [],
         keypoints: [Keypoint] = [],
-        bounds: Box3
+        bounds: Box3,
+        formationID: EntityID? = nil,
+        formationPoses: [FormationPose] = []
     ) {
         self.id = id
         self.assetID = assetID
@@ -168,6 +172,8 @@ public struct EntityFrame: Sendable, Equatable {
         self.parts = parts
         self.keypoints = keypoints
         self.bounds = bounds
+        self.formationID = formationID
+        self.formationPoses = formationPoses
     }
 
     /// The entity's body at the evaluated pose: a rig, static parts or a grey box (see Bodies.swift).
@@ -187,7 +193,8 @@ public struct EntityFrame: Sendable, Equatable {
             joints: state.joints,
             parts: body.parts,
             keypoints: body.keypoints,
-            bounds: body.bounds
+            bounds: body.bounds,
+            formationID: state.formationID
         )
     }
 }
@@ -203,6 +210,7 @@ struct EntityPose {
     var time = 0.0
     /// Set by the attachment graph for an entity riding something; otherwise the orientation is the heading's yaw.
     var orientation: Quat?
+    var formationID: EntityID?
 
     var frame: Quat {
         orientation ?? .yaw(heading)

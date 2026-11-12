@@ -40,6 +40,17 @@ struct ShotsAssetLibrary: View {
                             .help("Choose \(asset.name), then click the ground in the scene view to place it.")
                             .accessibilityLabel("Place \(asset.name)")
                             .accessibilityAddTraits(store.tool == .place(assetID: asset.id) ? .isSelected : [])
+                            if asset.rig == .person {
+                                Button("Add formation", systemImage: "person.3") {
+                                    do { try store.addLibraryAsset(asset.id, asFormation: true) } catch {
+                                        store.onError?(error.localizedDescription)
+                                    }
+                                }
+                                .labelStyle(.iconOnly)
+                                .disabled(store.isReadOnly || store.currentShot == nil)
+                                .accessibilityLabel("Add a formation of \(asset.name)")
+                                .help("Add a formation at stage centre. Set its rows and spacing in the inspector.")
+                            }
                             Button("Add to scene", systemImage: "plus") {
                                 do { try store.addLibraryAsset(asset.id) } catch {
                                     store.onError?(error.localizedDescription)

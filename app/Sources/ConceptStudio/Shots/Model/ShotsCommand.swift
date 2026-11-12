@@ -18,6 +18,7 @@ enum ShotsCommand: Codable, Sendable, Equatable {
 
     case addEntity(SceneID, PrevisEntity)
     case setPlacement(EntityID, Placement)
+    case setFormation(EntityID, Formation)
     case renameEntity(EntityID, name: String)
     case setLabel(EntityID, EntityLabel?)
     case deleteEntities([EntityID])

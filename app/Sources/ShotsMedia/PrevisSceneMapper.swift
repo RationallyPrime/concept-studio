@@ -20,6 +20,7 @@ import RealityKit
     private var meshes: [PartShape: MeshResource] = [:]
     private var materials: [RGB: SimpleMaterial] = [:]
     private var matteActor: EntityID?
+    private var formationIDs: [EntityID: EntityID] = [:]
     private let matteWhite = UnlitMaterial(color: .white)
     private let matteBlack = UnlitMaterial(color: .black)
 
@@ -62,9 +63,12 @@ import RealityKit
             owners[ObjectIdentifier(container)] = nil
             containers[id] = nil
             parts[id] = nil
+            formationIDs[id] = nil
         }
         for entity in frame.entities {
-            apply(entity)
+            let membershipChanged = formationIDs[entity.id] != entity.formationID
+            formationIDs[entity.id] = entity.formationID
+            apply(entity, refreshMatte: membershipChanged && matteActor != nil)
         }
     }
 
@@ -96,7 +100,7 @@ import RealityKit
         return camera
     }
 
-    private func apply(_ frame: EntityFrame) {
+    private func apply(_ frame: EntityFrame, refreshMatte: Bool) {
         let container: Entity
         if let existing = containers[frame.id] {
             container = existing
@@ -115,7 +119,7 @@ import RealityKit
         }
         for part in frame.parts {
             if let existing = mapped[part.id], existing.shape == part.shape {
-                if existing.color != part.color {
+                if existing.color != part.color || refreshMatte {
                     setMaterial(surface(part.color, of: frame.id), on: existing.entity)
                     mapped[part.id]?.color = part.color
                 }
@@ -180,7 +184,7 @@ import RealityKit
 
     private func surface(_ color: RGB, of id: EntityID) -> any RealityKit.Material {
         guard let matteActor else { return material(color) }
-        return id == matteActor ? matteWhite : matteBlack
+        return id == matteActor || formationIDs[id] == matteActor ? matteWhite : matteBlack
     }
 
     private func material(_ color: RGB) -> SimpleMaterial {

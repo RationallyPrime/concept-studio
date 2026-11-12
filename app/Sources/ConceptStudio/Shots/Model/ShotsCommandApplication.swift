@@ -47,6 +47,12 @@ enum ShotsCommandApplication {
         case let .setPlacement(id, placement):
             let index = try entityIndex(id, in: document)
             document.scenes[index.scene].entities[index.entity].placement = placement
+        case let .setFormation(id, formation):
+            let index = try entityIndex(id, in: document)
+            guard document.scenes[index.scene].entities[index.entity].formation != nil else {
+                throw ShotsEditingError.missing("formation")
+            }
+            document.scenes[index.scene].entities[index.entity].formation = formation
         case let .renameEntity(id, name):
             let index = try entityIndex(id, in: document)
             document.scenes[index.scene].entities[index.entity].name = name
@@ -215,6 +221,10 @@ enum ShotsCommandApplication {
             for entity in document.scenes[scene].entities.indices {
                 if let parent = document.scenes[scene].entities[entity].attachment?.parentID, ids.contains(parent) {
                     document.scenes[scene].entities[entity].attachment = nil
+                }
+                if let parent = document.scenes[scene].entities[entity].formationSlot?.formationID,
+                   ids.contains(parent) {
+                    document.scenes[scene].entities[entity].formationSlot = nil
                 }
             }
             for take in document.scenes[scene].blocking.indices {
