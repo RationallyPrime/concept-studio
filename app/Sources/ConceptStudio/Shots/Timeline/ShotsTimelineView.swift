@@ -76,8 +76,12 @@ struct ShotsTimelineView: View {
             cancelDrag()
             return .handled
         }
-        .task(id: store.isPlaying ? "\(store.currentShotID ?? "")/\(store.currentShot?.frameCount ?? 0)" : nil) {
-            await play()
+        .task(id: playbackTaskID) {
+            if store.isPlayingScene {
+                await playScene()
+            } else {
+                await play()
+            }
         }
         .onChange(of: store.currentShotID) { cancelDrag() }
         .onChange(of: pointerDragging) {
@@ -100,7 +104,16 @@ struct ShotsTimelineView: View {
             Button(store.isPlaying ? "Pause" : "Play", systemImage: store.isPlaying ? "pause.fill" : "play.fill") {
                 store.toggleShotsPlayback()
             }
-            .disabled(store.currentShot == nil)
+            .disabled(store.currentShot == nil || store.isPlayingScene)
+            Button(store.isPlayingScene ? "Pause scene" : "Play scene", systemImage: "film") {
+                if store.isPlayingScene {
+                    store.isPlaying = false
+                } else {
+                    store.isPlayingScene = true
+                    store.isPlaying = true
+                }
+            }
+            .disabled((store.currentScene?.shots.count ?? 0) < 2)
             Text("Frame \(store.playhead) of \(count) · \(seconds, specifier: "%.2f") s")
                 .monospacedDigit().font(.callout)
             Spacer(minLength: 4)
@@ -232,6 +245,42 @@ struct ShotsTimelineView: View {
 
     private func cancelDrag() {
         if drag.isActive { store.preview = []; drag.cancel() }
+    }
+
+    private var playbackTaskID: String? {
+        guard store.isPlaying else { return nil }
+        if store.isPlayingScene, let scene = store.currentScene {
+            return "scene/\(scene.id)/\(scene.revision)"
+        }
+        return "shot/\(store.currentShotID ?? "")/\(store.currentShot?.frameCount ?? 0)"
+    }
+
+    @MainActor private func playScene() async {
+        guard let scene = store.currentScene, let list = try? SceneCutList(scene: scene), list.frameCount > 0 else {
+            store.isPlaying = false
+            return
+        }
+        let start = ContinuousClock.now
+        do {
+            while store.isPlayingScene, !Task.isCancelled, store.currentSceneID == scene.id {
+                let elapsed = start.duration(to: .now).components
+                let seconds = Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
+                let frame = Int(seconds * Double(FrameGrid.fps))
+                let displayed = min(frame, list.frameCount - 1)
+                if let cut = list.cut(at: displayed) {
+                    if store.currentShotID != cut.shotID {
+                        store.selection = .none
+                        store.currentShotID = cut.shotID
+                    }
+                    store.playhead = displayed - cut.startFrame
+                }
+                if frame >= list.frameCount {
+                    store.isPlaying = false
+                    return
+                }
+                try await Task.sleep(for: .nanoseconds(1_000_000_000 / 24))
+            }
+        } catch is CancellationError {} catch { store.onError?(error.localizedDescription) }
     }
 
     @MainActor private func play() async {
