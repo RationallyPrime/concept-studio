@@ -1126,3 +1126,11 @@ The fight blocking command applies two paired motion presets in one edit. The au
 shared cue and end are exact shot frames. Keyframes retain their catalog root travel and both
 actors keep marks outside the authored interval. The resulting tracks remain ordinary editable
 blocking marks. The viewport and exporter both evaluate the same tracks and attachment graph.
+
+### Command files
+
+`ConceptStudio --shots-commands <project folder> <commands.json>` decodes a
+`[ShotsCommand]` batch, applies it through `ShotsStore`, and saves the document only
+after validation. It creates a native project when the folder has no `job.yaml`.
+The file uses the command enum's Codable representation. The normal
+`shots-export --document` entry point renders the result. See [Command line](COMMAND-LINE.md).
