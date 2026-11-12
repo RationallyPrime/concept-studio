@@ -15,6 +15,7 @@ import PrevisCore
         scene: PrevisScene,
         burnIn: Bool,
         to parent: URL,
+        audioDirectory: URL? = nil,
         progress: @escaping (ExportProgress) -> Void
     ) async throws -> URL {
         guard let first = scene.shots.first else { throw ShotsMediaError("Add a shot to export this scene.") }
@@ -60,6 +61,15 @@ import PrevisCore
                 }
             }
         )
+        if scene.shots.contains(where: { !$0.audioClips.isEmpty }) {
+            let edits = zip(scene.shots, list.cuts).map { ($0, $1.startFrame, $1.endFrame) }
+            let muxed = staging.appendingPathComponent("muxed.mp4")
+            if try await ScratchAudioMix.attach(
+                shots: edits, sourceDirectory: audioDirectory, to: videoURL, output: muxed
+            ) {
+                _ = try FileManager.default.replaceItemAt(videoURL, withItemAt: muxed)
+            }
+        }
         let videoProblems = await VideoInspector.problems(
             videoURL, frameCount: list.frameCount, size: first.canvas.pixelSize
         )

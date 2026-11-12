@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import ImageIO
 import PrevisCore
@@ -37,6 +38,9 @@ public enum PackageValidator {
                     problems.append("\(file.path) is listed without the package's frame count \(manifest.frameCount).")
                 }
                 problems += await videoProblems(url, path: file.path, frameCount: manifest.frameCount, size: size)
+            case "m4a" where file.role == .scratchAudio:
+                let tracks = try? await AVURLAsset(url: url).loadTracks(withMediaType: .audio)
+                if tracks?.isEmpty != false { problems.append("\(file.path) has no readable audio track.") }
             default: break
             }
         }

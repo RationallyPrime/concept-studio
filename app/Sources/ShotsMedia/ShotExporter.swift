@@ -17,6 +17,7 @@ import PrevisCore
         shotID: ShotID,
         options: ExportOptions,
         to destination: any PackageDestination,
+        audioDirectory: URL? = nil,
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) async throws -> ExportedPackage {
         let evaluator = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog)
@@ -35,9 +36,9 @@ import PrevisCore
                 frames: (0 ..< evaluator.frameCount).map { evaluator.frame($0) },
                 folder: staging,
                 renderer: renderer,
-                promptFacts: shot.prompt.map { _ in
-                    try ShotPromptCompiler.facts(scene: scene, shotID: shotID, catalog: catalog)
-                },
+                promptFacts: shot.prompt != nil || !shot.dialogue.isEmpty
+                    ? ShotPromptCompiler.facts(scene: scene, shotID: shotID, catalog: catalog) : nil,
+                audioDirectory: audioDirectory,
                 progress: progress
             )
             let manifest = try await writer.write(passes: passes)
@@ -65,6 +66,7 @@ import PrevisCore
     private let folder: URL
     private let renderer: ShotFrameRenderer?
     private let promptFacts: PromptFacts?
+    private let audioDirectory: URL?
     private let look: PrevisLook
     private let progress: @MainActor (ExportProgress) -> Void
     private let guides: [(position: PackageFile.Position, frame: Int)]
@@ -79,9 +81,11 @@ import PrevisCore
         folder: URL,
         renderer: ShotFrameRenderer?,
         promptFacts: PromptFacts? = nil,
+        audioDirectory: URL? = nil,
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) {
         self.promptFacts = promptFacts
+        self.audioDirectory = audioDirectory
         self.scene = scene
         self.shot = shot
         self.frames = frames
@@ -124,8 +128,21 @@ import PrevisCore
             }
         }
         try writeDescription()
-        if let prompt = shot.prompt, let promptFacts {
-            try writePrompt(prompt, facts: promptFacts)
+        if let promptFacts {
+            try writePrompt(shot.prompt ?? ShotPromptCompiler.template(promptFacts), facts: promptFacts)
+        }
+        if !shot.audioClips.isEmpty {
+            let path = "audio/scratch.m4a"
+            let url = folder.appendingPathComponent(path)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            if try await ScratchAudioMix.write(
+                shots: [(shot, 0, shot.frameCount)], sourceDirectory: audioDirectory, to: url
+            ) {
+                files.append(PackageFile(role: .scratchAudio, path: path))
+            }
         }
         let manifest = PackageManifest(
             format: PackageManifest.formatName,

@@ -266,6 +266,7 @@ enum ShotsCoalescingKey: Equatable {
     case placement(EntityID), formation(EntityID), setPiece(EntityID), label(EntityID), entityName(EntityID),
          lighting(SceneID)
     case frames(ShotID), editFrames(ShotID), canvas(ShotID), notes(ShotID), cameraRig(ShotID), reference(ShotID)
+    case dialogue(ShotID)
     case actorMark(ShotID, EntityID, MarkID), cameraMark(ShotID, MarkID)
 }
 
@@ -281,6 +282,7 @@ extension ShotsCommand {
         case let .setFrameCount(id, _): .frames(id)
         case let .setEditFrameCount(id, _): .editFrames(id)
         case let .setCanvas(id, _): .canvas(id)
+        case let .setDialogue(id, _): .dialogue(id)
         case let .setNotes(id, _): .notes(id)
         case let .setReference(id, _): .reference(id)
         case let .setCameraRig(id, _, _, _): .cameraRig(id)

@@ -4,7 +4,7 @@ enum ShotsCommandApplication {
     static func apply(_ command: ShotsCommand, to document: inout ShotsDocument, catalog: ContentCatalog) throws {
         if try applyScene(command, to: &document) || applyEntity(command, to: &document, catalog: catalog)
             || applyShot(command, to: &document) || applyMarks(command, to: &document)
-            || applyCamera(command, to: &document)
+            || applyCamera(command, to: &document) || applyAudio(command, to: &document)
             || ShotsGeneratedEdits.apply(command, to: &document, catalog: catalog) { return }
         throw ShotsError.notImplemented("This Shots edit")
     }
@@ -76,16 +76,7 @@ enum ShotsCommandApplication {
             else { throw ShotsEditingError.missing("take") }
             document.scenes[index].shots.append(.make(id: id, name: name, takeID: takeID, cameraMarkID: cameraMarkID))
         case let .duplicateShot(id, newID):
-            let index = try shotIndex(id, in: document)
-            var copy = document.scenes[index.scene].shots[index.shot]
-            copy.id = newID
-            copy.camera.marks = copy.camera.marks.enumerated().map { index, source in
-                var mark = source
-                mark.id = "\(newID)_camera_\(index)"
-                return mark
-            }
-            try requireNew([newID] + copy.camera.marks.map(\.id), in: document)
-            document.scenes[index.scene].shots.insert(copy, at: index.shot + 1)
+            try duplicateShot(id, as: newID, in: &document)
         case let .renameShot(id, name):
             try editShot(id, in: &document) { $0.name = name }
         case let .moveShot(id, offset):
@@ -112,6 +103,41 @@ enum ShotsCommandApplication {
             try editShot(id, in: &document) { $0.reference = reference }
         case let .setPrompt(id, prompt):
             try editShot(id, in: &document) { $0.prompt = prompt }
+        default: return false
+        }
+        return true
+    }
+
+    private static func duplicateShot(_ id: ShotID, as newID: ShotID, in document: inout ShotsDocument) throws {
+        let index = try shotIndex(id, in: document)
+        var copy = document.scenes[index.scene].shots[index.shot]
+        copy.id = newID
+        copy.camera.marks = copy.camera.marks.enumerated().map { index, source in
+            var mark = source
+            mark.id = "\(newID)_camera_\(index)"
+            return mark
+        }
+        for index in copy.dialogue.indices {
+            copy.dialogue[index].id = "\(newID)_dialogue_\(index)"
+        }
+        try requireNew([newID] + copy.camera.marks.map(\.id) + copy.dialogue.map(\.id), in: document)
+        document.scenes[index.scene].shots.insert(copy, at: index.shot + 1)
+    }
+
+    private static func applyAudio(_ command: ShotsCommand, to document: inout ShotsDocument) throws -> Bool {
+        switch command {
+        case let .setDialogue(id, lines):
+            let index = try shotIndex(id, in: document)
+            let old = document.scenes[index.scene].shots[index.shot].dialogue
+            let prior = Set(old.map(\.id))
+            try requireNew(lines.map(\.id).filter { !prior.contains($0) }, in: document)
+            try editShot(id, in: &document) {
+                guard $0.dialogue != lines else { return }
+                $0.dialogue = lines
+                $0.prompt = nil
+            }
+        case let .setScratchAudio(id, recording):
+            try editShot(id, in: &document) { $0.scratchAudio = recording }
         default: return false
         }
         return true
@@ -264,6 +290,16 @@ enum ShotsCommandApplication {
                     document.scenes[scene].shots[shot].camera.mountID = nil
                 }
                 document.scenes[scene].shots[shot].notes.characters.removeAll { ids.contains($0.entityID) }
+                removeSpeakers(ids, from: &document.scenes[scene].shots[shot])
+            }
+        }
+    }
+
+    private static func removeSpeakers(_ ids: Set<EntityID>, from shot: inout Shot) {
+        for index in shot.dialogue.indices {
+            if let speaker = shot.dialogue[index].speakerID, ids.contains(speaker) {
+                shot.dialogue[index].speakerID = nil
+                shot.prompt = nil
             }
         }
     }
@@ -282,6 +318,7 @@ enum ShotsCommandApplication {
             for shot in scene.shots {
                 ids.append(shot.id)
                 ids.append(contentsOf: shot.camera.marks.map(\.id))
+                ids.append(contentsOf: shot.dialogue.map(\.id))
             }
         }
         return ids

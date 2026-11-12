@@ -222,6 +222,8 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var results: [ShotResult] // reserved for later destinations; empty in v1
     public var reference: ShotReference?
     public var editFrameCount: Int?
+    public var dialogue: [DialogueLine]
+    public var scratchAudio: ScratchRecording?
     public var editFrames: Int {
         editFrameCount ?? frameCount
     }
@@ -242,7 +244,9 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         prompt: ShotPrompt? = nil,
         results: [ShotResult] = [],
         reference: ShotReference? = nil,
-        editFrameCount: Int? = nil
+        editFrameCount: Int? = nil,
+        dialogue: [DialogueLine] = [],
+        scratchAudio: ScratchRecording? = nil
     ) {
         self.id = id
         self.name = name
@@ -256,6 +260,8 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         self.results = results
         self.reference = reference
         self.editFrameCount = editFrameCount
+        self.dialogue = dialogue
+        self.scratchAudio = scratchAudio
     }
 
     /// 124 frames, 640 × 1152, super35, sticks at intensity 0, seed 1, and one camera mark at (0, 1.6, 6) with a

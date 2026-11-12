@@ -49,6 +49,10 @@ enum ShotsSceneCopy {
         for index in copy.notes.characters.indices {
             copy.notes.characters[index].entityID = mapped(copy.notes.characters[index].entityID)
         }
+        for index in copy.dialogue.indices {
+            copy.dialogue[index].id = mapped(copy.dialogue[index].id)
+            copy.dialogue[index].speakerID = copy.dialogue[index].speakerID.map(mapped)
+        }
         for index in copy.results.indices {
             copy.results[index].id = mapped(copy.results[index].id)
         }
@@ -72,6 +76,9 @@ enum ShotsSceneCopy {
             ids[shot.id] = PrevisIDs.make("shot")
             for mark in shot.camera.marks {
                 ids[mark.id] = PrevisIDs.make("camera")
+            }
+            for line in shot.dialogue {
+                ids[line.id] = PrevisIDs.make("dialogue")
             }
             for result in shot.results {
                 ids[result.id] = PrevisIDs.make("result")

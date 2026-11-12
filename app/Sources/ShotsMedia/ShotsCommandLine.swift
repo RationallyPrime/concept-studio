@@ -23,6 +23,7 @@ public enum ShotsCommandLine {
                 shotID: shotID,
                 options: job.options,
                 to: FolderDestination(parent: URL(fileURLWithPath: job.out, isDirectory: true)),
+                audioDirectory: job.audioDirectory,
                 progress: { _ in }
             )
             if let prompt = scene.shots.first(where: { $0.id == shotID })?.prompt {
@@ -113,6 +114,14 @@ struct Job {
         } else if input == .sample, values["--shot"] != nil {
             throw UsageError("--sample exports the sample's one shot, so it takes no --shot.")
         }
+    }
+
+    var audioDirectory: URL? {
+        guard case let .document(path, _) = input else { return nil }
+        return URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent(
+            "shots-audio",
+            isDirectory: true
+        )
     }
 
     /// The scene to export and the shot within it, with Blockout input's overrides applied.

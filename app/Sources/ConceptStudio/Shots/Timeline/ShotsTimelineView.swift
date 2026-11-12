@@ -2,6 +2,7 @@
 // Changes: native SwiftUI, frame snapping, typed previews/commands and CONTRACTS focus ownership.
 import AppKit
 import PrevisCore
+import ShotsMedia
 import SwiftUI
 
 /// Native version of Blockout's Timeline.tsx: camera first, local drag preview, one command on release.
@@ -29,6 +30,12 @@ struct ShotsTimelineView: View {
                                     marks: shot.camera.marks.map { .camera(shot.id, $0) },
                                     geometry: geometry
                                 )
+                                ForEach(Array(shot.audioClips.enumerated()), id: \.offset) { index, clip in
+                                    audioLane(
+                                        shot.scratchAudio != nil && index == 0 ? "Shot audio" : "Line audio",
+                                        recording: clip.recording, at: clip.startFrame, geometry: geometry
+                                    )
+                                }
                                 if let take = scene.blocking.first(where: { $0.id == shot.blockingTakeID }) {
                                     ForEach(take.tracks, id: \.entityID) { track in
                                         if let entity = scene.entities.first(where: { $0.id == track.entityID }) {
@@ -180,6 +187,33 @@ struct ShotsTimelineView: View {
         .accessibilityLabel("\(spokenName) marks")
     }
 
+    private func audioLane(
+        _ name: String, recording: ScratchRecording, at frame: Int, geometry: ShotsTimelineGeometry
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(name).font(.caption).frame(width: 112, alignment: .leading)
+            Canvas { context, size in
+                let time = FrameGrid.time(ofFrame: frame)
+                var waveform = Path()
+                for (index, peak) in recording.peaks.enumerated() {
+                    let sample = time + Double(index) / Double(recording.peaks.count) * recording.duration
+                    let x = geometry.position(atTime: sample)
+                    if x >= size.width { break }
+                    let y = max(1, peak * size.height * 0.45)
+                    waveform.move(to: CGPoint(x: x, y: size.height / 2 - y))
+                    waveform.addLine(to: CGPoint(x: x, y: size.height / 2 + y))
+                }
+                context.stroke(waveform, with: .color(.secondary))
+            }
+            .frame(height: 24)
+            .overlay(alignment: .leading) { playhead(geometry: geometry).allowsHitTesting(false) }
+            .background(Color.primary.opacity(0.04))
+            .clipped()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name), frame \(frame), \(recording.duration, specifier: "%.2f") seconds")
+    }
+
     private func pill(_ mark: ShotsTimelineDrag.Mark, name: String, geometry: ShotsTimelineGeometry) -> some View {
         let start = geometry.position(atTime: mark.time)
         let holdWidth = geometry.position(atTime: mark.time + mark.hold) - start
@@ -261,6 +295,9 @@ struct ShotsTimelineView: View {
             return
         }
         let start = ContinuousClock.now
+        let scratch = ScratchPlayback()
+        var audioShot: ShotID?
+        defer { scratch.stop() }
         do {
             while store.isPlayingScene, !Task.isCancelled, store.currentSceneID == scene.id {
                 let elapsed = start.duration(to: .now).components
@@ -273,6 +310,10 @@ struct ShotsTimelineView: View {
                         store.currentShotID = cut.shotID
                     }
                     store.playhead = displayed - cut.startFrame
+                    if audioShot != cut.shotID, let shot = store.currentShot {
+                        audioShot = cut.shotID
+                        startAudio(scratch, shot: shot, end: cut.endFrame - cut.startFrame)
+                    }
                 }
                 if frame >= list.frameCount {
                     store.isPlaying = false
@@ -286,18 +327,31 @@ struct ShotsTimelineView: View {
     @MainActor private func play() async {
         guard store.isPlaying, let shot = store.currentShot, shot.frameCount > 0 else { return }
         let start = ContinuousClock.now, first = store.playhead
+        let scratch = ScratchPlayback()
+        defer { scratch.stop() }
+        startAudio(scratch, shot: shot, end: shot.frameCount)
         do {
             while store.isPlaying, !Task.isCancelled, store.currentShotID == shot.id {
                 try await Task.sleep(for: .nanoseconds(1_000_000_000 / 24))
                 let elapsed = start.duration(to: .now).components
                 let seconds = Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
+                let previous = store.playhead
                 store.playhead = ShotsTimelinePlayback.frame(
                     startingAt: first,
                     count: shot.frameCount,
                     elapsed: seconds
                 )
+                if store.playhead < previous { startAudio(scratch, shot: shot, end: shot.frameCount) }
             }
         } catch is CancellationError {} catch { store.onError?(error.localizedDescription) }
+    }
+
+    @MainActor private func startAudio(_ playback: ScratchPlayback, shot: Shot, end: Int) {
+        do {
+            try playback.play(shot: shot, at: store.playhead, endFrame: end, in: store.audioDirectory)
+        } catch {
+            store.onError?(error.localizedDescription)
+        }
     }
 
     static var editingText: Bool {

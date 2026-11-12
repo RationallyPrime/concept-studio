@@ -180,6 +180,7 @@ private struct SceneChecker {
         if shot.reference?.isValid == false {
             out.append(error("\(label) has an invalid reference image or opacity.", shot: shot.id))
         }
+        out += dialogueProblems(shot, label)
         out += cameraProblems(shot, label)
         out += guideProblems(shot, label)
         for note in shot.notes.characters where !entityIDs.contains(note.entityID) {
@@ -188,6 +189,36 @@ private struct SceneChecker {
                 shot: shot.id,
                 entity: note.entityID
             ))
+        }
+        return out
+    }
+
+    private func dialogueProblems(_ shot: Shot, _ label: String) -> [ShotsProblem] {
+        var out: [ShotsProblem] = []
+        var ids: Set<String> = []
+        let hasLeadingCut = scene.shots.first?.id != shot.id
+        for (index, line) in shot.dialogue.enumerated() {
+            let name = "Dialogue line \(index + 1) in \(label)"
+            if !ids.insert(line.id).inserted || line.id.isEmpty || line.startFrame < 0 {
+                out.append(error("\(name) needs a unique ID and a non-negative start frame.", shot: shot.id))
+            }
+            if let speaker = line.speakerID, !entityIDs.contains(speaker) {
+                out.append(error("\(name) names a speaker outside the scene.", shot: shot.id))
+            }
+            let end = FrameGrid.time(ofFrame: line.startFrame) + (line.recording?.duration ?? 0)
+            if line.startFrame >= shot.frameCount || end > FrameGrid.time(ofFrame: shot.frameCount) {
+                out.append(warning("\(name) runs past the end of the shot.", shot: shot.id))
+            }
+            if (line.startFrame == 0 && hasLeadingCut) || line.startFrame == shot.editFrames
+                || (line.startFrame < shot.editFrames && end > FrameGrid.time(ofFrame: shot.editFrames)) {
+                out.append(warning("\(name) sits on a scene cut.", shot: shot.id))
+            }
+        }
+        if shot.audioClips.contains(where: { !$0.recording.isValid }) {
+            out.append(error("\(label) has an invalid scratch recording.", shot: shot.id))
+        }
+        if let scratch = shot.scratchAudio, scratch.duration > FrameGrid.time(ofFrame: shot.frameCount) {
+            out.append(warning("\(label)'s scratch recording runs past the end of the shot.", shot: shot.id))
         }
         return out
     }

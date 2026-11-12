@@ -1038,6 +1038,24 @@ holds:
 - with the matte pass included, an actor in `shot.json` has no matte;
 - the frame count is off the grid.
 
+### Dialogue and scratch audio
+
+A shot stores its dialogue in `dialogue`. Each line has its own ID, a shot-local start frame,
+an optional speaker entity ID, exact authored text, and an optional recording reference. A
+missing speaker means off-screen. The optional `scratchAudio` starts at frame zero. Imports copy
+WAV or M4A to `shots-audio/` beside the Shots document and store the generated basename, duration
+and waveform peaks. Project copies that need the recordings carry this directory with the document.
+
+Prompt compilation sorts lines by frame, preserving editor order for ties, then inserts their
+authored text verbatim after the action description. Empty music notes render as `N/A`. The package
+uses the deterministic prompt template when dialogue exists and no saved prompt is available.
+
+A package with scratch clips inside the shot includes their mixed AAC audio at `audio/scratch.m4a`
+with file role `scratch-audio`. The package mix uses the generated frame length. The animatic mix
+uses the cut list's half-open ranges, inserts clips at scene time, and trims them at the cut.
+Both mixes combine overlapping clips.
+
+
 ## 9. Tests
 
 Integration over unit, and few of both. No snapshot tests, no tests that restate data or configuration,
