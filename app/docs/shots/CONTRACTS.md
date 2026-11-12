@@ -278,7 +278,7 @@ public struct ShotsDocument: Codable, Sendable, Equatable {
 public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
     public var id: SceneID
     public var name: String
-    public var revision: Int                // bumped by the store on every edit except setPrompt
+    public var revision: Int                // bumped by the store on each edit that changes export inputs
     public var lighting: LightingPreset
     public var entities: [PrevisEntity]
     public var blocking: [BlockingTake]     // v1: exactly one take, shared by the scene's shots
@@ -299,6 +299,15 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var attachment: EntityAttachment? // rides the parent until its own first mark
     public var formation: Formation?
     public var formationSlot: FormationSlot?
+    public var setPiece: SetPiece?
+}
+public struct SetPiece: Codable, Sendable, Equatable {
+    public var width: Double
+    public var height: Double
+    public var depth: Double
+    public var wallSweep: Double
+    public var crenellated: Bool
+    public static func standard(for asset: AssetSpec) -> SetPiece?
 }
 public struct Formation: Codable, Sendable, Equatable {
     public var rows: Int
@@ -360,8 +369,14 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var notes: ShotNotes
     public var prompt: ShotPrompt?
     public var results: [ShotResult]        // reserved for later destinations; empty in v1
+    public var reference: ShotReference?
     public var duration: Double { get }     // Double(frameCount - 1) / 24
     public static func make(id: ShotID, name: String, takeID: TakeID, cameraMarkID: MarkID) -> Shot
+}
+public struct ShotReference: Codable, Sendable, Equatable {
+    public var fileName: String
+    public var opacity: Double
+    public var isValid: Bool { get }
 }
 public struct ShotCamera: Codable, Sendable, Equatable {
     public var sensor: Sensor
@@ -742,7 +757,7 @@ enum ShotsTool: Equatable, Sendable { case select, place(assetID: String), dropM
     var canUndo: Bool { get }
     var canRedo: Bool { get }
     func perform(_ command: ShotsCommand, coalescing: Bool = false) throws
-    // Applies, bumps the scene revision (not for setPrompt), records one undo step and schedules a save.
+    // Applies, bumps the scene revision (except setPrompt and setReference), records one undo step and schedules a save.
     // coalescing: true merges into the previous step when that was the same command kind and target and
     // came within 0.8 s (inspector slider bursts). False, the default, is always its own step.
     func perform(_ commands: [ShotsCommand]) throws   // all or none, in order, as one undo step; never coalesces
@@ -767,12 +782,14 @@ enum ShotsCommand: Codable, Sendable, Equatable {  // Lane C
     case setCanvas(ShotID, ShotCanvas)
     case setGuideFrames(ShotID, [Int])
     case setNotes(ShotID, ShotNotes)
+    case setReference(ShotID, ShotReference?) // does not bump the revision
     case setPrompt(ShotID, ShotPrompt?)             // does not bump the revision
     case importScenes([PrevisScene])                // refused if any id already exists
     // Entities
     case addEntity(SceneID, PrevisEntity)
     case setPlacement(EntityID, Placement)
     case setFormation(EntityID, Formation)
+    case setSetPiece(EntityID, SetPiece)
     case renameEntity(EntityID, name: String)
     case setLabel(EntityID, EntityLabel?)
     case deleteEntities([EntityID])                 // removes tracks, notes and camera references; detaches children
@@ -807,6 +824,15 @@ mark. That mark starts independent blocking and leaves the cell empty. A slot is
 Formation membership and a separate attachment on the same member are mutually exclusive. Deleting the
 formation clears its members' slot references. The Library adds a formation of the chosen person asset.
 The inspector names individual members and records a departure mark at the current evaluated position.
+
+**Set pieces and reference images.** Existing scene entities are the saved stage shared by every shot in
+the scene. On a box, wall, stairs or cylinder, optional `setPiece` dimensions replace the catalog's base
+dimensions before applying the entity's uniform scale. A wall may have a sweep of 0 to π radians; its
+width measures the arc along the centre line. Height includes any battlements. The per-shot `reference`
+names a copied image in `.conceptstudio/shots-references/` and an opacity from 0 to 1. The file name uses
+the `reference_<12 hex digits>` ID shape. The image is displayed over the shot-camera view only, scaled to
+fit the canvas. Replacing or removing the reference leaves the image available to undo. The reference,
+its file and its opacity do not appear in any package.
 
 **C0 makes `evaluator` and `frame` work from day 1.** They wrap PrevisCore, and the viewport draws
 `store.frame`.

@@ -57,7 +57,9 @@ enum Bodies {
         case .quadruped:
             QuadrupedRig.build(asset: asset, scale: entity.placement.scale, state: state, into: &builder)
         case .bird, .none:
-            if let staticParts = asset.parts, !staticParts.isEmpty {
+            if let piece = entity.setPiece {
+                piece.build(asset: asset, into: &builder)
+            } else if let staticParts = asset.parts, !staticParts.isEmpty {
                 for part in staticParts {
                     let local = Mat4.node(part.position, part.rotation)
                     builder.add(part.id, part.shape, at: local, color: part.color.packed)

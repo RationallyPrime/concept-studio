@@ -38,7 +38,7 @@ final class ShotsStore {
     var preview: [ShotsCommand] = []
     var onError: (@MainActor (String) -> Void)?
 
-    @ObservationIgnored private let saveURL: URL?
+    @ObservationIgnored let saveURL: URL?
     private var undoDocuments: [ShotsDocument] = []
     private var redoDocuments: [ShotsDocument] = []
     @ObservationIgnored private var lastEdit: (key: ShotsCoalescingKey, time: ContinuousClock.Instant)?
@@ -132,8 +132,10 @@ final class ShotsStore {
         let failures = ShotsValidation.problems(in: candidate, catalog: catalog).filter { $0.severity == .error }
         guard failures.isEmpty else { throw ShotsError.invalid(failures) }
         let hasSceneMutation = commands.contains { command in
-            if case .setPrompt = command { return false }
-            return true
+            switch command {
+            case .setPrompt, .setReference: false
+            default: true
+            }
         }
         if hasSceneMutation {
             for index in candidate.scenes.indices {
@@ -255,8 +257,9 @@ final class ShotsStore {
 }
 
 enum ShotsCoalescingKey: Equatable {
-    case placement(EntityID), formation(EntityID), label(EntityID), entityName(EntityID), lighting(SceneID)
-    case frames(ShotID), canvas(ShotID), notes(ShotID), cameraRig(ShotID)
+    case placement(EntityID), formation(EntityID), setPiece(EntityID), label(EntityID), entityName(EntityID),
+         lighting(SceneID)
+    case frames(ShotID), canvas(ShotID), notes(ShotID), cameraRig(ShotID), reference(ShotID)
     case actorMark(ShotID, EntityID, MarkID), cameraMark(ShotID, MarkID)
 }
 
@@ -266,11 +269,13 @@ extension ShotsCommand {
         case let .setPlacement(id, _): .placement(id)
         case let .setLabel(id, _): .label(id)
         case let .setFormation(id, _): .formation(id)
+        case let .setSetPiece(id, _): .setPiece(id)
         case let .renameEntity(id, _): .entityName(id)
         case let .setLighting(id, _): .lighting(id)
         case let .setFrameCount(id, _): .frames(id)
         case let .setCanvas(id, _): .canvas(id)
         case let .setNotes(id, _): .notes(id)
+        case let .setReference(id, _): .reference(id)
         case let .setCameraRig(id, _, _, _): .cameraRig(id)
         case let .updateActorMark(shot, entity, mark): .actorMark(shot, entity, mark.id)
         case let .updateCameraMark(shot, mark): .cameraMark(shot, mark.id)
