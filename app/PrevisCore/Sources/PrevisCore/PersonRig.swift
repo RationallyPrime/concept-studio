@@ -4,6 +4,7 @@
 // 0.14 m); COCO-18 keypoints added. See Resources/NOTICE.
 
 import Foundation
+import simd
 
 /// The posed capsule mannequin. Pivots are nodes with Euler XYZ rotations; forward is −Z; the character's right
 /// side is +X.
@@ -160,6 +161,26 @@ enum PersonRig {
         a.head.y += joint(.headY)
         a.head.z -= joint(.headZ)
         return a
+    }
+
+    static func handFrame(_ hand: AttachmentHand, asset: AssetSpec, scale: Double, state: EntityPose)
+        -> (position: Vec3, rotation: Quat)? {
+        guard scale.isFinite, scale > 0 else { return nil }
+        var builder = BodyBuilder(position: state.position, orientation: state.frame, scale: scale)
+        let points = build(asset: asset, scale: scale, state: state, into: &builder)
+        let name: KeypointName = hand == .left ? .leftWrist : .rightWrist
+        let partID = hand == .left ? "lowerArmL" : "lowerArmR"
+        guard let wrist = points.first(where: { $0.name == name }),
+              let part = builder.parts.first(where: { $0.id == partID }) else { return nil }
+        let m = part.transform.m
+        let matrix = simd_double3x3(columns: (
+            SIMD3(m[0], m[1], m[2]) / scale,
+            SIMD3(m[4], m[5], m[6]) / scale,
+            SIMD3(m[8], m[9], m[10]) / scale
+        ))
+        let q = simd_quatd(matrix)
+        let forearm = Quat(x: q.imag.x, y: q.imag.y, z: q.imag.z, w: q.real)
+        return (wrist.position, forearm * .roll(.pi))
     }
 
     /// Adds the parts and returns the 18 keypoints in COCO order, in world space.

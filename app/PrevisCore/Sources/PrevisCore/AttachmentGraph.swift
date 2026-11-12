@@ -46,6 +46,7 @@ enum AttachmentCycles {
 struct Mounting: Sendable {
     var offset: Vec3
     var rotation: Quat
+    var hand: AttachmentHand?
 }
 
 /// One boarding mark: from `time` on the rider rides `target`, standing at the offset captured at that moment.
@@ -62,13 +63,22 @@ struct BoardingMark: Sendable {
 /// time: its boarded vehicle once a boarding mark is reached, else the parent it is attached to until its own first
 /// mark. Entities are resolved parents first, so any chain lands whatever its order in the document.
 struct AttachmentGraph: Sendable {
+    let people: [Int: (asset: AssetSpec, scale: Double)]
     let attached: [Int: (parent: Int, mounting: Mounting)]
     let formationSlots: [Int: FormationSlot]
     let firstMark: [Int: Double]
     let boardings: [Int: [BoardingMark]]
     private(set) var captured: [MarkID: Mounting] = [:]
 
-    init(entities: [PrevisEntity], tracks: [EntityID: ActorPlan]) {
+    init(resolved: [ShotEvaluator.Resolved], tracks: [EntityID: ActorPlan]) {
+        let entities = resolved.map(\.entity)
+        let personIndices = Set(entities.compactMap { entity in
+            entity.attachment?.hand == nil ? nil : entity.attachment?.parentID
+        })
+        people = Dictionary(uniqueKeysWithValues: resolved.enumerated().compactMap { index, item in
+            guard item.asset.rig == .person, personIndices.contains(item.entity.id) else { return nil }
+            return (index, (item.asset, item.entity.placement.scale))
+        })
         let index = Dictionary(entities.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
         var attached: [Int: (parent: Int, mounting: Mounting)] = [:]
         var formationSlots: [Int: FormationSlot] = [:]
@@ -81,7 +91,7 @@ struct AttachmentGraph: Sendable {
                 attached[child] = (parent, Mounting(offset: offset, rotation: .yaw(0)))
                 formationSlots[child] = slot
             } else if let link = entity.attachment, let parent = index[link.parentID] {
-                attached[child] = (parent, Mounting(offset: link.offset, rotation: link.rotation))
+                attached[child] = (parent, Mounting(offset: link.offset, rotation: link.rotation, hand: link.hand))
             }
             guard let plan = tracks[entity.id] else { continue }
             firstMark[child] = plan.firstTime
@@ -180,9 +190,16 @@ struct AttachmentGraph: Sendable {
                 state[child] = true
                 return
             }
-            let parent = poses[edge.parent]
-            poses[child].position = parent.position + parent.frame.rotate(edge.mounting.offset)
-            let orientation = parent.frame * edge.mounting.rotation
+            var parent = poses[edge.parent]
+            parent.time = time
+            let socket = edge.mounting.hand.flatMap { hand in
+                people[edge.parent].flatMap { person in
+                    PersonRig.handFrame(hand, asset: person.asset, scale: person.scale, state: parent)
+                }
+            }
+            let frame = socket?.rotation ?? parent.frame
+            poses[child].position = (socket?.position ?? parent.position) + frame.rotate(edge.mounting.offset)
+            let orientation = frame * edge.mounting.rotation
             poses[child].orientation = orientation
             poses[child].heading = orientation.heading ?? poses[child].heading
             poses[child].speed = parent.speed

@@ -15,6 +15,7 @@ struct ShotsShotInspector: View {
             ShotsReferenceEditor(store: store, shot: shot)
             ShotsSceneEditInspector(store: store, shot: shot)
             ShotsDialogueEditor(store: store, shot: shot)
+            ShotsFightEditor(store: store, shot: shot)
             Divider()
             Text("Guide frames").font(.headline).accessibilityAddTraits(.isHeader)
                 .help("Frames exported as still pictures to steer the video. The first and last frames always are.")

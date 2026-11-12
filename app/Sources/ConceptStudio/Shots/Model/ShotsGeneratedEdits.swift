@@ -32,6 +32,16 @@ enum ShotsGeneratedEdits {
         _ command: ShotsCommand, to document: inout ShotsDocument, catalog: ContentCatalog
     ) throws -> Bool {
         switch command {
+        case let .stageFight(id, preset, actors, first, last):
+            try stageFight(id, preset, actors, first: first, last: last, in: &document, catalog: catalog)
+        case let .setAttachmentHand(child, hand, shotID):
+            guard let scene = document.scenes.firstIndex(where: { $0.shots.contains { $0.id == shotID } }),
+                  let entity = document.scenes[scene].entities.firstIndex(where: { $0.id == child }),
+                  let parent = document.scenes[scene].entities[entity].attachment?.parentID
+            else { throw ShotsEditingError.missing("attached prop") }
+            document.scenes[scene].entities[entity].attachment = EntityAttachment(
+                parentID: parent, offset: .zero, rotation: .identity, hand: hand
+            )
         case let .applyMotion(shot, entity, motion, frame):
             try editTrack(shot, entity, in: &document) { actor, track in
                 try Motions.apply(motion, to: actor, track: track, at: FrameGrid.time(ofFrame: frame), catalog: catalog)
@@ -53,6 +63,30 @@ enum ShotsGeneratedEdits {
         default: return false
         }
         return true
+    }
+
+    private static func stageFight(
+        _ id: ShotID, _ preset: FightBlocking, _ actors: [EntityID], first: Int, last: Int,
+        in document: inout ShotsDocument, catalog: ContentCatalog
+    ) throws {
+        guard let sceneIndex = document.scenes.firstIndex(where: { $0.shots.contains { $0.id == id } })
+        else { throw ShotsEditingError.missing("shot") }
+        let scene = document.scenes[sceneIndex]
+        guard let shot = scene.shots.first(where: { $0.id == id }),
+              let take = scene.blocking.firstIndex(where: { $0.id == shot.blockingTakeID })
+        else { throw ShotsEditingError.missing("blocking take") }
+        let tracks = try preset.tracks(
+            scene: scene, shot: shot, actors: actors, first: first, last: last, catalog: catalog
+        )
+        for track in tracks {
+            if let index = document.scenes[sceneIndex].blocking[take].tracks.firstIndex(where: {
+                $0.entityID == track.entityID
+            }) {
+                document.scenes[sceneIndex].blocking[take].tracks[index] = track
+            } else {
+                document.scenes[sceneIndex].blocking[take].tracks.append(track)
+            }
+        }
     }
 
     private static func editTrack(

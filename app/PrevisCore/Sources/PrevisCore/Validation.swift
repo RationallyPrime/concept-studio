@@ -42,7 +42,8 @@ private struct SceneChecker {
     }
 
     func problems() -> [ShotsProblem] {
-        entityProblems() + scene.formationProblems(catalog: catalog) + attachmentCycles() + takeProblems() + scene.shots
+        entityProblems() + handAttachmentProblems() + scene
+            .formationProblems(catalog: catalog) + attachmentCycles() + takeProblems() + scene.shots
             .flatMap(shotProblems)
     }
 
@@ -100,6 +101,18 @@ private struct SceneChecker {
             }
         }
         return out
+    }
+
+    private func handAttachmentProblems() -> [ShotsProblem] {
+        scene.entities.compactMap { entity in
+            guard let link = entity.attachment, link.hand != nil else { return nil }
+            let parent = scene.entities.first { $0.id == link.parentID }
+            guard let parent, catalog.asset(parent.assetID)?.rig == .person,
+                  catalog.asset(entity.assetID)?.motion == "static", entity.formation == nil else {
+                return error("A hand attachment needs a static prop and a person.", entity: entity.id)
+            }
+            return nil
+        }
     }
 
     /// One error per cycle, naming every entity on it.
