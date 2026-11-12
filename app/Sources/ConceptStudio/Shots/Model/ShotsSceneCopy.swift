@@ -15,6 +15,9 @@ enum ShotsSceneCopy {
             if let parent = copy.entities[index].attachment?.parentID {
                 copy.entities[index].attachment?.parentID = mapped(parent)
             }
+            if let parent = copy.entities[index].formationSlot?.formationID {
+                copy.entities[index].formationSlot?.formationID = mapped(parent)
+            }
         }
         for take in copy.blocking.indices {
             copy.blocking[take].id = mapped(copy.blocking[take].id)

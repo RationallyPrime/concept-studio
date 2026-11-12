@@ -77,6 +77,8 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var label: EntityLabel?
     public var placement: Placement // pose before the first mark, and always if there are none
     public var attachment: EntityAttachment? // rides the parent until its own first mark
+    public var formation: Formation?
+    public var formationSlot: FormationSlot?
 
     public init(
         id: EntityID,
@@ -84,7 +86,9 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
         name: String,
         label: EntityLabel? = nil,
         placement: Placement,
-        attachment: EntityAttachment? = nil
+        attachment: EntityAttachment? = nil,
+        formation: Formation? = nil,
+        formationSlot: FormationSlot? = nil
     ) {
         self.id = id
         self.assetID = assetID
@@ -92,6 +96,8 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
         self.label = label
         self.placement = placement
         self.attachment = attachment
+        self.formation = formation
+        self.formationSlot = formationSlot
     }
 }
 

@@ -122,7 +122,9 @@ public extension PrevisEntity {
             name: c.value("name", ""),
             label: c.optional("label"),
             placement: c.value("placement", Placement(position: .zero, heading: 0, scale: 1)),
-            attachment: c.optional("attachment")
+            attachment: c.optional("attachment"),
+            formation: c.optional("formation"),
+            formationSlot: c.optional("formationSlot")
         )
     }
 }

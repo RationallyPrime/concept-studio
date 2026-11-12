@@ -42,7 +42,8 @@ private struct SceneChecker {
     }
 
     func problems() -> [ShotsProblem] {
-        entityProblems() + attachmentCycles() + takeProblems() + scene.shots.flatMap(shotProblems)
+        entityProblems() + scene.formationProblems(catalog: catalog) + attachmentCycles() + takeProblems() + scene.shots
+            .flatMap(shotProblems)
     }
 
     // MARK: Entities

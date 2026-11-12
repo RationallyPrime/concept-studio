@@ -297,6 +297,20 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var label: EntityLabel?
     public var placement: Placement         // pose before the first mark, and always if there are none
     public var attachment: EntityAttachment? // rides the parent until its own first mark
+    public var formation: Formation?
+    public var formationSlot: FormationSlot?
+}
+public struct Formation: Codable, Sendable, Equatable {
+    public var rows: Int
+    public var columns: Int
+    public var rowSpacing: Double
+    public var columnSpacing: Double
+    public static let dimensionRange: ClosedRange<Int>
+}
+public struct FormationSlot: Codable, Sendable, Equatable, Hashable {
+    public var formationID: EntityID
+    public var row: Int
+    public var column: Int
 }
 public struct Placement: Codable, Sendable, Equatable {
     public var position: Vec3
@@ -508,6 +522,12 @@ public struct EntityFrame: Sendable, Equatable {
     public var parts: [PosedPart]
     public var keypoints: [Keypoint]        // COCO-18 world positions; empty unless rig == .person
     public var bounds: Box3
+    public var formationID: EntityID?
+    public var formationPoses: [FormationPose]
+}
+public struct FormationPose: Sendable, Equatable {
+    public var bounds: Box3
+    public var keypoints: [Keypoint]
 }
 public struct PosedPart: Sendable, Equatable {
     public var id: String                   // stable within the entity across frames
@@ -752,6 +772,7 @@ enum ShotsCommand: Codable, Sendable, Equatable {  // Lane C
     // Entities
     case addEntity(SceneID, PrevisEntity)
     case setPlacement(EntityID, Placement)
+    case setFormation(EntityID, Formation)
     case renameEntity(EntityID, name: String)
     case setLabel(EntityID, EntityLabel?)
     case deleteEntities([EntityID])                 // removes tracks, notes and camera references; detaches children
@@ -777,6 +798,15 @@ enum ShotsCommand: Codable, Sendable, Equatable {  // Lane C
 struct ShotsViewport: View { init(store: ShotsStore) }   // Lane D: free editor camera and interaction
 struct ShotCameraView: View { init(store: ShotsStore) }  // Lane D: the shot camera, rendered as exported
 ```
+
+**Formations.** A person entity with `formation` owns one blocking track. Rows and columns are 1–32,
+with positive spacing in metres. Row 1 faces forward (local −Z). The centred grid follows the entity's
+position and orientation. Each occupant shares the parent gait with a deterministic stride-phase offset.
+An ordinary person entity with `formationSlot` occupies the named one-based cell until its first actor
+mark. That mark starts independent blocking and leaves the cell empty. A slot is unique within the scene.
+Formation membership and a separate attachment on the same member are mutually exclusive. Deleting the
+formation clears its members' slot references. The Library adds a formation of the chosen person asset.
+The inspector names individual members and records a departure mark at the current evaluated position.
 
 **C0 makes `evaluator` and `frame` work from day 1.** They wrap PrevisCore, and the viewport draws
 `store.frame`.
@@ -892,7 +922,9 @@ public struct PackageFile: Codable, Sendable, Equatable {
 **Contents,** for the passes listed in `passes` (the standard export has all four):
 - **Guides:** first (frame 0), last (frame N−1) and every `guideFrames` entry, in the variant of each
   included clean, pose and layout pass.
-- **Mattes** (matte pass): a video and a still at every guide frame, for each actor.
+- **Mattes** (matte pass): a video and a still at every guide frame, for each actor. A formation matte
+  covers its anonymous occupants and any named members still in the formation at that frame. Named members
+  also get their own actor matte.
 - **Controls:** a video for each included pose and layout pass.
 - **Reference** (clean pass): the clean video.
 - **Description:** `shot.json`, always.
@@ -905,9 +937,11 @@ public struct PackageFile: Codable, Sendable, Equatable {
   shows a need.
 - **clean:** the canonical `PrevisLook`, with no labels, editor chrome or selection highlight.
 - **pose:** black background, OpenPose COCO-18 colours, limbs and joint dots per person, limbs about
-  canvas.width/160 wide. Keypoints behind the camera are left out.
+  canvas.width/160 wide. Keypoints behind the camera are left out. Each formation member has a separate
+  skeleton. While in formation, members with a visible projected bounds height under 32 pixels are skipped.
 - **layout:** white background, one filled box per actor covering its projected bounds clipped to the
-  canvas. The colour comes from the label, or else a fixed palette in entity order.
+  canvas. The colour comes from the label, or else a fixed palette in entity order. A formation contributes
+  one box covering its current occupants. Named members' individual boxes draw over the formation box.
 - **matte:** black background, with the actor's *visible* silhouette in white; other entities occlude it.
 
 **`shot.json`:**

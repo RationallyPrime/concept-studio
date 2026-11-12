@@ -32,6 +32,30 @@ struct PassDrawingTests {
         #expect(pose.rgb(1, 1) == (0, 0, 0))
     }
 
+    @Test func formationPoseSkipsSmallBodiesAndDrawsEachVisibleSkeleton() throws {
+        var frame = try smallSampleFrame()
+        let size = frame.canvas.pixelSize
+        let near = Box3(min: Vec3(-0.4, 0, -0.2), max: Vec3(0.4, 1.8, 0.2))
+        let far = Box3(min: Vec3(11.6, 0, -90.2), max: Vec3(12.4, 1.8, -89.8))
+        let nose = Vec3(0, 1.62, 0.1)
+        let distantNose = Vec3(12, 1.62, -89.9)
+        frame.entities = [
+            EntityFrame(
+                id: "squad", assetID: "person.man", name: "Squad", isActor: true, position: .zero, heading: 0,
+                gait: .stand, speed: 0, distanceTravelled: 0, bounds: near,
+                formationPoses: [
+                    FormationPose(bounds: near, keypoints: [Keypoint(name: .nose, position: nose)]),
+                    FormationPose(bounds: far, keypoints: [Keypoint(name: .nose, position: distantNose)]),
+                ]
+            ),
+        ]
+        let pose = try Pixels(PassDrawing.image(size: size) { PassDrawing.drawPose(frame, in: $0) })
+        let nearPixel = try #require(frame.camera.project(nose, size: size))
+        let farPixel = try #require(frame.camera.project(distantNose, size: size))
+        #expect(pose.rgb(Int(nearPixel.x), Int(nearPixel.y)) == (255, 0, 0))
+        #expect(pose.rgb(Int(farPixel.x), Int(farPixel.y)) == (0, 0, 0))
+    }
+
     @Test func layoutBoxesCoverEachActorInItsColour() throws {
         var frame = try smallSampleFrame()
         let actors = frame.entities.filter(\.isActor)

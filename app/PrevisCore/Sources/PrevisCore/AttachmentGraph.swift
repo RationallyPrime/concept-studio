@@ -27,7 +27,8 @@ enum AttachmentCycles {
         for entity in entities {
             var chain = [entity.id]
             var current = entity
-            while let parent = current.attachment?.parentID, let next = entities.first(where: { $0.id == parent }) {
+            while let parent = current.formationSlot?.formationID ?? current.attachment?.parentID,
+                  let next = entities.first(where: { $0.id == parent }) {
                 if let start = chain.firstIndex(of: parent) {
                     let cycle = Array(chain[start...])
                     if seen.insert(Set(cycle)).inserted { found.append(cycle) }
@@ -62,6 +63,7 @@ struct BoardingMark: Sendable {
 /// mark. Entities are resolved parents first, so any chain lands whatever its order in the document.
 struct AttachmentGraph: Sendable {
     let attached: [Int: (parent: Int, mounting: Mounting)]
+    let formationSlots: [Int: FormationSlot]
     let firstMark: [Int: Double]
     let boardings: [Int: [BoardingMark]]
     private(set) var captured: [MarkID: Mounting] = [:]
@@ -69,10 +71,16 @@ struct AttachmentGraph: Sendable {
     init(entities: [PrevisEntity], tracks: [EntityID: ActorPlan]) {
         let index = Dictionary(entities.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
         var attached: [Int: (parent: Int, mounting: Mounting)] = [:]
+        var formationSlots: [Int: FormationSlot] = [:]
         var firstMark: [Int: Double] = [:]
         var boardings: [Int: [BoardingMark]] = [:]
         for (child, entity) in entities.enumerated() {
-            if let link = entity.attachment, let parent = index[link.parentID] {
+            if let slot = entity.formationSlot, let parent = index[slot.formationID],
+               let formation = entities[parent].formation {
+                let offset = formation.offset(row: slot.row, column: slot.column) * entities[parent].placement.scale
+                attached[child] = (parent, Mounting(offset: offset, rotation: .yaw(0)))
+                formationSlots[child] = slot
+            } else if let link = entity.attachment, let parent = index[link.parentID] {
                 attached[child] = (parent, Mounting(offset: link.offset, rotation: link.rotation))
             }
             guard let plan = tracks[entity.id] else { continue }
@@ -87,6 +95,7 @@ struct AttachmentGraph: Sendable {
             if !marks.isEmpty { boardings[child] = marks }
         }
         self.attached = attached
+        self.formationSlots = formationSlots
         self.firstMark = firstMark
         self.boardings = boardings
     }
@@ -181,6 +190,11 @@ struct AttachmentGraph: Sendable {
             if let boarding = edge.boarding {
                 poses[child].gait = .stand
                 if !boarding.joints.isEmpty { poses[child].joints = boarding.joints }
+            } else if let slot = formationSlots[child] {
+                poses[child].formationID = slot.formationID
+                poses[child].gait = parent.gait
+                poses[child].joints = parent.joints
+                poses[child].distanceTravelled += Formation.strideVariation(row: slot.row, column: slot.column)
             }
             state[child] = true
         }

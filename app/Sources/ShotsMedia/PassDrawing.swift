@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 
 /// The passes drawn in 2D from evaluated frames: pose skeletons and layout boxes (CONTRACTS section 8.3).
 enum PassDrawing {
+    static let formationPoseMinimumHeight = 32.0
+
     /// OpenPose's COCO-18 colours, in keypoint order. Limb i takes colour i too.
     static let openPoseColors: [(Int, Int, Int)] = [
         (255, 0, 0), (255, 85, 0), (255, 170, 0), (255, 255, 0), (170, 255, 0), (85, 255, 0), (0, 255, 0),
@@ -38,8 +40,18 @@ enum PassDrawing {
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
         // OpenPose's stickwidth: the limb's half-width and the joint radius, 4 px on a 640 px canvas.
         let stick = max(1, Double(size.width) / 160)
-        let people = frame.entities.map { entity in
-            Dictionary(entity.keypoints.compactMap { keypoint in
+        let keypointGroups = frame.entities.flatMap { entity -> [[Keypoint]] in
+            var groups = entity.formationPoses.compactMap { member in
+                isLargeEnough(member.bounds, in: frame) ? member.keypoints : nil
+            }
+            if !entity.keypoints.isEmpty,
+               entity.formationID == nil || isLargeEnough(entity.bounds, in: frame) {
+                groups.append(entity.keypoints)
+            }
+            return groups
+        }
+        let people = keypointGroups.map { keypoints in
+            Dictionary(keypoints.compactMap { keypoint in
                 frame.camera.project(keypoint.position, size: size).map { (keypoint.name, $0) }
             }, uniquingKeysWith: { first, _ in first })
         }
@@ -69,6 +81,11 @@ enum PassDrawing {
         }
     }
 
+    private static func isLargeEnough(_ bounds: Box3, in frame: SceneFrame) -> Bool {
+        let height = projectedBounds(bounds, camera: frame.camera, size: frame.canvas.pixelSize)?.height ?? 0
+        return height >= formationPoseMinimumHeight
+    }
+
     /// On white, one filled box per actor covering its projected bounds, in entity order. The colour is the label's,
     /// or else the palette's in actor order.
     static func drawLayout(_ frame: SceneFrame, in context: CGContext) {
@@ -76,7 +93,9 @@ enum PassDrawing {
         context.setShouldAntialias(false)
         context.setFillColor(color((255, 255, 255)))
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
-        for (index, entity) in frame.entities.filter(\.isActor).enumerated() {
+        let actors = Array(frame.entities.filter(\.isActor).enumerated())
+        let layers = actors.filter { $0.element.formationID == nil } + actors.filter { $0.element.formationID != nil }
+        for (index, entity) in layers {
             guard let box = projectedBounds(entity.bounds, camera: frame.camera, size: size) else { continue }
             if let label = entity.label {
                 context.setFillColor(CGColor(
