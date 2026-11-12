@@ -64,11 +64,29 @@ enum Bodies {
                     let local = Mat4.node(part.position, part.rotation)
                     builder.add(part.id, part.shape, at: local, color: part.color.packed)
                 }
+            } else if asset.id == "prop.sword" {
+                sword(into: &builder)
             } else {
                 box(asset, into: &builder)
             }
         }
         return (builder.parts, keypoints, bounds(of: builder.parts, fallback: state.position))
+    }
+
+    private static func sword(into builder: inout BodyBuilder) {
+        builder.add("hilt", .box(size: Vec3(0.05, 0.18, 0.05)), at: .identity, color: 0x474A50)
+        builder.add(
+            "guard",
+            .box(size: Vec3(0.22, 0.04, 0.07)),
+            at: .translation(Vec3(0, 0.09, 0)),
+            color: 0x646771
+        )
+        builder.add(
+            "blade",
+            .box(size: Vec3(0.07, 0.76, 0.02)),
+            at: .translation(Vec3(0, 0.49, 0)),
+            color: 0xAEB5BF
+        )
     }
 
     /// One grey box of the catalog footprint and height, standing on the ground.

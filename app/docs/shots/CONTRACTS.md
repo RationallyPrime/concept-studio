@@ -1114,3 +1114,15 @@ older Homebrew build.
 - `swift test --package-path PrevisCore`;
 - `swiftlint lint --strict` and `swiftformat --lint` over `Sources`, `Tests`, `PrevisCore/Sources` and
   `PrevisCore/Tests`.
+
+### Hand attachments and paired fight blocking
+
+An entity attachment can name a left or right hand on a person. Offset and rotation
+are relative to the wrist socket in that case, with +Y pointing out from the forearm.
+The socket uses the same evaluated arm pose as the visible rig. The existing root
+attachment applies when the hand is absent. An attached prop follows until its own first mark.
+
+The fight blocking command applies two paired motion presets in one edit. The authored start,
+shared cue and end are exact shot frames. Keyframes retain their catalog root travel and both
+actors keep marks outside the authored interval. The resulting tracks remain ordinary editable
+blocking marks. The viewport and exporter both evaluate the same tracks and attachment graph.

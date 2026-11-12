@@ -126,15 +126,22 @@ public struct EntityLabel: Codable, Sendable, Equatable {
     }
 }
 
+public enum AttachmentHand: String, Codable, Sendable, CaseIterable {
+    case left, right
+}
+
 public struct EntityAttachment: Codable, Sendable, Equatable {
     public var parentID: EntityID
     public var offset: Vec3 // in the parent's frame
     public var rotation: Quat // relative to the parent: a full transform, not yaw only
 
-    public init(parentID: EntityID, offset: Vec3, rotation: Quat) {
+    public var hand: AttachmentHand?
+
+    public init(parentID: EntityID, offset: Vec3, rotation: Quat, hand: AttachmentHand? = nil) {
         self.parentID = parentID
         self.offset = offset
         self.rotation = rotation
+        self.hand = hand
     }
 }
 

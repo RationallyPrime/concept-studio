@@ -28,10 +28,12 @@ enum ShotsCommand: Codable, Sendable, Equatable {
     case renameEntity(EntityID, name: String)
     case setLabel(EntityID, EntityLabel?)
     case deleteEntities([EntityID])
+    case setAttachmentHand(EntityID, AttachmentHand, shot: ShotID)
     case attach(child: EntityID, parent: EntityID?, shot: ShotID, atFrame: Int)
 
     case addActorMark(ShotID, EntityID, ActorMark)
     case updateActorMark(ShotID, EntityID, ActorMark)
+    case stageFight(ShotID, FightBlocking, actors: [EntityID], first: Int, last: Int)
     case applyMotion(ShotID, EntityID, motionID: String, atFrame: Int)
     case overlayMotion(ShotID, EntityID, motionID: String)
     case applyActionPath(ShotID, EntityID, pathID: String, atFrame: Int, duration: Double, speed: Double?)

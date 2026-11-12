@@ -159,7 +159,7 @@ public struct ShotEvaluator: Sendable {
     }
 
     private static func graph(_ resolved: [Resolved], _ plans: [EntityID: ActorPlan]) -> AttachmentGraph {
-        var graph = AttachmentGraph(entities: resolved.map(\.entity), tracks: plans)
+        var graph = AttachmentGraph(resolved: resolved, tracks: plans)
         graph.capture { time in
             resolved.map { item in
                 let placement = item.entity.placement

@@ -47,13 +47,22 @@ public enum Motions {
             ])
         }
         let kept = (track?.marks ?? []).filter { $0.time < time - 1e-9 }
+        return Track(
+            entityID: entity.id,
+            marks: kept + marks(motion, for: entity, track: track, at: time) { time + $0 }
+        )
+    }
+
+    static func marks(
+        _ motion: MotionPreset, for entity: PrevisEntity, track: Track?, at time: Double, timeAt: (Double) -> Double
+    ) -> [ActorMark] {
         let here = pose(of: entity, track: track, at: time)
         let forward = Vec3(-sin(here.heading), 0, -cos(here.heading))
-        let marks = motion.keyframes.map { keyframe in
+        return motion.keyframes.map { keyframe in
             let move = keyframe.move ?? RootMove(forward: 0, up: 0)
             return ActorMark(
                 id: PrevisIDs.make("mark"),
-                time: time + keyframe.t,
+                time: timeAt(keyframe.t),
                 hold: 0,
                 easeIn: 0,
                 easeOut: 0,
@@ -67,7 +76,6 @@ public enum Motions {
                 joints: keyframe.joints
             )
         }
-        return Track(entityID: entity.id, marks: kept + marks)
     }
 
     /// Walk-and-talk: samples an upper-body motion at the times of `track`'s marks, counted from its first mark, and

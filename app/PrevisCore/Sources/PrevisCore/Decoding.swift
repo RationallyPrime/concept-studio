@@ -150,7 +150,8 @@ public extension EntityAttachment {
         try self.init(
             parentID: c.require("parentID"),
             offset: c.value("offset", .zero),
-            rotation: c.value("rotation", .identity)
+            rotation: c.value("rotation", .identity),
+            hand: c.optional("hand")
         )
     }
 }

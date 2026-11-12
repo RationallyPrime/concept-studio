@@ -108,6 +108,22 @@ struct ShotsEntityInspector: View {
                 }
             }
             .help("Carry this entity with another, such as a bag held by a person, until this entity's own first mark.")
+            if let link = entity.attachment,
+               let parent = store.currentScene?.entities.first(where: { $0.id == link.parentID }),
+               store.catalog.asset(parent.assetID)?.rig == .person,
+               store.catalog.asset(entity.assetID)?.motion == "static" {
+                Picker("Attachment point", selection: Binding(get: { link.hand }, set: { hand in
+                    if let hand {
+                        store.run(.setAttachmentHand(entity.id, hand, shot: shot.id))
+                    } else {
+                        store.run(.attach(child: entity.id, parent: parent.id, shot: shot.id, atFrame: store.playhead))
+                    }
+                })) {
+                    Text("Body").tag(nil as AttachmentHand?)
+                    Text("Left hand").tag(Optional(AttachmentHand.left))
+                    Text("Right hand").tag(Optional(AttachmentHand.right))
+                }
+            }
         }
     }
 
