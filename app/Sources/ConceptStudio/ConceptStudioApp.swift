@@ -11,6 +11,10 @@ enum ConceptStudioLaunch {
             let code = await ShotsSelfTest.run()
             exit(code)
         }
+        let arguments = ProcessInfo.processInfo.arguments.dropFirst()
+        if arguments.first == "--shots-commands" {
+            exit(ShotsCommandFile.run(Array(arguments.dropFirst())))
+        }
         ConceptStudioApp.main()
     }
 }

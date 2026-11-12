@@ -9,11 +9,17 @@ public enum ShotsCommandLine {
            shots-export --document <shots.json> --shot <id> --out <dir>
            Blockout input also takes [--frames N] [--canvas WxH] [--passes clean,pose,layout,matte].
     Writes one validated shot package and prints its path.
+    Includes a saved prompt, or a template prompt when the shot has dialogue.
+    Writes intermediate guide stills only for frames marked in the shot.
 
     """
 
     /// 0 when a valid package was written, 1 when the export failed, 2 for a usage error.
     @MainActor public static func run(arguments: [String]) async -> Int32 {
+        if arguments == ["--help"] {
+            print(usage, terminator: "")
+            return 0
+        }
         do {
             let job = try Job(arguments: arguments)
             let catalog = try ContentCatalog.bundled()
