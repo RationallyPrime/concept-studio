@@ -58,6 +58,18 @@ public struct PromptFacts: Codable, Sendable, Equatable {
         }
     }
 
+    public struct Dialogue: Codable, Sendable, Equatable {
+        public var startFrame: Int
+        public var speaker: String
+        public var text: String
+
+        public init(startFrame: Int, speaker: String, text: String) {
+            self.startFrame = startFrame
+            self.speaker = speaker
+            self.text = text
+        }
+    }
+
     public var sceneRevision: Int
     public var frameCount: Int
     public var canvas: ShotCanvas
@@ -74,6 +86,7 @@ public struct PromptFacts: Codable, Sendable, Equatable {
     public var setting: String
     public var sound: String
     public var music: String
+    public var dialogue: [Dialogue]?
 
     public init(
         sceneRevision: Int,
@@ -91,7 +104,8 @@ public struct PromptFacts: Codable, Sendable, Equatable {
         lighting: String,
         setting: String = "",
         sound: String = "",
-        music: String = ""
+        music: String = "",
+        dialogue: [Dialogue] = []
     ) {
         self.sceneRevision = sceneRevision
         self.frameCount = frameCount
@@ -109,6 +123,7 @@ public struct PromptFacts: Codable, Sendable, Equatable {
         self.setting = setting
         self.sound = sound
         self.music = music
+        self.dialogue = dialogue.isEmpty ? nil : dialogue
     }
 }
 
@@ -173,8 +188,25 @@ public enum ShotPromptCompiler {
             lighting: words(for: scene.lighting),
             setting: shot.notes.description,
             sound: shot.notes.sound,
-            music: shot.notes.music
+            music: shot.notes.music,
+            dialogue: shot.dialogue.sorted { $0.startFrame < $1.startFrame }.compactMap { line in
+                guard !line.text.isEmpty else { return nil }
+                return PromptFacts.Dialogue(
+                    startFrame: line.startFrame,
+                    speaker: dialogueSpeaker(line.speakerID, subjects: subjects),
+                    text: line.text
+                )
+            }
         )
+    }
+
+    private static func dialogueSpeaker(_ speakerID: EntityID?, subjects: [PromptFacts.Subject]) -> String {
+        guard let speaker = subjects.first(where: { $0.entityID == speakerID }) else { return "an off-screen voice" }
+        let peers = subjects.filter { $0.noun == speaker.noun && $0.appearance == speaker.appearance }
+        if let index = peers.firstIndex(where: { $0.entityID == speakerID }), peers.count > 1 {
+            return "\(speaker.noun) number \(index + 1)"
+        }
+        return speaker.appearance.map { "\(speaker.noun) (\($0))" } ?? speaker.noun
     }
 
     /// Blockout's words for each lighting preset (`LIGHTING_WORDS` in `src/engine/prompt.ts`).
@@ -222,7 +254,9 @@ public enum ShotPromptCompiler {
         ) else { throw ShotsMediaError("The bundled h3-shot-prompt skill is missing from this build.") }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let factsJSON = try String(bytes: encoder.encode(facts), encoding: .utf8) else {
+        var modelFacts = facts
+        modelFacts.dialogue = nil
+        guard let factsJSON = try String(bytes: encoder.encode(modelFacts), encoding: .utf8) else {
             throw ShotsMediaError("The shot's prompt facts couldn't be written as JSON.")
         }
         let stage = StructuredStage<WrittenSections>(
@@ -231,11 +265,13 @@ public enum ShotPromptCompiler {
         )
         // The header and the section keys share the budget with the sections.
         let budget = maximumCharacters - header(facts).count - sectionKeys.map { $0.count + 4 }.reduce(0, +)
+            - dialogueText(facts).count
         let run = try await stage.run(
             instructions: Skills.load(directory).instructions(),
             messages: [.user(
-                "Write the three sections for this shot, under \(budget) characters together. Its facts:\n\n"
-                    + factsJSON
+                "Write the three sections for this shot, under \(max(1, budget)) characters together. "
+                    + "The app inserts dialogue. Write only the action and visual description in the first section. "
+                    + "Its facts:\n\n" + factsJSON
             )],
             validate: { $0.problems }
         )
@@ -249,7 +285,20 @@ public enum ShotPromptCompiler {
             + "\(String(format: "%.2f", facts.duration))-second mark of the target video."
     }
 
+    private static func dialogueText(_ facts: PromptFacts) -> String {
+        (facts.dialogue ?? []).map { line in
+            let time = FrameGrid.time(ofFrame: line.startFrame)
+            let minutes = Int(time / 60)
+            let seconds = time.truncatingRemainder(dividingBy: 60)
+            let stamp = String(format: "%02d:%06.3f", minutes, seconds)
+            return "\nAt \(stamp), \(line.speaker) says: “\(line.text)”"
+        }.joined()
+    }
+
     static func assemble(_ facts: PromptFacts, sections: [String], writtenBy: String) -> ShotPrompt {
+        var sections = sections
+        sections[0] += dialogueText(facts)
+        if facts.music.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { sections[2] = "N/A" }
         let keyed = zip(sectionKeys, sections).map { PromptSection(key: $0, text: $1) }
         let text = ([header(facts)] + keyed.map { "\($0.key): \($0.text)" }).joined(separator: "\n\n")
         return ShotPrompt(sections: keyed, text: text, sceneRevision: facts.sceneRevision, writtenBy: writtenBy)

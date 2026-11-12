@@ -54,6 +54,7 @@ public struct PackageFile: Codable, Sendable, Equatable {
     public enum Role: String, Codable, Sendable {
         case guide, control, matte, reference, prompt, description
         case promptSections = "prompt-sections"
+        case scratchAudio = "scratch-audio"
     }
 
     public enum Position: String, Codable, Sendable { case first, middle, last }

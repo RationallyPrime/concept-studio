@@ -16,6 +16,8 @@ enum ShotsCommand: Codable, Sendable, Equatable {
     case setGuideFrames(ShotID, [Int])
     case setNotes(ShotID, ShotNotes)
     case setReference(ShotID, ShotReference?)
+    case setDialogue(ShotID, [DialogueLine])
+    case setScratchAudio(ShotID, ScratchRecording?)
     case setPrompt(ShotID, ShotPrompt?)
     case importScenes([PrevisScene])
 

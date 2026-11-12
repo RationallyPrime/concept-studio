@@ -203,7 +203,9 @@ public extension Shot {
             prompt: c.optional("prompt"),
             results: c.value("results", []),
             reference: c.optional("reference"),
-            editFrameCount: c.optional("editFrameCount")
+            editFrameCount: c.optional("editFrameCount"),
+            dialogue: c.value("dialogue", []),
+            scratchAudio: c.optional("scratchAudio")
         )
     }
 }

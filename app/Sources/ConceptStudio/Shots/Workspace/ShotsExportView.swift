@@ -47,7 +47,8 @@ struct ShotsExportView: View {
             ))
             startExport(success: "Shot package exported.") {
                 try await exporter.export(
-                    scene: snapshot.scene, shotID: snapshot.shotID, options: .standard, to: destination
+                    scene: snapshot.scene, shotID: snapshot.shotID, options: .standard, to: destination,
+                    audioDirectory: store.audioDirectory
                 ) { progress = $0 }.url
             }
         } catch {
@@ -66,7 +67,7 @@ struct ShotsExportView: View {
                 try await AnimaticExporter(catalog: store.catalog).export(
                     scene: scene,
                     burnIn: burnIn,
-                    to: destination
+                    to: destination, audioDirectory: store.audioDirectory
                 ) {
                     progress = $0
                 }
