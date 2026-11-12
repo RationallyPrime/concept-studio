@@ -192,6 +192,7 @@ struct ShotCameraView: View {
     @State var session: ShotCameraPreviewSession
     /// The viewport's live session, shared with the scene view for keys, focus and announcements (D5 keyboard slice).
     @State private var ownedLiveSession = ViewportLiveSession()
+    @State private var referenceImage: NSImage?
 
     init(
         store: ShotsStore,
@@ -306,6 +307,9 @@ struct ShotCameraView: View {
         .onAppear {
             session.requestRender(currentRequest, onError: store.onError)
         }
+        .onChange(of: store.currentShot?.reference?.fileName, initial: true) { _, _ in
+            referenceImage = store.currentShot?.reference.flatMap(store.referenceURL).flatMap(NSImage.init(contentsOf:))
+        }
         .onChange(of: currentRequest) { _, updated in
             session.requestRender(updated, onError: store.onError)
         }
@@ -336,6 +340,16 @@ struct ShotCameraView: View {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: size.width, height: size.height)
+
+                if let referenceImage, let reference = store.currentShot?.reference {
+                    Image(nsImage: referenceImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: size.width, height: size.height)
+                        .opacity(reference.opacity)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
 
                 Text(captionText)
                     .font(.system(size: 11, weight: .medium))

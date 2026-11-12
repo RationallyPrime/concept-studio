@@ -124,7 +124,8 @@ public extension PrevisEntity {
             placement: c.value("placement", Placement(position: .zero, heading: 0, scale: 1)),
             attachment: c.optional("attachment"),
             formation: c.optional("formation"),
-            formationSlot: c.optional("formationSlot")
+            formationSlot: c.optional("formationSlot"),
+            setPiece: c.optional("setPiece")
         )
     }
 }
@@ -200,7 +201,8 @@ public extension Shot {
             guideFrames: c.value("guideFrames", []),
             notes: c.value("notes", ShotNotes(description: "", sound: "", music: "")),
             prompt: c.optional("prompt"),
-            results: c.value("results", [])
+            results: c.value("results", []),
+            reference: c.optional("reference")
         )
     }
 }

@@ -53,6 +53,10 @@ struct ShotsEntityInspector: View {
             }
             if !isInFormation {
                 placementFields
+                if let asset = store.catalog.asset(entity.assetID),
+                   let piece = entity.setPiece ?? SetPiece.standard(for: asset) {
+                    ShotsSetPieceInspector(store: store, entity: entity, piece: piece)
+                }
             }
             Button(isInFormation ? "Leave formation here" : "Add mark here") {
                 do { try store.addInspectorMark(for: entity.id) } catch { store.onError?(error.localizedDescription) }

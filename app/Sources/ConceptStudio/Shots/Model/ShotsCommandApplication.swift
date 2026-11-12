@@ -53,6 +53,9 @@ enum ShotsCommandApplication {
                 throw ShotsEditingError.missing("formation")
             }
             document.scenes[index.scene].entities[index.entity].formation = formation
+        case let .setSetPiece(id, piece):
+            let index = try entityIndex(id, in: document)
+            document.scenes[index.scene].entities[index.entity].setPiece = piece
         case let .renameEntity(id, name):
             let index = try entityIndex(id, in: document)
             document.scenes[index.scene].entities[index.entity].name = name
@@ -100,6 +103,8 @@ enum ShotsCommandApplication {
             try editShot(id, in: &document) { $0.guideFrames = Array(Set(frames)).sorted() }
         case let .setNotes(id, notes):
             try editShot(id, in: &document) { $0.notes = notes }
+        case let .setReference(id, reference):
+            try editShot(id, in: &document) { $0.reference = reference }
         case let .setPrompt(id, prompt):
             try editShot(id, in: &document) { $0.prompt = prompt }
         default: return false

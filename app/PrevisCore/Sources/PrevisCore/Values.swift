@@ -194,7 +194,11 @@ public struct Mat4: Hashable, Sendable {
     }
 
     static func scale(_ s: Double) -> Mat4 {
-        Mat4([s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0, 0, 0, 0, 1])
+        scale(Vec3(s, s, s))
+    }
+
+    static func scale(_ size: Vec3) -> Mat4 {
+        Mat4([size.x, 0, 0, 0, 0, size.y, 0, 0, 0, 0, size.z, 0, 0, 0, 0, 1])
     }
 
     static func rotation(_ q: Quat) -> Mat4 {

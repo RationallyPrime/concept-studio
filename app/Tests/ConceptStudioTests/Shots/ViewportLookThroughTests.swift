@@ -67,6 +67,52 @@ struct ViewportLookThroughTests {
         #expect(frameZeroRGB != exportedRGB)
     }
 
+    @Test(.enabled(if: lookThroughRenderingEnabled))
+    func aReferenceSurvivesReopeningAndNeverChangesTheCleanGuide() async throws {
+        let catalog = try ContentCatalog.bundled()
+        let document = ShotsSamples.twoPersonWalk(small: true)
+        let directory = temporaryTestDirectory("Shots-reference")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = ShotsDocumentFile.url(in: directory)
+        let store = ShotsStore(catalog: catalog, document: document, saveURL: url)
+        let id = try #require(store.currentShotID)
+        let cleanSession = ShotCameraPreviewSession()
+        cleanSession.requestRender(for: store)
+        await cleanSession.waitForIdle()
+        let clean = try decodedSRGBBytes(of: #require(cleanSession.renderedImage))
+
+        let source = directory.appendingPathComponent("plate.png")
+        let plate = try makeSolidImage(width: 32, height: 32, red: 200)
+        let destination = try #require(CGImageDestinationCreateWithURL(
+            source as CFURL,
+            "public.png" as CFString,
+            1,
+            nil
+        ))
+        CGImageDestinationAddImage(destination, plate, nil)
+        #expect(CGImageDestinationFinalize(destination))
+        try store.importReference(from: source, shotID: id)
+        let reference = try #require(store.currentShot?.reference)
+        #expect(store.currentScene?.revision == document.scenes.first?.revision)
+        let copy = try #require(store.referenceURL(reference))
+        #expect(try Data(contentsOf: copy) == Data(contentsOf: source))
+        #expect(NSImage(contentsOf: copy)?.isValid == true)
+        try ShotsDocumentFile.save(store.document, to: url)
+        let reopened = try ShotsDocumentFile.load(from: url).document
+        #expect(reopened.scenes.first?.shots.first?.reference == reference)
+
+        let scene = try #require(reopened.scenes.first)
+        let package = try await ShotExporter(catalog: catalog).export(
+            scene: scene, shotID: id, options: ExportOptions(passes: [.clean]),
+            to: FolderDestination(parent: directory), progress: { _ in }
+        )
+        let guide = try decodePNGImage(at: package.url.appendingPathComponent("guides/first-f0000-clean.png"))
+        #expect(try decodedSRGBBytes(of: guide) == clean)
+        #expect(!package.manifest.files.contains { $0.path.contains(reference.fileName) })
+    }
+
     @Test
     func coalescingCollapsesIntermediateRequestsToLatestWhileOneRenderIsInFlight() async throws {
         let catalog = try ContentCatalog.bundled()

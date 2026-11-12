@@ -98,7 +98,14 @@ public struct ShotEvaluator: Sendable {
         var resolved: [Resolved] = []
         for entity in scene.entities {
             if let asset = catalog.asset(entity.assetID) {
-                resolved.append(Resolved(entity: entity, asset: asset))
+                if let piece = entity.setPiece, !piece.isValid(for: asset) {
+                    problems.append(ShotsProblem(
+                        severity: .error, message: "“\(entity.name)” has invalid set dimensions.",
+                        sceneID: scene.id, shotID: shot.id, entityID: entity.id
+                    ))
+                } else {
+                    resolved.append(Resolved(entity: entity, asset: asset))
+                }
             } else {
                 problems.append(
                     ShotsProblem(

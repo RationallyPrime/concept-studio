@@ -23,7 +23,7 @@ public struct ShotsDocument: Codable, Sendable, Equatable {
 public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
     public var id: SceneID
     public var name: String
-    public var revision: Int // bumped by the store on every edit except setPrompt
+    public var revision: Int // bumped by the store on each edit that changes export inputs
     public var lighting: LightingPreset
     public var entities: [PrevisEntity]
     public var blocking: [BlockingTake] // v1: exactly one take, shared by the scene's shots
@@ -79,6 +79,7 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var attachment: EntityAttachment? // rides the parent until its own first mark
     public var formation: Formation?
     public var formationSlot: FormationSlot?
+    public var setPiece: SetPiece?
 
     public init(
         id: EntityID,
@@ -88,7 +89,8 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
         placement: Placement,
         attachment: EntityAttachment? = nil,
         formation: Formation? = nil,
-        formationSlot: FormationSlot? = nil
+        formationSlot: FormationSlot? = nil,
+        setPiece: SetPiece? = nil
     ) {
         self.id = id
         self.assetID = assetID
@@ -98,6 +100,7 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
         self.attachment = attachment
         self.formation = formation
         self.formationSlot = formationSlot
+        self.setPiece = setPiece
     }
 }
 
@@ -217,6 +220,7 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var notes: ShotNotes
     public var prompt: ShotPrompt?
     public var results: [ShotResult] // reserved for later destinations; empty in v1
+    public var reference: ShotReference?
     public var duration: Double {
         Double(frameCount - 1) / Double(FrameGrid.fps)
     }
@@ -231,7 +235,8 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         guideFrames: [Int] = [],
         notes: ShotNotes,
         prompt: ShotPrompt? = nil,
-        results: [ShotResult] = []
+        results: [ShotResult] = [],
+        reference: ShotReference? = nil
     ) {
         self.id = id
         self.name = name
@@ -243,6 +248,7 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         self.notes = notes
         self.prompt = prompt
         self.results = results
+        self.reference = reference
     }
 
     /// 124 frames, 640 × 1152, super35, sticks at intensity 0, seed 1, and one camera mark at (0, 1.6, 6) with a
@@ -275,6 +281,23 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
             ),
             notes: ShotNotes(description: "", sound: "", music: "")
         )
+    }
+}
+
+/// An editor-only image stored beside the Shots document.
+public struct ShotReference: Codable, Sendable, Equatable {
+    public var fileName: String
+    public var opacity: Double
+
+    public init(fileName: String, opacity: Double) {
+        self.fileName = fileName
+        self.opacity = opacity
+    }
+
+    public var isValid: Bool {
+        let id = fileName.dropFirst("reference_".count)
+        return fileName.hasPrefix("reference_") && id.count == 12 && UInt64(id, radix: 16) != nil
+            && (0 ... 1).contains(opacity)
     }
 }
 

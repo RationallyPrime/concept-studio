@@ -51,7 +51,14 @@ private struct SceneChecker {
     private func entityProblems() -> [ShotsProblem] {
         var out: [ShotsProblem] = []
         for entity in scene.entities {
-            if catalog.asset(entity.assetID) == nil {
+            if let asset = catalog.asset(entity.assetID) {
+                if let piece = entity.setPiece, !piece.isValid(for: asset) {
+                    out.append(error(
+                        "“\(entity.name)” needs a supported set primitive and positive dimensions.",
+                        entity: entity.id
+                    ))
+                }
+            } else {
                 out.append(error(
                     "\"\(entity.name)\" uses the unknown asset \(entity.assetID); choose an asset from the catalog.",
                     entity: entity.id
@@ -166,6 +173,9 @@ private struct SceneChecker {
                     + "use multiples of 32 from 64 to 2048.",
                 shot: shot.id
             ))
+        }
+        if shot.reference?.isValid == false {
+            out.append(error("\(label) has an invalid reference image or opacity.", shot: shot.id))
         }
         out += cameraProblems(shot, label)
         out += guideProblems(shot, label)
