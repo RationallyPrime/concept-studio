@@ -142,6 +142,31 @@ struct PlateExportTests {
         #expect(drawnBehindTable == 0)
     }
 
+    @Test(arguments: ["../plate.png", "/etc/hosts", "sub/plate.png", "..", ""])
+    func aPlateFileNameThatLeavesThePlatesFolderIsRefused(file: String) async throws {
+        let project = try project()
+        defer { try? FileManager.default.removeItem(at: project) }
+        // The image exists one folder up, where "../plate.png" would find it.
+        try FileManager.default.copyItem(
+            at: PlateImages.folder(inProject: project).appendingPathComponent("plate.png"),
+            to: project.appendingPathComponent("Shots/plate.png")
+        )
+        var scene = scene()
+        scene.plates[0].file = file
+        let catalog = try ContentCatalog.bundled()
+        #expect(ShotsValidation.problems(in: ShotsDocument(version: 2, scenes: [scene]), catalog: catalog)
+            .contains { $0.severity == .error && $0.message.contains("Shots/Plates") })
+        #expect(throws: ShotsMediaError.self) {
+            try PlateImages.url(of: scene.plates[0], in: PlateImages.folder(inProject: project))
+        }
+        await #expect(throws: ShotsMediaError.self) {
+            try await ShotExporter(catalog: catalog).export(
+                scene: scene, shotID: scene.shots[0].id, options: .standard(inProject: project),
+                to: FolderDestination(parent: project.appendingPathComponent("Out")), progress: { _ in }
+            )
+        }
+    }
+
     @Test func aPlateShotWithoutItsImageIsRefusedInWords() async throws {
         let scene = scene()
         let empty = FileManager.default.temporaryDirectory

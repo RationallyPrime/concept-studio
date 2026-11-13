@@ -54,6 +54,12 @@ private struct SceneChecker {
             if !seen.insert(plate.id).inserted {
                 out.append(error("Two plates share the id \(plate.id); remove one of them."))
             }
+            if !plate.hasPlainFileName {
+                out.append(error(
+                    "The plate \"\(plate.name)\" names its image \"\(plate.file)\", which is not a file in the "
+                        + "project's Shots/Plates folder; add the plate again."
+                ))
+            }
             if plate.size.width <= 0 || plate.size.height <= 0 {
                 out.append(error("The plate \"\(plate.name)\" has no size; add the image again."))
             }

@@ -221,7 +221,7 @@ struct ShotsPlateSection: View {
 
     private func image(of plate: LocationPlate) -> CGImage? {
         guard let folder = store.plateFolder else { return nil }
-        return try? PlateImages.read(folder.appendingPathComponent(plate.file), name: plate.name)
+        return try? PlateImages.read(PlateImages.url(of: plate, in: folder), name: plate.name)
     }
 
     private func addPlate(_ result: Result<URL, any Error>) {

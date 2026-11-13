@@ -645,6 +645,7 @@ public struct LocationPlate: Codable, Sendable, Equatable, Identifiable {
     public var match: PlateMatch?           // nil until the camera has been matched
     public var guides: PlateGuides          // what the user marked, kept so the match can be corrected
     public var aspect: Double { get }
+    public var hasPlainFileName: Bool { get }   // one file name, no folders: validation requires it
 }
 public struct PlateMatch: Codable, Sendable, Equatable {
     public var position: Vec3               // y = the camera's height above the plate's floor
@@ -891,6 +892,8 @@ public struct ExportOptions: Sendable, Equatable {
     public init(folder: URL)
     public let folder: URL
     nonisolated public static func folder(inProject project: URL) -> URL   // <project>/Shots/Plates
+    nonisolated public static func url(of plate: LocationPlate, in folder: URL) throws -> URL
+    // The only way to a plate's image: refuses a file name that would lead out of the folder.
     public func image(for plate: LocationPlate) throws -> CGImage
     nonisolated public static func read(_ url: URL, name: String) throws -> CGImage
     nonisolated public static func pixelSize(of url: URL) -> PixelSize?

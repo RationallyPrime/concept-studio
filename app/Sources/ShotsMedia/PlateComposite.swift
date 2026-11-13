@@ -19,8 +19,21 @@ import PrevisCore
         project.appendingPathComponent("Shots", isDirectory: true).appendingPathComponent("Plates", isDirectory: true)
     }
 
+    /// Where a plate's image is: `plate.file` inside `folder`, and nowhere else. A file name that would lead out
+    /// of the folder is refused.
+    public nonisolated static func url(of plate: LocationPlate, in folder: URL) throws -> URL {
+        let url = folder.appendingPathComponent(plate.file).standardizedFileURL
+        guard plate.hasPlainFileName, url.deletingLastPathComponent().path == folder.standardizedFileURL.path else {
+            throw ShotsMediaError(
+                "The plate \"\(plate.name)\" names its image \"\(plate.file)\", which is not a file in the "
+                    + "project's Shots/Plates folder. Add the plate again."
+            )
+        }
+        return url
+    }
+
     public func image(for plate: LocationPlate) throws -> CGImage {
-        let url = folder.appendingPathComponent(plate.file)
+        let url = try Self.url(of: plate, in: folder)
         let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         if let cached = cache[plate.file], cached.modified == modified { return cached.image }
         let image = try Self.read(url, name: plate.name)

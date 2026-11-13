@@ -33,7 +33,7 @@ import PrevisCore
                         + "told where the project's plate images are."
                 )
             }
-            return try PlateImages.read(folder.appendingPathComponent(plate.file), name: plate.name)
+            return try PlateImages.read(PlateImages.url(of: plate, in: folder), name: plate.name)
         }
         let staging = try destination.stagingDirectory()
         do {

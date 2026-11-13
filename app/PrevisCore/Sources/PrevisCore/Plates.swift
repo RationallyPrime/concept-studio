@@ -19,6 +19,13 @@ public struct LocationPlate: Codable, Sendable, Equatable, Identifiable {
         size.aspect
     }
 
+    /// Whether `file` is one plain file name. A document can come from anywhere, and a name with a folder in it
+    /// ("../x.png", "/etc/x") would read from outside the project's plates folder.
+    public var hasPlainFileName: Bool {
+        !file.isEmpty && file != "." && file != ".." && !file.contains("/") && !file.contains("\\")
+            && !file.contains("\0")
+    }
+
     public init(
         id: PlateID,
         name: String,

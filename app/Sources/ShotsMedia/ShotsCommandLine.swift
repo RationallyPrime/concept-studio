@@ -84,7 +84,7 @@ extension ShotsCommandLine {
             let folder = values["--plates"].map { URL(fileURLWithPath: $0, isDirectory: true) }
                 ?? PlateImages.folder(inProject: url.deletingLastPathComponent().deletingLastPathComponent())
             let image = try await ShotFrameRenderer().image(
-                of: frame, over: PlateImages.read(folder.appendingPathComponent(plate.file), name: plate.name),
+                of: frame, over: PlateImages.read(PlateImages.url(of: plate, in: folder), name: plate.name),
                 look: PrevisLook(scene: scene), options: .blocking, sensor: shot.camera.sensor,
                 size: (shot.keyCanvas ?? ShotCanvas(width: plate.size.width, height: plate.size.height)).pixelSize
             )
