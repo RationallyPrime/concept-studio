@@ -42,10 +42,15 @@ Shots and follow PLATES.md.
   the new fields.
 - Stills use any size from 64 to 4096; video canvases keep multiples of 32 up to 2048.
 - A plate's principal point is its centre, so a plate must be a whole image, not an off-centre crop.
-- Exports still land in the project's `Shots` folder.
+- Exports land in the project's `Shots` folder until a scene is given its own export folder (owner's answer
+  of 2026-11-13: the scene's folder in the production tree). The app has no knowledge of that tree's layout;
+  the user picks the folder, and each shot gets a folder inside it.
+- A plate's match can name the floor it shows (`floorLevel`) and keeps its facing in quarter turns, so a
+  reverse plate and a plate taken on a dais can share a set with the first plate.
 
 **Open questions:**
-- Are plates only ever stills? A video plate or a scan would need a camera per frame.
+- Plates are stills (owner, 2026-11-13). A shot whose camera travels has no plate under its last frame; a
+  second still at the end position covers that, with no video plate.
 - How does the video graph fit a 9:16 key to a 544 × 960 canvas: crop or stretch? Shots warns about the
   0.7% difference but can't know which.
 - Dragon sizes: scale 1 has a 1.8 m skull and 30 m wings. Confirm, or give the real ones.

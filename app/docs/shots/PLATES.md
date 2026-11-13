@@ -24,8 +24,18 @@ agrees with both. The requirements are in the brief of 2026-11-13; the formats a
 4. **Save camera match.** Every shot blocked over this plate now starts from this camera, and a later
    correction moves them all.
 
-A second plate of the same set (a reverse, a wider master) gets its own match. Give it a camera position
-under **Camera position in the set** so both plates look at one set, and one blocking serves both.
+A second plate of the same set (a reverse, a wider master) gets its own match. Under **Camera position in
+the set**:
+
+- give it a position, so both plates look at one set and one blocking serves both;
+- for a reverse, press **Face a quarter turn further round** twice, because lines can't tell which way along
+  the set the camera looks;
+- when the plate shows a different floor from the set's lowest one, type its **Floor level**. A plate taken
+  on a dais 0.6 m above the hall gets 0.6. Its lines, its known height, the grid and the figure are then on
+  the dais, and stand-ins in the hall below still come out the right size.
+
+This only works when the plates really show one set. Plates made one at a time by an image model often
+disagree about sizes and distances; when they do, block each plate in its own scene.
 
 ## Once per scene: mark what matters for staging
 
@@ -71,7 +81,14 @@ frame words itself ("frame left", "behind the", "close-up", "facing").
 
 ## Export: what each step takes
 
-**Export shot package…** writes into the project's `Shots/<shot>/<stamp>-<frames>f-<W>x<H>/`:
+**Export shot package…** writes into `<shot>/<stamp>-<frames>f-<W>x<H>/` in the scene's export folder. That
+is the project's `Shots` folder until you press **Choose export folder…** under Export and pick another,
+such as the scene's folder in the production tree. The choice is per scene and is remembered; the line
+above the button always says where packages go. Each shot gets its own folder inside the chosen one, so
+choose a folder made for them (for example `previs` inside the scene's folder) rather than one whose
+`shots` folder means something else. The framing table is saved to the same place.
+
+A package holds:
 
 | For | File | Use |
 |---|---|---|

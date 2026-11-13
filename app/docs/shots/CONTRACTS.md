@@ -648,7 +648,7 @@ public struct LocationPlate: Codable, Sendable, Equatable, Identifiable {
     public var hasPlainFileName: Bool { get }   // one file name, no folders: validation requires it
 }
 public struct PlateMatch: Codable, Sendable, Equatable {
-    public var position: Vec3               // y = the camera's height above the plate's floor
+    public var position: Vec3               // y = the camera's height above the set's floor
     public var pan: Double, tilt: Double, roll: Double
     public var focalLength: Double          // millimetres
     public var sensor: Sensor
@@ -667,6 +667,7 @@ public struct PlateGuides: Codable, Sendable, Equatable {
     public var linesA: [PlateLine]          // two edges parallel in the set and level with its floor
     public var linesB: [PlateLine]          // two more, square to the first two on the floor
     public var heightReference: PlateHeightReference?
+    public var floorLevel: Double           // metres the floor this plate shows lies above the set's floor; 0
     public static let none: PlateGuides
 }
 public enum PlateSolve {
@@ -687,6 +688,13 @@ public enum PlateFit {      // where a plate sits on a canvas seen through the s
   determine. The world is turned so the first pair runs along a world axis, so set pieces placed square to
   the world are square to the set. Lines that can't be solved throw `ShotsError.invalid` with a sentence
   that says what to redraw.
+- **Facing.** Lines give the set's axes, not which way along them the camera looks. The solved turn is the
+  one within a quarter turn of `current`'s, so a reverse plate (`current.pan` near π) stays a reverse. With
+  no `current` it lies between −45° and 45°.
+- **Floor level.** The set's floor is y = 0. A plate taken on a raised floor, such as a dais, has that
+  floor's height in `guides.floorLevel`: its lines and height reference are marked on the raised floor,
+  `cameraHeight` is measured from it, and the solved `position.y` is that height plus the level. `Staging`
+  carries the level and tells the camera's height from the floor the plate shows.
 - The principal point is the plate's centre: a plate must be the whole image, not a crop off-centre.
 
 A **set piece** is a sized stand-in for part of the set. Its asset is `set.<kind>`, and its size is its own.
@@ -1095,11 +1103,17 @@ the gesture is one undo step, and sets `preview` back to empty. Inspector fields
 | File | Content | Owner |
 |---|---|---|
 | `<project>/.conceptstudio/shots.json` | `ShotsDocument` JSON (section 4), written with `AtomicFile` | C writes, A defines |
-| `<project>/Shots/<shot-slug>/<YYYYMMDD-HHMMSS>-<N>f-<W>x<H>/` | one exported package | B |
+| `<export folder>/<shot-slug>/<YYYYMMDD-HHMMSS>-<N>f-<W>x<H>/` | one exported package | B |
 | `<project>/Shots/Plates/<plate id>.<ext>` | a plate's image, copied byte for byte from the file the user chose | C |
-| `<project>/Shots/<scene-slug>-framing.md` | a scene's framing table and each shot's staging in words | C |
+| `<export folder>/<scene-slug>-framing.md` | a scene's framing table and each shot's staging in words | C |
 
 The store never touches `job.yaml` or `images/`.
+
+**Export folder.** A scene's export folder is `<project>/Shots` until the user chooses another folder for
+that scene, such as the scene's folder in a production tree. The choice is not in `shots.json`: the app
+keeps it in its preferences per project and scene, as a security-scoped bookmark, because it only means
+something on the Mac that made it. A chosen folder that can no longer be opened is an error the user sees;
+the app never falls back to `<project>/Shots` on its own. Plates stay in the project.
 
 **Saving.**
 - 0.5 s after the last edit.
