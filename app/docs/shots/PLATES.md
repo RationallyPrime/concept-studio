@@ -46,7 +46,19 @@ comparisons and user walkthrough.
 On November 13, the three paired Sunburst runs produced all six keys on their first attempt. The total
 reported generation cost was $0.454421. Sunburst exposes no reproducible seed, so the two arms used matched
 prompts, model, dimensions, quality and complexity settings, with the composition guide and staging text
-added to the guided arm. Hákon's acceptance judgments are pending.
+added to the guided arm.
+
+Hákon's blind first-key judgments on November 13 were as follows.
+
+| Shot | Choice | Guided version | Prompt-only version | Accepted arm |
+| --- | --- | --- | --- | --- |
+| Close-up from frame right | Neither | A | B | Neither |
+| Xaden on the dais behind the table | B | A | B | Prompt-only |
+| Wide two-shot | A | B | A | Prompt-only |
+
+The guided arm won **0 of 3** comparisons. The brief requires at least **2 of 3**, so this run failed
+the image canary. These judgments cover overall first-key acceptance. A framing-specific diagnosis
+remains open. The canary stop condition leaves R8–R11 pending; shared blocking from R12 is preserved.
 
 The three exported canary packages contain 124 frames at 24 fps and 576 × 1024 control video. Their
 1440 × 2560 composition files are byte-identical to the guide inputs used in those runs. Across the three
