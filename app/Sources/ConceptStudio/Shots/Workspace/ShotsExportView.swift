@@ -42,7 +42,8 @@ struct ShotsExportView: View {
                 defer { exportTask = nil }
                 do {
                     let package = try await exporter.export(
-                        scene: snapshot.scene, shotID: snapshot.shotID, options: .standard, to: destination
+                        scene: snapshot.scene, shotID: snapshot.shotID,
+                        options: .standard(inProject: projectDirectory), to: destination
                     ) { progress = $0 }
                     try Task.checkCancellation()
                     summary = "Shot package exported."
@@ -83,8 +84,9 @@ struct ShotsExportControls: View {
             } else {
                 Button("Export shot package…", systemImage: "square.and.arrow.up", action: export)
                     .disabled(unavailableReason != nil)
-                    .help("Save this shot's guide pictures, reference and control videos, masks and prompt "
-                        + "into the project's Shots folder, then show them in Finder.")
+                    .help("Save this shot's guide pictures, reference and control videos, masks, staging and "
+                        + "prompt into the project's Shots folder, then show them in Finder. A shot over a plate "
+                        + "also gets the composition guide for the image model.")
                 if let unavailableReason {
                     Text(unavailableReason).font(.caption).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

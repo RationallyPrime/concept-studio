@@ -4,6 +4,10 @@ import UniformTypeIdentifiers
 
 struct ShotsSceneList: View {
     @Bindable var store: ShotsStore
+    var projectDirectory: URL?
+    var session: StudioSession?
+    @State private var blockingScene: BoardScene?
+    @State private var boardScene: BoardScene?
     @State private var renameTarget: RenameTarget?
     @State private var proposedName = ""
     @State private var showsImporter = false
@@ -39,6 +43,18 @@ struct ShotsSceneList: View {
         .fileImporter(isPresented: $showsImporter, allowedContentTypes: [.json]) { result in
             importProject(result)
         }
+        .sheet(item: $boardScene) { board in
+            ShotsSceneBoard(
+                store: store, sceneID: board.id, projectDirectory: projectDirectory, onClose: { boardScene = nil }
+            )
+        }
+        .sheet(item: $blockingScene) { target in
+            if let session {
+                ShotsBlockingSheet(
+                    store: store, session: session, sceneID: target.id, onClose: { blockingScene = nil }
+                )
+            }
+        }
         .alert("Rename", isPresented: Binding(
             get: { renameTarget != nil }, set: { if !$0 { renameTarget = nil } }
         )) {
@@ -64,6 +80,10 @@ struct ShotsSceneList: View {
                         Spacer(minLength: 0)
                         Menu {
                             Button("New shot") { attempt { try store.createShot(in: scene.id) } }
+                            Button("Compare all shots…") { boardScene = BoardScene(id: scene.id) }
+                            if session != nil {
+                                Button("Block shots from a description…") { blockingScene = BoardScene(id: scene.id) }
+                            }
                             Button("Rename scene…") { beginRename(.scene(scene.id), name: scene.name) }
                             Button("Duplicate scene") { attempt { try store.copyScene(scene.id) } }
                             Button("Delete scene", role: .destructive) { store.run(.deleteScene(scene.id)) }
@@ -132,5 +152,9 @@ struct ShotsSceneList: View {
 
     private enum RenameTarget {
         case scene(SceneID), shot(ShotID)
+    }
+
+    private struct BoardScene: Identifiable {
+        let id: SceneID
     }
 }

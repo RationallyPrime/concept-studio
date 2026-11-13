@@ -4,7 +4,7 @@ enum ShotsCommandApplication {
     static func apply(_ command: ShotsCommand, to document: inout ShotsDocument, catalog: ContentCatalog) throws {
         if try applyScene(command, to: &document) || applyEntity(command, to: &document, catalog: catalog)
             || applyShot(command, to: &document) || applyMarks(command, to: &document)
-            || applyCamera(command, to: &document)
+            || applyCamera(command, to: &document) || ShotsPlateCommands.apply(command, to: &document)
             || ShotsGeneratedEdits.apply(command, to: &document, catalog: catalog) { return }
         throw ShotsError.notImplemented("This Shots edit")
     }
@@ -41,7 +41,9 @@ enum ShotsCommandApplication {
         case let .addEntity(sceneID, entity):
             try requireNew([entity.id], in: document)
             guard catalog.asset(entity.assetID) != nil else { throw ShotsError.unknownContent(entity.assetID) }
-            try document.scenes[sceneIndex(sceneID, in: document)].entities.append(entity)
+            let scene = try sceneIndex(sceneID, in: document)
+            document.scenes[scene].entities.append(ShotsPlateCommands.completed(entity, in: document.scenes[scene]))
+            document.scenes[scene].pinActorsWhenTakesDiffer()
         case let .deleteEntities(ids):
             deleteEntities(Set(ids), from: &document)
         case let .setPlacement(id, placement):
@@ -234,6 +236,7 @@ enum ShotsCommandApplication {
                     document.scenes[scene].shots[shot].camera.mountID = nil
                 }
                 document.scenes[scene].shots[shot].notes.characters.removeAll { ids.contains($0.entityID) }
+                document.scenes[scene].shots[shot].asks.removeAll { ids.contains($0.entityID) }
             }
         }
     }

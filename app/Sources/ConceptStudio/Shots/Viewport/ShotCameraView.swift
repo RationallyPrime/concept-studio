@@ -12,6 +12,9 @@ struct ShotCameraRenderRequest: Sendable, Equatable {
     let shotName: String
     let frame: SceneFrame
     let look: PrevisLook
+    /// Where the plate images are, and the shot's film format: what drawing the frame over its plate needs.
+    var plateFolder: URL?
+    var sensor: Sensor = .super35
 
     @MainActor
     static func make(from store: ShotsStore) -> ShotCameraRenderRequest? {
@@ -27,7 +30,9 @@ struct ShotCameraRenderRequest: Sendable, Equatable {
             shotID: shot.id,
             shotName: shot.name,
             frame: frame,
-            look: PrevisLook(scene: scene)
+            look: PrevisLook(scene: scene),
+            plateFolder: store.plateFolder,
+            sensor: shot.camera.sensor
         )
     }
 }
@@ -41,7 +46,12 @@ final class ShotCameraPreviewSession {
 
     private final class RendererBox {
         var renderer: ShotFrameRenderer?
+        var plates: PlateImages?
+        /// The request being rendered, so the default renderer can find the frame's plate.
+        var request: ShotCameraRenderRequest?
     }
+
+    private let box = RendererBox()
 
     private(set) var renderedImage: CGImage?
     private(set) var renderedRequest: ShotCameraRenderRequest?
@@ -60,13 +70,23 @@ final class ShotCameraPreviewSession {
         if let renderImage {
             renderClosure = renderImage
         } else {
-            let box = RendererBox()
+            let box = box
             renderClosure = { frame, look in
                 if box.renderer == nil {
                     box.renderer = try ShotFrameRenderer()
                 }
                 guard let renderer = box.renderer else {
                     throw ShotsMediaError("Shots couldn't initialize the frame renderer.")
+                }
+                // A shot blocked over a plate is drawn over it, with the plate's own set pieces showing faintly
+                // so they can be fitted to it.
+                if let plate = frame.plate, let request = box.request, let folder = request.plateFolder {
+                    if box.plates?.folder != folder { box.plates = PlateImages(folder: folder) }
+                    if let image = try? box.plates?.image(for: plate) {
+                        return try await renderer.image(
+                            of: frame, over: image, look: look, options: .blocking, sensor: request.sensor
+                        )
+                    }
                 }
                 return try await renderer.image(of: frame, look: look)
             }
@@ -143,6 +163,7 @@ final class ShotCameraPreviewSession {
             inFlightRequest = next
             isRendering = true
             do {
+                box.request = next
                 let image = try await renderClosure(next.frame, next.look)
                 guard activeDrainRunID == runID, !Task.isCancelled else { break }
                 if desiredRequest?.sceneID == next.sceneID,
@@ -192,6 +213,8 @@ struct ShotCameraView: View {
     @State var session: ShotCameraPreviewSession
     /// The viewport's live session, shared with the scene view for keys, focus and announcements (D5 keyboard slice).
     @State private var ownedLiveSession = ViewportLiveSession()
+    /// Selecting a stand-in and sliding it along the floor, straight on the picture.
+    @State private var floorDrag = ShotCameraFloorDrag()
 
     init(
         store: ShotsStore,
@@ -265,6 +288,18 @@ struct ShotCameraView: View {
                     selection: currentSelection,
                     claimFocusOnAppear: claimFocusOnAppear,
                     onClaimedFocus: onClaimedFocus,
+                    onPointer: { phase, location in
+                        // The canvas is centred in the view; pointer positions become fractions of the canvas.
+                        let origin = CGPoint(
+                            x: (geometry.size.width - rect.width) / 2, y: (geometry.size.height - rect.height) / 2
+                        )
+                        guard rect.width > 0, rect.height > 0 else { return }
+                        let point = Point2(
+                            x: (location.x - origin.x) / rect.width, y: (location.y - origin.y) / rect.height
+                        )
+                        floorDrag.handle(phase, at: point, in: store)
+                        if phase == .up { liveSession.syncSelectionAnnouncement(with: store) }
+                    },
                     onSync: {
                         liveSession.viewportSize = currentSize
                         liveSession.syncSelectionAnnouncement(with: store)
@@ -391,5 +426,108 @@ struct ShotCameraView: View {
             parts.append(ViewportLiveSession.selectionAnnouncement(for: store.selection, in: store))
         }
         return parts.joined(separator: ". ")
+    }
+}
+
+/// Pointer editing in the look-through view: a click selects the stand-in under it, and a drag slides the selected
+/// one along the floor it stands on, seen through the shot camera. With a plate behind, that is blocking directly
+/// on the plate. The drag previews through `store.preview` and commits once on release, as one undo step.
+@MainActor
+struct ShotCameraFloorDrag {
+    private struct Active {
+        let entityID: EntityID
+        let scene: PrevisScene
+        let shot: Shot
+        let camera: CameraFrame
+        let canvas: PixelSize
+        let planeY: Double
+        let start: Vec3
+    }
+
+    private var active: Active?
+    private var pressed: Point2?
+    private var moved = false
+
+    mutating func handle(_ phase: ViewportKeyCaptureOverlay.PointerPhase, at point: Point2, in store: ShotsStore) {
+        switch phase {
+        case .down:
+            pressed = point
+            moved = false
+            active = nil
+        case .moved:
+            guard let pressed, !store.isReadOnly else { return }
+            if !moved, hypot(point.x - pressed.x, point.y - pressed.y) < 0.008 { return }
+            moved = true
+            if active == nil { active = Self.begin(at: pressed, in: store) }
+            guard let active, let hit = Self.floorHit(
+                point,
+                camera: active.camera,
+                canvas: active.canvas,
+                planeY: active.planeY
+            )
+            else { return }
+            let delta = Vec3(hit.x - active.start.x, 0, hit.z - active.start.z)
+            store.preview = ViewportKeyboard.entityNudgeCommands(
+                for: [active.entityID], by: delta, in: active.scene, currentShot: active.shot
+            )
+        case .up:
+            defer {
+                active = nil
+                pressed = nil
+            }
+            if moved, active != nil {
+                let commands = store.preview
+                store.preview = []
+                if !commands.isEmpty { store.run(commands) }
+            } else if let pressed {
+                Self.select(at: pressed, in: store)
+            }
+        }
+    }
+
+    /// The actor whose visible part is under the point becomes the selection; a click on nothing clears it.
+    static func select(at point: Point2, in store: ShotsStore) {
+        guard let frame = store.frame, (0 ... 1).contains(point.x), (0 ... 1).contains(point.y) else { return }
+        let hit = StagingAnalysis.characters(in: frame).filter(\.isVisible).filter { character in
+            guard let box = character.box else { return false }
+            return point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height
+        }
+        // The nearest of several overlapping stand-ins is the one in front.
+        if let nearest = hit.min(by: { $0.distance < $1.distance }) {
+            store.selection = .entities([nearest.entityID])
+        } else {
+            store.selection = .none
+        }
+    }
+
+    /// A drag moves the one selected entity. Without a selection it first selects what is under the press.
+    private static func begin(at point: Point2, in store: ShotsStore) -> Active? {
+        if case .entities = store.selection {} else { select(at: point, in: store) }
+        guard case let .entities(ids) = store.selection, let id = ids.first,
+              let scene = store.document.scenes.first(where: { $0.id == store.currentSceneID }),
+              let shot = scene.shots.first(where: { $0.id == store.currentShotID }),
+              let frame = store.frame, let posed = frame.entities.first(where: { $0.id == id }),
+              let start = floorHit(
+                  point,
+                  camera: frame.camera,
+                  canvas: frame.canvas.pixelSize,
+                  planeY: posed.position.y
+              )
+        else { return nil }
+        return Active(
+            entityID: id, scene: scene, shot: shot, camera: frame.camera, canvas: frame.canvas.pixelSize,
+            planeY: posed.position.y, start: start
+        )
+    }
+
+    /// Where the shot camera's line of sight through a point of the canvas meets the level the entity stands on.
+    static func floorHit(_ point: Point2, camera: CameraFrame, canvas: PixelSize, planeY: Double) -> Vec3? {
+        let ray = camera.ray(
+            through: Point2(x: point.x * Double(canvas.width), y: point.y * Double(canvas.height)), size: canvas
+        )
+        guard ray.direction.y < -1e-4 else { return nil }
+        let distance = (planeY - ray.origin.y) / ray.direction.y
+        guard distance > 0, distance < 400 else { return nil }
+        return Vec3(ray.origin.x + ray.direction.x * distance, planeY, ray.origin.z + ray.direction.z * distance)
     }
 }

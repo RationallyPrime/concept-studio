@@ -37,6 +37,8 @@ final class ShotsStore {
     /// Drawn in order, never saved or undoable; empty between gestures (`CONTRACTS.md` section 7).
     var preview: [ShotsCommand] = []
     var onError: (@MainActor (String) -> Void)?
+    /// Where the project keeps its plate images (`Shots/Plates`); nil when the store has no project folder.
+    var plateFolder: URL?
 
     @ObservationIgnored private let saveURL: URL?
     private var undoDocuments: [ShotsDocument] = []
@@ -257,6 +259,7 @@ final class ShotsStore {
 enum ShotsCoalescingKey: Equatable {
     case placement(EntityID), label(EntityID), entityName(EntityID), lighting(SceneID)
     case frames(ShotID), canvas(ShotID), notes(ShotID), cameraRig(ShotID)
+    case setPiece(EntityID), plate(PlateID), keyCanvas(ShotID)
     case actorMark(ShotID, EntityID, MarkID), cameraMark(ShotID, MarkID)
 }
 
@@ -273,6 +276,9 @@ extension ShotsCommand {
         case let .setCameraRig(id, _, _, _): .cameraRig(id)
         case let .updateActorMark(shot, entity, mark): .actorMark(shot, entity, mark.id)
         case let .updateCameraMark(shot, mark): .cameraMark(shot, mark.id)
+        case let .setSetPiece(id, _): .setPiece(id)
+        case let .updatePlate(_, plate): .plate(plate.id)
+        case let .setKeyCanvas(id, _): .keyCanvas(id)
         default: nil
         }
     }

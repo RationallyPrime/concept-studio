@@ -13,6 +13,8 @@ struct ShotsShotInspector: View {
         VStack(alignment: .leading, spacing: 10) {
             ShotsShotSettings(store: store)
             Divider()
+            ShotsPlateSection(store: store, shot: shot, projectDirectory: session.project?.directory)
+            Divider()
             Text("Guide frames").font(.headline).accessibilityAddTraits(.isHeader)
                 .help("Frames exported as still pictures to steer the video. The first and last frames always are.")
             ForEach(shot.guideFrames, id: \.self) { frame in

@@ -41,18 +41,34 @@ struct ShotsEntityInspector: View {
                 }
                 .help("The colour of this entity's path in the scene view and its box in the layout pictures.")
             }
-            ShotsPositionFields(position: placement(\.position))
-            ShotsNumberField(title: "Heading (°)", value: Binding(
-                get: { entity.placement.heading * 180 / .pi }, set: {
-                    var placement = entity.placement
-                    placement.heading = $0 * .pi / 180
-                    store.run(.setPlacement(entity.id, placement), coalescing: true)
-                }
-            ), explanation: "Which way it faces before its first mark, in degrees.")
+            if let mark = store.firstMark(of: entity.id) {
+                // With marks, the entity stands where its first mark is; the fields move the marks with it.
+                ShotsPositionFields(position: Binding(
+                    get: { mark.position }, set: { store.move(entity.id, to: $0) }
+                ))
+                ShotsNumberField(title: "Heading (°)", value: Binding(
+                    get: { (mark.arriveHeading ?? entity.placement.heading) * 180 / .pi },
+                    set: { store.turn(entity.id, to: $0 * .pi / 180) }
+                ), explanation: "Which way it faces when the shot starts, in degrees. Its marks turn with it.")
+            } else {
+                ShotsPositionFields(position: placement(\.position))
+                ShotsNumberField(title: "Heading (°)", value: Binding(
+                    get: { entity.placement.heading * 180 / .pi }, set: {
+                        var placement = entity.placement
+                        placement.heading = $0 * .pi / 180
+                        store.run(.setPlacement(entity.id, placement), coalescing: true)
+                    }
+                ), explanation: "Which way it faces before its first mark, in degrees.")
+            }
             ShotsNumberField(
                 title: "Scale", value: placement(\.scale), range: 0.01 ... 100,
                 explanation: "Size compared with the asset's normal size, which is 1."
             )
+            if let piece = entity.setPiece {
+                Divider()
+                ShotsSetPieceFields(store: store, entity: entity, piece: piece)
+                Divider()
+            }
             Picker("Attach to", selection: Binding(
                 get: { entity.attachment?.parentID ?? "" }, set: {
                     store.run(.attach(

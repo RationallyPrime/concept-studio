@@ -38,4 +38,15 @@ enum ShotsCommand: Codable, Sendable, Equatable {
     case applyFraming(ShotID, Framing.Kind, subjects: [EntityID], atFrame: Int)
 
     case deleteMarks(ShotID, [MarkID])
+
+    // Plates and set pieces (CONTRACTS section 7)
+    case addPlate(SceneID, LocationPlate)
+    case updatePlate(SceneID, LocationPlate) // matched by id; every shot on the plate follows its camera
+    case deletePlate(SceneID, PlateID) // shots on it go back to the grey stage
+    case setShotPlate(ShotID, PlateID?) // puts the shot's first camera mark on the plate's camera
+    case setKeyCanvas(ShotID, ShotCanvas?) // nil = the plate's own size
+    case setAsks(ShotID, [FramingAsk])
+    case setSetPiece(EntityID, SetPiece) // size, steps and whether the plate shows it; the kind stays
+    case replaceScene(PrevisScene) // a scene blocked from a description, as one step; matched by id
+    case giveOwnBlocking(ShotID, takeID: TakeID) // the shot stops sharing its blocking with the scene's others
 }
