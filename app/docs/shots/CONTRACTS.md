@@ -723,8 +723,9 @@ public struct SetPiece: Codable, Sendable, Equatable {
   false it is drawn as a grey box.
 
 **Creatures.** `creature.dragon` (wings folded) and `creature.dragon.spread` are static bodies in the
-category `creatures`, and actors. Scale 1 is a dragon with a skull about 1.8 m tall and wings about 30 m
-across; the entity's scale sizes others. The catalog adds the set-piece and creature assets to Blockout's
+category `creatures`, and actors. A dragon's size is its standing head height, from the ground to the top
+of its skull: 10 m at scale 1, which is also the asset's `height`, so the entity's scale is that height in
+metres over ten. The catalog adds the set-piece and creature assets to Blockout's
 and lists them in the starter set.
 
 ### 5.8 Staging

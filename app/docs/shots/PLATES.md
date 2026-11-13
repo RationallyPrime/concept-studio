@@ -49,9 +49,10 @@ a matched plate a new piece starts four metres in front of the camera, square to
   through. Turn it off for something the plate lacks, which is then drawn as a grey box.
 - People placed over a dais, steps, a plinth or a block stand on top of it.
 
-Dragons are in the Library as **Dragon, wings folded** and **Dragon, wings spread**. Scale 1 is a very
-large dragon: a skull about 1.8 m tall and wings about 30 m across. Use a smaller scale for a smaller
-dragon, for example 0.8.
+Dragons are in the Library as **Dragon, wings folded** and **Dragon, wings spread**. A dragon's size is its
+standing head height: from the ground to the top of its skull, horns not counted. Scale 1 is 10 m, so the
+scale is the height in metres over ten: 1.5 for a dragon that stands 15 m, 1.2 for one of 12 m, 0.76 for
+one of 7.6 m.
 
 ## Per shot: block it (10 to 15 minutes)
 

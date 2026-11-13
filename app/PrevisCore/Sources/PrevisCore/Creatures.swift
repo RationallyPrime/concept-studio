@@ -4,8 +4,10 @@ import Foundation
 // with one can be staged and framed. They are static grey-box bodies, built here because Blockout has no creature
 // larger than a horse.
 //
-// Scale 1 is a very large dragon: a skull about 1.8 m from jaw to horn-crown and wings about 30 m from tip to
-// tip. The entity's scale makes a smaller one.
+// A dragon's size is its standing head height: from the ground to the top of its skull, horns not counted. At
+// scale 1 that is 10 m, so the entity's scale is the height in metres over ten: 1.5 for a dragon that stands
+// 15 m, 0.76 for one of 7.6 m. At scale 1 the skull is about 1.4 m deep and 3 m long, and the spread wings
+// about 32 m from tip to tip.
 
 enum Dragons {
     static let standing = "creature.dragon"
@@ -13,15 +15,21 @@ enum Dragons {
 
     static let assets: [AssetSpec] = [
         AssetSpec(
-            id: standing, name: "Dragon, wings folded", category: StudioAssets.creatures, height: 10.3, footprint: 26,
+            id: standing, name: "Dragon, wings folded", category: StudioAssets.creatures, height: headHeight,
+            footprint: 27,
             speedScale: 1, motion: "static", promptNoun: "a huge winged dragon", parts: parts(spread: false)
         ),
         AssetSpec(
-            id: wingsSpread, name: "Dragon, wings spread", category: StudioAssets.creatures, height: 10.3,
-            footprint: 31, speedScale: 1, motion: "static", promptNoun: "a huge winged dragon with its wings spread",
+            id: wingsSpread, name: "Dragon, wings spread", category: StudioAssets.creatures, height: headHeight,
+            footprint: 32.5, speedScale: 1, motion: "static", promptNoun: "a huge winged dragon with its wings spread",
             parts: parts(spread: true)
         ),
     ]
+
+    /// Ground to the top of the skull at scale 1, in metres.
+    static let headHeight = 10.0
+    /// The body below is drawn with its skull top at 9.55; this brings it to `headHeight`.
+    private static let unit = headHeight / 9.55
 
     private static let hide = RGB(hex: "#3d4047")
     private static let membrane = RGB(hex: "#555962")
@@ -32,7 +40,8 @@ enum Dragons {
         var out: [PartSpec] = []
         func add(_ id: String, _ shape: PartShape, _ position: Vec3, _ rotation: Vec3 = .zero, wing: Bool = false) {
             out.append(PartSpec(
-                id: id, shape: shape, position: position, rotation: rotation, color: wing ? membrane : hide
+                id: id, shape: sized(shape), position: position * unit, rotation: rotation,
+                color: wing ? membrane : hide
             ))
         }
         add("body", .capsule(radius: 1.9, length: 6), Vec3(0, 4.6, 0), Vec3(.pi / 2, 0, 0))
@@ -66,5 +75,16 @@ enum Dragons {
             }
         }
         return out
+    }
+
+    private static func sized(_ shape: PartShape) -> PartShape {
+        switch shape {
+        case let .box(size): .box(size: size * unit)
+        case let .cylinder(radius, height): .cylinder(radius: radius * unit, height: height * unit)
+        case let .sphere(radius): .sphere(radius: radius * unit)
+        case let .capsule(radius, length): .capsule(radius: radius * unit, length: length * unit)
+        case let .cone(radius, height): .cone(radius: radius * unit, height: height * unit)
+        case let .wedge(size): .wedge(size: size * unit)
+        }
     }
 }

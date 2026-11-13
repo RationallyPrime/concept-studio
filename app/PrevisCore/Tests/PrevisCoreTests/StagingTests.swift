@@ -110,6 +110,21 @@ struct StagingTests {
         let height = dragon.bounds.max.y - dragon.bounds.min.y
         #expect(height > 9.5 && height < 11.5)
     }
+
+    @Test func aDragonsScaleIsItsStandingHeadHeightOverTenMetres() throws {
+        let catalog = try ContentCatalog.bundled()
+        for id in ["creature.dragon", "creature.dragon.spread"] {
+            let asset = try #require(catalog.asset(id))
+            let head = try #require(asset.parts?.first { $0.id == "head" })
+            guard case let .box(size) = head.shape else {
+                Issue.record("the head is a box")
+                continue
+            }
+            let top = head.position.y + size.y / 2
+            #expect(abs(top - 10) < 0.001)
+            #expect(abs(asset.height - top) < 0.001)
+        }
+    }
 }
 
 struct FramingTableTests {

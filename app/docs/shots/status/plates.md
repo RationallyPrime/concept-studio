@@ -16,7 +16,7 @@ What crosses a seam: [CONTRACTS.md](../CONTRACTS.md) sections 5.7 to 5.9, 7, 8.1
 | R14 Control agrees with the key | Built | One evaluation, one camera; tested at frame 0 |
 | R8 Scene view | Built | "Compare all shots…" with the framing table |
 | R9 Set pieces | Built | Block, plinth, dais with steps, stairs, long table, bench, throne, wall, parapet, arch, column |
-| R10 Dragons | Built | Two static bodies, wings folded and spread; sizes are an assumption to confirm |
+| R10 Dragons | Built | Two static bodies, wings folded and spread; sized by standing head height, 10 m at scale 1 |
 | R11 Blocking from text | Built | Briefs, the solver, an offline reader and a model-backed reader; in the app and in `shots-export --block` |
 | R12 Reuse across shots | Built | Shots share a take until one is given its own; plates of one set share a world through their camera positions |
 
@@ -53,4 +53,6 @@ Shots and follow PLATES.md.
   second still at the end position covers that, with no video plate.
 - How does the video graph fit a 9:16 key to a 544 × 960 canvas: crop or stretch? Shots warns about the
   0.7% difference but can't know which.
-- Dragon sizes: scale 1 has a 1.8 m skull and 30 m wings. Confirm, or give the real ones.
+- Dragon proportions: at scale 1 (a 10 m standing head height) the spread wings are about 32 m across and the
+  body about 29 m from nose to tail tip. The owner gave head heights on 2026-11-13; wingspan and length are
+  still this build's guess.
