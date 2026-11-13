@@ -19,7 +19,8 @@ import RealityKit
     private var parts: [EntityID: [String: MappedPart]] = [:]
     private var meshes: [PartShape: MeshResource] = [:]
     private var materials: [RGB: SimpleMaterial] = [:]
-    private var matteActor: EntityID?
+    private var matteActors: Set<EntityID>?
+    private var tints: [EntityID: RGB] = [:]
     private let matteWhite = UnlitMaterial(color: .white)
     private let matteBlack = UnlitMaterial(color: .black)
 
@@ -42,16 +43,28 @@ import RealityKit
         buildEnvironment()
     }
 
-    /// Draws `actor` white and everything else black, unlit, for its matte; nil draws the look again.
-    func setMatte(_ actor: EntityID?) {
-        guard actor != matteActor else { return }
-        matteActor = actor
+    /// Draws `actors` white and everything else black, unlit, for a matte; nil draws the look again.
+    func setMatte(_ actors: Set<EntityID>?) {
+        guard actors != matteActors else { return }
+        matteActors = actors
+        refreshMaterials()
+        buildEnvironment()
+    }
+
+    /// Draws each listed entity in one flat colour instead of its parts' own: the stand-in colours of a
+    /// composition guide. Empty draws the parts' colours again.
+    func setTints(_ tints: [EntityID: RGB]) {
+        guard tints != self.tints else { return }
+        self.tints = tints
+        refreshMaterials()
+    }
+
+    private func refreshMaterials() {
         for (id, mapped) in parts {
             for part in mapped.values {
                 setMaterial(surface(part.color, of: id), on: part.entity)
             }
         }
-        buildEnvironment()
     }
 
     /// Adds, updates and removes children by (entity id, part id). Idempotent.
@@ -179,8 +192,8 @@ import RealityKit
     }
 
     private func surface(_ color: RGB, of id: EntityID) -> any RealityKit.Material {
-        guard let matteActor else { return material(color) }
-        return id == matteActor ? matteWhite : matteBlack
+        guard let matteActors else { return material(tints[id] ?? color) }
+        return matteActors.contains(id) ? matteWhite : matteBlack
     }
 
     private func material(_ color: RGB) -> SimpleMaterial {
@@ -199,7 +212,7 @@ import RealityKit
             child.removeFromParent()
         }
         let palette = look.palette
-        let groundSurface: any RealityKit.Material = matteActor == nil ? material(palette.ground) : matteBlack
+        let groundSurface: any RealityKit.Material = matteActors == nil ? material(palette.ground) : matteBlack
         let ground = ModelEntity(mesh: .generatePlane(width: 200, depth: 200), materials: [groundSurface])
         environment.addChild(ground)
         for light in palette.lights {

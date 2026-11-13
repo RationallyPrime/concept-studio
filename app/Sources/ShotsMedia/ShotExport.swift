@@ -5,9 +5,17 @@ public enum PassKind: String, Codable, Sendable, CaseIterable { case clean, pose
 
 public struct ExportOptions: Sendable, Equatable {
     public var passes: Set<PassKind>
+    /// Where the scene's plate images are: a project's `Shots/Plates`. A shot blocked over a plate needs it.
+    public var plateFolder: URL?
 
-    public init(passes: Set<PassKind>) {
+    public init(passes: Set<PassKind>, plateFolder: URL? = nil) {
         self.passes = passes
+        self.plateFolder = plateFolder
+    }
+
+    /// All four passes, with the plates of `project`.
+    public static func standard(inProject project: URL) -> ExportOptions {
+        ExportOptions(passes: Set(PassKind.allCases), plateFolder: PlateImages.folder(inProject: project))
     }
 
     /// All four passes.

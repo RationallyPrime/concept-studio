@@ -68,12 +68,31 @@ import RealityKit
         matte: EntityID? = nil,
         into buffer: CVPixelBuffer
     ) async throws {
+        try await render(
+            frame, look: look, camera: camera, overlay: overlay, matte: matte.map { [$0] }, softMatte: false,
+            tints: [:], into: buffer
+        )
+    }
+
+    /// The general render. `matte` draws those entities white and everything else black; `softMatte` antialiases
+    /// it, for use as an alpha when compositing. `tints` draws entities in one flat colour each.
+    func render(
+        _ frame: SceneFrame,
+        look: PrevisLook,
+        camera: CameraFrame? = nil,
+        overlay: Entity? = nil,
+        matte: Set<EntityID>?,
+        softMatte: Bool,
+        tints: [EntityID: RGB],
+        into buffer: CVPixelBuffer
+    ) async throws {
         await beginRender()
         defer { endRender() }
         // A render cancelled while it waited gives up its turn without touching the scene.
         try Task.checkCancellation()
         mapper.setLook(look)
         mapper.setMatte(matte)
+        mapper.setTints(tints)
         mapper.apply(frame)
         let cameraEntity = mapper.cameraEntity(for: camera ?? frame.camera)
         if cameraEntity.parent == nil, !renderer.entities.contains(where: { $0 === cameraEntity }) {
@@ -87,8 +106,8 @@ import RealityKit
             alpha: 1
         )
         renderer.cameraSettings.colorBackground = .color(background)
-        // 4× multisampling for the clean look; none for a matte, so it holds only black and white.
-        renderer.cameraSettings.antialiasing = matte == nil ? .multisample4X : .none
+        // 4× multisampling for the clean look; none for a package matte, so it holds only black and white.
+        renderer.cameraSettings.antialiasing = matte == nil || softMatte ? .multisample4X : .none
         if let overlay { overlays.addChild(overlay) }
         defer { overlay?.removeFromParent() }
 

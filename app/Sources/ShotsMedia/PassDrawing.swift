@@ -38,22 +38,52 @@ enum PassDrawing {
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
         // OpenPose's stickwidth: the limb's half-width and the joint radius, 4 px on a 640 px canvas.
         let stick = max(1, Double(size.width) / 160)
-        let people = frame.entities.map { entity in
-            Dictionary(entity.keypoints.compactMap { keypoint in
-                frame.camera.project(keypoint.position, size: size).map { (keypoint.name, $0) }
-            }, uniquingKeysWith: { first, _ in first })
+        // A set piece or prop in front hides what is behind it, so the control never asks for a leg in front of
+        // the table it stands behind.
+        let sight = SightLines(frame: frame)
+        let bodies = frame.entities.map { entity in
+            Dictionary(entity.keypoints.map { ($0.name, $0.position) }, uniquingKeysWith: { first, _ in first })
         }
-        for pixels in people {
-            for (index, limb) in limbs.enumerated() {
-                guard let start = pixels[limb.0], let end = pixels[limb.1] else { continue }
-                let (red, green, blue) = openPoseColors[index]
-                context.setFillColor(color((red * 3 / 5, green * 3 / 5, blue * 3 / 5)))
-                context.saveGState()
-                context.translateBy(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
-                context.rotate(by: atan2(end.y - start.y, end.x - start.x))
-                let length = hypot(end.x - start.x, end.y - start.y)
-                context.fillEllipse(in: CGRect(x: -length / 2, y: -stick, width: length, height: 2 * stick))
-                context.restoreGState()
+        let people = bodies.map { body in
+            body.filter { !sight.isHidden($0.value) }.compactMapValues { frame.camera.project($0, size: size) }
+        }
+        func limb(from start: Point2, to end: Point2, index: Int) {
+            let (red, green, blue) = openPoseColors[index]
+            context.setFillColor(color((red * 3 / 5, green * 3 / 5, blue * 3 / 5)))
+            context.saveGState()
+            context.translateBy(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
+            context.rotate(by: atan2(end.y - start.y, end.x - start.x))
+            let length = hypot(end.x - start.x, end.y - start.y)
+            context.fillEllipse(in: CGRect(x: -length / 2, y: -stick, width: length, height: 2 * stick))
+            context.restoreGState()
+        }
+        for body in bodies {
+            for (index, pair) in limbs.enumerated() {
+                guard let from = body[pair.0], let to = body[pair.1],
+                      let start = frame.camera.project(from, size: size),
+                      let end = frame.camera.project(to, size: size)
+                else { continue }
+                if sight.isEmpty {
+                    limb(from: start, to: end, index: index)
+                    continue
+                }
+                // The visible stretches of the limb, found by walking along it.
+                let steps = 16
+                var runStart: Int?
+                for step in 0 ... steps {
+                    let visible = step < steps && !sight.isHidden(Self.mix(
+                        from,
+                        to,
+                        (Double(step) + 0.5) / Double(steps)
+                    ))
+                    if visible, runStart == nil { runStart = step }
+                    if !visible, let first = runStart {
+                        let a = Self.mix(start, end, Double(first) / Double(steps))
+                        let b = Self.mix(start, end, Double(step) / Double(steps))
+                        limb(from: a, to: b, index: index)
+                        runStart = nil
+                    }
+                }
             }
         }
         for pixels in people {
@@ -76,8 +106,10 @@ enum PassDrawing {
         context.setShouldAntialias(false)
         context.setFillColor(color((255, 255, 255)))
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        let staged = StagingAnalysis.characters(in: frame)
         for (index, entity) in frame.entities.filter(\.isActor).enumerated() {
-            guard let box = projectedBounds(entity.bounds, camera: frame.camera, size: size) else { continue }
+            guard let box = layoutRect(of: entity, staged: staged[index], camera: frame.camera, size: size)
+            else { continue }
             if let label = entity.label {
                 context.setFillColor(CGColor(
                     srgbRed: label.color.r,
@@ -90,6 +122,29 @@ enum PassDrawing {
             }
             context.fill(box)
         }
+    }
+
+    /// An actor's layout box: its projected bounds, cut where a set piece or prop hides the rest of it. Nil when
+    /// nothing of the actor shows.
+    static func layoutRect(
+        of entity: EntityFrame, staged: StagedCharacter, camera: CameraFrame, size: PixelSize
+    ) -> CGRect? {
+        guard let full = projectedBounds(entity.bounds, camera: camera, size: size) else { return nil }
+        guard case .hidden = staged.cut else { return full }
+        guard staged.isVisible, let seen = staged.box else { return nil }
+        let rows = CGRect(
+            x: full.minX, y: seen.y * Double(size.height), width: full.width, height: seen.height * Double(size.height)
+        )
+        let cut = full.intersection(rows)
+        return cut.isNull || cut.isEmpty ? nil : cut
+    }
+
+    static func mix(_ a: Vec3, _ b: Vec3, _ t: Double) -> Vec3 {
+        Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
+    }
+
+    static func mix(_ a: Point2, _ b: Point2, _ t: Double) -> Point2 {
+        Point2(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
     }
 
     /// The pixel rectangle covering a box's visible part, clipped to the canvas; nil when nothing is left. Edges that

@@ -10,7 +10,7 @@ public enum PackageValidator {
               let manifest = try? JSONDecoder().decode(PackageManifest.self, from: data)
         else { return ["manifest.json is missing or doesn't decode."] }
         guard manifest.format == PackageManifest.formatName,
-              manifest.formatVersion == PackageManifest.currentFormatVersion
+              PackageManifest.supportedFormatVersions.contains(manifest.formatVersion)
         else {
             return [
                 "manifest.json is \(manifest.format) version \(manifest.formatVersion), "
@@ -31,7 +31,12 @@ public enum PackageValidator {
                 continue
             }
             switch url.pathExtension {
-            case "png": problems += stillProblems(url, path: file.path, size: size)
+            case "png":
+                let keySized = file.variant?.isKeySized ?? false
+                problems += stillProblems(
+                    url, path: file.path, size: keySized ? manifest.keyCanvas?.pixelSize ?? size : size,
+                    kind: keySized ? "key" : "canvas"
+                )
             case "mp4":
                 if file.frameCount != manifest.frameCount {
                     problems.append("\(file.path) is listed without the package's frame count \(manifest.frameCount).")
@@ -41,20 +46,21 @@ public enum PackageValidator {
             }
         }
         problems += guideProblems(manifest)
+        problems += plateProblems(manifest)
         if manifest.passes.contains(.matte) {
             problems += matteProblems(manifest, packageURL: packageURL)
         }
         return problems
     }
 
-    private static func stillProblems(_ url: URL, path: String, size: PixelSize) -> [String] {
+    private static func stillProblems(_ url: URL, path: String, size: PixelSize, kind: String) -> [String] {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int
         else { return ["\(path) isn't a readable image."] }
         guard width == size.width, height == size.height else {
-            return ["\(path) is \(width) × \(height), not the canvas's \(size.width) × \(size.height)."]
+            return ["\(path) is \(width) × \(height), not the \(kind)'s \(size.width) × \(size.height)."]
         }
         return []
     }
@@ -81,6 +87,23 @@ public enum PackageValidator {
                     ? nil : "The \(pass.rawValue) pass has no \(position.rawValue) guide still."
             }
         }
+    }
+
+    /// A shot blocked over a plate carries the composition guide for its first frame, at a stated key size of the
+    /// canvas's shape, and its staging in words.
+    private static func plateProblems(_ manifest: PackageManifest) -> [String] {
+        guard let plate = manifest.plate else { return [] }
+        var problems: [String] = []
+        if !manifest.files.contains(where: { $0.variant == .composition && $0.position == .first }) {
+            problems.append("The shot is blocked over the plate \"\(plate.name)\" but has no composition guide.")
+        }
+        if !manifest.files.contains(where: { $0.role == .staging }) {
+            problems.append("The shot is blocked over the plate \"\(plate.name)\" but has no staging description.")
+        }
+        if manifest.keyCanvas == nil {
+            problems.append("The shot is blocked over a plate but the manifest gives no key size.")
+        }
+        return problems
     }
 
     /// With the matte pass, every actor in `shot.json` needs a matte video.
