@@ -40,6 +40,12 @@ struct PlateMatchModel: Equatable {
     var panDegrees: Double
     var cameraX: Double
     var cameraZ: Double
+    /// How far the floor this plate shows lies above the set's floor. `height`, the grid and the figure are on
+    /// the plate's floor.
+    var floorLevel: Double
+    /// Which way along the set's axes the camera faces, in quarter turns from the set's first plate. Lines give
+    /// the axes but not this, so it is kept here and never drifts while they are dragged.
+    private(set) var quarterTurns: Int
     /// Where the reference figure stands on the floor, and how tall it is.
     var figureX: Double
     var figureZ: Double
@@ -58,13 +64,15 @@ struct PlateMatchModel: Equatable {
         linesA = usesLinesA ? Array(guides.linesA.prefix(2)) : Self.startLinesA
         linesB = usesLinesB ? Array(guides.linesB.prefix(2)) : Self.startLinesB
         heightFromReference = guides.heightReference != nil
+        floorLevel = guides.floorLevel
+        quarterTurns = Self.quarterTurns(inDegrees: match.pan * 180 / .pi)
         reference = guides.heightReference ?? PlateHeightReference(
             foot: Point2(x: 0.5, y: 0.8), top: Point2(x: 0.5, y: 0.55), height: 1
         )
         lensFromLines = usesLinesA && usesLinesB
         sensor = match.sensor
         lens = match.focalLength
-        height = match.position.y
+        height = match.position.y - guides.floorLevel
         tiltDegrees = match.tilt * 180 / .pi
         rollDegrees = match.roll * 180 / .pi
         panDegrees = match.pan * 180 / .pi
@@ -107,14 +115,20 @@ struct PlateMatchModel: Equatable {
         PlateGuides(
             linesA: usesLinesA ? linesA : [],
             linesB: usesLinesB ? linesB : [],
-            heightReference: heightFromReference ? reference : nil
+            heightReference: heightFromReference ? reference : nil,
+            floorLevel: floorLevel
         )
     }
 
+    private static func quarterTurns(inDegrees pan: Double) -> Int {
+        ((Int((pan / 90).rounded()) % 4) + 4) % 4
+    }
+
     mutating func solve() {
+        if !anglesAreSolved { quarterTurns = Self.quarterTurns(inDegrees: panDegrees) }
         let typed = PlateMatch(
-            position: Vec3(cameraX, height, cameraZ),
-            pan: panDegrees * .pi / 180,
+            position: Vec3(cameraX, height + floorLevel, cameraZ),
+            pan: anglesAreSolved ? Double(quarterTurns) * .pi / 2 : panDegrees * .pi / 180,
             tilt: tiltDegrees * .pi / 180,
             roll: usesLinesA && !usesLinesB ? 0 : rollDegrees * .pi / 180,
             focalLength: lens,
@@ -129,7 +143,7 @@ struct PlateMatchModel: Equatable {
             problem = nil
             // The fields show what the lines found, so switching a set of lines off keeps the same camera.
             lens = match.focalLength
-            height = match.position.y
+            height = match.position.y - floorLevel
             tiltDegrees = match.tilt * 180 / .pi
             rollDegrees = match.roll * 180 / .pi
             panDegrees = match.pan * 180 / .pi
@@ -155,8 +169,18 @@ struct PlateMatchModel: Equatable {
         case let .lineB(index, end): end == 0 ? linesB[index].a : linesB[index].b
         case .foot: reference.foot
         case .top: reference.top
-        case .figure: project(Vec3(figureX, 0, figureZ))
+        case .figure: project(Vec3(figureX, floorLevel, figureZ))
         }
+    }
+
+    /// Faces the camera a quarter turn further round the set. The lines give the direction of the set's axes but
+    /// not which way along them the camera looks; two quarter turns make this plate the reverse of another.
+    mutating func turnQuarter() {
+        let turned = panDegrees + 90
+        panDegrees = turned > 180 ? turned - 360 : turned
+        quarterTurns = (quarterTurns + 1) % 4
+        solve()
+        recallFigure()
     }
 
     mutating func move(_ handle: Handle, to point: Point2) {
@@ -171,8 +195,8 @@ struct PlateMatchModel: Equatable {
             let ray = solved.camera(aspect: size.aspect).ray(
                 through: Point2(x: point.x * Double(size.width), y: point.y * Double(size.height)), size: size
             )
-            guard ray.direction.y < -1e-3 else { return }
-            let distance = -ray.origin.y / ray.direction.y
+            guard ray.direction.y < -1e-3, ray.origin.y > floorLevel else { return }
+            let distance = (floorLevel - ray.origin.y) / ray.direction.y
             guard distance < 150 else { return }
             figureX = ray.origin.x + ray.direction.x * distance
             figureZ = ray.origin.z + ray.direction.z * distance
@@ -211,16 +235,16 @@ struct PlateMatchModel: Equatable {
         }
         let steps = stride(from: -Double(reach), through: Double(reach), by: 0.5)
         for offset in -reach ... reach {
-            add(steps.map { Vec3(centreX + $0, 0, centreZ + Double(offset)) })
-            add(steps.map { Vec3(centreX + Double(offset), 0, centreZ + $0) })
+            add(steps.map { Vec3(centreX + $0, floorLevel, centreZ + Double(offset)) })
+            add(steps.map { Vec3(centreX + Double(offset), floorLevel, centreZ + $0) })
         }
         return runs
     }
 
     /// The reference figure's foot and head on the plate; nil when it is out of view.
     var figureSpan: (foot: Point2, head: Point2)? {
-        guard let foot = project(Vec3(figureX, 0, figureZ)),
-              let head = project(Vec3(figureX, figureHeight, figureZ))
+        guard let foot = project(Vec3(figureX, floorLevel, figureZ)),
+              let head = project(Vec3(figureX, floorLevel + figureHeight, figureZ))
         else { return nil }
         return (foot, head)
     }
@@ -238,7 +262,7 @@ struct PlateMatchModel: Equatable {
         let angle = abs(tilt) < 0.5 ? "level" : String(format: "tilted %.1f° %@", abs(tilt), tilt < 0 ? "down" : "up")
         return String(
             format: "Camera %.2f m above the floor, %@, %.0f mm lens.",
-            solved.position.y,
+            solved.position.y - floorLevel,
             angle,
             solved.focalLength
         )

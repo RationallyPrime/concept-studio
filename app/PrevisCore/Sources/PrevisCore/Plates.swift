@@ -43,9 +43,10 @@ public struct LocationPlate: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// The camera that took a plate, in the scene's world: the plate's floor is the ground plane, y = 0.
+/// The camera that took a plate, in the scene's world. The set's floor is the ground plane, y = 0; the floor the
+/// plate shows is that floor unless the plate's guides give it a `floorLevel`.
 public struct PlateMatch: Codable, Sendable, Equatable {
-    public var position: Vec3 // y is the camera's height above the plate's floor
+    public var position: Vec3 // y is the camera's height above the set's floor
     public var pan: Double, tilt: Double, roll: Double
     public var focalLength: Double // millimetres
     public var sensor: Sensor
@@ -132,11 +133,19 @@ public struct PlateGuides: Codable, Sendable, Equatable {
     /// Two more, square to the first two on the floor, such as the table's short edges.
     public var linesB: [PlateLine]
     public var heightReference: PlateHeightReference?
+    /// How far the floor this plate shows lies above the set's floor, in metres. 0 for most plates. A plate taken
+    /// on a dais that stands 0.6 m above the hall has 0.6: its lines and its height reference are marked on the
+    /// dais, and its camera then stands that much higher in a set whose floor is the hall's.
+    public var floorLevel: Double
 
-    public init(linesA: [PlateLine] = [], linesB: [PlateLine] = [], heightReference: PlateHeightReference? = nil) {
+    public init(
+        linesA: [PlateLine] = [], linesB: [PlateLine] = [], heightReference: PlateHeightReference? = nil,
+        floorLevel: Double = 0
+    ) {
         self.linesA = linesA
         self.linesB = linesB
         self.heightReference = heightReference
+        self.floorLevel = floorLevel
     }
 
     public static let none = PlateGuides()
@@ -177,7 +186,8 @@ public extension PlateGuides {
         try self.init(
             linesA: c.value("linesA", []),
             linesB: c.value("linesB", []),
-            heightReference: c.optional("heightReference")
+            heightReference: c.optional("heightReference"),
+            floorLevel: c.value("floorLevel", 0)
         )
     }
 }
@@ -212,12 +222,13 @@ public enum PlateFit {
 /// Solves a plate's camera from the lines and the height reference the user marked on it.
 public enum PlateSolve {
     /// - `focalLength`: the lens in millimetres when the user sets it; nil solves it from the two sets of lines.
-    /// - `cameraHeight`: the camera's height in metres when the user sets it; nil solves it from the height
-    ///   reference, or keeps `current`'s.
+    /// - `cameraHeight`: the camera's height above the floor the plate shows, in metres, when the user sets it;
+    ///   nil solves it from the height reference, or keeps `current`'s.
     /// - `current`: the match being corrected. Whatever the guides don't determine is kept from it.
     ///
     /// The world is turned so that the first set of lines runs along a world axis: set pieces placed square to the
-    /// world then sit square to the plate's furniture.
+    /// world then sit square to the plate's furniture. Lines can't tell which of the four ways along those axes
+    /// the camera faces, so the quarter turn nearest `current`'s is kept: a reverse plate stays a reverse.
     public static func match(
         guides: PlateGuides,
         size: PixelSize,
@@ -286,19 +297,22 @@ public enum PlateSolve {
             let z = x.cross(up)
             // The camera looks down its own −Z; in the world that is (−x.z, −up.z, −z.z).
             match.tilt = asin(min(max(-up.z, -1), 1))
+            let quarter = Double.pi / 2
             let pan = atan2(x.z, z.z)
-            match.pan = pan - (pan / (.pi / 2)).rounded() * (.pi / 2)
+            let withinQuarter = pan - (pan / quarter).rounded() * quarter
+            let facing = withinQuarter + ((base.pan - withinQuarter) / quarter).rounded() * quarter
+            match.pan = atan2(sin(facing), cos(facing))
             match.roll = atan2(up.x, up.y)
         }
 
-        var height = cameraHeight ?? base.position.y
+        var height = cameraHeight ?? base.position.y - guides.floorLevel
         if cameraHeight == nil, let reference = guides.heightReference {
             height = try Self.height(from: reference, match: match, size: size)
         }
         guard height.isFinite, height > 0.05, height < 200 else {
             throw problem("The camera height comes out at \(height) m. Check the height reference.")
         }
-        match.position = Vec3(base.position.x, height, base.position.z)
+        match.position = Vec3(base.position.x, height + guides.floorLevel, base.position.z)
         return match
     }
 

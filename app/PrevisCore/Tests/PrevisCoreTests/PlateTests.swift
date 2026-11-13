@@ -47,6 +47,43 @@ struct PlateTests {
         #expect(abs(expected.x - got.x) < 0.5 && abs(expected.y - got.y) < 0.5)
     }
 
+    @Test func aReversePlateTakenOnADaisKeepsItsFacingAndStandsOnTheDais() throws {
+        // The set's floor is the hall's. This plate was taken from a dais 0.6 m above it, looking back down the
+        // hall: the opposite way from the set's first plate.
+        let level = 0.6
+        let truth = PlateMatch(
+            position: Vec3(3, 2.3, -6), pan: .pi - 0.12, tilt: -0.2, roll: 0, focalLength: 28, sensor: .super35
+        )
+        let camera = truth.camera(aspect: size.aspect)
+        let post = try line(Vec3(2.5, level, -2.5), Vec3(2.5, level + 1, -2.5), through: camera)
+        let guides = try PlateGuides(
+            linesA: [
+                line(Vec3(1.5, level, -3), Vec3(4.5, level, -3), through: camera),
+                line(Vec3(1.5, level, -1), Vec3(4.5, level, -1), through: camera),
+            ],
+            linesB: [
+                line(Vec3(2, level, -4), Vec3(2, level, 0), through: camera),
+                line(Vec3(4, level, -4), Vec3(4, level, 0), through: camera),
+            ],
+            heightReference: PlateHeightReference(foot: post.a, top: post.b, height: 1),
+            floorLevel: level
+        )
+        var placed = PlateMatch.unmatched
+        placed.position = Vec3(3, 1, -6)
+        placed.pan = .pi
+        let solved = try PlateSolve.match(guides: guides, size: size, sensor: .super35, current: placed)
+        #expect(abs(angleDifference(solved.pan, truth.pan)) < 1e-4)
+        #expect(abs(solved.position.y - 2.3) < 1e-3)
+        // A stand-in on the hall's floor, below the dais, lands where the plate's camera sees it.
+        let probe = Vec3(3.4, 0, 4)
+        let expected = try #require(camera.project(probe, size: size))
+        let got = try #require(solved.camera(aspect: size.aspect).project(probe, size: size))
+        #expect(abs(expected.x - got.x) < 1 && abs(expected.y - got.y) < 1)
+        // The same lines without a facing to keep give the set's first plate: within a quarter turn of zero.
+        let first = try PlateSolve.match(guides: guides, size: size, sensor: .super35)
+        #expect(abs(first.pan - -0.12) < 1e-4)
+    }
+
     @Test func oneSetOfLinesWithAGivenLensFindsTheTiltOfALevelCamera() throws {
         let truth = PlateMatch(
             position: Vec3(0, 1.4, 0), pan: 0, tilt: -0.2, roll: 0, focalLength: 24, sensor: .super35

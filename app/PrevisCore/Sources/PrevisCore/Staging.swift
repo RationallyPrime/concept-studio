@@ -155,13 +155,15 @@ public struct Staging: Sendable, Equatable {
     public var sensor: Sensor
     public var framing: String // "medium two-shot"
     public var characters: [StagedCharacter]
+    /// How far the floor the plate shows lies above the set's floor; the camera's height is told from that floor.
+    public var floorLevel: Double = 0
 
     /// "1.52 m above the floor, tilted 7° down, 35 mm lens on Super 35, horizon level".
     public var cameraPhrase: String {
         let tilt = camera.tilt * 180 / .pi, roll = camera.roll * 180 / .pi
         let angle = abs(tilt) < 1.5 ? "level" : "tilted \(Int(abs(tilt).rounded()))° \(tilt < 0 ? "down" : "up")"
         let horizon = abs(roll) < 0.5 ? "horizon level" : "horizon rolled \(Int(abs(roll).rounded()))°"
-        return String(format: "%.2f m above the floor, ", camera.position.y) + angle
+        return String(format: "%.2f m above the floor, ", camera.position.y - floorLevel) + angle
             + ", \(Int(camera.focalLength.rounded())) mm lens on \(sensor.formatName), " + horizon
     }
 
@@ -276,7 +278,8 @@ public enum StagingAnalysis {
             camera: frame.camera,
             sensor: shot.camera.sensor,
             framing: framing(of: characters),
-            characters: characters
+            characters: characters,
+            floorLevel: frame.plate?.guides.floorLevel ?? 0
         )
     }
 

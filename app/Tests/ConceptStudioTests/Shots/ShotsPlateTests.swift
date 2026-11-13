@@ -99,6 +99,26 @@ struct ShotsPlateTests {
         #expect(copied == png)
     }
 
+    @Test func aRaisedFloorLiftsTheCameraWithoutMovingThePictureAndTwoQuarterTurnsMakeAReverse() throws {
+        let plate = try #require(ShotsSamples.plateStaging().scenes[0].plates.first)
+        var model = PlateMatchModel(plate: plate)
+        let before = model.solved
+        let feet = try #require(model.position(of: .figure))
+        model.floorLevel = 0.6
+        model.solve()
+        #expect(abs(model.solved.position.y - (before.position.y + 0.6)) < 1e-9)
+        // The height field is still told from the floor the plate shows, and the figure still stands on it.
+        #expect(abs(model.height - before.position.y) < 1e-9)
+        let raised = try #require(model.position(of: .figure))
+        #expect(abs(raised.x - feet.x) < 1e-9 && abs(raised.y - feet.y) < 1e-9)
+        #expect(model.result(for: plate).guides.floorLevel == 0.6)
+
+        model.turnQuarter()
+        model.turnQuarter()
+        #expect(abs(cos(model.solved.pan - before.pan) + 1) < 1e-9)
+        #expect(model.position(of: .figure) != nil)
+    }
+
     @Test func theMatchScreenSolvesAsHandlesMoveAndSavesWhatWasDrawn() throws {
         let plate = try #require(ShotsSamples.plateStaging().scenes[0].plates.first)
         var model = PlateMatchModel(plate: plate)

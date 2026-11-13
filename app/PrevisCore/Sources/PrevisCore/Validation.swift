@@ -63,6 +63,12 @@ private struct SceneChecker {
             if plate.size.width <= 0 || plate.size.height <= 0 {
                 out.append(error("The plate \"\(plate.name)\" has no size; add the image again."))
             }
+            if !plate.guides.floorLevel.isFinite || abs(plate.guides.floorLevel) > 100 {
+                out.append(error(
+                    "The plate \"\(plate.name)\" has a floor level that is not a height in metres; "
+                        + "match the camera again."
+                ))
+            }
             if let match = plate.match {
                 let numbers = [match.pan, match.tilt, match.roll, match.focalLength]
                 if !match.position.isFinite || !numbers.allSatisfy(\.isFinite) || match.focalLength <= 0 {

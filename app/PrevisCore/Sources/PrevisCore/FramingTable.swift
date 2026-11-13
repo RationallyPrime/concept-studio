@@ -30,7 +30,7 @@ public enum FramingTable {
                     lens: "\(Int(camera.focalLength.rounded())) mm, \(staging.sensor.formatName)",
                     camera: String(
                         format: "%.2f m high, %@, at x %.1f z %.1f, pan %d°",
-                        camera.position.y, angle, camera.position.x, camera.position.z,
+                        camera.position.y - staging.floorLevel, angle, camera.position.x, camera.position.z,
                         Int((camera.pan * 180 / .pi).rounded())
                     ),
                     who: staging.characters.map(cell).joined(separator: "; ")

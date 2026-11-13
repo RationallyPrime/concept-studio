@@ -302,6 +302,18 @@ struct ShotsPlateMatchView: View {
                     enabled: true,
                     "Where this plate's camera stands, front to back. Leave 0 for a set with one plate."
                 )
+                number(
+                    "Floor level (m)",
+                    \.floorLevel,
+                    -100 ... 100,
+                    enabled: true,
+                    "How far the floor this plate shows lies above the set's lowest floor. Leave 0 for most "
+                        + "plates. A plate taken on a dais that stands 0.6 m above the hall gets 0.6. The grid and "
+                        + "the figure stand on this floor."
+                )
+                Button("Face a quarter turn further round") { model.turnQuarter() }
+                    .help("The lines can't tell which way along the set the camera looks. Press twice for a "
+                        + "reverse plate, which faces the opposite way from the set's first plate.")
                 Text("A second plate of the same set gets its own position, so one blocking serves both.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
