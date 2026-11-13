@@ -32,6 +32,10 @@ enum PassDrawing {
     /// colour on top, without antialiasing, so a keypoint's pixel carries its exact colour. A keypoint behind the
     /// camera is left out, with its limbs.
     static func drawPose(_ frame: SceneFrame, in context: CGContext) {
+        if frame.plate != nil {
+            drawPlatePose(frame, in: context)
+            return
+        }
         let size = frame.canvas.pixelSize
         context.setShouldAntialias(false)
         context.setFillColor(color((0, 0, 0)))
@@ -76,6 +80,11 @@ enum PassDrawing {
         context.setShouldAntialias(false)
         context.setFillColor(color((255, 255, 255)))
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        if frame.plate != nil {
+            var rasterizer = PlateRasterizer(frame: frame, camera: frame.camera, context: context)
+            rasterizer.draw(layout: true)
+            return
+        }
         for (index, entity) in frame.entities.filter(\.isActor).enumerated() {
             guard let box = projectedBounds(entity.bounds, camera: frame.camera, size: size) else { continue }
             if let label = entity.label {
@@ -90,6 +99,73 @@ enum PassDrawing {
             }
             context.fill(box)
         }
+    }
+
+    /// Samples each 3D limb before projection so an intervening table can hide part of a limb.
+    private static func drawPlatePose(_ frame: SceneFrame, in context: CGContext) {
+        let size = PixelSize(width: context.width, height: context.height)
+        context.setShouldAntialias(false)
+        context.setFillColor(color((0, 0, 0)))
+        context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        context.saveGState()
+        defer { context.restoreGState() }
+        if let plate = frame.plate {
+            let rect = plate.imageRect(in: size)
+            context.clip(to: CGRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height))
+        }
+        let stick = max(1, Double(size.width) / 160)
+        context.setLineCap(.round)
+        context.setLineWidth(stick * 2)
+        for entity in frame.entities {
+            let points = Dictionary(
+                entity.keypoints.map { ($0.name, $0.position) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            for (index, limb) in limbs.enumerated() {
+                guard let a = points[limb.0], let b = points[limb.1] else { continue }
+                let (red, green, blue) = openPoseColors[index]
+                context.setStrokeColor(color((red * 3 / 5, green * 3 / 5, blue * 3 / 5)))
+                context.beginPath()
+                var drawing = false
+                for sample in 0 ... 160 {
+                    let t = Double(sample) / 160
+                    let point = Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
+                    guard !frame.isOccluded(point),
+                          let pixel = frame.project(point, size: size) else {
+                        drawing = false
+                        continue
+                    }
+                    let position = CGPoint(x: pixel.x, y: pixel.y)
+                    if drawing { context.addLine(to: position) } else { context.move(to: position) }
+                    drawing = true
+                }
+                context.strokePath()
+            }
+            for (name, point) in points.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+                guard !frame.isOccluded(point),
+                      let pixel = frame.project(point, size: size) else { continue }
+                context.setFillColor(color(openPoseColors[name.rawValue]))
+                context.fillEllipse(in: CGRect(
+                    x: pixel.x - stick,
+                    y: pixel.y - stick,
+                    width: 2 * stick,
+                    height: 2 * stick
+                ))
+            }
+        }
+    }
+
+    static func plateProjectedBounds(_ bounds: Box3, frame: SceneFrame, size: PixelSize) -> CGRect? {
+        guard let plate = frame.plate else { return projectedBounds(bounds, camera: frame.camera, size: size) }
+        guard let box = projectedBounds(bounds, camera: frame.camera, size: plate.pixelSize) else { return nil }
+        let content = plate.imageRect(in: size)
+        let scale = content.width / Double(plate.pixelSize.width)
+        return CGRect(
+            x: content.x + box.minX * scale,
+            y: content.y + box.minY * scale,
+            width: box.width * scale,
+            height: box.height * scale
+        )
     }
 
     /// The pixel rectangle covering a box's visible part, clipped to the canvas; nil when nothing is left. Edges that

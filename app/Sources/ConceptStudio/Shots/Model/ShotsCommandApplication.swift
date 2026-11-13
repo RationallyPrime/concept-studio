@@ -2,6 +2,7 @@ import PrevisCore
 
 enum ShotsCommandApplication {
     static func apply(_ command: ShotsCommand, to document: inout ShotsDocument, catalog: ContentCatalog) throws {
+        if try ShotsPlateEdits.apply(command, to: &document) { return }
         if try applyScene(command, to: &document) || applyEntity(command, to: &document, catalog: catalog)
             || applyShot(command, to: &document) || applyMarks(command, to: &document)
             || applyCamera(command, to: &document)
@@ -89,7 +90,10 @@ enum ShotsCommandApplication {
                 $0.guideFrames.removeAll { $0 <= 0 || $0 >= last }
             }
         case let .setCanvas(id, canvas):
-            try editShot(id, in: &document) { $0.canvas = canvas }
+            try editShot(id, in: &document) {
+                $0.canvas = canvas
+                if let key = $0.keyCanvas, abs(key.aspect - canvas.aspect) > 1e-9 { $0.keyCanvas = nil }
+            }
         case let .setGuideFrames(id, frames):
             try editShot(id, in: &document) { $0.guideFrames = Array(Set(frames)).sorted() }
         case let .setNotes(id, notes):

@@ -35,6 +35,8 @@ public struct ShotEvaluator: Sendable {
     let sceneID: SceneID
     let shot: Shot
     let aspect: Double
+    let plate: LocationPlate?
+    let setPieces: [PlateSetPiece]
     let entities: [Resolved]
     let tracks: [EntityID: ActorPlan]
     private let boardings: [Boarding]
@@ -80,7 +82,10 @@ public struct ShotEvaluator: Sendable {
         graph = corrections.contains(.attachmentGraph) ? Self.graph(resolved, plans) : nil
         sceneID = scene.id
         self.shot = shot
-        self.aspect = aspect ?? shot.canvas.aspect
+        let selectedPlate = scene.plates.first { $0.id == shot.plateID }
+        self.aspect = aspect ?? selectedPlate?.pixelSize.aspect ?? shot.canvas.aspect
+        plate = selectedPlate
+        setPieces = scene.setPieces
         entities = resolved
         tracks = plans
         camera = TrackPlan(waypoints: shot.camera.marks.map(Waypoint.init))
@@ -233,7 +238,9 @@ public struct ShotEvaluator: Sendable {
             time: time,
             canvas: shot.canvas,
             camera: cameraFrame(at: time, poses: poses),
-            entities: frames
+            entities: frames,
+            plate: plate,
+            setPieces: setPieces
         )
     }
 

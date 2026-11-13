@@ -31,7 +31,8 @@ public enum PackageValidator {
                 continue
             }
             switch url.pathExtension {
-            case "png": problems += stillProblems(url, path: file.path, size: size)
+            case "png", "jpg", "jpeg", "heic", "tif", "tiff":
+                problems += stillProblems(url, path: file.path, size: file.pixelSize ?? size)
             case "mp4":
                 if file.frameCount != manifest.frameCount {
                     problems.append("\(file.path) is listed without the package's frame count \(manifest.frameCount).")
@@ -41,6 +42,17 @@ public enum PackageValidator {
             }
         }
         problems += guideProblems(manifest)
+        if let keyCanvas = manifest.keyCanvas {
+            for role in [PackageFile.Role.composition, .staging, .legend, .plate]
+                where !manifest.files.contains(where: { $0.role == role }) {
+                problems.append("The plate-backed package has no \(role.rawValue) file.")
+            }
+            for file in manifest.files where file.role == .composition {
+                if file.frame != 0 || file.pixelSize != keyCanvas.pixelSize {
+                    problems.append("\(file.path) must be frame 0 at the key canvas size.")
+                }
+            }
+        }
         if manifest.passes.contains(.matte) {
             problems += matteProblems(manifest, packageURL: packageURL)
         }
@@ -53,8 +65,13 @@ public enum PackageValidator {
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int
         else { return ["\(path) isn't a readable image."] }
-        guard width == size.width, height == size.height else {
-            return ["\(path) is \(width) × \(height), not the canvas's \(size.width) × \(size.height)."]
+        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
+        let swapsAxes = (5 ... 8).contains(orientation)
+        let displayedWidth = swapsAxes ? height : width
+        let displayedHeight = swapsAxes ? width : height
+        guard displayedWidth == size.width, displayedHeight == size.height else {
+            return ["\(path) is \(displayedWidth) × \(displayedHeight), "
+                + "not the canvas's \(size.width) × \(size.height)."]
         }
         return []
     }

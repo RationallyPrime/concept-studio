@@ -28,6 +28,8 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
     public var entities: [PrevisEntity]
     public var blocking: [BlockingTake] // v1: exactly one take, shared by the scene's shots
     public var shots: [Shot]
+    public var plates: [LocationPlate]
+    public var setPieces: [PlateSetPiece]
 
     public init(
         id: SceneID,
@@ -36,7 +38,9 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
         lighting: LightingPreset,
         entities: [PrevisEntity] = [],
         blocking: [BlockingTake] = [],
-        shots: [Shot] = []
+        shots: [Shot] = [],
+        plates: [LocationPlate] = [],
+        setPieces: [PlateSetPiece] = []
     ) {
         self.id = id
         self.name = name
@@ -45,6 +49,8 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
         self.entities = entities
         self.blocking = blocking
         self.shots = shots
+        self.plates = plates
+        self.setPieces = setPieces
     }
 
     /// One take, "Master", and one shot, "1A".
@@ -211,6 +217,13 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var notes: ShotNotes
     public var prompt: ShotPrompt?
     public var results: [ShotResult] // reserved for later destinations; empty in v1
+    public var plateID: String?
+    public var requestedFraming: Framing.Kind?
+    public var keyCanvas: ShotCanvas?
+    public var guideCanvas: ShotCanvas {
+        keyCanvas ?? canvas
+    }
+
     public var duration: Double {
         Double(frameCount - 1) / Double(FrameGrid.fps)
     }
@@ -225,7 +238,10 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         guideFrames: [Int] = [],
         notes: ShotNotes,
         prompt: ShotPrompt? = nil,
-        results: [ShotResult] = []
+        results: [ShotResult] = [],
+        plateID: String? = nil,
+        requestedFraming: Framing.Kind? = nil,
+        keyCanvas: ShotCanvas? = nil
     ) {
         self.id = id
         self.name = name
@@ -237,6 +253,9 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         self.notes = notes
         self.prompt = prompt
         self.results = results
+        self.plateID = plateID
+        self.requestedFraming = requestedFraming
+        self.keyCanvas = keyCanvas
     }
 
     /// 124 frames, 640 × 1152, super35, sticks at intensity 0, seed 1, and one camera mark at (0, 1.6, 6) with a

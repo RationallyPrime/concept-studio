@@ -14,6 +14,8 @@ import RealityKit
         MTLCreateSystemDefaultDevice() != nil
     }
 
+    public var plateRoot: URL?
+    private var plateImages: [URL: CGImage] = [:]
     private let renderer: RealityRenderer
     private let mapper: PrevisSceneMapper
     private let overlays = Entity()
@@ -22,7 +24,8 @@ import RealityKit
     private var rendering = false
     private var waiting: [CheckedContinuation<Void, Never>] = []
 
-    public init() throws {
+    public init(plateRoot: URL? = nil) throws {
+        self.plateRoot = plateRoot
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw ShotsMediaError("This Mac has no Metal device, so Shots can't render frames.")
         }
@@ -47,14 +50,22 @@ import RealityKit
         look: PrevisLook,
         camera: CameraFrame? = nil,
         overlay: Entity? = nil,
-        size: PixelSize? = nil
+        size: PixelSize? = nil,
+        showsSetPieces: Bool = false
     ) async throws -> CGImage {
         let size = size ?? frame.canvas.pixelSize
         guard size.width > 0, size.height > 0 else {
             throw ShotsMediaError("Shots can't render a \(size.width) × \(size.height) image.")
         }
         let buffer = try pixelBuffer(size)
-        try await render(frame, look: look, camera: camera, overlay: overlay, into: buffer)
+        try await render(
+            frame,
+            look: look,
+            camera: camera,
+            overlay: overlay,
+            showsSetPieces: showsSetPieces,
+            into: buffer
+        )
         return try Self.image(from: buffer)
     }
 
@@ -66,15 +77,46 @@ import RealityKit
         camera: CameraFrame? = nil,
         overlay: Entity? = nil,
         matte: EntityID? = nil,
+        showsSetPieces: Bool = false,
         into buffer: CVPixelBuffer
     ) async throws {
+        if let plate = frame.plate {
+            try Task.checkCancellation()
+            let background: CGImage?
+            if matte == nil {
+                guard let plateRoot else {
+                    throw ShotsMediaError("Choose a project folder to load plate “\(plate.name)”.")
+                }
+                let url = plateRoot.appendingPathComponent(plate.imagePath)
+                if let cached = plateImages[url] {
+                    background = cached
+                } else {
+                    let loaded = try PlateRasterizer.load(plate, root: plateRoot)
+                    plateImages[url] = loaded
+                    background = loaded
+                }
+            } else {
+                background = nil
+            }
+            try PassDrawing.draw(into: buffer) { context in
+                var rasterizer = PlateRasterizer(frame: frame, camera: camera ?? frame.camera, context: context)
+                if let background {
+                    PlateRasterizer.drawBackground(background, in: context, rect: rasterizer.content)
+                } else {
+                    context.setFillColor(CGColor(gray: 0, alpha: 1))
+                    context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
+                }
+                rasterizer.draw(matte: matte)
+            }
+            return
+        }
         await beginRender()
         defer { endRender() }
         // A render cancelled while it waited gives up its turn without touching the scene.
         try Task.checkCancellation()
         mapper.setLook(look)
         mapper.setMatte(matte)
-        mapper.apply(frame)
+        mapper.apply(frame, showsSetPieces: showsSetPieces)
         let cameraEntity = mapper.cameraEntity(for: camera ?? frame.camera)
         if cameraEntity.parent == nil, !renderer.entities.contains(where: { $0 === cameraEntity }) {
             renderer.entities.append(cameraEntity)

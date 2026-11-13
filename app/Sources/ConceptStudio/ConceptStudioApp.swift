@@ -7,6 +7,10 @@ import SwiftUI
 enum ConceptStudioLaunch {
     @MainActor
     static func main() async {
+        if ProcessInfo.processInfo.arguments.contains("--shots-plate-self-test") {
+            let code = await ShotsSelfTest.runPlate()
+            exit(code)
+        }
         if ProcessInfo.processInfo.arguments.contains("--shots-self-test") {
             let code = await ShotsSelfTest.run()
             exit(code)

@@ -36,6 +36,10 @@ private struct ShotsWorkspaceContent: View {
             // Capped so the panes above keep most of the height; lanes scroll beyond four people.
             ShotsTimelineView(store: store).frame(minHeight: 150, idealHeight: 210, maxHeight: 250)
         }
+        .onChange(of: store.currentShot?.plateID) { _, plateID in
+            if plateID != nil { showsShotCamera = true }
+        }
+        .onAppear { if store.currentPlate != nil { showsShotCamera = true } }
         .background(ShotsUndoBridge(store: store))
         .onKeyPress(keys: [.space]) { press in
             guard press.modifiers.isDisjoint(with: [.command, .control, .option, .shift]),
@@ -95,6 +99,8 @@ private struct ShotsWorkspaceContent: View {
                     Label(ShotsEditingError.readOnly.localizedDescription, systemImage: "lock")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
+                Divider()
+                ShotsPlateInspector(store: store)
                 Divider()
                 ShotsInspectorView(store: store, session: session)
                 Divider()

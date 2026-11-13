@@ -30,6 +30,28 @@ struct ShotsUndoRoutingTests {
         #expect(content.nextResponder === previous)
     }
 
+    @Test func nativeManagerExposesStoreHistoryAndRestoresTheOrdinaryManager() throws {
+        let store = try makeStore()
+        let scene = try #require(store.currentScene)
+        try store.perform(.renameScene(scene.id, name: "Native manager edit"))
+        let window = makeWindow()
+        defer { window.close() }
+        let content = try #require(window.contentView)
+        let ordinaryManager = content.undoManager
+        let bridge = ShotsUndoView(store: store)
+        content.addSubview(bridge)
+        let manager = try #require(content.undoManager)
+        #expect(manager is ShotsDocumentUndoManager)
+        #expect(manager.canUndo)
+        manager.undo()
+        #expect(store.currentScene?.name == scene.name)
+        #expect(manager.canRedo)
+        manager.redo()
+        #expect(store.currentScene?.name == "Native manager edit")
+        bridge.removeFromSuperview()
+        #expect(content.undoManager === ordinaryManager)
+    }
+
     @Test func textEditingKeepsItsOwnUndoEvenWhenTheDocumentHasHistory() throws {
         let store = try makeStore()
         let scene = try #require(store.currentScene)
@@ -46,6 +68,7 @@ struct ShotsUndoRoutingTests {
         editor.insertText("Text edit", replacementRange: NSRange(location: NSNotFound, length: 0))
         editor.breakUndoCoalescing()
         #expect(editor.undoManager?.canUndo == true)
+        #expect(!(editor.undoManager is ShotsDocumentUndoManager))
         bridge.history.undo(nil)
         #expect(editor.string.isEmpty)
         #expect(store.currentScene?.name == "Document edit")

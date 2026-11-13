@@ -1006,3 +1006,57 @@ older Homebrew build.
 - `swift test --package-path PrevisCore`;
 - `swiftlint lint --strict` and `swiftformat --lint` over `Sources`, `Tests`, `PrevisCore/Sources` and
   `PrevisCore/Tests`.
+
+## 11. Location plates and shared set geometry
+
+The plate extension keeps document version 1. Absent optional fields retain the existing grey-stage behavior.
+Lengths use metres, camera angles use radians, and lenses use millimetres.
+
+| Value | Added fields | Meaning |
+| --- | --- | --- |
+| `PrevisScene` | `plates`, `setPieces` | All reference views of one location and its shared staging solids. Both default to empty arrays. |
+| `LocationPlate` | `id`, `name`, `imagePath`, `pixelSize`, `calibration` | One original still and its camera match. `imagePath` is relative to the project's `.conceptstudio` folder. |
+| `PlateCalibration` | `sensor`, `position`, `pan`, `tilt`, `roll`, `focalLength`, `confirmed` | A saved camera in the scene's common coordinate system. `confirmed` defaults to false. |
+| `PlateSetPiece` | `id`, `name`, `position`, `size`, `occludes`, `supportsStanding` | A world-aligned solid. Position is the centre of its bottom face. Size is width, height, depth. |
+| `Shot` | `plateID`, `keyCanvas`, `requestedFraming` | Selected source view, composition-guide dimensions and optional framing intent. All default to absent. |
+| `SceneFrame` | `plate`, `setPieces` | Resolved view and shared solids for the evaluated frame. |
+
+Import copies the original still bytes into `.conceptstudio/plates/`. The source keeps its colour profile and
+orientation. Rendering displays the full oriented image with aspect-fit letterboxing. The camera's field of
+view uses the native plate aspect. `SceneFrame.project` supplies the matching fit transform for projected
+geometry, control passes and editor overlays.
+
+Every plate calibration uses the same scene coordinates. Adding views has no fixed count limit. Choosing a
+view through the UI assigns it to the shot and resets the shot camera to that calibration. A subsequent
+camera move remains an authored 3D track. The selected still supplies the composition's background while the
+shared solids supply occlusion and standing surfaces. Viewpoint differences and impossible requested framing
+produce advisory diagnostics while editing. Confirmed calibration records a user judgment.
+
+Key and video canvases have the same aspect. Video dimensions retain the existing multiple-of-32 and
+64–2048 limits. Key dimensions are multiples of 32 and at least 64, including 1440 × 2560. Changing the video
+aspect clears an incompatible key override. Exact portrait presets include 576 × 1024 and 864 × 1536.
+
+The command surface adds `putPlate`, `putSetPiece`, `removeSetPiece`, `setPlate`, `matchPlateCamera`,
+`setKeyCanvas` and `setRequestedFraming`. They use the same atomic batch, validation, undo, revision and
+save path as existing commands. Matching a camera replaces that shot's camera track explicitly.
+
+### Plate-backed package extension
+
+`manifest.json` may include `keyCanvas`. A file entry may include `pixelSize`. Videos continue to use
+`manifest.canvas`, `frameRate` and `frameCount`. Plate-backed packages add these roles.
+
+| Role | Path | Meaning |
+| --- | --- | --- |
+| `composition` | `composition.png` | Frame-zero guide at `keyCanvas`, containing the original plate and neutral procedural stand-ins. |
+| `staging` | `staging.txt` | Plain-language plate, camera, lens, framing, position, visibility and facing facts from frame zero. |
+| `legend` | `legend.txt` | Character names and their frame positions. |
+| `plate` | `plate/<original filename>` | Byte-identical source image, with its native `pixelSize`. |
+
+The embedded scene description contains the exported shot, its selected plate and the shared geometry.
+The embedded plate path resolves inside the package. Composition, pose, layout and mattes use the same
+frame evaluation, projection and set-solid visibility. Human stand-ins are neutral geometry. Pose and
+layout are generated directly at the video canvas size on the existing frame grid.
+
+The exporter validates the selected shot and shared scene before creating a destination. Missing plate
+references and incompatible key/video aspects are errors. Source image read failures reach the existing
+error path. Package validation checks the declared image dimensions as well as video timing and canvas.

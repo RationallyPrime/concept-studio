@@ -14,6 +14,7 @@ public struct PackageManifest: Codable, Sendable, Equatable {
     public var canvas: ShotCanvas
     public var passes: [PassKind]
     public var files: [PackageFile]
+    public var keyCanvas: ShotCanvas?
 
     public init(
         format: String,
@@ -24,7 +25,8 @@ public struct PackageManifest: Codable, Sendable, Equatable {
         frameCount: Int,
         canvas: ShotCanvas,
         passes: [PassKind] = [],
-        files: [PackageFile] = []
+        files: [PackageFile] = [],
+        keyCanvas: ShotCanvas? = nil
     ) {
         self.format = format
         self.formatVersion = formatVersion
@@ -35,6 +37,7 @@ public struct PackageManifest: Codable, Sendable, Equatable {
         self.canvas = canvas
         self.passes = passes
         self.files = files
+        self.keyCanvas = keyCanvas
     }
 }
 
@@ -52,7 +55,7 @@ public struct ShotRef: Codable, Sendable, Equatable {
 
 public struct PackageFile: Codable, Sendable, Equatable {
     public enum Role: String, Codable, Sendable {
-        case guide, control, matte, reference, prompt, description
+        case guide, control, matte, reference, prompt, description, composition, staging, legend, plate
         case promptSections = "prompt-sections"
     }
 
@@ -67,6 +70,7 @@ public struct PackageFile: Codable, Sendable, Equatable {
     public var frameCount: Int?
     public var entityID: EntityID?
     public var entityName: String?
+    public var pixelSize: PixelSize?
 
     public init(
         role: Role,
@@ -76,7 +80,8 @@ public struct PackageFile: Codable, Sendable, Equatable {
         frame: Int? = nil,
         frameCount: Int? = nil,
         entityID: EntityID? = nil,
-        entityName: String? = nil
+        entityName: String? = nil,
+        pixelSize: PixelSize? = nil
     ) {
         self.role = role
         self.path = path
@@ -86,5 +91,6 @@ public struct PackageFile: Codable, Sendable, Equatable {
         self.frameCount = frameCount
         self.entityID = entityID
         self.entityName = entityName
+        self.pixelSize = pixelSize
     }
 }

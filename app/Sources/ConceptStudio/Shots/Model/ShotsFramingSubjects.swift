@@ -52,7 +52,10 @@ extension ShotsStore {
     /// Frames the current subjects as `kind` at the playhead (the framing buttons).
     func applyFraming(_ kind: Framing.Kind) {
         guard let shotID = currentShotID else { return }
-        run(.applyFraming(shotID, kind, subjects: framingSubjects(for: kind), atFrame: playhead))
+        run([
+            .setRequestedFraming(shotID, kind),
+            .applyFraming(shotID, kind, subjects: framingSubjects(for: kind), atFrame: playhead),
+        ])
     }
 
     /// The subject a camera move would be built around now, from the current selection.

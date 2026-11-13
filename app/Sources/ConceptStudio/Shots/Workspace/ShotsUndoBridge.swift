@@ -60,12 +60,23 @@ final class ShotsUndoView: NSView {
 }
 
 final class ShotsHistoryResponder: NSResponder, NSMenuItemValidation {
-    weak var store: ShotsStore?
+    weak var store: ShotsStore? {
+        didSet { documentUndoManager.store = store }
+    }
+
     weak var hostWindow: NSWindow?
+    private let documentUndoManager: ShotsDocumentUndoManager
 
     init(store: ShotsStore) {
         self.store = store
+        documentUndoManager = ShotsDocumentUndoManager(store: store)
         super.init()
+    }
+
+    /// SwiftUI's standard Edit commands consult this manager before sending native undo actions.
+    /// An active text editor continues through the window's ordinary text undo manager.
+    override var undoManager: UndoManager? {
+        textEditor == nil ? documentUndoManager : nextResponder?.undoManager
     }
 
     @available(*, unavailable)
@@ -95,5 +106,32 @@ final class ShotsHistoryResponder: NSResponder, NSMenuItemValidation {
             return store?.canRedo == true
         default: return false
         }
+    }
+}
+
+/// Adapts the store's snapshot history to the native manager queried by the standard Edit menu.
+/// Access comes from AppKit's main-thread responder chain.
+final class ShotsDocumentUndoManager: UndoManager {
+    weak var store: ShotsStore?
+
+    init(store: ShotsStore) {
+        self.store = store
+        super.init()
+    }
+
+    override var canUndo: Bool {
+        MainActor.assumeIsolated { store?.canUndo == true }
+    }
+
+    override var canRedo: Bool {
+        MainActor.assumeIsolated { store?.canRedo == true }
+    }
+
+    override func undo() {
+        MainActor.assumeIsolated { store?.undo() }
+    }
+
+    override func redo() {
+        MainActor.assumeIsolated { store?.redo() }
     }
 }

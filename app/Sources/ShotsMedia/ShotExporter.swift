@@ -6,9 +6,11 @@ import PrevisCore
 @MainActor public final class ShotExporter {
     public let catalog: ContentCatalog
     private var renderer: ShotFrameRenderer?
+    public var plateRoot: URL?
 
-    public init(catalog: ContentCatalog) throws {
+    public init(catalog: ContentCatalog, plateRoot: URL? = nil) throws {
         self.catalog = catalog
+        self.plateRoot = plateRoot
     }
 
     /// Validates before delivering. Cancelling the Task leaves no staged or partial package.
@@ -19,16 +21,21 @@ import PrevisCore
         to destination: any PackageDestination,
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) async throws -> ExportedPackage {
-        let evaluator = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog)
         guard let shot = scene.shots.first(where: { $0.id == shotID }) else {
             throw ShotsMediaError("Scene \"\(scene.name)\" has no shot \(shotID).")
         }
+        let problems = ShotsValidation.problems(
+            in: ShotsDocument(version: ShotsDocument.currentVersion, scenes: [scene]), catalog: catalog
+        ).filter { $0.severity == .error && ($0.shotID == nil || $0.shotID == shotID) }
+        guard problems.isEmpty else { throw ShotsError.invalid(problems) }
+        let evaluator = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog)
         let passes = PassKind.allCases.filter(options.passes.contains)
         let staging = try destination.stagingDirectory()
         do {
-            if renderer == nil, passes.contains(where: { $0 == .clean || $0 == .matte }) {
-                renderer = try ShotFrameRenderer()
+            if renderer == nil, shot.plateID != nil || passes.contains(where: { $0 == .clean || $0 == .matte }) {
+                renderer = try ShotFrameRenderer(plateRoot: plateRoot)
             }
+            renderer?.plateRoot = plateRoot
             let writer = try PackageWriter(
                 scene: scene,
                 shot: shot,
@@ -98,6 +105,7 @@ import PrevisCore
         let actors = first.entities.filter(\.isActor)
         videoCount = passes.reduce(0) { $0 + ($1 == .matte ? actors.count : 1) }
         let count = frames.count
+        if first.plate != nil { try await writeComposition(first) }
         for pass in passes {
             switch pass {
             case .clean:
@@ -139,7 +147,8 @@ import PrevisCore
             frameCount: frames.count,
             canvas: shot.canvas,
             passes: passes,
-            files: files
+            files: files,
+            keyCanvas: first.plate == nil ? nil : shot.guideCanvas
         )
         try writeJSON(manifest, to: "manifest.json")
         return manifest
@@ -215,6 +224,46 @@ import PrevisCore
         try await renderer.render(frame, look: look, matte: matte, into: buffer)
     }
 
+    private func writeComposition(_ frame: SceneFrame) async throws {
+        guard let plate = frame.plate, let renderer, let root = renderer.plateRoot else {
+            throw ShotsMediaError("The plate-backed shot needs its project folder for export.")
+        }
+        progress(ExportProgress(step: "Drawing the composition guide…", fractionCompleted: 0))
+        let image = try await renderer.image(of: frame, look: look, size: shot.guideCanvas.pixelSize)
+        try StillWriter.writePNG(image, to: prepare("composition.png"))
+        files.append(PackageFile(
+            role: .composition,
+            path: "composition.png",
+            frame: 0,
+            pixelSize: shot.guideCanvas.pixelSize
+        ))
+        let source = root.appendingPathComponent(plate.imagePath)
+        let platePath = "plate/" + source.lastPathComponent
+        try FileManager.default.copyItem(at: source, to: prepare(platePath))
+        files.append(PackageFile(role: .plate, path: platePath, pixelSize: plate.pixelSize))
+        let staging = ShotStaging.description(frame: frame, shot: shot)
+        try Data(staging.utf8).write(to: prepare("staging.txt"), options: .atomic)
+        let subjects = ShotStaging.subjects(in: frame).map {
+            "\($0.name) — \($0.horizontal), \($0.depth), \($0.visibleBody), \($0.facing)."
+        }
+        let legend = ([
+            "Plate \(plate.name). Neutral, featureless stand-ins show composition and facing.",
+            "Use the scene sheet for each character’s appearance.",
+        ] + subjects).joined(separator: "\n") + "\n"
+        try Data(legend.utf8).write(to: prepare("legend.txt"), options: .atomic)
+        files += [PackageFile(role: .staging, path: "staging.txt"), PackageFile(role: .legend, path: "legend.txt")]
+    }
+
+    private func exportedScene() -> PrevisScene {
+        guard let plate = frames.first?.plate else { return scene }
+        var exported = scene
+        exported.plates = [plate]
+        exported.plates[0].imagePath = "plate/" + URL(fileURLWithPath: plate.imagePath).lastPathComponent
+        // Only the exported shot is included, so no remaining shot refers to a plate outside this package.
+        exported.shots = [shot]
+        return exported
+    }
+
     private func writeDescription() throws {
         let size = shot.canvas.pixelSize
         let take = scene.blocking.first { $0.id == shot.blockingTakeID }
@@ -247,7 +296,7 @@ import PrevisCore
                     boxes: guides.compactMap { guide in
                         let frame = frames[guide.frame]
                         guard let posed = frame.entities.first(where: { $0.id == entity.id }),
-                              let box = PassDrawing.projectedBounds(posed.bounds, camera: frame.camera, size: size)
+                              let box = PassDrawing.plateProjectedBounds(posed.bounds, frame: frame, size: size)
                         else { return nil }
                         let width = Double(size.width), height = Double(size.height)
                         return ShotDescription.Box(
@@ -257,7 +306,7 @@ import PrevisCore
                     }
                 )
             },
-            scene: scene
+            scene: exportedScene()
         )
         try writeJSON(description, to: "shot.json")
         files.append(PackageFile(role: .description, path: "shot.json"))

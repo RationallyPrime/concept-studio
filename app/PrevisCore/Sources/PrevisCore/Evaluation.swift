@@ -8,19 +8,36 @@ public struct SceneFrame: Sendable, Equatable {
     public var canvas: ShotCanvas
     public var camera: CameraFrame // field of view for the canvas aspect
     public var entities: [EntityFrame] // document order
+    public var plate: LocationPlate?
+    public var setPieces: [PlateSetPiece]
 
     public init(
         index: Int? = nil,
         time: Double,
         canvas: ShotCanvas,
         camera: CameraFrame,
-        entities: [EntityFrame] = []
+        entities: [EntityFrame] = [],
+        plate: LocationPlate? = nil,
+        setPieces: [PlateSetPiece] = []
     ) {
         self.index = index
         self.time = time
         self.canvas = canvas
         self.camera = camera
         self.entities = entities
+        self.plate = plate
+        self.setPieces = setPieces
+    }
+
+    /// Plate-backed projections use the original image's field of view inside its fitted output rectangle.
+    public func project(_ point: Vec3, size: PixelSize? = nil) -> Point2? {
+        let size = size ?? canvas.pixelSize
+        if let plate { return plate.project(point, camera: camera, size: size) }
+        return camera.project(point, size: size)
+    }
+
+    public func isOccluded(_ point: Vec3) -> Bool {
+        PlateSetPiece.occludes(point, camera: camera, pieces: setPieces)
     }
 }
 
@@ -31,7 +48,7 @@ public struct CameraFrame: Sendable, Equatable {
     public var focusDistance: Double?
     public var verticalFOV: Double // radians
 
-    static let near = 0.05
+    public static let near = 0.05
     static let far = 500.0
 
     public init(
