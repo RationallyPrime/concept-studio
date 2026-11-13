@@ -29,13 +29,13 @@ extension ShotEvaluator {
         guard let plate else { return [] }
         var result = PlateDiagnostics.problems(frame: frame(0), shot: shot, sceneID: sceneID)
         let times = shot.camera.marks.map(\.time) + [shot.duration / 2, shot.duration]
-        if plate.calibration.matches(frame(0).camera, aspect: aspect), times.contains(where: {
-            !plate.calibration.matches(frame(at: $0).camera, aspect: aspect)
-        }) {
+        if !frame(0).usesProjectedLocation,
+           let movedTime = times.first(where: { frame(at: $0).usesProjectedLocation }) {
             result.append(problem(
                 "The camera moves beyond \(plate.name)'s photographed viewpoint during the shot. "
                     + "Check the move against the shared 3D set and other calibrated plates."
             ))
+            result += PlateDiagnostics.reconstructionProblems(frame: frame(at: movedTime), shot: shot, sceneID: sceneID)
         }
         return result
     }

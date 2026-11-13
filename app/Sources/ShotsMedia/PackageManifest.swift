@@ -71,6 +71,7 @@ public struct PackageFile: Codable, Sendable, Equatable {
     public var entityID: EntityID?
     public var entityName: String?
     public var pixelSize: PixelSize?
+    public var plateID: String?
 
     public init(
         role: Role,
@@ -81,7 +82,8 @@ public struct PackageFile: Codable, Sendable, Equatable {
         frameCount: Int? = nil,
         entityID: EntityID? = nil,
         entityName: String? = nil,
-        pixelSize: PixelSize? = nil
+        pixelSize: PixelSize? = nil,
+        plateID: String? = nil
     ) {
         self.role = role
         self.path = path
@@ -92,5 +94,6 @@ public struct PackageFile: Codable, Sendable, Equatable {
         self.entityID = entityID
         self.entityName = entityName
         self.pixelSize = pixelSize
+        self.plateID = plateID
     }
 }

@@ -4,112 +4,101 @@ import PrevisCore
 import SwiftUI
 import Testing
 
-@Suite("Shots native undo routing")
+@Suite("Shots Edit commands")
 @MainActor
 struct ShotsUndoRoutingTests {
-    @Test func nativeHistoryActionsEditShotsAndDetachRestoresTheWindowChain() throws {
+    @Test func commandsUseTheOwningSessionAndRestoreOtherWindowsAndWorkspaces() throws {
+        let defaults = IsolatedDefaults()
+        defer { defaults.remove() }
+        let session = makeTestSession(preferences: defaults.defaults)
+        let store = try makeStore()
+        session.shots = store
+        session.workspace = .shots
+        let studio = makeWindow(), help = makeWindow()
+        defer { studio.close(); help.close() }
+        let owner = WindowCloseGuard.Coordinator(session: session)
+        studio.delegate = owner
+        var current = studio
+        let state = ShotsUndoCommandState(currentWindow: { current })
+        #expect(state.activeStore(for: session) === store)
+        session.workspace = .training
+        #expect(state.activeStore(for: session) == nil)
+        session.workspace = .shots
+        current = help
+        state.refresh()
+        #expect(state.activeStore(for: session) == nil)
+        current = studio
+        state.refresh()
+        #expect(state.activeStore(for: session) === store)
+        #expect(studio.delegate === owner)
+    }
+
+    @Test func committedEditsRouteThroughTheCommandActions() throws {
         let store = try makeStore()
         let scene = try #require(store.currentScene)
+        let state = ShotsUndoCommandState(currentWindow: { nil })
+        #expect(!state.canUndo(in: store))
         try store.perform(.renameScene(scene.id, name: "Changed"))
-        let window = makeWindow()
-        defer { window.close() }
-        let content = try #require(window.contentView)
-        let previous = content.nextResponder
-        let bridge = ShotsUndoView(store: store)
-        content.addSubview(bridge)
-        let history = try #require(content.nextResponder as? ShotsHistoryResponder)
-        let undo = NSMenuItem(title: "Undo", action: #selector(history.undo(_:)), keyEquivalent: "z")
-        let redo = NSMenuItem(title: "Redo", action: #selector(history.redo(_:)), keyEquivalent: "Z")
-        #expect(history.validateMenuItem(undo))
-        #expect(content.tryToPerform(#selector(history.undo(_:)), with: nil))
+        #expect(state.canUndo(in: store))
+        state.undo(in: store)
         #expect(store.currentScene?.name == scene.name)
-        #expect(history.validateMenuItem(redo))
-        #expect(content.tryToPerform(#selector(history.redo(_:)), with: nil))
+        #expect(state.canRedo(in: store))
+        state.redo(in: store)
         #expect(store.currentScene?.name == "Changed")
-        bridge.removeFromSuperview()
-        #expect(content.nextResponder === previous)
     }
 
-    @Test func nativeManagerExposesStoreHistoryAndRestoresTheOrdinaryManager() throws {
-        let store = try makeStore()
-        let scene = try #require(store.currentScene)
-        try store.perform(.renameScene(scene.id, name: "Native manager edit"))
-        let window = makeWindow()
-        defer { window.close() }
-        let content = try #require(window.contentView)
-        let ordinaryManager = content.undoManager
-        let bridge = ShotsUndoView(store: store)
-        content.addSubview(bridge)
-        let manager = try #require(content.undoManager)
-        #expect(manager is ShotsDocumentUndoManager)
-        #expect(manager.canUndo)
-        manager.undo()
-        #expect(store.currentScene?.name == scene.name)
-        #expect(manager.canRedo)
-        manager.redo()
-        #expect(store.currentScene?.name == "Native manager edit")
-        bridge.removeFromSuperview()
-        #expect(content.undoManager === ordinaryManager)
-    }
-
-    @Test func textEditingKeepsItsOwnUndoEvenWhenTheDocumentHasHistory() throws {
+    @Test func nativeTextHistoryTakesPrecedenceUntilTheEditorLosesFocus() throws {
         let store = try makeStore()
         let scene = try #require(store.currentScene)
         try store.perform(.renameScene(scene.id, name: "Document edit"))
         let window = makeWindow()
         defer { window.close() }
+        let state = ShotsUndoCommandState(currentWindow: { window })
         let content = try #require(window.contentView)
-        let bridge = ShotsUndoView(store: store)
-        content.addSubview(bridge)
         let editor = NSTextView(frame: content.bounds)
         editor.allowsUndo = true
         content.addSubview(editor)
         #expect(window.makeFirstResponder(editor))
         editor.insertText("Text edit", replacementRange: NSRange(location: NSNotFound, length: 0))
         editor.breakUndoCoalescing()
-        #expect(editor.undoManager?.canUndo == true)
-        #expect(!(editor.undoManager is ShotsDocumentUndoManager))
-        bridge.history.undo(nil)
+        #expect(state.canUndo(in: store))
+        state.undo(in: store)
         #expect(editor.string.isEmpty)
         #expect(store.currentScene?.name == "Document edit")
-        let undo = NSMenuItem(title: "Undo", action: #selector(bridge.history.undo(_:)), keyEquivalent: "z")
-        #expect(!bridge.history.validateMenuItem(undo))
-        bridge.history.redo(nil)
+        #expect(!state.canUndo(in: store))
+        #expect(state.canRedo(in: store))
+        state.redo(in: store)
         #expect(editor.string == "Text edit")
         #expect(store.currentScene?.name == "Document edit")
-    }
-
-    @Test func replacingBridgeDoesNotResurrectTheRetiredResponder() throws {
-        let store = try makeStore()
-        let window = makeWindow()
-        defer { window.close() }
-        let content = try #require(window.contentView)
-        let previous = content.nextResponder
-        let first = ShotsUndoView(store: store)
-        let second = ShotsUndoView(store: store)
-        content.addSubview(first)
-        content.addSubview(second)
-        #expect(content.nextResponder === second.history)
-        first.removeFromSuperview()
-        #expect(content.nextResponder === second.history)
-        second.removeFromSuperview()
-        #expect(content.nextResponder === previous)
-    }
-
-    @Test func swiftUIBackgroundMountsTheNativeResponderWithoutReplacingEditCommands() async throws {
-        let store = try makeStore()
-        let scene = try #require(store.currentScene)
-        try store.perform(.renameScene(scene.id, name: "Mounted edit"))
-        let window = makeWindow()
-        defer { window.close() }
-        let host = NSHostingView(rootView: Text("Shots").background(ShotsUndoBridge(store: store)))
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        await Task.yield()
-        let history = try #require(host.nextResponder as? ShotsHistoryResponder)
-        #expect(history.store === store)
-        #expect(host.tryToPerform(#selector(history.undo(_:)), with: nil))
+        #expect(window.makeFirstResponder(content))
+        state.refresh()
+        #expect(state.canUndo(in: store))
+        state.undo(in: store)
         #expect(store.currentScene?.name == scene.name)
+        #expect(editor.string == "Text edit")
+    }
+
+    @Test func commandEnablementRefreshesWithNativeNotifications() throws {
+        let store = try makeStore()
+        let window = makeWindow()
+        defer { window.close() }
+        let state = ShotsUndoCommandState(currentWindow: { window })
+        var refreshes = 0
+        let observation = state.objectWillChange.sink { refreshes += 1 }
+        defer { observation.cancel() }
+        let editor = NSTextView(frame: .zero)
+        editor.allowsUndo = true
+        window.contentView?.addSubview(editor)
+        #expect(window.makeFirstResponder(editor))
+        editor.insertText("Typed", replacementRange: NSRange(location: NSNotFound, length: 0))
+        editor.breakUndoCoalescing()
+        NotificationCenter.default.post(name: NSText.didChangeNotification, object: editor)
+        #expect(refreshes > 0)
+        #expect(state.canUndo(in: store))
+        #expect(!state.canRedo(in: store))
+        state.undo(in: store)
+        #expect(!state.canUndo(in: store))
+        #expect(state.canRedo(in: store))
     }
 
     private func makeStore() throws -> ShotsStore {

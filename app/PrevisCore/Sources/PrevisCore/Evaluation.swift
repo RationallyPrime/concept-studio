@@ -9,6 +9,7 @@ public struct SceneFrame: Sendable, Equatable {
     public var camera: CameraFrame // field of view for the canvas aspect
     public var entities: [EntityFrame] // document order
     public var plate: LocationPlate?
+    public var referencePlates: [LocationPlate]
     public var setPieces: [PlateSetPiece]
 
     public init(
@@ -18,7 +19,8 @@ public struct SceneFrame: Sendable, Equatable {
         camera: CameraFrame,
         entities: [EntityFrame] = [],
         plate: LocationPlate? = nil,
-        setPieces: [PlateSetPiece] = []
+        setPieces: [PlateSetPiece] = [],
+        referencePlates: [LocationPlate] = []
     ) {
         self.index = index
         self.time = time
@@ -26,6 +28,7 @@ public struct SceneFrame: Sendable, Equatable {
         self.camera = camera
         self.entities = entities
         self.plate = plate
+        self.referencePlates = referencePlates
         self.setPieces = setPieces
     }
 
@@ -39,6 +42,20 @@ public struct SceneFrame: Sendable, Equatable {
     public func isOccluded(_ point: Vec3) -> Bool {
         PlateSetPiece.occludes(point, camera: camera, pieces: setPieces)
     }
+
+    /// An exact photographed view, preferring the selected plate when several calibrations coincide.
+    public var matchedReferencePlate: LocationPlate? {
+        guard let plate else { return nil }
+        if plate.calibration.matches(camera, aspect: plate.pixelSize.aspect) { return plate }
+        return referencePlates.first {
+            $0.id != plate.id && abs($0.pixelSize.aspect - plate.pixelSize.aspect) < 1e-9
+                && $0.calibration.matches(camera, aspect: $0.pixelSize.aspect)
+        }
+    }
+
+    public var usesProjectedLocation: Bool {
+        plate != nil && matchedReferencePlate == nil
+    }
 }
 
 public struct CameraFrame: Sendable, Equatable {
@@ -49,7 +66,7 @@ public struct CameraFrame: Sendable, Equatable {
     public var verticalFOV: Double // radians
 
     public static let near = 0.05
-    static let far = 500.0
+    public static let far = 500.0
 
     public init(
         position: Vec3,

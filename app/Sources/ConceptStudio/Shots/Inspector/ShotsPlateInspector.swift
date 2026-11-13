@@ -71,6 +71,13 @@ struct ShotsPlateInspector: View {
             }
             DisclosureGroup("Place selected on plate") { placementControls(plate) }
             if let frame = store.frame {
+                if frame.usesProjectedLocation {
+                    Text(
+                        "This camera uses the photographed floor and set surfaces from the calibrated views. "
+                            + "A checker pattern marks missing coverage. Add a view or mark the missing set surface."
+                    )
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 Text(ShotStaging.description(frame: frame, shot: shot))
                     .font(.caption).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
@@ -87,11 +94,14 @@ struct ShotsPlateInspector: View {
             Picker("Sensor", selection: calibrationBinding(plate, scene: scene, shot: shot, \.sensor)) {
                 ForEach(Sensor.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
-            ShotsPositionFields(position: calibrationBinding(plate, scene: scene, shot: shot, \.position))
+            ShotsPositionFields(
+                position: calibrationBinding(plate, scene: scene, shot: shot, \.position),
+                commitOnSubmit: true
+            )
             ShotsNumberField(
                 title: "Lens (mm)",
                 value: calibrationBinding(plate, scene: scene, shot: shot, \.focalLength),
-                range: 1 ... 1000
+                range: 1 ... 1000, commitOnSubmit: true
             )
             angleField("Pan (°)", plate: plate, scene: scene, shot: shot, keyPath: \.pan)
             angleField("Tilt (°)", plate: plate, scene: scene, shot: shot, keyPath: \.tilt)
@@ -132,7 +142,7 @@ struct ShotsPlateInspector: View {
         return ShotsNumberField(title: name, value: Binding(
             get: { radians.wrappedValue * 180 / .pi },
             set: { radians.wrappedValue = $0 * .pi / 180 }
-        ), range: -180 ... 180)
+        ), range: -180 ... 180, commitOnSubmit: true)
     }
 
     private func keyCanvasControls(_ shot: Shot) -> some View {
@@ -167,21 +177,24 @@ struct ShotsPlateInspector: View {
             }
             if let piece = scene.setPieces.first(where: { $0.id == selectedPieceID }) {
                 ShotsTextField(title: "Name", text: pieceBinding(piece: piece, scene: scene, \.name))
-                ShotsPositionFields(position: pieceBinding(piece: piece, scene: scene, \.position))
+                ShotsPositionFields(
+                    position: pieceBinding(piece: piece, scene: scene, \.position),
+                    commitOnSubmit: true
+                )
                 ShotsNumberField(
                     title: "Width (m)",
                     value: pieceBinding(piece: piece, scene: scene, \.size.x),
-                    range: 0.01 ... 1000
+                    range: 0.01 ... 1000, commitOnSubmit: true
                 )
                 ShotsNumberField(
                     title: "Height (m)",
                     value: pieceBinding(piece: piece, scene: scene, \.size.y),
-                    range: 0.01 ... 1000
+                    range: 0.01 ... 1000, commitOnSubmit: true
                 )
                 ShotsNumberField(
                     title: "Depth (m)",
                     value: pieceBinding(piece: piece, scene: scene, \.size.z),
-                    range: 0.01 ... 1000
+                    range: 0.01 ... 1000, commitOnSubmit: true
                 )
                 Toggle("Hides figures behind it", isOn: pieceBinding(piece: piece, scene: scene, \.occludes))
                 Toggle("People can stand on top", isOn: pieceBinding(piece: piece, scene: scene, \.supportsStanding))
@@ -222,8 +235,8 @@ struct ShotsPlateInspector: View {
                     + "The percentages provide the same action from the keyboard."
             )
             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            ShotsNumberField(title: "Across (%)", value: $point.x, range: 0 ... 100)
-            ShotsNumberField(title: "Down (%)", value: $point.y, range: 0 ... 100)
+            ShotsNumberField(title: "Across (%)", value: $point.x, range: 0 ... 100, commitOnSubmit: true)
+            ShotsNumberField(title: "Down (%)", value: $point.y, range: 0 ... 100, commitOnSubmit: true)
             Button("Place selected here") {
                 guard let frame = store.frame,
                       let position = plate.placementPoint(

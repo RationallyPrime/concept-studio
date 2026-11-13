@@ -76,6 +76,7 @@ import PrevisCore
     private let progress: @MainActor (ExportProgress) -> Void
     private let guides: [(position: PackageFile.Position, frame: Int)]
     private var files: [PackageFile] = []
+    private var platePaths: [String: String] = [:]
     private var videosDone = 0
     private var videoCount = 0
 
@@ -225,9 +226,10 @@ import PrevisCore
     }
 
     private func writeComposition(_ frame: SceneFrame) async throws {
-        guard let plate = frame.plate, let renderer, let root = renderer.plateRoot else {
+        guard let selectedPlate = frame.plate, let renderer, let root = renderer.plateRoot else {
             throw ShotsMediaError("The plate-backed shot needs its project folder for export.")
         }
+        let plate = frame.matchedReferencePlate ?? selectedPlate
         progress(ExportProgress(step: "Drawing the composition guide…", fractionCompleted: 0))
         let image = try await renderer.image(of: frame, look: look, size: shot.guideCanvas.pixelSize)
         try StillWriter.writePNG(image, to: prepare("composition.png"))
@@ -237,10 +239,20 @@ import PrevisCore
             frame: 0,
             pixelSize: shot.guideCanvas.pixelSize
         ))
-        let source = root.appendingPathComponent(plate.imagePath)
-        let platePath = "plate/" + source.lastPathComponent
-        try FileManager.default.copyItem(at: source, to: prepare(platePath))
-        files.append(PackageFile(role: .plate, path: platePath, pixelSize: plate.pixelSize))
+        let references = [plate] + frame.referencePlates.filter { $0.id != plate.id }
+        let slugs = PackageNames.entitySlugs(references.map(\.id))
+        for (reference, slug) in zip(references, slugs) {
+            let source = root.appendingPathComponent(reference.imagePath)
+            let path = "plate/" + slug + "." + source.pathExtension
+            try FileManager.default.copyItem(at: source, to: prepare(path))
+            platePaths[reference.id] = path
+            files.append(PackageFile(
+                role: .plate,
+                path: path,
+                pixelSize: reference.pixelSize,
+                plateID: reference.id
+            ))
+        }
         let staging = ShotStaging.description(frame: frame, shot: shot)
         try Data(staging.utf8).write(to: prepare("staging.txt"), options: .atomic)
         let subjects = ShotStaging.subjects(in: frame).map {
@@ -249,6 +261,7 @@ import PrevisCore
         let legend = ([
             "Plate \(plate.name). Neutral, featureless stand-ins show composition and facing.",
             "Use the scene sheet for each character’s appearance.",
+            "Checker-pattern areas have no visible photographed source in the calibrated views.",
         ] + subjects).joined(separator: "\n") + "\n"
         try Data(legend.utf8).write(to: prepare("legend.txt"), options: .atomic)
         files += [PackageFile(role: .staging, path: "staging.txt"), PackageFile(role: .legend, path: "legend.txt")]
@@ -257,8 +270,10 @@ import PrevisCore
     private func exportedScene() -> PrevisScene {
         guard let plate = frames.first?.plate else { return scene }
         var exported = scene
-        exported.plates = [plate]
-        exported.plates[0].imagePath = "plate/" + URL(fileURLWithPath: plate.imagePath).lastPathComponent
+        exported.plates = frames.first?.referencePlates.isEmpty == false ? frames[0].referencePlates : [plate]
+        for index in exported.plates.indices {
+            if let path = platePaths[exported.plates[index].id] { exported.plates[index].imagePath = path }
+        }
         // Only the exported shot is included, so no remaining shot refers to a plate outside this package.
         exported.shots = [shot]
         return exported

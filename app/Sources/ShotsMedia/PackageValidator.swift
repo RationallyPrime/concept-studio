@@ -30,6 +30,10 @@ public enum PackageValidator {
                 problems.append("\(file.path) is listed but missing.")
                 continue
             }
+            if file.role == .plate {
+                problems += stillProblems(url, path: file.path, size: file.pixelSize ?? size)
+                continue
+            }
             switch url.pathExtension {
             case "png", "jpg", "jpeg", "heic", "tif", "tiff":
                 problems += stillProblems(url, path: file.path, size: file.pixelSize ?? size)
@@ -43,6 +47,7 @@ public enum PackageValidator {
         }
         problems += guideProblems(manifest)
         if let keyCanvas = manifest.keyCanvas {
+            problems += referencePlateProblems(manifest, packageURL: packageURL)
             for role in [PackageFile.Role.composition, .staging, .legend, .plate]
                 where !manifest.files.contains(where: { $0.role == role }) {
                 problems.append("The plate-backed package has no \(role.rawValue) file.")
@@ -57,6 +62,19 @@ public enum PackageValidator {
             problems += matteProblems(manifest, packageURL: packageURL)
         }
         return problems
+    }
+
+    private static func referencePlateProblems(_ manifest: PackageManifest, packageURL: URL) -> [String] {
+        guard let data = try? Data(contentsOf: packageURL.appendingPathComponent("shot.json")),
+              let description = try? JSONDecoder().decode(DescribedScene.self, from: data) else {
+            return ["shot.json is missing or unreadable, so reference plates cannot be checked."]
+        }
+        return description.scene.plates.compactMap { plate in
+            let listed = manifest.files.contains {
+                $0.role == .plate && $0.plateID == plate.id && $0.path == plate.imagePath
+            }
+            return listed ? nil : "Reference plate \(plate.name) has no matching image in the package."
+        }
     }
 
     private static func stillProblems(_ url: URL, path: String, size: PixelSize) -> [String] {
@@ -119,4 +137,8 @@ private struct DescribedSubjects: Decodable {
 
 private struct DescribedSubject: Decodable {
     var entityID: EntityID, name: String, isActor: Bool
+}
+
+private struct DescribedScene: Decodable {
+    var scene: PrevisScene
 }

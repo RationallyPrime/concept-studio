@@ -36,6 +36,7 @@ public struct ShotEvaluator: Sendable {
     let shot: Shot
     let aspect: Double
     let plate: LocationPlate?
+    let referencePlates: [LocationPlate]
     let setPieces: [PlateSetPiece]
     let entities: [Resolved]
     let tracks: [EntityID: ActorPlan]
@@ -85,6 +86,7 @@ public struct ShotEvaluator: Sendable {
         let selectedPlate = scene.plates.first { $0.id == shot.plateID }
         self.aspect = aspect ?? selectedPlate?.pixelSize.aspect ?? shot.canvas.aspect
         plate = selectedPlate
+        referencePlates = scene.plates
         setPieces = scene.setPieces
         entities = resolved
         tracks = plans
@@ -240,7 +242,8 @@ public struct ShotEvaluator: Sendable {
             camera: cameraFrame(at: time, poses: poses),
             entities: frames,
             plate: plate,
-            setPieces: setPieces
+            setPieces: setPieces,
+            referencePlates: referencePlates
         )
     }
 

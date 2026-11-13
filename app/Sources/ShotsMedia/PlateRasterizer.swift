@@ -12,6 +12,9 @@ struct PlateRasterizer {
     let camera: CameraFrame
     let content: CGRect
     private let view: Mat4
+    private let cameraToWorld: Mat4
+    private let projectionScale: Double
+    private var textures: PlateTextures?
     private let pixels: UnsafeMutablePointer<UInt8>
     private let bytesPerRow: Int
     private var depth: [Float]
@@ -21,9 +24,11 @@ struct PlateRasterizer {
         self.camera = camera
         size = PixelSize(width: context.width, height: context.height)
         view = camera.viewMatrix()
+        cameraToWorld = view.inverse
         let rect = frame.plate?.imageRect(in: size)
         content = rect.map { CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height) }
             ?? CGRect(x: 0, y: 0, width: size.width, height: size.height)
+        projectionScale = 2 * tan(camera.verticalFOV / 2) / content.height
         pixels = context.data!.assumingMemoryBound(to: UInt8.self)
         bytesPerRow = context.bytesPerRow
         depth = Array(repeating: .infinity, count: context.width * context.height)
@@ -61,6 +66,94 @@ struct PlateRasterizer {
         context.scaleBy(x: 1, y: -1)
         context.draw(image, in: CGRect(origin: .zero, size: rect.size))
         context.restoreGState()
+    }
+
+    static func geometryDepths(frame: SceneFrame, camera: CameraFrame, size: PixelSize) throws -> [Float] {
+        var result: [Float] = []
+        _ = try PassDrawing.image(size: size) { context in
+            var rasterizer = PlateRasterizer(frame: frame, camera: camera, context: context)
+            for piece in frame.setPieces {
+                rasterizer.box(piece.bounds, color: nil)
+            }
+            result = rasterizer.depth
+        }
+        return result
+    }
+
+    static func drawUnmapped(in context: CGContext, rect: CGRect) {
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
+        context.saveGState()
+        context.clip(to: rect)
+        for y in stride(from: Int(floor(rect.minY / 24)) * 24, to: Int(ceil(rect.maxY)), by: 24) {
+            for x in stride(from: Int(floor(rect.minX / 24)) * 24, to: Int(ceil(rect.maxX)), by: 24) {
+                let color = unmappedColor(x: x, y: y)
+                context.setFillColor(CGColor(
+                    srgbRed: Double((color >> 16) & 255) / 255,
+                    green: Double((color >> 8) & 255) / 255,
+                    blue: Double(color & 255) / 255,
+                    alpha: 1
+                ))
+                context.fill(CGRect(x: x, y: y, width: 24, height: 24))
+            }
+        }
+        context.restoreGState()
+    }
+
+    /// Reconstructs only the shared geometry for which a calibrated photograph supplies visible pixels.
+    mutating func drawLocation(using textures: PlateTextures) {
+        self.textures = textures
+        drawFloor(using: textures)
+        let floorDepth = depth
+        for piece in frame.setPieces {
+            box(piece.bounds, color: nil)
+        }
+        self.textures = nil
+        // A non-occluding marked surface still receives texture, while actors can show through it.
+        depth = floorDepth
+        for piece in frame.setPieces where piece.occludes {
+            box(piece.bounds, color: nil)
+        }
+    }
+
+    private mutating func drawFloor(using textures: PlateTextures?) {
+        let minX = max(0, Int(ceil(content.minX))), maxX = min(size.width, Int(content.maxX))
+        let minY = max(0, Int(ceil(content.minY))), maxY = min(size.height, Int(content.maxY))
+        for y in minY ..< maxY {
+            for x in minX ..< maxX {
+                let ray = worldPoint(x: Double(x) + 0.5, y: Double(y) + 0.5, depth: 1)
+                let directionY = ray.y - camera.position.y
+                guard directionY < -1e-9 else { continue }
+                let distance = -camera.position.y / directionY
+                guard distance >= CameraFrame.near, distance <= CameraFrame.far else { continue }
+                let point = worldPoint(x: Double(x) + 0.5, y: Double(y) + 0.5, depth: distance)
+                depth[y * size.width + x] = Float(distance)
+                if let textures {
+                    write(
+                        textures.color(at: point, normal: Vec3(0, 1, 0)) ?? Self.unmappedColor(x: x, y: y),
+                        x: x,
+                        y: y
+                    )
+                }
+            }
+        }
+    }
+
+    private func worldPoint(x: Double, y: Double, depth: Double) -> Vec3 {
+        let scale = projectionScale * depth
+        return cameraToWorld.transform(Vec3((x - content.midX) * scale, (content.midY - y) * scale, -depth))
+    }
+
+    private static func unmappedColor(x: Int, y: Int) -> UInt32 {
+        (x / 24 + y / 24).isMultiple(of: 2) ? 0x612C59 : 0x242129
+    }
+
+    private func write(_ color: UInt32, x: Int, y: Int) {
+        let offset = y * bytesPerRow + x * 4
+        pixels[offset] = UInt8(color & 0xFF)
+        pixels[offset + 1] = UInt8((color >> 8) & 0xFF)
+        pixels[offset + 2] = UInt8((color >> 16) & 0xFF)
+        pixels[offset + 3] = 255
     }
 
     mutating func draw(matte: EntityID? = nil, layout: Bool = false) {
@@ -130,7 +223,7 @@ struct PlateRasterizer {
     /// Clips triangles against the camera's near plane before perspective division.
     private mutating func rasterize(_ triangle: [Vec3], color: UInt32?) {
         var clipped: [Vec3] = []
-        let near = 0.05
+        let near = CameraFrame.near
         for index in triangle.indices {
             let a = triangle[index], b = triangle[(index + 1) % triangle.count]
             if a.z <= -near { clipped.append(a) }
@@ -161,6 +254,12 @@ struct PlateRasterizer {
         let a = projected[0], b = projected[1], c = projected[2]
         let area = edge(a, b, c.x, c.y)
         guard abs(area) > 0.000001 else { return }
+        let world = triangle.map(cameraToWorld.transform)
+        let u = Vec3(world[1].x - world[0].x, world[1].y - world[0].y, world[1].z - world[0].z)
+        let v = Vec3(world[2].x - world[0].x, world[2].y - world[0].y, world[2].z - world[0].z)
+        let cross = Vec3(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x)
+        let length = sqrt(cross.x * cross.x + cross.y * cross.y + cross.z * cross.z)
+        let normal = length == 0 ? Vec3(0, 1, 0) : Vec3(cross.x / length, cross.y / length, cross.z / length)
         for y in minY ... maxY {
             for x in minX ... maxX {
                 let px = Double(x) + 0.5, py = Double(y) + 0.5
@@ -170,15 +269,14 @@ struct PlateRasterizer {
                 guard u >= -0.000001, v >= -0.000001, w >= -0.000001 else { continue }
                 let z = Float(1 / (u / -triangle[0].z + v / -triangle[1].z + w / -triangle[2].z))
                 let index = y * size.width + x
-                guard z < depth[index] else { continue }
+                guard z < depth[index], z <= Float(CameraFrame.far) else { continue }
                 depth[index] = z
-                guard let color else { continue }
-                // Core Graphics' memory rows run top-to-bottom after the drawing context's Y flip.
-                let offset = y * bytesPerRow + x * 4
-                pixels[offset] = UInt8(color & 0xFF)
-                pixels[offset + 1] = UInt8((color >> 8) & 0xFF)
-                pixels[offset + 2] = UInt8((color >> 16) & 0xFF)
-                pixels[offset + 3] = 255
+                if let color {
+                    write(color, x: x, y: y)
+                } else if let textures {
+                    let point = worldPoint(x: px, y: py, depth: Double(z))
+                    write(textures.color(at: point, normal: normal) ?? Self.unmappedColor(x: x, y: y), x: x, y: y)
+                }
             }
         }
     }

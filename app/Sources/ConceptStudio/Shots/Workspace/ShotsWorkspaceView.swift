@@ -40,7 +40,6 @@ private struct ShotsWorkspaceContent: View {
             if plateID != nil { showsShotCamera = true }
         }
         .onAppear { if store.currentPlate != nil { showsShotCamera = true } }
-        .background(ShotsUndoBridge(store: store))
         .onKeyPress(keys: [.space]) { press in
             guard press.modifiers.isDisjoint(with: [.command, .control, .option, .shift]),
                   !ShotsTimelineView.editingText,

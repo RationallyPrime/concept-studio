@@ -71,6 +71,7 @@ struct ConceptStudioApp: App {
                     .disabled(session.project == nil)
             }
             JourneyCommands(session: session)
+            ShotsUndoCommands(session: session)
             CommandGroup(replacing: .help) {
                 Button("ConceptStudio Help") { openWindow(id: "help") }
                     .keyboardShortcut("?", modifiers: .command)

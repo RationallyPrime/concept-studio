@@ -16,6 +16,7 @@ import RealityKit
 
     public var plateRoot: URL?
     private var plateImages: [URL: CGImage] = [:]
+    private var projectedTextures: PlateTextures?
     private let renderer: RealityRenderer
     private let mapper: PrevisSceneMapper
     private let overlays = Entity()
@@ -82,32 +83,37 @@ import RealityKit
     ) async throws {
         if let plate = frame.plate {
             try Task.checkCancellation()
-            let background: CGImage?
+            let activeCamera = camera ?? frame.camera
+            var activeFrame = frame
+            activeFrame.camera = activeCamera
+            let textures: PlateTextures?
             if matte == nil {
                 guard let plateRoot else {
                     throw ShotsMediaError("Choose a project folder to load plate “\(plate.name)”.")
                 }
-                let url = plateRoot.appendingPathComponent(plate.imagePath)
-                if let cached = plateImages[url] {
-                    background = cached
-                } else {
-                    let loaded = try PlateRasterizer.load(plate, root: plateRoot)
-                    plateImages[url] = loaded
-                    background = loaded
+                if projectedTextures?.matches(frame: frame, root: plateRoot) != true {
+                    projectedTextures = try PlateTextures(frame: frame, root: plateRoot) { try plateImage($0) }
                 }
+                textures = projectedTextures
             } else {
-                background = nil
+                textures = nil
             }
             try PassDrawing.draw(into: buffer) { context in
-                var rasterizer = PlateRasterizer(frame: frame, camera: camera ?? frame.camera, context: context)
-                if let background {
-                    PlateRasterizer.drawBackground(background, in: context, rect: rasterizer.content)
+                var rasterizer = PlateRasterizer(frame: frame, camera: activeCamera, context: context)
+                if let textures {
+                    if let exact = textures.exactView(for: activeFrame) {
+                        PlateRasterizer.drawBackground(exact.image, in: context, rect: rasterizer.content)
+                    } else {
+                        PlateRasterizer.drawUnmapped(in: context, rect: rasterizer.content)
+                        rasterizer.drawLocation(using: textures)
+                    }
                 } else {
                     context.setFillColor(CGColor(gray: 0, alpha: 1))
                     context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
                 }
                 rasterizer.draw(matte: matte)
             }
+            try Task.checkCancellation()
             return
         }
         await beginRender()
@@ -155,6 +161,15 @@ import RealityKit
         withExtendedLifetime(textureRef) {}
         // Cancellation during GPU work is reported only now, after completion; the overlay comes off on the way out.
         try Task.checkCancellation()
+    }
+
+    private func plateImage(_ plate: LocationPlate) throws -> CGImage {
+        guard let plateRoot else { throw ShotsMediaError("Choose a project folder to load plate “\(plate.name)”.") }
+        let url = plateRoot.appendingPathComponent(plate.imagePath)
+        if let cached = plateImages[url] { return cached }
+        let image = try PlateRasterizer.load(plate, root: plateRoot)
+        plateImages[url] = image
+        return image
     }
 
     /// RealityKit on macOS 27 skips entities that an earlier render found hidden, so right after a camera cut an

@@ -64,7 +64,13 @@ public enum ShotStaging {
     }
 
     public static func description(frame: SceneFrame, shot: Shot) -> String {
-        let plate = frame.plate.map { "Plate \($0.name)." } ?? "Grey stage."
+        let plate: String
+        if frame.usesProjectedLocation {
+            let references = frame.referencePlates.isEmpty ? [frame.plate].compactMap(\.self) : frame.referencePlates
+            plate = "Location view projected from \(references.map(\.name).joined(separator: ", "))."
+        } else {
+            plate = (frame.matchedReferencePlate ?? frame.plate).map { "Plate \($0.name)." } ?? "Grey stage."
+        }
         let camera = frame.camera
         let degrees = camera.tilt * 180 / .pi
         let angle = abs(degrees) < 0.5 ? "level" : String(
@@ -144,11 +150,12 @@ public enum PlateDiagnostics {
         if !plate.calibration.confirmed {
             result.append(warning("\(plate.name)'s camera match is unconfirmed. Align the floor and horizon first."))
         }
-        if !plate.calibration.matches(frame.camera, aspect: plate.pixelSize.aspect) {
+        if frame.usesProjectedLocation {
             result.append(warning(
                 "The shot camera extends beyond \(plate.name)'s photographed viewpoint. "
                     + "Check this view against the shared 3D set and other calibrated plates."
             ))
+            result += reconstructionProblems(frame: frame, shot: shot, sceneID: sceneID)
         }
         let cameraInside = frame.setPieces.first { piece in
             let box = piece.bounds
@@ -182,5 +189,21 @@ public enum PlateDiagnostics {
             }
         }
         return result
+    }
+
+    static func reconstructionProblems(frame: SceneFrame, shot: Shot, sceneID: SceneID) -> [ShotsProblem] {
+        let references = frame.referencePlates.isEmpty ? [frame.plate].compactMap(\.self) : frame.referencePlates
+        var messages: [String] = []
+        if !references.contains(where: \.calibration.confirmed) {
+            messages.append("The reconstructed view has no confirmed reference camera. Confirm the plate matches.")
+        }
+        if frame.setPieces.isEmpty {
+            messages.append(
+                "Only the floor has a projection surface. Add shared solids for walls, tables and raised platforms."
+            )
+        }
+        return messages.map {
+            ShotsProblem(severity: .warning, message: $0, sceneID: sceneID, shotID: shot.id)
+        }
     }
 }

@@ -158,12 +158,92 @@ struct PlateTests {
             try ShotEvaluator(scene: scene, shotID: $0.id, catalog: .bundled()).frame(0)
         }
         #expect(frames.allSatisfy { $0.setPieces == scene.setPieces })
+        #expect(frames.allSatisfy { $0.referencePlates == scene.plates })
         #expect(frames.allSatisfy { $0.entities[0].position == .zero })
         #expect(Set(frames.compactMap { $0.plate?.id }).count == 4)
         #expect(frames.allSatisfy { abs($0.project(Vec3(0, 1, 0))!.x - 288) < 1e-8 })
         let data = try JSONEncoder().encode(scene)
         let decoded = try JSONDecoder().decode(PrevisScene.self, from: data)
         #expect(decoded.setPieces == scene.setPieces)
+    }
+
+    @Test func movingFramesRetainEveryReferenceView() throws {
+        var scene = try scene()
+        var otherView = scene.plates[0]
+        otherView.id = "side-view"
+        otherView.imagePath = "plates/side.png"
+        otherView.calibration.position = Vec3(6, 1.6, 0)
+        otherView.calibration.pan = .pi / 2
+        scene.plates.append(otherView)
+        var destination = scene.shots[0].camera.marks[0]
+        destination.id = "moving-camera"
+        destination.time = scene.shots[0].duration
+        destination.position.x += 2
+        scene.shots[0].camera.marks.append(destination)
+        let evaluator = try ShotEvaluator(scene: scene, shotID: scene.shots[0].id, catalog: .bundled())
+        let first = evaluator.frame(0), last = evaluator.frame(scene.shots[0].frameCount - 1)
+        #expect(first.camera.position != last.camera.position)
+        #expect(first.plate == scene.plates[0])
+        #expect(last.plate == first.plate)
+        #expect(first.referencePlates == scene.plates)
+        #expect(last.referencePlates == first.referencePlates)
+        #expect(last.setPieces == first.setPieces)
+    }
+
+    @Test func reconstructionDiagnosticsExplainMissingMatchesAndSurfacesWithoutBlocking() throws {
+        var scene = try scene()
+        scene.setPieces = []
+        scene.plates[0].calibration.confirmed = false
+        var destination = scene.shots[0].camera.marks[0]
+        destination.id = "moving-camera"
+        destination.time = scene.shots[0].duration
+        destination.position.x += 1
+        scene.shots[0].camera.marks.append(destination)
+        let evaluator = try ShotEvaluator(scene: scene, shotID: scene.shots[0].id, catalog: .bundled())
+        let warnings = evaluator.warnings()
+        #expect(warnings.contains { $0.message.contains("no confirmed reference camera") })
+        #expect(warnings.contains { $0.message.contains("Only the floor has a projection surface") })
+        #expect(warnings.allSatisfy { $0.severity == .warning })
+        #expect(try ShotsValidation.problems(
+            in: ShotsDocument(version: 1, scenes: [scene]), catalog: .bundled()
+        ).isEmpty)
+    }
+
+    @Test func exactReferenceMatchingPrefersTheSelectedDraftPlate() throws {
+        let scene = try scene()
+        let shot = scene.shots[0]
+        var frame = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: .bundled()).frame(0)
+        frame.plate?.calibration.confirmed = false
+        var duplicate = scene.plates[0]
+        duplicate.id = "duplicate"
+        frame.referencePlates = try [duplicate, #require(frame.plate)]
+        #expect(frame.matchedReferencePlate?.id == frame.plate?.id)
+        #expect(!frame.usesProjectedLocation)
+    }
+
+    @Test func alternateExactViewRequiresMatchingAspectAndMovingViewsUseProjection() throws {
+        let scene = try scene()
+        let shot = scene.shots[0]
+        var frame = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: .bundled()).frame(0)
+        var alternate = scene.plates[0]
+        alternate.id = "alternate"
+        alternate.name = "Hall side"
+        alternate.calibration.position.x += 2
+        alternate.calibration.confirmed = false
+        frame.camera = alternate.calibration.frame(aspect: alternate.pixelSize.aspect)
+        var differentAspect = alternate
+        differentAspect.id = "landscape"
+        differentAspect.pixelSize = PixelSize(width: 1920, height: 1080)
+        frame.referencePlates = [differentAspect, alternate]
+        #expect(frame.matchedReferencePlate?.id == alternate.id)
+        #expect(!frame.usesProjectedLocation)
+        #expect(ShotStaging.description(frame: frame, shot: shot).contains("Plate Hall side."))
+        frame.referencePlates = [differentAspect]
+        #expect(frame.matchedReferencePlate == nil)
+        #expect(frame.usesProjectedLocation)
+        #expect(ShotStaging.description(frame: frame, shot: shot).contains("Location view projected from Hall side."))
+        frame.plate = nil
+        #expect(!frame.usesProjectedLocation)
     }
 
     @Test func placementUsesTheMovedShotCameraWhenProvided() throws {

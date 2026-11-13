@@ -168,19 +168,41 @@ struct PlateMediaTests {
         setup.scene.shots[0].keyCanvas = ShotCanvas(width: 576, height: 1024)
         let source = try pattern(size: setup.frame.canvas.pixelSize)
         try StillWriter.writePNG(source, to: folder.appendingPathComponent("source.png"))
+        var second = setup.scene.plates[0]
+        second.id = "reverse"
+        second.name = "Reverse plate"
+        second.imagePath = "reverse.png"
+        second.calibration.position = Vec3(0, 1.6, -6)
+        second.calibration.pan = .pi
+        setup.scene.plates.append(second)
+        setup.scene.shots[0].camera.marks[0].position = second.calibration.position
+        setup.scene.shots[0].camera.marks[0].pan = second.calibration.pan
+        try StillWriter.writePNG(source, to: folder.appendingPathComponent("reverse.png"))
         let package = try await ShotExporter(catalog: ContentCatalog.bundled(), plateRoot: folder).export(
             scene: setup.scene, shotID: setup.scene.shots[0].id, options: ExportOptions(passes: [.pose, .layout]),
             to: FolderDestination(parent: folder.appendingPathComponent("exports")), progress: { _ in }
         )
         #expect(await PackageValidator.problems(at: package.url).isEmpty)
+        #expect(Set(package.manifest.files.filter { $0.role == .plate }.compactMap(\.plateID))
+            == Set(["plate", "reverse"]))
+        let descriptionData = try Data(contentsOf: package.url.appendingPathComponent("shot.json"))
+        let description = try #require(JSONSerialization.jsonObject(with: descriptionData) as? [String: Any])
+        let sceneJSON = try #require(description["scene"] as? [String: Any])
+        let exportedScene = try JSONDecoder().decode(
+            PrevisScene.self,
+            from: JSONSerialization.data(withJSONObject: sceneJSON)
+        )
+        #expect(exportedScene.plates.count == 2)
+        #expect(exportedScene.plates.allSatisfy { $0.imagePath.hasPrefix("plate/") })
         let composition = try #require(package.manifest.files.first { $0.role == .composition })
         #expect(composition.frame == 0)
         #expect(composition.pixelSize == PixelSize(width: 576, height: 1024))
         let copied = try #require(package.manifest.files.first { $0.role == .plate })
+        #expect(copied.plateID == "reverse")
         #expect(try Data(contentsOf: package.url.appendingPathComponent(copied.path))
             == Data(contentsOf: folder.appendingPathComponent("source.png")))
         let staging = try String(contentsOf: package.url.appendingPathComponent("staging.txt"), encoding: .utf8)
-        #expect(staging.contains("Plate Test plate"))
+        #expect(staging.contains("Plate Reverse plate"))
         let sourceImage = try #require(CGImageSourceCreateWithURL(
             package.url.appendingPathComponent(composition.path) as CFURL, nil
         ))
