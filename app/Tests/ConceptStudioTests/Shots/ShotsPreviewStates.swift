@@ -74,7 +74,10 @@ extension PreviewRenderTests {
                 view: VStack(alignment: .leading, spacing: 12) {
                     ShotsInspectorView(store: store, session: session)
                     Divider()
-                    ShotsExportView(store: store, projectDirectory: session.project?.directory)
+                    ShotsExportView(
+                        store: store, projectDirectory: session.project?.directory,
+                        folders: ShotsExportFolders(preferences: session.preferences)
+                    )
                 }
                 // Natural height, as in the window's scrolling inspector, rather than squeezed to the capture.
                 .fixedSize(horizontal: false, vertical: true)
@@ -101,6 +104,12 @@ extension PreviewRenderTests {
             ("unavailable", ShotsExportControls(
                 running: false, progress: nil, summary: nil, unavailableReason: "Choose a shot to export it.",
                 export: {}, cancel: {}
+            )),
+            ("scene-folder", ShotsExportControls(
+                running: false, progress: nil, summary: nil, unavailableReason: nil, export: {}, cancel: {},
+                folder: ShotsExportControls.Folder(
+                    chosen: NSHomeDirectory() + "/Productions/Harbour/scenes/The Crossing", choose: {}, useProject: {}
+                )
             )),
         ]
         let sizes = Self.inspectorColumns.map { ($0.0, CGSize(width: $0.1.width, height: 160)) }
@@ -228,7 +237,8 @@ extension PreviewRenderTests {
         try await capture(
             "shots-scene-board",
             view: ShotsSceneBoard(
-                store: store, sceneID: document.scenes[0].id, projectDirectory: nil, onClose: {}
+                store: store, sceneID: document.scenes[0].id, projectDirectory: nil,
+                folders: ShotsExportFolders(preferences: session.preferences), onClose: {}
             ),
             output: output, filter: filter, captures: &captures,
             renderSizes: [("sheet", CGSize(width: 980, height: 720))], settleFor: .milliseconds(4000)

@@ -45,7 +45,9 @@ struct ShotsSceneList: View {
         }
         .sheet(item: $boardScene) { board in
             ShotsSceneBoard(
-                store: store, sceneID: board.id, projectDirectory: projectDirectory, onClose: { boardScene = nil }
+                store: store, sceneID: board.id, projectDirectory: projectDirectory,
+                folders: ShotsExportFolders(preferences: session?.preferences ?? .standard),
+                onClose: { boardScene = nil }
             )
         }
         .sheet(item: $blockingScene) { target in

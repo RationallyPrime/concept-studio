@@ -9,6 +9,7 @@ struct ShotsSceneBoard: View {
     @Bindable var store: ShotsStore
     let sceneID: SceneID
     let projectDirectory: URL?
+    let folders: ShotsExportFolders
     let onClose: () -> Void
     @State private var pictures: [ShotID: CGImage] = [:]
     @State private var notice: String?
@@ -29,7 +30,7 @@ struct ShotsSceneBoard: View {
                         .help("Copy the table below as Markdown, to paste into the scene sheet.")
                     Button("Save framing table…", systemImage: "square.and.arrow.down") { save(scene) }
                         .disabled(projectDirectory == nil)
-                        .help("Save the table and each shot's staging in words into the project's Shots folder.")
+                        .help("Save the table and each shot's staging in words into this scene's export folder.")
                     Button("Done", action: onClose).keyboardShortcut(.defaultAction)
                 }
                 .padding(14)
@@ -154,11 +155,12 @@ struct ShotsSceneBoard: View {
     private func save(_ scene: PrevisScene) {
         guard let projectDirectory else { return }
         do {
-            let folder = projectDirectory.appendingPathComponent("Shots", isDirectory: true)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let folder = try folders.open(forScene: scene.id, inProject: projectDirectory)
+            defer { folder.close() }
+            try FileManager.default.createDirectory(at: folder.url, withIntermediateDirectories: true)
             let words = scene.name.lowercased().split { !($0.isASCII && ($0.isLetter || $0.isNumber)) }
             let slug = words.isEmpty ? "scene" : words.joined(separator: "-")
-            let url = folder.appendingPathComponent("\(slug)-framing.md")
+            let url = folder.url.appendingPathComponent("\(slug)-framing.md")
             try Data(Self.document(for: scene, catalog: store.catalog).utf8).write(to: url, options: .atomic)
             notice = "Saved \(url.lastPathComponent)."
             AccessibilityNotification.Announcement("Framing table saved. Showing it in Finder.").post()

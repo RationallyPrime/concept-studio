@@ -123,7 +123,10 @@ private struct ShotsWorkspaceContent: View {
                 Divider()
                 ShotsInspectorView(store: store, session: session)
                 Divider()
-                ShotsExportView(store: store, projectDirectory: projectDirectory)
+                ShotsExportView(
+                    store: store, projectDirectory: projectDirectory,
+                    folders: ShotsExportFolders(preferences: session.preferences)
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
         }
