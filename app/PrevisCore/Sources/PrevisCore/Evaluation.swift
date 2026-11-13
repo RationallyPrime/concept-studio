@@ -8,19 +8,22 @@ public struct SceneFrame: Sendable, Equatable {
     public var canvas: ShotCanvas
     public var camera: CameraFrame // field of view for the canvas aspect
     public var entities: [EntityFrame] // document order
+    public var plate: LocationPlate? // the plate the shot is blocked over
 
     public init(
         index: Int? = nil,
         time: Double,
         canvas: ShotCanvas,
         camera: CameraFrame,
-        entities: [EntityFrame] = []
+        entities: [EntityFrame] = [],
+        plate: LocationPlate? = nil
     ) {
         self.index = index
         self.time = time
         self.canvas = canvas
         self.camera = camera
         self.entities = entities
+        self.plate = plate
     }
 }
 
@@ -137,6 +140,13 @@ public struct EntityFrame: Sendable, Equatable {
     public var parts: [PosedPart]
     public var keypoints: [Keypoint] // COCO-18 world positions; empty unless rig == .person
     public var bounds: Box3
+    public var setPiece: SetPiece? // set for a piece of the set
+
+    /// A piece of the set that the plate already shows: it hides stand-ins behind it, and guides show the plate
+    /// there instead of a grey box.
+    public var isInPlate: Bool {
+        setPiece?.inPlate ?? false
+    }
 
     public init(
         id: EntityID,
@@ -152,8 +162,10 @@ public struct EntityFrame: Sendable, Equatable {
         joints: [Joint: Double] = [:],
         parts: [PosedPart] = [],
         keypoints: [Keypoint] = [],
-        bounds: Box3
+        bounds: Box3,
+        setPiece: SetPiece? = nil
     ) {
+        self.setPiece = setPiece
         self.id = id
         self.assetID = assetID
         self.name = name
@@ -178,7 +190,8 @@ public struct EntityFrame: Sendable, Equatable {
             assetID: entity.assetID,
             name: entity.name,
             label: entity.label,
-            isActor: asset.rig != .none || entity.label != nil,
+            isActor: entity.setPiece == nil
+                && (asset.rig != .none || entity.label != nil || asset.category == StudioAssets.creatures),
             position: state.position,
             heading: state.heading,
             gait: state.gait,
@@ -187,7 +200,8 @@ public struct EntityFrame: Sendable, Equatable {
             joints: state.joints,
             parts: body.parts,
             keypoints: body.keypoints,
-            bounds: body.bounds
+            bounds: body.bounds,
+            setPiece: entity.setPiece
         )
     }
 }

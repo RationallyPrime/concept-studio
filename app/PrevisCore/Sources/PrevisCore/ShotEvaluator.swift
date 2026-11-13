@@ -35,6 +35,8 @@ public struct ShotEvaluator: Sendable {
     let sceneID: SceneID
     let shot: Shot
     let aspect: Double
+    let plate: LocationPlate?
+    let surfaces: SetSurfaces
     let entities: [Resolved]
     let tracks: [EntityID: ActorPlan]
     private let boardings: [Boarding]
@@ -81,6 +83,8 @@ public struct ShotEvaluator: Sendable {
         sceneID = scene.id
         self.shot = shot
         self.aspect = aspect ?? shot.canvas.aspect
+        plate = shot.plateID.flatMap { id in scene.plates.first { $0.id == id } }
+        surfaces = SetSurfaces(entities: scene.entities)
         entities = resolved
         tracks = plans
         camera = TrackPlan(waypoints: shot.camera.marks.map(Waypoint.init))
@@ -226,6 +230,11 @@ public struct ShotEvaluator: Sendable {
         }
         for index in poses.indices {
             poses[index].time = time
+            // Nobody sinks into a dais or a flight of steps: a person or animal over one stands on its top.
+            if !surfaces.isEmpty, entities[index].asset.rig != .none, poses[index].orientation == nil {
+                let position = poses[index].position
+                poses[index].position.y = max(position.y, surfaces.floor(x: position.x, z: position.z))
+            }
         }
         let frames = zip(entities, poses).map { EntityFrame.posed($0.entity, asset: $0.asset, state: $1) }
         return SceneFrame(
@@ -233,7 +242,8 @@ public struct ShotEvaluator: Sendable {
             time: time,
             canvas: shot.canvas,
             camera: cameraFrame(at: time, poses: poses),
-            entities: frames
+            entities: frames,
+            plate: plate
         )
     }
 

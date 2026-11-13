@@ -108,7 +108,8 @@ public extension PrevisScene {
             lighting: c.value("lighting", .day),
             entities: c.value("entities", []),
             blocking: c.value("blocking", []),
-            shots: c.value("shots", [])
+            shots: c.value("shots", []),
+            plates: c.value("plates", [])
         )
     }
 }
@@ -122,7 +123,8 @@ public extension PrevisEntity {
             name: c.value("name", ""),
             label: c.optional("label"),
             placement: c.value("placement", Placement(position: .zero, heading: 0, scale: 1)),
-            attachment: c.optional("attachment")
+            attachment: c.optional("attachment"),
+            setPiece: c.optional("setPiece")
         )
     }
 }
@@ -198,7 +200,10 @@ public extension Shot {
             guideFrames: c.value("guideFrames", []),
             notes: c.value("notes", ShotNotes(description: "", sound: "", music: "")),
             prompt: c.optional("prompt"),
-            results: c.value("results", [])
+            results: c.value("results", []),
+            plateID: c.optional("plateID"),
+            keyCanvas: c.optional("keyCanvas"),
+            asks: c.value("asks", [])
         )
     }
 }

@@ -42,7 +42,44 @@ private struct SceneChecker {
     }
 
     func problems() -> [ShotsProblem] {
-        entityProblems() + attachmentCycles() + takeProblems() + scene.shots.flatMap(shotProblems)
+        entityProblems() + attachmentCycles() + takeProblems() + plateProblems() + scene.shots.flatMap(shotProblems)
+    }
+
+    // MARK: Plates and set pieces
+
+    private func plateProblems() -> [ShotsProblem] {
+        var out: [ShotsProblem] = []
+        var seen: Set<PlateID> = []
+        for plate in scene.plates {
+            if !seen.insert(plate.id).inserted {
+                out.append(error("Two plates share the id \(plate.id); remove one of them."))
+            }
+            if plate.size.width <= 0 || plate.size.height <= 0 {
+                out.append(error("The plate \"\(plate.name)\" has no size; add the image again."))
+            }
+            if let match = plate.match {
+                let numbers = [match.pan, match.tilt, match.roll, match.focalLength]
+                if !match.position.isFinite || !numbers.allSatisfy(\.isFinite) || match.focalLength <= 0 {
+                    out.append(error(
+                        "The camera match of the plate \"\(plate.name)\" has a value that is not a number; "
+                            + "match the camera again."
+                    ))
+                }
+            }
+        }
+        for entity in scene.entities {
+            guard let piece = entity.setPiece else { continue }
+            if !piece.size.isFinite || piece.size.x <= 0 || piece.size.y <= 0 || piece.size.z <= 0 {
+                out.append(error(
+                    "\"\(entity.name)\" has a width, height or depth that is not above zero; give it a size.",
+                    entity: entity.id
+                ))
+            }
+            if piece.steps < 0 || piece.steps > 60 {
+                out.append(error("\"\(entity.name)\" has \(piece.steps) steps; use 0 to 60.", entity: entity.id))
+            }
+        }
+        return out
     }
 
     // MARK: Entities
@@ -164,6 +201,25 @@ private struct SceneChecker {
                 "\(label) has a \(shot.canvas.width) × \(shot.canvas.height) canvas; "
                     + "use multiples of 32 from 64 to 2048.",
                 shot: shot.id
+            ))
+        }
+        if let plateID = shot.plateID, !scene.plates.contains(where: { $0.id == plateID }) {
+            out.append(error(
+                "\(label) is blocked over the plate \(plateID), which is not in the scene; choose one of its plates.",
+                shot: shot.id
+            ))
+        }
+        if let key = shot.keyCanvas, !key.isValidStill {
+            out.append(error(
+                "\(label) has a \(key.width) × \(key.height) key size; use 64 to 4096 on each side.",
+                shot: shot.id
+            ))
+        }
+        for ask in shot.asks where !entityIDs.contains(ask.entityID) {
+            out.append(error(
+                "\(label) asks to show \(ask.entityID), who is not in the scene; remove that ask.",
+                shot: shot.id,
+                entity: ask.entityID
             ))
         }
         out += cameraProblems(shot, label)

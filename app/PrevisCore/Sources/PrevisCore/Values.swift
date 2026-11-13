@@ -45,6 +45,10 @@ public struct Vec3: Codable, Hashable, Sendable {
         let l = length
         return l > 0 ? self * (1 / l) : self
     }
+
+    func cross(_ b: Vec3) -> Vec3 {
+        Vec3(y * b.z - z * b.y, z * b.x - x * b.z, x * b.y - y * b.x)
+    }
 }
 
 public struct Point2: Codable, Hashable, Sendable {
@@ -107,6 +111,11 @@ public struct Quat: Codable, Hashable, Sendable {
         let u = Vec3(x, y, z)
         let t = cross(u, v) * 2
         return v + t * w + cross(u, t)
+    }
+
+    /// The opposite rotation, for a unit quaternion.
+    var conjugate: Quat {
+        Quat(x: -x, y: -y, z: -z, w: w)
     }
 }
 
@@ -281,18 +290,36 @@ public struct ShotCanvas: Codable, Hashable, Sendable {
         [width, height].allSatisfy { $0 % 32 == 0 && (64 ... 2048).contains($0) }
     }
 
+    /// A still for the image model: any size from 64 to 4096 on each side. Keys are larger than video canvases and
+    /// need not be multiples of 32.
+    public var isValidStill: Bool {
+        [width, height].allSatisfy { (64 ... 4096).contains($0) }
+    }
+
     public init(width: Int, height: Int) {
         self.width = width
         self.height = height
     }
 
     public static let portrait = ShotCanvas(width: 640, height: 1152)
+    /// 576 × 1024, the 9:16 video canvas of about half a megapixel.
+    public static let portrait9x16 = ShotCanvas(width: 576, height: 1024)
     public static let presets: [ShotCanvas] = [
         ShotCanvas(width: 640, height: 1152),
         ShotCanvas(width: 768, height: 1344),
         ShotCanvas(width: 1152, height: 640),
         ShotCanvas(width: 1344, height: 768),
         ShotCanvas(width: 768, height: 768),
+        ShotCanvas(width: 576, height: 1024),
+        ShotCanvas(width: 864, height: 1536),
+        ShotCanvas(width: 544, height: 960),
+    ]
+    /// Sizes for the still the image model works from, all 9:16.
+    public static let keyPresets: [ShotCanvas] = [
+        ShotCanvas(width: 1440, height: 2560),
+        ShotCanvas(width: 1080, height: 1920),
+        ShotCanvas(width: 864, height: 1536),
+        ShotCanvas(width: 576, height: 1024),
     ]
 }
 

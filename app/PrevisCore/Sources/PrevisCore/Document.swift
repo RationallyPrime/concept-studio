@@ -10,7 +10,7 @@ public typealias MarkID = String
 public typealias TakeID = String
 
 public struct ShotsDocument: Codable, Sendable, Equatable {
-    public static let currentVersion = 1
+    public static let currentVersion = 2
     public var version: Int
     public var scenes: [PrevisScene]
 
@@ -26,8 +26,9 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
     public var revision: Int // bumped by the store on every edit except setPrompt
     public var lighting: LightingPreset
     public var entities: [PrevisEntity]
-    public var blocking: [BlockingTake] // v1: exactly one take, shared by the scene's shots
+    public var blocking: [BlockingTake] // one take shared by the scene's shots, until a shot gets its own
     public var shots: [Shot]
+    public var plates: [LocationPlate] // the location's plates; a shot names the one it is blocked over
 
     public init(
         id: SceneID,
@@ -36,7 +37,8 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
         lighting: LightingPreset,
         entities: [PrevisEntity] = [],
         blocking: [BlockingTake] = [],
-        shots: [Shot] = []
+        shots: [Shot] = [],
+        plates: [LocationPlate] = []
     ) {
         self.id = id
         self.name = name
@@ -45,6 +47,7 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
         self.entities = entities
         self.blocking = blocking
         self.shots = shots
+        self.plates = plates
     }
 
     /// One take, "Master", and one shot, "1A".
@@ -77,6 +80,7 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var label: EntityLabel?
     public var placement: Placement // pose before the first mark, and always if there are none
     public var attachment: EntityAttachment? // rides the parent until its own first mark
+    public var setPiece: SetPiece? // a sized piece of the set; its asset is `set.<kind>`
 
     public init(
         id: EntityID,
@@ -84,7 +88,8 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
         name: String,
         label: EntityLabel? = nil,
         placement: Placement,
-        attachment: EntityAttachment? = nil
+        attachment: EntityAttachment? = nil,
+        setPiece: SetPiece? = nil
     ) {
         self.id = id
         self.assetID = assetID
@@ -92,6 +97,7 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
         self.label = label
         self.placement = placement
         self.attachment = attachment
+        self.setPiece = setPiece
     }
 }
 
@@ -211,6 +217,9 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var notes: ShotNotes
     public var prompt: ShotPrompt?
     public var results: [ShotResult] // reserved for later destinations; empty in v1
+    public var plateID: PlateID? // the plate this shot is blocked over; nil = the grey stage
+    public var keyCanvas: ShotCanvas? // the size of the key the image model makes; nil = the plate's, or the canvas
+    public var asks: [FramingAsk] // how much of each character the shot is meant to show
     public var duration: Double {
         Double(frameCount - 1) / Double(FrameGrid.fps)
     }
@@ -225,8 +234,14 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
         guideFrames: [Int] = [],
         notes: ShotNotes,
         prompt: ShotPrompt? = nil,
-        results: [ShotResult] = []
+        results: [ShotResult] = [],
+        plateID: PlateID? = nil,
+        keyCanvas: ShotCanvas? = nil,
+        asks: [FramingAsk] = []
     ) {
+        self.plateID = plateID
+        self.keyCanvas = keyCanvas
+        self.asks = asks
         self.id = id
         self.name = name
         self.frameCount = frameCount

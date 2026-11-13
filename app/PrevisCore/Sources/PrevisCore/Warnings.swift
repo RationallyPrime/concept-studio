@@ -22,6 +22,7 @@ extension Gait {
 extension ShotEvaluator {
     func computeWarnings() -> [ShotsProblem] {
         speedWarnings() + lineWarnings() + rangeWarnings() + pastTheEndWarnings() + keptBehaviourWarnings()
+            + stagingWarnings()
     }
 
     private func problem(_ message: String, entity: EntityID? = nil, mark: MarkID? = nil) -> ShotsProblem {
