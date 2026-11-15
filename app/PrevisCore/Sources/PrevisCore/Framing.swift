@@ -47,7 +47,7 @@ public enum Framing {
             throw problem(scene, shotID, "Framing needs at least one subject; select someone to frame.")
         }
         let lens = frame.camera.focalLength
-        let optics = Optics(sensor: shot.camera.sensor, focalLength: lens, aspect: shot.canvas.aspect)
+        let optics = Optics(sensor: shot.camera.sensor, focalLength: lens, aspect: evaluator.aspect)
         let camera = frame.camera
         let context = Context(camera: camera.position, optics: optics, people: people, primary: primary)
 
