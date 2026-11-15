@@ -130,6 +130,7 @@ public struct StagedCharacter: Sendable, Equatable {
     public var bodyFraction: Double // the standing height as a fraction of the frame's; can exceed 1
     public var distance: Double // metres from the camera along its view
     public var box: Box? // the visible part
+    public var standsOn: String? // the walkable set piece under them, such as a dais; nil on the floor
 
     /// "from head to mid-thigh", "in full, from head to boots", or what a creature shows.
     public var extentPhrase: String {
@@ -207,7 +208,9 @@ public struct Staging: Sendable, Equatable {
             case nil: return "\(who): not in frame."
             }
         }
-        var text = "\(who): frame \(character.horizontal.rawValue), \(character.depth.rawValue). "
+        // Said in so many words: an image model otherwise stands a figure at the foot of a dais, not on it.
+        let surface = character.standsOn.map { ", standing on the \($0)" } ?? ""
+        var text = "\(who): frame \(character.horizontal.rawValue), \(character.depth.rawValue)\(surface). "
             + "Visible \(character.extentPhrase)"
         switch character.cut {
         case let .hidden(names)?: text += "; \(list(names)) \(names.count == 1 ? "hides" : "hide") the rest"
@@ -281,6 +284,21 @@ public enum StagingAnalysis {
             characters: characters,
             floorLevel: frame.plate?.guides.floorLevel ?? 0
         )
+    }
+
+    /// The staging of `frame` for `shot`, saying which walkable set piece each character stands on.
+    static func staging(shot: Shot, frame: SceneFrame, surfaces: SetSurfaces) -> Staging {
+        var staged = staging(shot: shot, frame: frame)
+        for index in staged.characters.indices {
+            let id = staged.characters[index].entityID
+            guard let entity = frame.entities.first(where: { $0.id == id }),
+                  let support = surfaces.support(x: entity.position.x, z: entity.position.z),
+                  abs(entity.position.y - support.top) < 0.05,
+                  let piece = frame.entities.first(where: { $0.id == support.entityID })
+            else { continue }
+            staged.characters[index].standsOn = piece.name
+        }
+        return staged
     }
 
     /// The shot size in a director's words, from the character who is largest in frame.
@@ -391,7 +409,7 @@ public extension ShotEvaluator {
     /// What the frame at `index` shows of each actor: where they are, how much of them is visible, what hides the
     /// rest, and which way they face.
     func staging(atFrame index: Int = 0) -> Staging {
-        StagingAnalysis.staging(shot: shot, frame: frame(index))
+        StagingAnalysis.staging(shot: shot, frame: frame(index), surfaces: surfaces)
     }
 
     /// Where the first frame can't be what the shot asks for: a character hidden by the set, cut by the frame,

@@ -421,6 +421,7 @@ struct StagingFile: Encodable {
         var cutByFrameEdge: String?
         var headFraction: Double, bodyFraction: Double, distance: Double
         var box: [String: Double]?
+        var standsOn: String?
     }
 
     var formatVersion = 1
@@ -461,7 +462,8 @@ struct StagingFile: Encodable {
                 facing: character.facing.rawValue, visible: character.extentPhrase, hiddenBy: hiddenBy,
                 cutByFrameEdge: edge, headFraction: character.headFraction, bodyFraction: character.bodyFraction,
                 distance: character.distance,
-                box: character.box.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] }
+                box: character.box.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] },
+                standsOn: character.standsOn
             )
         }
         description = staged.description()

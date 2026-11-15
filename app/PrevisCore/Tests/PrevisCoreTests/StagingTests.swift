@@ -98,6 +98,15 @@ struct StagingTests {
         #expect(text.contains("the Long table hides the rest"))
     }
 
+    @Test func theDescriptionSaysWhoStandsOnTheDais() throws {
+        let (_, evaluator) = try sample()
+        #expect(try character(man, in: evaluator).standsOn == "Dais")
+        #expect(try character(woman, in: evaluator).standsOn == nil)
+        let lines = evaluator.staging().description().split(separator: "\n")
+        #expect(lines.contains { $0.hasPrefix("Man (") && $0.contains(", standing on the Dais. Visible") })
+        #expect(!lines.contains { $0.hasPrefix("Woman (") && $0.contains("standing on") })
+    }
+
     @Test func aDragonIsAnActorAtItsTrueSizeBesideAPerson() throws {
         let (_, evaluator) = try sample { scene in
             scene.entities.append(PrevisEntity(

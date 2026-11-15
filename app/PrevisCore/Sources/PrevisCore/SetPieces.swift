@@ -269,6 +269,15 @@ struct SetSurfaces: Sendable {
         }
     }
 
+    /// The walkable piece whose top is the floor at a point, and that top's height; nil on the ground.
+    func support(x: Double, z: Double) -> (entityID: EntityID, top: Double)? {
+        var best: (entityID: EntityID, top: Double)?
+        for slab in slabs where slab.walkable && slab.local(x: x, z: z) != nil && slab.top > (best?.top ?? 0) {
+            best = (slab.entityID, slab.top)
+        }
+        return best
+    }
+
     /// The piece of furniture a person standing at this point is inside, if any: something that isn't walked on,
     /// rises above the feet and starts below head height (an arch's lintel overhead is not in the way).
     func blocker(x: Double, y: Double, z: Double) -> EntityID? {

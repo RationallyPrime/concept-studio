@@ -94,7 +94,7 @@ A package holds:
 | For | File | Use |
 |---|---|---|
 | The key (the image model) | `guides/first-f0000-composition.png` | Image 1 in place of the bare plate: the plate with a coloured stand-in per character, at the key's size, no text |
-| The key | `staging.txt` | Paste into the prompt: plate, framing, camera, then where each character is, how much shows and which way they face, and which colour is who |
+| The key | `staging.txt` | Paste into the prompt: plate, framing, camera, then where each character is, what they stand on, how much shows and which way they face, and which colour is who |
 | People | `guides/first-f0000-composition-labelled.png` | The same picture with name tags, for review |
 | The video (H3 Fun ControlNet) | `control/pose.mp4`, `control/layout.mp4` | Control video on the video canvas and frame grid; frame 0 agrees with the composition guide |
 | The scene sheet | `staging.json` | The same staging as data |

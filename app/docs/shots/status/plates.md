@@ -1,6 +1,7 @@
 # Blocking over the real location: status
 
-Built on the branch `fable-blocks`, from the brief of 2026-11-13. How to use it: [PLATES.md](../PLATES.md).
+Built on the branch `fable-blocks`, from the brief of 2026-11-13, and merged onto main on 2026-11-15 in place
+of the first plate build (see "History" below). How to use it: [PLATES.md](../PLATES.md).
 What crosses a seam: [CONTRACTS.md](../CONTRACTS.md) sections 5.7 to 5.9, 7, 8.1 and 8.3.
 
 | Requirement | State | Where |
@@ -56,3 +57,30 @@ Shots and follow PLATES.md.
 - Dragon proportions: at scale 1 (a 10 m standing head height) the spread wings are about 32 m across and the
   body about 29 m from nose to tail tip. The owner gave head heights on 2026-11-13; wingspan and length are
   still this build's guess.
+
+## History
+
+Three branches built the brief of 2026-11-13. `ariadne-blocks` was merged first (#106, #107) and was on main
+from 2026-11-15 until this build replaced it the same day, after a side-by-side reading of all three. All three
+built, passed their tests and linted clean; they differed in what they do.
+
+**The image canary has been run once, with the first build's guide, and failed.** On 2026-11-13 three Throne
+Scene shots on plate C were keyed with and without that build's composition guide (grey stand-ins, a staging
+paragraph, a legend by position). In the owner's blind judgement the guided key won 0 of 3; the brief asks for
+2 of 3. The run cost $0.45. This build's guide differs (stand-ins in named colours that the staging text and
+legend repeat, the occluding piece and the standing surface said in words) and has not been through the canary.
+
+**Kept from the first build:** the Edit-menu undo commands (`ShotsUndoCommands`), and reading of its documents:
+a plate saved as `imagePath`, `pixelSize` and a confirmed `calibration` opens with its file name, size and
+camera. Its image stays in `.conceptstudio/plates/`, so the plate is added again; its set boxes
+(`scene.setPieces`) and `requestedFraming` are not read.
+
+**Not carried over, still on `ariadne-blocks`:**
+- Projection of the plate photographs onto the floor and the set's boxes when a shot's camera leaves the
+  plate's viewpoint, with a checker where no photograph covers (`PlateRasterizer`, `PlateTextures`). It is one
+  answer to the first open question above. Porting it means teaching it rotated, many-part set pieces.
+- Several calibrated views of one set travelling inside each package, and the package's own copy of the plate.
+
+**From `gemini-blocks` (never merged):** the staging line now says which walkable piece a character stands on
+("standing on the Dais"), because an image model otherwise puts the figure at the dais's foot. Its articulated
+dragon rig was not taken; this build's dragons are static bodies at the owner's sizes.
