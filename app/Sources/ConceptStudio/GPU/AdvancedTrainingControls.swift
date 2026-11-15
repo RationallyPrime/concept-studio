@@ -39,6 +39,16 @@ struct AdvancedTrainingControls: View {
                 .help("How much the model changes at each step. Keep the default for your first run.")
             if workspace.editsTrainerSettings { trainerSettingControls }
             regularizationControls
+            if workspace.samplesOffered {
+                Toggle("Draw sample images during training", isOn: $workspace.samplesEnabled)
+                    .help("At every checkpoint the trainer draws the sample prompt with the LoRA so far. The "
+                        + "pictures arrive with the run's files. Each one adds a little time to the run.")
+                if workspace.samplesEnabled {
+                    TextField(
+                        "Sample prompt", text: $workspace.samplePrompt, prompt: Text(workspace.defaultSamplePrompt)
+                    )
+                }
+            }
             TrainingAugmentationControls(workspace: workspace)
             TextField("Triggers", text: $workspace.triggerWords)
             TextField("Caption profile", text: $workspace.profile)

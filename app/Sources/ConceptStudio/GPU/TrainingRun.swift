@@ -373,6 +373,9 @@ extension GPUWorkspace {
         triggerWords = run.params["triggers"]?.arrayValue?.compactMap(\.stringValue).joined(separator: ",") ?? ""
         profile = run.params["profile"]?.stringValue ?? modelTable.defaultRow.captions.imageProfile
         seed = run.params["seed"]?.intValue ?? 42
+        let samples = run.params["sample_prompts"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        samplesEnabled = (run.params["sample_every"]?.intValue ?? 0) > 0 && !samples.isEmpty
+        samplePrompt = samples.first ?? ""
         if let cap = run.gpuBudgetUSD { runBudget = cap }
         // The project's dataset revision and media kind stay as the project recorded them: a run that recorded a
         // published dataset supplies its own through `publishedRepeatRun`, and one that did not trains on these.

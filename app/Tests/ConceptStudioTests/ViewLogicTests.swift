@@ -98,6 +98,7 @@ struct ViewLogicTests {
         }
         #expect(!prompt(.discardCaptionDrafts(warning: "1 edit")).confirmIsDefault)
         #expect(!prompt(.raiseBudget(from: 5, to: 10, hourlyRate: 1)).confirmIsDefault)
+        #expect(!prompt(.forgetUnstoppablePod(id: "pod1")).confirmIsDefault)
         #expect(prompt(.stopWithPendingResult).confirmIsDefault)
         let work = StudioPrompt.RunningWork(
             hasRunningPod: true, hourlyRate: 1, spent: 0, offerKeepRunning: true, purpose: .quit
