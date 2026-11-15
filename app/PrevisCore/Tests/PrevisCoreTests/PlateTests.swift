@@ -147,4 +147,26 @@ struct PlateTests {
         let wider = PlateFit.widthMismatch(plate: size, canvas: PixelSize(width: 544, height: 960), sensor: .super35)
         #expect(wider > 0.007 && wider < 0.008)
     }
+
+    @Test func aPlateSavedByTheFirstPlateBuildKeepsItsFileSizeAndConfirmedCamera() throws {
+        let camera = PlateMatch(
+            position: Vec3(0, 1.7, 4), pan: 0.2, tilt: -0.1, roll: 0, focalLength: 30, sensor: .super35
+        )
+        let cameraJSON = try #require(String(bytes: JSONEncoder().encode(camera), encoding: .utf8))
+        func plate(confirmed: Bool) throws -> LocationPlate {
+            let calibration = String(cameraJSON.dropLast()) + ",\"confirmed\":\(confirmed)}"
+            let json = "{\"id\":\"plt_1\",\"name\":\"C\",\"imagePath\":\"plates/c.png\","
+                + "\"pixelSize\":{\"width\":1080,\"height\":1920},\"calibration\":\(calibration)}"
+            return try JSONDecoder().decode(LocationPlate.self, from: Data(json.utf8))
+        }
+        let confirmed = try plate(confirmed: true)
+        #expect(confirmed.file == "c.png" && confirmed.hasPlainFileName)
+        #expect(confirmed.size == PixelSize(width: 1080, height: 1920))
+        #expect(confirmed.match == camera)
+        // A calibration nobody confirmed is not a match: the plate asks for one again.
+        #expect(try plate(confirmed: false).match == nil)
+        // What this build saves reads back as itself.
+        let saved = try JSONDecoder().decode(LocationPlate.self, from: JSONEncoder().encode(confirmed))
+        #expect(saved == confirmed)
+    }
 }

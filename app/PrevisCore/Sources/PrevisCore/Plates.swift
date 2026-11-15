@@ -154,14 +154,40 @@ public struct PlateGuides: Codable, Sendable, Equatable {
 public extension LocationPlate {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: AnyKey.self)
+        let earlier = try EarlierPlate(from: decoder)
+        let match: PlateMatch? = try c.optional("match")
         try self.init(
             id: c.require("id"),
             name: c.value("name", ""),
-            file: c.value("file", ""),
-            size: c.value("size", PixelSize(width: 1440, height: 2560)),
-            match: c.optional("match"),
+            file: c.value("file", earlier.file),
+            size: c.value("size", earlier.size ?? PixelSize(width: 1440, height: 2560)),
+            match: match ?? earlier.match,
             guides: c.value("guides", .none)
         )
+    }
+}
+
+/// What the first plate build (main, 2026-11-15) saved for a plate: `imagePath`, `pixelSize` and a typed
+/// `calibration`. Read so that such a document keeps the plate's file name, size and confirmed camera. Its image
+/// stays where that build put it, so the plate is added again to bring the image into `Shots/Plates`.
+private struct EarlierPlate {
+    private struct Confirmation: Decodable {
+        var confirmed: Bool?
+    }
+
+    var file = ""
+    var size: PixelSize?
+    var match: PlateMatch?
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        let path: String = try c.value("imagePath", "")
+        file = path.split(separator: "/").last.map(String.init) ?? ""
+        size = try c.optional("pixelSize")
+        let confirmation: Confirmation? = try c.optional("calibration")
+        if confirmation?.confirmed == true {
+            match = try c.optional("calibration")
+        }
     }
 }
 
