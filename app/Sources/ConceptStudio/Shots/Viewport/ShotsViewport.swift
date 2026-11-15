@@ -63,7 +63,7 @@ final class ViewportLiveSession {
         }
 
         if let frame {
-            mapper.apply(frame, showsSetPieces: true)
+            mapper.apply(frame)
         } else {
             let emptyFrame = SceneFrame(
                 index: 0,
@@ -72,7 +72,7 @@ final class ViewportLiveSession {
                 camera: editorCamera.cameraFrame(for: size),
                 entities: []
             )
-            mapper.apply(emptyFrame, showsSetPieces: true)
+            mapper.apply(emptyFrame)
         }
         // D2's overlays and D4's handles share `overlayRoot`; each rebuilds only its own named children, and the
         // overlay only the groups whose inputs changed (D6: orbit and playback rebuild nothing).

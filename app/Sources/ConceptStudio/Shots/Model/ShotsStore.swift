@@ -34,16 +34,13 @@ final class ShotsStore {
     }
 
     var isPlaying = false
-    var showsPlateCalibration = false
     /// Drawn in order, never saved or undoable; empty between gestures (`CONTRACTS.md` section 7).
     var preview: [ShotsCommand] = []
     var onError: (@MainActor (String) -> Void)?
+    /// Where the project keeps its plate images (`Shots/Plates`); nil when the store has no project folder.
+    var plateFolder: URL?
 
     @ObservationIgnored private let saveURL: URL?
-    var plateRootURL: URL? {
-        saveURL?.deletingLastPathComponent()
-    }
-
     private var undoDocuments: [ShotsDocument] = []
     private var redoDocuments: [ShotsDocument] = []
     @ObservationIgnored private var lastEdit: (key: ShotsCoalescingKey, time: ContinuousClock.Instant)?
@@ -260,18 +257,15 @@ final class ShotsStore {
 }
 
 enum ShotsCoalescingKey: Equatable {
-    case plate(SceneID, String), setPiece(SceneID, String), keyCanvas(ShotID)
     case placement(EntityID), label(EntityID), entityName(EntityID), lighting(SceneID)
     case frames(ShotID), canvas(ShotID), notes(ShotID), cameraRig(ShotID)
+    case setPiece(EntityID), plate(PlateID), keyCanvas(ShotID)
     case actorMark(ShotID, EntityID, MarkID), cameraMark(ShotID, MarkID)
 }
 
 extension ShotsCommand {
     var coalescingKey: ShotsCoalescingKey? {
         switch self {
-        case let .putPlate(sceneID, plate): .plate(sceneID, plate.id)
-        case let .putSetPiece(sceneID, piece): .setPiece(sceneID, piece.id)
-        case let .setKeyCanvas(id, _): .keyCanvas(id)
         case let .setPlacement(id, _): .placement(id)
         case let .setLabel(id, _): .label(id)
         case let .renameEntity(id, _): .entityName(id)
@@ -282,6 +276,9 @@ extension ShotsCommand {
         case let .setCameraRig(id, _, _, _): .cameraRig(id)
         case let .updateActorMark(shot, entity, mark): .actorMark(shot, entity, mark.id)
         case let .updateCameraMark(shot, mark): .cameraMark(shot, mark.id)
+        case let .setSetPiece(id, _): .setPiece(id)
+        case let .updatePlate(_, plate): .plate(plate.id)
+        case let .setKeyCanvas(id, _): .keyCanvas(id)
         default: nil
         }
     }

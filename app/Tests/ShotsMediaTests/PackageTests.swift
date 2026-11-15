@@ -115,7 +115,8 @@ struct PackageNamingTests {
         #expect(await PackageValidator.problems(at: package.url) == [])
         #expect(package.manifest.passes == [.layout])
         let roles = Dictionary(grouping: package.manifest.files, by: \.role).mapValues(\.count)
-        #expect(roles == [.guide: 3, .control: 1, .description: 1])
+        // The staging in words and as data goes into every package, whatever its passes.
+        #expect(roles == [.guide: 3, .control: 1, .description: 1, .staging: 1, .stagingData: 1])
     }
 
     @Test(arguments: [
@@ -203,7 +204,15 @@ struct PackageTests {
         let roles = Dictionary(grouping: manifest.files, by: \.role).mapValues(\.count)
         // 3 guide frames × clean, pose, layout; pose and layout videos; the clean video; two actors' mattes with a
         // still at each guide frame; shot.json.
-        #expect(roles == [.guide: 9, .control: 2, .reference: 1, .matte: 8, .description: 1])
+        #expect(roles == [
+            .guide: 9,
+            .control: 2,
+            .reference: 1,
+            .matte: 8,
+            .description: 1,
+            .staging: 1,
+            .stagingData: 1,
+        ])
         let videos = manifest.files.filter { $0.path.hasSuffix(".mp4") }
         #expect(videos.count == 5 && videos.allSatisfy { $0.frameCount == 124 }, "video entries: \(videos)")
         try Self.expectPoseKeypoints(in: package, manifest: manifest)

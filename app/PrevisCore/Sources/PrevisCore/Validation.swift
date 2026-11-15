@@ -42,44 +42,53 @@ private struct SceneChecker {
     }
 
     func problems() -> [ShotsProblem] {
-        entityProblems() + attachmentCycles() + takeProblems() + plateProblems() + setPieceProblems()
-            + scene.shots.flatMap(shotProblems)
+        entityProblems() + attachmentCycles() + takeProblems() + plateProblems() + scene.shots.flatMap(shotProblems)
     }
+
+    // MARK: Plates and set pieces
 
     private func plateProblems() -> [ShotsProblem] {
         var out: [ShotsProblem] = []
-        var ids: Set<String> = []
+        var seen: Set<PlateID> = []
         for plate in scene.plates {
-            if !ids.insert(plate.id).inserted {
-                out.append(error("Two location plates share the id \(plate.id). Give each plate its own id."))
+            if !seen.insert(plate.id).inserted {
+                out.append(error("Two plates share the id \(plate.id); remove one of them."))
             }
-            if plate.imagePath.isEmpty || plate.imagePath.hasPrefix("/")
-                || plate.imagePath.split(separator: "/").contains("..") {
-                out.append(error("\(plate.name) needs an image path relative to the project's .conceptstudio folder."))
+            if !plate.hasPlainFileName {
+                out.append(error(
+                    "The plate \"\(plate.name)\" names its image \"\(plate.file)\", which is not a file in the "
+                        + "project's Shots/Plates folder; add the plate again."
+                ))
             }
-            if plate.pixelSize.width <= 0 || plate.pixelSize.height <= 0 {
-                out.append(error("\(plate.name) has no valid image dimensions. Import the plate again."))
+            if plate.size.width <= 0 || plate.size.height <= 0 {
+                out.append(error("The plate \"\(plate.name)\" has no size; add the image again."))
             }
-            let camera = plate.calibration
-            if !camera.position.isFinite
-                || ![camera.pan, camera.tilt, camera.roll, camera.focalLength].allSatisfy(\.isFinite)
-                || camera.focalLength <= 0 {
-                out.append(error("\(plate.name) has an invalid camera match. Reset its camera values."))
+            if !plate.guides.floorLevel.isFinite || abs(plate.guides.floorLevel) > 100 {
+                out.append(error(
+                    "The plate \"\(plate.name)\" has a floor level that is not a height in metres; "
+                        + "match the camera again."
+                ))
+            }
+            if let match = plate.match {
+                let numbers = [match.pan, match.tilt, match.roll, match.focalLength]
+                if !match.position.isFinite || !numbers.allSatisfy(\.isFinite) || match.focalLength <= 0 {
+                    out.append(error(
+                        "The camera match of the plate \"\(plate.name)\" has a value that is not a number; "
+                            + "match the camera again."
+                    ))
+                }
             }
         }
-        return out
-    }
-
-    private func setPieceProblems() -> [ShotsProblem] {
-        var out: [ShotsProblem] = []
-        var ids: Set<String> = []
-        for piece in scene.setPieces {
-            if !ids.insert(piece.id).inserted {
-                out.append(error("Two set pieces share the id \(piece.id). Give each piece its own id."))
+        for entity in scene.entities {
+            guard let piece = entity.setPiece else { continue }
+            if !piece.size.isFinite || piece.size.x <= 0 || piece.size.y <= 0 || piece.size.z <= 0 {
+                out.append(error(
+                    "\"\(entity.name)\" has a width, height or depth that is not above zero; give it a size.",
+                    entity: entity.id
+                ))
             }
-            if !piece.position.isFinite || !piece.size.isFinite
-                || piece.size.x <= 0 || piece.size.y <= 0 || piece.size.z <= 0 {
-                out.append(error("\(piece.name) needs finite dimensions above zero."))
+            if piece.steps < 0 || piece.steps > 60 {
+                out.append(error("\"\(entity.name)\" has \(piece.steps) steps; use 0 to 60.", entity: entity.id))
             }
         }
         return out
@@ -206,16 +215,23 @@ private struct SceneChecker {
                 shot: shot.id
             ))
         }
-        if let keyCanvas = shot.keyCanvas, !keyCanvas.isValidKey {
-            out.append(error("\(label) needs a key canvas with multiples of 32 of at least 64 pixels.", shot: shot.id))
-        }
-        if abs(shot.guideCanvas.aspect - shot.canvas.aspect) > 1e-9 {
-            out.append(error("\(label)'s key and control canvases need the same aspect ratio.", shot: shot.id))
-        }
         if let plateID = shot.plateID, !scene.plates.contains(where: { $0.id == plateID }) {
             out.append(error(
-                "\(label) refers to the missing plate \(plateID). Select a scene plate.",
+                "\(label) is blocked over the plate \(plateID), which is not in the scene; choose one of its plates.",
                 shot: shot.id
+            ))
+        }
+        if let key = shot.keyCanvas, !key.isValidStill {
+            out.append(error(
+                "\(label) has a \(key.width) × \(key.height) key size; use 64 to 4096 on each side.",
+                shot: shot.id
+            ))
+        }
+        for ask in shot.asks where !entityIDs.contains(ask.entityID) {
+            out.append(error(
+                "\(label) asks to show \(ask.entityID), who is not in the scene; remove that ask.",
+                shot: shot.id,
+                entity: ask.entityID
             ))
         }
         out += cameraProblems(shot, label)

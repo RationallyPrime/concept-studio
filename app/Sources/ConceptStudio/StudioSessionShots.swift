@@ -1,5 +1,6 @@
 import Foundation
 import PrevisCore
+import ShotsMedia
 
 extension StudioSession {
     func showShots() {
@@ -21,6 +22,7 @@ extension StudioSession {
             let document = demoMode && !existed ? ShotsSamples.twoPersonWalk() : loaded.document
             let store = ShotsStore(catalog: catalog, document: document, saveURL: url, readOnly: loaded.readOnly)
             store.onError = { [weak self] in self?.errorMessage = $0 }
+            store.plateFolder = PlateImages.folder(inProject: project.directory)
             shots = store
             if let notice = loaded.notice { errorMessage = notice }
         } catch {

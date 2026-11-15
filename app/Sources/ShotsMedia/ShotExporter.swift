@@ -1,3 +1,4 @@
+import CoreGraphics
 import CoreVideo
 import Foundation
 import PrevisCore
@@ -6,11 +7,9 @@ import PrevisCore
 @MainActor public final class ShotExporter {
     public let catalog: ContentCatalog
     private var renderer: ShotFrameRenderer?
-    public var plateRoot: URL?
 
-    public init(catalog: ContentCatalog, plateRoot: URL? = nil) throws {
+    public init(catalog: ContentCatalog) throws {
         self.catalog = catalog
-        self.plateRoot = plateRoot
     }
 
     /// Validates before delivering. Cancelling the Task leaves no staged or partial package.
@@ -21,21 +20,26 @@ import PrevisCore
         to destination: any PackageDestination,
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) async throws -> ExportedPackage {
+        let evaluator = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog)
         guard let shot = scene.shots.first(where: { $0.id == shotID }) else {
             throw ShotsMediaError("Scene \"\(scene.name)\" has no shot \(shotID).")
         }
-        let problems = ShotsValidation.problems(
-            in: ShotsDocument(version: ShotsDocument.currentVersion, scenes: [scene]), catalog: catalog
-        ).filter { $0.severity == .error && ($0.shotID == nil || $0.shotID == shotID) }
-        guard problems.isEmpty else { throw ShotsError.invalid(problems) }
-        let evaluator = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog)
         let passes = PassKind.allCases.filter(options.passes.contains)
+        let plate = shot.plateID.flatMap { id in scene.plates.first { $0.id == id } }
+        let plateImage = try plate.map { plate in
+            guard let folder = options.plateFolder else {
+                throw ShotsMediaError(
+                    "Shot \"\(shot.name)\" is blocked over the plate \"\(plate.name)\", and this export wasn't "
+                        + "told where the project's plate images are."
+                )
+            }
+            return try PlateImages.read(PlateImages.url(of: plate, in: folder), name: plate.name)
+        }
         let staging = try destination.stagingDirectory()
         do {
-            if renderer == nil, shot.plateID != nil || passes.contains(where: { $0 == .clean || $0 == .matte }) {
-                renderer = try ShotFrameRenderer(plateRoot: plateRoot)
+            if renderer == nil, plateImage != nil || passes.contains(where: { $0 == .clean || $0 == .matte }) {
+                renderer = try ShotFrameRenderer()
             }
-            renderer?.plateRoot = plateRoot
             let writer = try PackageWriter(
                 scene: scene,
                 shot: shot,
@@ -45,6 +49,9 @@ import PrevisCore
                 promptFacts: shot.prompt.map { _ in
                     try ShotPromptCompiler.facts(scene: scene, shotID: shotID, catalog: catalog)
                 },
+                plateImage: plateImage,
+                staged: evaluator.staging(),
+                warnings: evaluator.warnings().map(\.message),
                 progress: progress
             )
             let manifest = try await writer.write(passes: passes)
@@ -72,11 +79,14 @@ import PrevisCore
     private let folder: URL
     private let renderer: ShotFrameRenderer?
     private let promptFacts: PromptFacts?
+    private let plate: LocationPlate?
+    private let plateImage: CGImage?
+    private let staged: Staging?
+    private let warnings: [String]
     private let look: PrevisLook
     private let progress: @MainActor (ExportProgress) -> Void
     private let guides: [(position: PackageFile.Position, frame: Int)]
     private var files: [PackageFile] = []
-    private var platePaths: [String: String] = [:]
     private var videosDone = 0
     private var videoCount = 0
 
@@ -87,8 +97,15 @@ import PrevisCore
         folder: URL,
         renderer: ShotFrameRenderer?,
         promptFacts: PromptFacts? = nil,
+        plateImage: CGImage? = nil,
+        staged: Staging? = nil,
+        warnings: [String] = [],
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) {
+        plate = shot.plateID.flatMap { id in scene.plates.first { $0.id == id } }
+        self.plateImage = plateImage
+        self.staged = staged
+        self.warnings = warnings
         self.promptFacts = promptFacts
         self.scene = scene
         self.shot = shot
@@ -106,7 +123,6 @@ import PrevisCore
         let actors = first.entities.filter(\.isActor)
         videoCount = passes.reduce(0) { $0 + ($1 == .matte ? actors.count : 1) }
         let count = frames.count
-        if first.plate != nil { try await writeComposition(first) }
         for pass in passes {
             switch pass {
             case .clean:
@@ -132,6 +148,8 @@ import PrevisCore
                 }
             }
         }
+        try await writeCompositionGuides()
+        try writeStaging()
         try writeDescription()
         if let prompt = shot.prompt, let promptFacts {
             try writePrompt(prompt, facts: promptFacts)
@@ -149,10 +167,81 @@ import PrevisCore
             canvas: shot.canvas,
             passes: passes,
             files: files,
-            keyCanvas: first.plate == nil ? nil : shot.guideCanvas
+            keyCanvas: plateImage == nil ? nil : keyCanvas,
+            plate: plateImage == nil ? nil : plate.map {
+                PlateRef(id: $0.id, name: $0.name, file: $0.file, size: $0.size)
+            }
         )
         try writeJSON(manifest, to: "manifest.json")
         return manifest
+    }
+
+    /// The size of the key the image model makes: the shot's own, or else the plate's, or else the canvas.
+    private var keyCanvas: ShotCanvas {
+        shot.keyCanvas ?? plate.map { ShotCanvas(width: $0.size.width, height: $0.size.height) } ?? shot.canvas
+    }
+
+    /// The plate with neutral stand-ins at the key's size, for the image model to compose from, and the same with
+    /// name tags for people. The first frame always; the last frame too when the camera is still the plate's.
+    private func writeCompositionGuides() async throws {
+        guard let plateImage, let plate, let renderer else { return }
+        progress(ExportProgress(step: "Drawing the composition guide over the plate…", fractionCompleted: 1))
+        var wanted: [(position: PackageFile.Position, frame: Int)] = [(.first, 0)]
+        let last = frames.count - 1
+        if last > 0, let match = plate.match, match.agrees(with: frames[last].camera),
+           Self.blockingDiffers(frames[0], frames[last]) {
+            wanted.append((.last, last))
+        }
+        for guide in wanted {
+            for (variant, options) in [
+                (PackageFile.Variant.composition, StandInOptions.guide),
+                (.compositionLabelled, .labelledGuide),
+            ] {
+                let image = try await renderer.image(
+                    of: frames[guide.frame], over: plateImage, look: look, options: options,
+                    sensor: shot.camera.sensor, size: keyCanvas.pixelSize
+                )
+                let file = PackageFile(
+                    role: .guide,
+                    path: "guides/\(guide.position.rawValue)-f\(Self.frameTag(guide.frame))-\(variant.rawValue).png",
+                    position: guide.position, variant: variant, frame: guide.frame
+                )
+                try StillWriter.writePNG(image, to: prepare(file.path))
+                files.append(file)
+            }
+        }
+    }
+
+    /// Whether anyone stands, faces or is posed differently in two frames, beyond a standing figure's idle sway.
+    private static func blockingDiffers(_ a: SceneFrame, _ b: SceneFrame) -> Bool {
+        zip(a.entities, b.entities).contains { first, second in
+            let moved = Vec3(
+                first.position.x - second.position.x, first.position.y - second.position.y,
+                first.position.z - second.position.z
+            )
+            let distance = (moved.x * moved.x + moved.y * moved.y + moved.z * moved.z).squareRoot()
+            return distance > 0.02 || abs(first.heading - second.heading) > 0.01 || first.gait != second.gait
+                || first.joints != second.joints
+        }
+    }
+
+    /// `staging.txt` is the first frame's staging in words, ready to paste beside the composition guide;
+    /// `staging.json` is the same as data.
+    private func writeStaging() throws {
+        guard let staged else { return }
+        var text = staged.description() + "\n\n" + staged.legend() + "\n"
+        if !warnings.isEmpty {
+            text += "\nTo look at before making the key:\n" + warnings.map { "- \($0)" }.joined(separator: "\n") + "\n"
+        }
+        try Data(text.utf8).write(to: prepare("staging.txt"), options: .atomic)
+        try writeJSON(
+            StagingFile(staged, shot: shot, plate: plate, keyCanvas: keyCanvas, warnings: warnings),
+            to: "staging.json"
+        )
+        files += [
+            PackageFile(role: .staging, path: "staging.txt"),
+            PackageFile(role: .stagingData, path: "staging.json"),
+        ]
     }
 
     private func matte(_ actor: EntityFrame, slug: String) async throws {
@@ -225,60 +314,6 @@ import PrevisCore
         try await renderer.render(frame, look: look, matte: matte, into: buffer)
     }
 
-    private func writeComposition(_ frame: SceneFrame) async throws {
-        guard let selectedPlate = frame.plate, let renderer, let root = renderer.plateRoot else {
-            throw ShotsMediaError("The plate-backed shot needs its project folder for export.")
-        }
-        let plate = frame.matchedReferencePlate ?? selectedPlate
-        progress(ExportProgress(step: "Drawing the composition guide…", fractionCompleted: 0))
-        let image = try await renderer.image(of: frame, look: look, size: shot.guideCanvas.pixelSize)
-        try StillWriter.writePNG(image, to: prepare("composition.png"))
-        files.append(PackageFile(
-            role: .composition,
-            path: "composition.png",
-            frame: 0,
-            pixelSize: shot.guideCanvas.pixelSize
-        ))
-        let references = [plate] + frame.referencePlates.filter { $0.id != plate.id }
-        let slugs = PackageNames.entitySlugs(references.map(\.id))
-        for (reference, slug) in zip(references, slugs) {
-            let source = root.appendingPathComponent(reference.imagePath)
-            let path = "plate/" + slug + "." + source.pathExtension
-            try FileManager.default.copyItem(at: source, to: prepare(path))
-            platePaths[reference.id] = path
-            files.append(PackageFile(
-                role: .plate,
-                path: path,
-                pixelSize: reference.pixelSize,
-                plateID: reference.id
-            ))
-        }
-        let staging = ShotStaging.description(frame: frame, shot: shot)
-        try Data(staging.utf8).write(to: prepare("staging.txt"), options: .atomic)
-        let subjects = ShotStaging.subjects(in: frame).map {
-            "\($0.name) — \($0.horizontal), \($0.depth), \($0.visibleBody), \($0.facing)."
-        }
-        let legend = ([
-            "Plate \(plate.name). Neutral, featureless stand-ins show composition and facing.",
-            "Use the scene sheet for each character’s appearance.",
-            "Checker-pattern areas have no visible photographed source in the calibrated views.",
-        ] + subjects).joined(separator: "\n") + "\n"
-        try Data(legend.utf8).write(to: prepare("legend.txt"), options: .atomic)
-        files += [PackageFile(role: .staging, path: "staging.txt"), PackageFile(role: .legend, path: "legend.txt")]
-    }
-
-    private func exportedScene() -> PrevisScene {
-        guard let plate = frames.first?.plate else { return scene }
-        var exported = scene
-        exported.plates = frames.first?.referencePlates.isEmpty == false ? frames[0].referencePlates : [plate]
-        for index in exported.plates.indices {
-            if let path = platePaths[exported.plates[index].id] { exported.plates[index].imagePath = path }
-        }
-        // Only the exported shot is included, so no remaining shot refers to a plate outside this package.
-        exported.shots = [shot]
-        return exported
-    }
-
     private func writeDescription() throws {
         let size = shot.canvas.pixelSize
         let take = scene.blocking.first { $0.id == shot.blockingTakeID }
@@ -300,6 +335,7 @@ import PrevisCore
                 }
             ),
             subjects: frames[0].entities.map { entity in
+                // Boxes are what the layout pass draws: cut where the set hides the actor.
                 ShotDescription.Subject(
                     entityID: entity.id, name: entity.name, assetID: entity.assetID, isActor: entity.isActor,
                     marks: (take?.tracks.first { $0.entityID == entity.id }?.marks ?? []).map {
@@ -311,7 +347,7 @@ import PrevisCore
                     boxes: guides.compactMap { guide in
                         let frame = frames[guide.frame]
                         guard let posed = frame.entities.first(where: { $0.id == entity.id }),
-                              let box = PassDrawing.plateProjectedBounds(posed.bounds, frame: frame, size: size)
+                              let box = Self.box(of: posed, in: frame, size: size)
                         else { return nil }
                         let width = Double(size.width), height = Double(size.height)
                         return ShotDescription.Box(
@@ -321,7 +357,7 @@ import PrevisCore
                     }
                 )
             },
-            scene: exportedScene()
+            scene: scene
         )
         try writeJSON(description, to: "shot.json")
         files.append(PackageFile(role: .description, path: "shot.json"))
@@ -344,6 +380,13 @@ import PrevisCore
         ]
     }
 
+    private static func box(of posed: EntityFrame, in frame: SceneFrame, size: PixelSize) -> CGRect? {
+        guard posed.isActor,
+              let staged = StagingAnalysis.characters(in: frame).first(where: { $0.entityID == posed.id })
+        else { return PassDrawing.projectedBounds(posed.bounds, camera: frame.camera, size: size) }
+        return PassDrawing.layoutRect(of: posed, staged: staged, camera: frame.camera, size: size)
+    }
+
     private func writeJSON(_ value: some Encodable, to path: String) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -358,6 +401,72 @@ import PrevisCore
 
     private static func frameTag(_ frame: Int) -> String {
         String(format: "%04d", frame)
+    }
+}
+
+/// `staging.json`: the first frame's staging as data.
+struct StagingFile: Encodable {
+    struct Camera: Encodable {
+        var position: Vec3, pan: Double, tilt: Double, roll: Double
+        var focalLength: Double, verticalFOV: Double, sensor: Sensor
+    }
+
+    struct Character: Encodable {
+        var entityID: EntityID, name: String
+        var standIn: String, standInColor: RGB
+        var isVisible: Bool
+        var horizontal: String, depth: String, facing: String
+        var visible: String
+        var hiddenBy: [String]
+        var cutByFrameEdge: String?
+        var headFraction: Double, bodyFraction: Double, distance: Double
+        var box: [String: Double]?
+    }
+
+    var formatVersion = 1
+    var shot: String
+    var plate: PlateRef?
+    var canvas: ShotCanvas
+    var keyCanvas: ShotCanvas
+    var framing: String
+    var camera: Camera
+    var characters: [Character]
+    var description: String
+    var legend: String
+    var warnings: [String]
+
+    init(_ staged: Staging, shot: Shot, plate: LocationPlate?, keyCanvas: ShotCanvas, warnings: [String]) {
+        self.shot = shot.name
+        self.plate = plate.map { PlateRef(id: $0.id, name: $0.name, file: $0.file, size: $0.size) }
+        canvas = staged.canvas
+        self.keyCanvas = keyCanvas
+        framing = staged.framing
+        camera = Camera(
+            position: staged.camera.position, pan: staged.camera.pan, tilt: staged.camera.tilt,
+            roll: staged.camera.roll, focalLength: staged.camera.focalLength,
+            verticalFOV: staged.camera.verticalFOV, sensor: staged.sensor
+        )
+        characters = staged.characters.enumerated().map { index, character in
+            var hiddenBy: [String] = []
+            var edge: String?
+            switch character.cut {
+            case let .hidden(names)?: hiddenBy = names
+            case let .frame(name)?: edge = name
+            case nil: break
+            }
+            return Character(
+                entityID: character.entityID, name: character.name, standIn: character.standIn,
+                standInColor: StandInPalette.standIn(index).color, isVisible: character.isVisible,
+                horizontal: character.horizontal.rawValue, depth: character.depth.rawValue,
+                facing: character.facing.rawValue, visible: character.extentPhrase, hiddenBy: hiddenBy,
+                cutByFrameEdge: edge, headFraction: character.headFraction, bodyFraction: character.bodyFraction,
+                distance: character.distance,
+                box: character.box.map { ["x": $0.x, "y": $0.y, "width": $0.width, "height": $0.height] }
+            )
+        }
+        description = staged.description()
+        legend = staged.legend()
+        self.warnings = warnings
     }
 }
 

@@ -31,7 +31,9 @@ public struct ContentCatalog: Sendable {
     /// Reads `Resources/*.v1.json`. Errors name the missing or unreadable file, or the starter id that does not
     /// resolve.
     public static func bundled() throws -> ContentCatalog {
-        let starter: StarterSet = try load("starter.v1.json")
+        var starter: StarterSet = try load("starter.v1.json")
+        // Set pieces and dragons are this app's own (SetPieces.swift, Creatures.swift), not Blockout's.
+        starter.assets += StudioAssets.all.map(\.id)
         let parts = try load("parts.v1.json", as: PartsFile.self).assets
         let catalog = try ContentCatalog(
             motions: authoredMotions().map(MotionCorrections.corrected),
@@ -39,7 +41,7 @@ public struct ContentCatalog: Sendable {
                 var spec = spec
                 spec.parts = parts[spec.id]
                 return spec
-            },
+            } + StudioAssets.all,
             cameraMoves: load("camera-moves.catalog.v1.json", as: MovesFile.self).moves,
             actionPaths: load("action-presets.catalog.v1.json", as: PathsFile.self).paths,
             starter: starter

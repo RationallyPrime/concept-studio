@@ -127,6 +127,62 @@ public enum ShotsSamples {
     }
     """
 
+    /// A throne room seen from a matched plate camera: a long table across the foreground, a dais with a throne
+    /// behind it, a woman behind the table and a man on the dais. One shot of 22 frames on the plate, with a
+    /// 576 × 1024 canvas and a 1440 × 2560 key. Fixed ids. The plate's image is `plate.png`; tests draw their own.
+    public static func plateStaging() -> ShotsDocument {
+        let match = PlateMatch(
+            position: Vec3(0, 1.55, 0), pan: 0, tilt: -0.1, roll: 0, focalLength: 28, sensor: .super35
+        )
+        let plate = LocationPlate(
+            id: "plate_000000000001", name: "Hall C", file: "plate.png", size: PixelSize(width: 1440, height: 2560),
+            match: match, guides: .none
+        )
+        func piece(
+            _ n: Int, _ kind: SetPiece.Kind, _ name: String, _ at: Vec3, size: Vec3? = nil
+        ) -> PrevisEntity {
+            var set = SetPiece.standard(kind, inPlate: true)
+            if let size { set.size = size }
+            // Turned to face the camera, which looks down −Z from the origin.
+            return PrevisEntity(
+                id: "ent_00000000010\(n)", assetID: set.assetID, name: name,
+                placement: Placement(position: at, heading: .pi, scale: 1), setPiece: set
+            )
+        }
+        var shot = Shot.make(
+            id: "shot_000000000101", name: "TS-01", takeID: "take_000000000101", cameraMarkID: "cam_000000000101"
+        )
+        shot.frameCount = 22
+        shot.canvas = .portrait9x16
+        shot.keyCanvas = ShotCanvas(width: 1440, height: 2560)
+        shot.plateID = plate.id
+        shot.camera.sensor = match.sensor
+        shot.camera.marks = [match.cameraMark(id: "cam_000000000101")]
+        let scene = PrevisScene(
+            id: "scene_000000000101",
+            name: "Throne room",
+            revision: 0,
+            lighting: .interiorWarm,
+            entities: [
+                PrevisEntity(
+                    id: "ent_000000000111", assetID: "person.woman", name: "Woman",
+                    placement: Placement(position: Vec3(-0.5, 0, -5.2), heading: -.pi / 2, scale: 1)
+                ),
+                PrevisEntity(
+                    id: "ent_000000000112", assetID: "person.man", name: "Man",
+                    placement: Placement(position: Vec3(0.7, 0, -7.4), heading: .pi, scale: 1)
+                ),
+                piece(1, .table, "Long table", Vec3(0, 0, -4), size: Vec3(4.4, 0.78, 0.95)),
+                piece(2, .dais, "Dais", Vec3(0, 0, -8)),
+                piece(3, .throne, "Throne", Vec3(-0.6, 0.45, -8.4)),
+            ],
+            blocking: [BlockingTake(id: "take_000000000101", name: "Master")],
+            shots: [shot],
+            plates: [plate]
+        )
+        return ShotsDocument(version: ShotsDocument.currentVersion, scenes: [scene])
+    }
+
     private static let man = "ent_000000000001"
     private static let woman = "ent_000000000002"
 

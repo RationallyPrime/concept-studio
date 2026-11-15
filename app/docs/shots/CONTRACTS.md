@@ -4,7 +4,12 @@ This file is the single source of truth for everything that crosses a lane bound
 targets, file ownership, libraries, conventions, the public Swift API between lanes, file formats and the
 integration tests. Inside its own files a lane is free to design as it likes. At these seams it is not.
 
-Read with: [README.md](README.md) (lanes, schedule), [../SHOTS-PLAN.md](../SHOTS-PLAN.md) (why).
+Read with: [README.md](README.md) (lanes, schedule), [../SHOTS-PLAN.md](../SHOTS-PLAN.md) (why),
+[PLATES.md](PLATES.md) (how to block a scene over its plate).
+
+**Blocking over the real location** (the brief of 2026-11-13) added sections 5.7 to 5.9, the plate
+commands in section 7, `Shots/Plates` in section 8.1, and the composition guides and staging files in
+section 8.3. The document is version 2 and the package format version 2; both readers still read version 1.
 
 ## 1. Ground rules
 
@@ -141,7 +146,7 @@ There are no new SwiftPM dependencies. Shots uses only these:
 | Swift standard library, Foundation, Observation, Synchronization, `os.Logger` (subsystem `is.conceptstudio.app`, category `shots`) | all |
 | SwiftUI; AppKit only where SwiftUI cannot do it (event modifiers, scroll wheel) | C, D |
 | RealityKit | B (rendering), D (viewport) |
-| Metal (resources RealityKit needs; no `.metal` shader files), CoreVideo, CoreMedia, AVFoundation, CoreGraphics, ImageIO, UniformTypeIdentifiers | B |
+| Metal (resources RealityKit needs; no `.metal` shader files), CoreVideo, CoreMedia, AVFoundation, CoreGraphics, CoreText (name tags), ImageIO, UniformTypeIdentifiers | B |
 | ConceptCore: model clients, `StructuredStage`, Agent Skills loader, `AtomicFile`, `JSONValue` | B (prompt), C (persistence) |
 | bun (pinned in `mise.toml`) | `scripts/blockout/` only; never at app runtime |
 
@@ -183,6 +188,8 @@ PrevisCore imports Foundation and nothing else, so it stays portable. Tests use 
   - Marks carry seconds; the UI snaps them to frames.
 - **Pixels.** Origin at the top left, y down.
   - A **shot canvas** is width × height in multiples of 32, within 64…2048. The default is 640 × 1152.
+  - A **key size** is the size of the still an image model makes from a composition guide: any width and
+    height within 64…4096. It has the plate's shape; 1440 × 2560 is usual.
   - Camera maths takes any positive **pixel size** (`PixelSize`), because the viewport isn't a canvas.
 - **Projection.** A pinhole with vertical field of view `verticalFOV` and aspect = width/height.
   - Normalised coordinates: x = (f/aspect)·x_c/(−z_c) and y = f·y_c/(−z_c), with f = 1/tan(vfov/2).
@@ -244,8 +251,12 @@ public struct ShotCanvas: Codable, Hashable, Sendable {
     public var aspect: Double { get }
     public var pixelSize: PixelSize { get }
     public var isValid: Bool { get }        // multiples of 32 within 64...2048
+    public var isValidStill: Bool { get }   // a key size: 64...4096 on each side
     public static let portrait: ShotCanvas  // 640 × 1152, the default
-    public static let presets: [ShotCanvas] // 640×1152, 768×1344, 1152×640, 1344×768, 768×768
+    public static let portrait9x16: ShotCanvas  // 576 × 1024, the 9:16 video canvas
+    public static let presets: [ShotCanvas] // 640×1152, 768×1344, 1152×640, 1344×768, 768×768,
+                                            // 576×1024, 864×1536, 544×960
+    public static let keyPresets: [ShotCanvas]  // 1440×2560, 1080×1920, 864×1536, 576×1024
 }
 public enum FrameGrid {
     public static let fps: Int                          // 24
@@ -270,7 +281,7 @@ public typealias MarkID = String
 public typealias TakeID = String
 
 public struct ShotsDocument: Codable, Sendable, Equatable {
-    public static let currentVersion: Int   // 1
+    public static let currentVersion: Int   // 2; version 1 files read unchanged
     public var version: Int
     public var scenes: [PrevisScene]
 }
@@ -281,8 +292,9 @@ public struct PrevisScene: Codable, Sendable, Equatable, Identifiable {
     public var revision: Int                // bumped by the store on every edit except setPrompt
     public var lighting: LightingPreset
     public var entities: [PrevisEntity]
-    public var blocking: [BlockingTake]     // v1: exactly one take, shared by the scene's shots
+    public var blocking: [BlockingTake]     // one take shared by the scene's shots, until a shot gets its own (5.9)
     public var shots: [Shot]
+    public var plates: [LocationPlate]      // section 5.7; a shot names the one it is blocked over
     public static func make(id: SceneID, name: String, takeID: TakeID, shotID: ShotID,
                             cameraMarkID: MarkID) -> PrevisScene
 }
@@ -297,6 +309,7 @@ public struct PrevisEntity: Codable, Sendable, Equatable, Identifiable {
     public var label: EntityLabel?
     public var placement: Placement         // pose before the first mark, and always if there are none
     public var attachment: EntityAttachment? // rides the parent until its own first mark
+    public var setPiece: SetPiece?          // section 5.7; a sized piece of the set, asset `set.<kind>`
 }
 public struct Placement: Codable, Sendable, Equatable {
     public var position: Vec3
@@ -346,7 +359,11 @@ public struct Shot: Codable, Sendable, Equatable, Identifiable {
     public var notes: ShotNotes
     public var prompt: ShotPrompt?
     public var results: [ShotResult]        // reserved for later destinations; empty in v1
+    public var plateID: PlateID?            // the plate the shot is blocked over; nil = the grey stage
+    public var keyCanvas: ShotCanvas?       // the key's size; nil = the plate's own, or the canvas
+    public var asks: [FramingAsk]           // section 5.8; how much of each character the shot shows
     public var duration: Double { get }     // Double(frameCount - 1) / 24
+    public mutating func block(over plate: LocationPlate)   // section 5.9
     public static func make(id: ShotID, name: String, takeID: TakeID, cameraMarkID: MarkID) -> Shot
 }
 public struct ShotCamera: Codable, Sendable, Equatable {
@@ -469,7 +486,9 @@ public struct ShotEvaluator: Sendable {
     public var frameCount: Int { get }
     public func frame(_ index: Int) -> SceneFrame      // clamped to 0..<frameCount
     public func frame(at time: Double) -> SceneFrame   // clamped to 0...duration
-    public func warnings() -> [ShotsProblem]           // speed, 180° line, trained range, marks past the end
+    public func warnings() -> [ShotsProblem]           // speed, 180° line, trained range, marks past the end,
+                                                       // and the staging warnings of section 5.8
+    public func staging(atFrame index: Int = 0) -> Staging   // section 5.8
     public func paths() -> [MotionPath]                // for ribbons and spike marks
 }
 public struct SceneFrame: Sendable, Equatable {
@@ -478,6 +497,7 @@ public struct SceneFrame: Sendable, Equatable {
     public var canvas: ShotCanvas
     public var camera: CameraFrame          // field of view for the canvas aspect
     public var entities: [EntityFrame]      // document order
+    public var plate: LocationPlate?        // the plate the shot is blocked over
 }
 public struct CameraFrame: Sendable, Equatable {
     public var position: Vec3
@@ -498,7 +518,7 @@ public struct EntityFrame: Sendable, Equatable {
     public var assetID: String
     public var name: String
     public var label: EntityLabel?
-    public var isActor: Bool                // rigged asset or labelled: gets a matte and a layout box
+    public var isActor: Bool                // rigged asset, labelled, or a creature: gets a matte and a layout box
     public var position: Vec3
     public var heading: Double
     public var gait: Gait
@@ -508,6 +528,8 @@ public struct EntityFrame: Sendable, Equatable {
     public var parts: [PosedPart]
     public var keypoints: [Keypoint]        // COCO-18 world positions; empty unless rig == .person
     public var bounds: Box3
+    public var setPiece: SetPiece?          // set for a piece of the set; never an actor
+    public var isInPlate: Bool { get }      // a set piece the plate already shows
 }
 public struct PosedPart: Sendable, Equatable {
     public var id: String                   // stable within the entity across frames
@@ -607,6 +629,232 @@ use the full one.
 **Errors:** unresolved references, attachment cycles, non-finite numbers, an invalid canvas or frame
 count, an unknown asset, gait or content id, and guide frames out of range. Everything else is a warning.
 
+### 5.7 Plates, set pieces and creatures
+
+A **location plate** is an approved still of the empty set. Its **match** is the camera that took it, in the
+scene's world, with the plate's floor as the ground plane. A shot blocked over a plate starts from that
+camera, so a stand-in on the floor has the size and place a person there would have.
+
+```swift
+public typealias PlateID = String
+public struct LocationPlate: Codable, Sendable, Equatable, Identifiable {
+    public var id: PlateID
+    public var name: String
+    public var file: String                 // the image's file name in <project>/Shots/Plates
+    public var size: PixelSize              // the image's own pixels
+    public var match: PlateMatch?           // nil until the camera has been matched
+    public var guides: PlateGuides          // what the user marked, kept so the match can be corrected
+    public var aspect: Double { get }
+    public var hasPlainFileName: Bool { get }   // one file name, no folders: validation requires it
+}
+public struct PlateMatch: Codable, Sendable, Equatable {
+    public var position: Vec3               // y = the camera's height above the set's floor
+    public var pan: Double, tilt: Double, roll: Double
+    public var focalLength: Double          // millimetres
+    public var sensor: Sensor
+    public static let unmatched: PlateMatch // level, 1.6 m high, 35 mm, super35
+    public func camera(aspect: Double) -> CameraFrame
+    public func cameraMark(id: MarkID) -> CameraMark
+    public func agrees(with camera: CameraFrame) -> Bool   // within 1 cm, 0.05°, 0.1 mm of lens
+    public func horizon(size: PixelSize) -> (left: Point2, right: Point2)?
+}
+public struct PlateLine: Codable, Sendable, Equatable { public var a: Point2, b: Point2 }
+public struct PlateHeightReference: Codable, Sendable, Equatable {
+    public var foot: Point2, top: Point2
+    public var height: Double               // metres
+}
+public struct PlateGuides: Codable, Sendable, Equatable {
+    public var linesA: [PlateLine]          // two edges parallel in the set and level with its floor
+    public var linesB: [PlateLine]          // two more, square to the first two on the floor
+    public var heightReference: PlateHeightReference?
+    public var floorLevel: Double           // metres the floor this plate shows lies above the set's floor; 0
+    public static let none: PlateGuides
+}
+public enum PlateSolve {
+    public static func match(guides: PlateGuides, size: PixelSize, sensor: Sensor, focalLength: Double? = nil,
+                             cameraHeight: Double? = nil, current: PlateMatch? = nil) throws -> PlateMatch
+}
+public enum PlateFit {      // where a plate sits on a canvas seen through the same camera; never cropped or stretched
+    public struct Rect: Sendable, Equatable { public var x: Double, y: Double, width: Double, height: Double }
+    public static func rect(plate: PixelSize, canvas: PixelSize, sensor: Sensor) -> Rect
+    public static func widthMismatch(plate: PixelSize, canvas: PixelSize, sensor: Sensor) -> Double
+}
+```
+
+- Points on a plate are fractions of its width and height from the top left.
+- **Solving.** Both pairs of lines give the lens, tilt, roll and turn; one pair with a given lens gives tilt
+  and turn for a level horizon; the height reference gives the camera height. `focalLength` and
+  `cameraHeight` override what the guides would solve, and `current` supplies whatever they don't
+  determine. The world is turned so the first pair runs along a world axis, so set pieces placed square to
+  the world are square to the set. Lines that can't be solved throw `ShotsError.invalid` with a sentence
+  that says what to redraw.
+- **Facing.** Lines give the set's axes, not which way along them the camera looks. The solved turn is the
+  one within a quarter turn of `current`'s, so a reverse plate (`current.pan` near π) stays a reverse. With
+  no `current` it lies between −45° and 45°.
+- **Floor level.** The set's floor is y = 0. A plate taken on a raised floor, such as a dais, has that
+  floor's height in `guides.floorLevel`: its lines and height reference are marked on the raised floor,
+  `cameraHeight` is measured from it, and the solved `position.y` is that height plus the level. `Staging`
+  carries the level and tells the camera's height from the floor the plate shows.
+- The principal point is the plate's centre: a plate must be the whole image, not a crop off-centre.
+
+A **set piece** is a sized stand-in for part of the set. Its asset is `set.<kind>`, and its size is its own.
+
+```swift
+public struct SetPiece: Codable, Sendable, Equatable {
+    public enum Kind: String, Codable, Sendable, CaseIterable {
+        case block, plinth, dais, stairs, table, bench, throne, wall, parapet, arch, column
+    }
+    public var kind: Kind
+    public var size: Vec3                   // width (its X), height, depth (its Z), metres at scale 1
+    public var steps: Int                   // dais: steps down its front; stairs: steps in the flight
+    public var inPlate: Bool                // the plate already shows it
+    public static func standard(_ kind: Kind, inPlate: Bool) -> SetPiece
+    public var assetID: String { get }      // "set.<kind>"
+    public var isWalkable: Bool { get }     // block, plinth, dais, stairs
+    public func parts() -> [PartSpec]       // its boxes; origin on the ground at its centre, front toward −Z
+}
+```
+
+- A person or animal whose position is over a walkable piece stands on its top: the evaluator raises them
+  to it. Nothing else is raised.
+- A set piece is never an actor. It hides the actors behind it in the pose and layout passes and in the
+  staging analysis.
+- With `inPlate` true the piece is not drawn in a composition guide: the plate shows there. With `inPlate`
+  false it is drawn as a grey box.
+
+**Creatures.** `creature.dragon` (wings folded) and `creature.dragon.spread` are static bodies in the
+category `creatures`, and actors. A dragon's size is its standing head height, from the ground to the top
+of its skull: 10 m at scale 1, which is also the asset's `height`, so the entity's scale is that height in
+metres over ten. The catalog adds the set-piece and creature assets to Blockout's
+and lists them in the starter set.
+
+### 5.8 Staging
+
+What a frame shows of each actor, from the evaluated frame alone.
+
+```swift
+public enum BodyExtent: String, Codable, Sendable, CaseIterable {
+    case face, chestUp, waistUp, thighsUp, kneesUp, headToBoots
+    public var phrase: String { get }       // "from mid-thigh up"
+}
+public struct FramingAsk: Codable, Sendable, Equatable { public var entityID: EntityID; public var extent: BodyExtent }
+public enum BodyLevel: Int, Sendable, CaseIterable, Comparable {
+    case crown, eyes, neck, chest, waist, hips, midThigh, knees, shins, feet
+}
+public struct StagedCharacter: Sendable, Equatable {
+    public enum Horizontal: String, Sendable { case left, centre, right }
+    public enum Depth: String, Sendable { case foreground, midground, background }
+    public enum Facing: String, Sendable {
+        case camera, threeQuarterLeft, threeQuarterRight, profileLeft, profileRight, awayLeft, awayRight, away
+    }
+    public enum Cut: Sendable, Equatable { case frame(String), hidden(by: [String]) }
+    public struct Box: Sendable, Equatable { public var x: Double, y: Double, width: Double, height: Double }
+    public var entityID: EntityID
+    public var name: String
+    public var standIn: String              // its stand-in's colour name in the composition guide
+    public var isPerson: Bool, isVisible: Bool
+    public var horizontal: Horizontal, depth: Depth, facing: Facing
+    public var lowest: BodyLevel?           // people: the lowest level visible in an unbroken run from the head
+    public var crownVisible: Bool
+    public var cut: Cut?                    // what ends the visible part; nil when all of it shows
+    public var visibleFraction: Double, headFraction: Double, bodyFraction: Double
+    public var distance: Double             // metres from the camera along its view
+    public var box: Box?                    // the visible part, in fractions of the canvas
+    public var extentPhrase: String { get } // "from head to mid-thigh"
+}
+public struct Staging: Sendable, Equatable {
+    public var shotName: String, plateName: String?
+    public var canvas: ShotCanvas, camera: CameraFrame, sensor: Sensor
+    public var framing: String              // "medium-full two-shot"
+    public var characters: [StagedCharacter]
+    public func description() -> String     // the plate, the framing, the camera, then a line per character
+    public func legend() -> String          // which stand-in colour is which character
+}
+public enum StagingAnalysis {
+    public static func characters(in frame: SceneFrame) -> [StagedCharacter]
+    public static func staging(shot: Shot, frame: SceneFrame) -> Staging
+}
+public enum StandInPalette {                // blue, orange, green, magenta, yellow, cyan, red, purple
+    public static let colors: [(name: String, color: RGB)]
+    public static func standIn(_ index: Int) -> (name: String, color: RGB)   // by index among a frame's actors
+}
+public struct SightLines: Sendable {        // what the set pieces and props hide from the camera
+    public init(frame: SceneFrame)
+    public var isEmpty: Bool { get }
+    public func isHidden(_ point: Vec3) -> Bool
+}
+public enum FramingTable {
+    public struct Row: Sendable, Equatable {
+        public var shotID: ShotID
+        public var shot: String, plate: String, framing: String, lens: String, camera: String, who: String
+    }
+    public static func rows(scene: PrevisScene, catalog: ContentCatalog) -> [Row]
+    public static func markdown(scene: PrevisScene, catalog: ContentCatalog) -> String
+}
+```
+
+- A person is sampled at ten heights from the rig's keypoints. A sample shows when it is inside the canvas
+  and no set piece or prop is between it and the camera. Other actors are sampled over their bounds.
+- **Left, centre, right** is the visible part's centre across the frame, split at 0.38 and 0.62.
+  **Foreground, midground, background** is the standing height against the frame's height, split at 1 and
+  0.45. Facing is the heading seen from the camera, in 40° and 50° sectors.
+- **Staging warnings**, from the first frame: a character less visible than the shot asks, with what hides
+  or cuts them; a close shot the camera can't give, with the distance it would need; a character out of
+  frame; a character standing inside furniture; a shot whose first frame has left its plate's camera; a
+  plate without a match; and a canvas of another shape than its plate.
+
+### 5.9 Blocking from a description
+
+```swift
+public struct BlockingBrief: Codable, Sendable, Equatable {
+    public enum Relation: String, Codable, Sendable { case on, behind, inFrontOf }
+    public enum Facing: Codable, Sendable, Equatable {       // JSON: "camera", "away", "frameLeft",
+        case camera, away, frameLeft, frameRight              // "frameRight" or "toward:<name>"
+        case toward(String)
+    }
+    public struct Character: Codable, Sendable, Equatable {
+        public var name: String             // an entity of the scene by name, or a new one
+        public var asset: String?           // for a new entity; nil = person.man
+        public var frameX: Double?          // 0 at the frame's left edge to 1 at its right; nil = spread evenly
+        public var show: BodyExtent?        // also recorded as the shot's ask
+        public var relation: Relation?      // with `piece`: on, behind or in front of a set piece
+        public var piece: String?
+        public var facing: Facing?          // nil = the camera
+    }
+    public var shot: String                 // an existing shot of that name is blocked again
+    public var plate: String?               // by name or id; nil = the scene's first plate
+    public var characters: [Character]
+}
+public enum BlockingSolver {
+    public static func apply(_ brief: BlockingBrief, to scene: inout PrevisScene,
+                             catalog: ContentCatalog) throws -> (shotID: ShotID, notes: [String])
+}
+public enum BlockingReader {                // the offline reader: the scene's names and a small vocabulary
+    public static func brief(from text: String, scene: PrevisScene, newCharacters: [String] = []) -> BlockingBrief
+}
+```
+
+```swift
+public extension PrevisScene {
+    func shotsSharingBlocking(with shotID: ShotID) -> [Shot]
+    @discardableResult mutating func giveOwnBlocking(to shotID: ShotID, takeID: TakeID) -> TakeID?
+    mutating func pinActorsWhenTakesDiffer()
+}
+```
+
+- **A shot's own blocking.** A scene may hold several takes. `giveOwnBlocking` copies the shot's take when
+  another shot shares it, after pinning every unmarked actor where it stands: its placement becomes a
+  standing mark at time 0, in the shared take and so in the copy. The copy's mark ids are made from
+  `takeID`. An attached entity is not pinned. Once a scene has more than one take, an added actor is
+  pinned in each (`pinActorsWhenTakesDiffer`), so its moves stay in the shot they are made in. The solver
+  gives a brief's shot its own blocking.
+- `Shot.block(over:)` puts a shot on a plate: the plate's sensor and the first camera mark on its match. A
+  canvas of another shape than a 9:16 plate becomes 576 × 1024.
+- The solver needs a matched plate. "Behind" is the side of the piece away from the camera. On open floor
+  it tries distances and keeps the nearest at which the staging analysis shows what `show` asks, so the
+  solver and the warnings agree. `notes` are the staging warnings of the result.
+- A briefs file is one `BlockingBrief` or an array of them, as JSON.
+
 ## 6. ShotsMedia (Lane B)
 
 ```swift
@@ -643,7 +891,38 @@ public struct PrevisLook: Sendable, Equatable {     // the one canonical look fo
 public enum PassKind: String, Codable, Sendable, CaseIterable { case clean, pose, layout, matte }
 public struct ExportOptions: Sendable, Equatable {
     public var passes: Set<PassKind>
+    public var plateFolder: URL?                    // the project's Shots/Plates; a plate shot needs it
+    public init(passes: Set<PassKind>, plateFolder: URL? = nil)
     public static let standard: ExportOptions       // all four passes
+    public static func standard(inProject project: URL) -> ExportOptions
+}
+
+@MainActor public final class PlateImages {         // plate images, read once and unchanged
+    public init(folder: URL)
+    public let folder: URL
+    nonisolated public static func folder(inProject project: URL) -> URL   // <project>/Shots/Plates
+    nonisolated public static func url(of plate: LocationPlate, in folder: URL) throws -> URL
+    // The only way to a plate's image: refuses a file name that would lead out of the folder.
+    public func image(for plate: LocationPlate) throws -> CGImage
+    nonisolated public static func read(_ url: URL, name: String) throws -> CGImage
+    nonisolated public static func pixelSize(of url: URL) -> PixelSize?
+}
+public struct StandInOptions: Sendable, Equatable {
+    public var colored: Bool                        // each actor in its StandInPalette colour
+    public var labels: Bool                         // a name tag over each actor
+    public var setPieceOpacity: Double              // how strongly in-plate set pieces show; 0 = they only hide
+    public static let guide: StandInOptions         // coloured, no text
+    public static let labelledGuide: StandInOptions
+    public static let blocking: StandInOptions      // labelled, set pieces faint, for fitting them
+}
+// extension ShotFrameRenderer
+//   public func image(of frame: SceneFrame, over plate: CGImage, look: PrevisLook, options: StandInOptions,
+//                     sensor: Sensor, size: PixelSize? = nil) async throws -> CGImage
+// The plate is placed by PlateFit and covered only where a stand-in is drawn.
+
+public enum ShotBlockingWriter {                    // reads a description into a brief with a language model
+    public static func read(_ text: String, scene: PrevisScene,
+                            endpoint: ResolvedEndpoint) async throws -> BlockingBrief
 }
 public struct ExportProgress: Sendable, Equatable { public var step: String; public var fractionCompleted: Double }
 public struct ExportedPackage: Sendable { public var url: URL; public var manifest: PackageManifest }
@@ -772,7 +1051,18 @@ enum ShotsCommand: Codable, Sendable, Equatable {  // Lane C
     case applyFraming(ShotID, Framing.Kind, subjects: [EntityID], atFrame: Int)
     // Either kind of mark
     case deleteMarks(ShotID, [MarkID])
+    // Plates and set pieces
+    case addPlate(SceneID, LocationPlate)
+    case updatePlate(SceneID, LocationPlate)        // matched by id; every shot on the plate follows its camera
+    case deletePlate(SceneID, PlateID)              // shots on it go back to the grey stage
+    case setShotPlate(ShotID, PlateID?)             // Shot.block(over:)
+    case setKeyCanvas(ShotID, ShotCanvas?)
+    case setAsks(ShotID, [FramingAsk])
+    case setSetPiece(EntityID, SetPiece)            // size, steps, inPlate; the kind stays
+    case replaceScene(PrevisScene)                  // blocking from a description, as one step
+    case giveOwnBlocking(ShotID, takeID: TakeID)    // PrevisScene.giveOwnBlocking; a used take id is refused
 }
+// ShotsStore: `var plateFolder: URL?` (the project's Shots/Plates, set by the session)
 
 struct ShotsViewport: View { init(store: ShotsStore) }   // Lane D: free editor camera and interaction
 struct ShotCameraView: View { init(store: ShotsStore) }  // Lane D: the shot camera, rendered as exported
@@ -780,6 +1070,14 @@ struct ShotCameraView: View { init(store: ShotsStore) }  // Lane D: the shot cam
 
 **C0 makes `evaluator` and `frame` work from day 1.** They wrap PrevisCore, and the viewport draws
 `store.frame`.
+
+**Plates in the app.**
+- `addEntity` completes a `set.<kind>` entity with its standard set piece. Over a matched plate, an entity
+  added at the origin with no heading starts four metres in front of the plate's camera, facing it.
+- `deleteEntities` also removes the entity's asks.
+- `ShotCameraView` draws a plate shot over its plate (`StandInOptions.blocking`). A click there selects the
+  stand-in under it, and a drag slides the selected one along the floor it stands on, previewed through
+  `store.preview` and committed once.
 
 **Gestures.** While dragging, the viewport sets `store.preview` to the commands it would perform: usually
 one, or a batch when one gesture edits several things (dragging an actor that has marks moves its placement
@@ -806,9 +1104,17 @@ the gesture is one undo step, and sets `preview` back to empty. Inspector fields
 | File | Content | Owner |
 |---|---|---|
 | `<project>/.conceptstudio/shots.json` | `ShotsDocument` JSON (section 4), written with `AtomicFile` | C writes, A defines |
-| `<project>/Shots/<shot-slug>/<YYYYMMDD-HHMMSS>-<N>f-<W>x<H>/` | one exported package | B |
+| `<export folder>/<shot-slug>/<YYYYMMDD-HHMMSS>-<N>f-<W>x<H>/` | one exported package | B |
+| `<project>/Shots/Plates/<plate id>.<ext>` | a plate's image, copied byte for byte from the file the user chose | C |
+| `<export folder>/<scene-slug>-framing.md` | a scene's framing table and each shot's staging in words | C |
 
 The store never touches `job.yaml` or `images/`.
+
+**Export folder.** A scene's export folder is `<project>/Shots` until the user chooses another folder for
+that scene, such as the scene's folder in a production tree. The choice is not in `shots.json`: the app
+keeps it in its preferences per project and scene, as a security-scoped bookmark, because it only means
+something on the Mac that made it. A chosen folder that can no longer be opened is an error the user sees;
+the app never falls back to `<project>/Shots` on its own. Plates stay in the project.
 
 **Saving.**
 - 0.5 s after the last edit.
@@ -845,6 +1151,8 @@ The store never touches `job.yaml` or `images/`.
                                      (facts are the scene's at export), problems are sentences such as a stale
                                      or overlong prompt
   guides/<position>-f<frame:04>-<variant>.png
+  staging.txt                        the first frame's staging in words, then the stand-in legend
+  staging.json                       the same as data
   control/pose.mp4
   control/layout.mp4
   mattes/<entity-slug>.mp4
@@ -858,7 +1166,7 @@ get `-2`, `-3`, … in entity order.
 ```swift
 public struct PackageManifest: Codable, Sendable, Equatable {   // ShotsMedia
     public var format: String               // "conceptstudio.shot-package"
-    public var formatVersion: Int           // 1
+    public var formatVersion: Int           // 2; version 1 packages are still valid
     public var createdBy: String            // "ConceptStudio <version>"
     public var shot: ShotRef
     public var frameRate: Int               // 24
@@ -866,6 +1174,12 @@ public struct PackageManifest: Codable, Sendable, Equatable {   // ShotsMedia
     public var canvas: ShotCanvas
     public var passes: [PassKind]           // the passes this package was exported with
     public var files: [PackageFile]
+    public var keyCanvas: ShotCanvas?       // the composition guides' size; set for a plate shot
+    public var plate: PlateRef?             // the plate the shot is blocked over
+}
+public struct PlateRef: Codable, Sendable, Equatable {
+    public var id: PlateID, name: String, file: String
+    public var size: PixelSize
 }
 public struct ShotRef: Codable, Sendable, Equatable {
     public var id: ShotID, name: String, sceneID: SceneID
@@ -873,11 +1187,16 @@ public struct ShotRef: Codable, Sendable, Equatable {
 }
 public struct PackageFile: Codable, Sendable, Equatable {
     public enum Role: String, Codable, Sendable {
-        case guide, control, matte, reference, prompt, description
+        case guide, control, matte, reference, prompt, description, staging
         case promptSections = "prompt-sections"
+        case stagingData = "staging-data"
     }
     public enum Position: String, Codable, Sendable { case first, middle, last }
-    public enum Variant: String, Codable, Sendable { case clean, pose, layout, depth }   // depth reserved
+    public enum Variant: String, Codable, Sendable {
+        case clean, pose, layout, depth     // depth reserved
+        case composition                    // the plate with stand-ins, at the key's size
+        case compositionLabelled = "composition-labelled"   // the same with name tags
+    }
     public var role: Role
     public var path: String                 // relative, "/" separators
     public var position: Position?          // guides
@@ -895,19 +1214,32 @@ public struct PackageFile: Codable, Sendable, Equatable {
 - **Mattes** (matte pass): a video and a still at every guide frame, for each actor.
 - **Controls:** a video for each included pose and layout pass.
 - **Reference** (clean pass): the clean video.
+- **Composition guides** (a shot blocked over a plate, whatever the passes): the plate with a coloured
+  stand-in per actor, `composition`, and the same with name tags, `composition-labelled`, for the first
+  frame. Also for the last frame when the blocking differs there and the camera is still the plate's.
+- **Staging:** `staging.txt` and `staging.json`, always.
 - **Description:** `shot.json`, always.
 - **Prompt:** the prompt files, when the shot has a prompt.
 
 **Media rules.** External tools can rely on these.
-- **Stills:** PNG, 8-bit RGB, sRGB, exactly the canvas size.
+- **Stills:** PNG, 8-bit RGB, sRGB, exactly the canvas size. Composition guides are exactly the key size
+  (`keyCanvas`): the shot's `keyCanvas`, or else the plate's own size.
+- **composition:** the plate placed by `PlateFit`, unchanged wherever no stand-in is drawn. Each actor is the
+  grey-box figure in one flat `StandInPalette` colour, in actor order, with a nose and a dark band across
+  the eyes, so it shows position, size and facing and nothing of a person's look. No text. A set piece the plate already shows is not drawn and hides the
+  stand-ins behind it.
 - **Videos:** MP4, H.264, 8-bit 4:2:0, BT.709 tags, canvas size, exactly `frameCount` frames at a constant
   24 fps with presentation time i/24, no audio. MP4 is the v1 choice; PNG sequences could follow if Phase 0
   shows a need.
 - **clean:** the canonical `PrevisLook`, with no labels, editor chrome or selection highlight.
 - **pose:** black background, OpenPose COCO-18 colours, limbs and joint dots per person, limbs about
-  canvas.width/160 wide. Keypoints behind the camera are left out.
+  canvas.width/160 wide. Keypoints behind the camera are left out, and so is whatever a set piece or prop
+  hides: a limb is drawn only along the stretches the camera sees.
 - **layout:** white background, one filled box per actor covering its projected bounds clipped to the
-  canvas. The colour comes from the label, or else a fixed palette in entity order.
+  canvas, and cut where a set piece or prop hides the rest of the actor. The colour comes from the label,
+  or else a fixed palette in entity order.
+- **Frame 0 of the controls agrees with the composition guide:** all come from one evaluation through one
+  camera, and the canvas and the key have the plate's shape.
 - **matte:** black background, with the actor's *visible* silhouette in white; other entities occlude it.
 
 **`shot.json`:**
@@ -942,7 +1274,8 @@ public struct PackageFile: Codable, Sendable, Equatable {
 holds:
 - the manifest doesn't decode, or the format or version is unknown;
 - a listed file is missing;
-- a still or video isn't exactly the canvas size;
+- a still or video isn't exactly the canvas size, or a composition guide isn't exactly the key size;
+- the manifest names a plate but has no first composition guide, no staging description or no key size;
 - a video's frame count is wrong, or its first, middle or last presentation time is;
 - for an included still-producing pass, the first or last guide is missing;
 - with the matte pass included, an actor in `shot.json` has no matte;
@@ -1006,70 +1339,3 @@ older Homebrew build.
 - `swift test --package-path PrevisCore`;
 - `swiftlint lint --strict` and `swiftformat --lint` over `Sources`, `Tests`, `PrevisCore/Sources` and
   `PrevisCore/Tests`.
-
-## 11. Location plates and shared set geometry
-
-The plate extension keeps document version 1. Absent optional fields retain the existing grey-stage behavior.
-Lengths use metres, camera angles use radians, and lenses use millimetres.
-
-| Value | Added fields | Meaning |
-| --- | --- | --- |
-| `PrevisScene` | `plates`, `setPieces` | All reference views of one location and its shared staging solids. Both default to empty arrays. |
-| `LocationPlate` | `id`, `name`, `imagePath`, `pixelSize`, `calibration` | One original still and its camera match. `imagePath` is relative to the project's `.conceptstudio` folder. |
-| `PlateCalibration` | `sensor`, `position`, `pan`, `tilt`, `roll`, `focalLength`, `confirmed` | A saved camera in the scene's common coordinate system. `confirmed` defaults to false. |
-| `PlateSetPiece` | `id`, `name`, `position`, `size`, `occludes`, `supportsStanding` | A world-aligned solid. Position is the centre of its bottom face. Size is width, height, depth. |
-| `Shot` | `plateID`, `keyCanvas`, `requestedFraming` | Selected source view, composition-guide dimensions and optional framing intent. All default to absent. |
-| `SceneFrame` | `plate`, `setPieces`, `referencePlates` | Selected view, shared solids and all scene reference views for the evaluated frame. |
-
-Import copies the original still bytes into `.conceptstudio/plates/`. The source keeps its colour profile and
-orientation. Rendering displays the full oriented image with aspect-fit letterboxing. The camera's field of
-view uses the native plate aspect. `SceneFrame.project` supplies the matching fit transform for projected
-geometry, control passes and editor overlays.
-
-Every plate calibration uses the same scene coordinates. Adding views has no fixed count limit. Choosing a
-view through the UI assigns it to the shot and resets the shot camera to that calibration. A subsequent
-camera move remains an authored 3D track. At the matched viewpoint of any source with the selected view's
-aspect, its original still supplies the full background. At other viewpoints, the floor at Y = 0 and the
-shared solid surfaces receive projective textures from the reference photos. Each visible surface point is
-projected through the source cameras, rejected outside the source images or behind source-view geometry,
-and sampled from the strongest available view. Perspective-correct surface interpolation maintains the
-camera projection throughout a move. Decoded photos and source visibility maps are reused across frames.
-
-Surfaces and background regions with no visible photographed source carry a purple and dark checker pattern.
-Checker areas remain visible in guides and references. Additional reference views provide more photographed
-coverage. Viewpoint differences, unconfirmed camera matches and impossible requested framing produce
-advisory diagnostics while editing. The `confirmed` flag records a user judgment and does not disable draft
-calibration rendering.
-
-Key and video canvases have the same aspect. Video dimensions retain the existing multiple-of-32 and
-64–2048 limits. Key dimensions are multiples of 32 and at least 64, including 1440 × 2560. Changing the video
-aspect clears an incompatible key override. Exact portrait presets include 576 × 1024 and 864 × 1536.
-
-The command surface adds `putPlate`, `putSetPiece`, `removeSetPiece`, `setPlate`, `matchPlateCamera`,
-`setKeyCanvas` and `setRequestedFraming`. They use the same atomic batch, validation, undo, revision and
-save path as existing commands. Matching a camera replaces that shot's camera track explicitly.
-
-### Plate-backed package extension
-
-`manifest.json` may include `keyCanvas`. A file entry may include `pixelSize` and `plateID`. Videos continue to
-use `manifest.canvas`, `frameRate` and `frameCount`. A `plate` entry's `plateID` identifies its corresponding
-`scene.plates[].id` in `shot.json`. Plate-backed packages add these roles.
-
-| Role | Path | Meaning |
-| --- | --- | --- |
-| `composition` | `composition.png` | Frame-zero guide at `keyCanvas`, with the matched original view or projected shared location and neutral procedural stand-ins. |
-| `staging` | `staging.txt` | Plain-language plate, camera, lens, framing, position, visibility and facing facts from frame zero. |
-| `legend` | `legend.txt` | Character names, frame positions and the meaning of unmapped checker areas. |
-| `plate` | `plate/<unique plate slug>.<extension>` | Each byte-identical reference source, with its native `pixelSize` and `plateID`. |
-
-The embedded scene description contains the exported shot, every reference plate and the shared geometry.
-The first `plate` file entry is the frame-zero primary source, using the exact matched reference when one
-exists and otherwise the selected source. Every embedded plate path resolves to its copied image inside the package. These references retain the
-calibrations needed to reproduce moving-camera projection. Composition, pose, layout and mattes use the same
-frame evaluation, projection and set-solid visibility. Human stand-ins are neutral geometry. Pose and
-layout are generated directly at the video canvas size on the existing frame grid.
-
-The exporter validates the selected shot and shared scene before creating a destination. Missing plate
-references and incompatible key/video aspects are errors. Source image read failures reach the existing
-error path. Package validation checks the declared image dimensions, video timing and canvas. It also verifies
-that every embedded reference plate has a matching `plateID` and relative image path in the manifest.
