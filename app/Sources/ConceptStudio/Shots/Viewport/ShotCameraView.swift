@@ -56,14 +56,14 @@ final class ShotCameraPreviewSession {
     private var drainTask: Task<Void, Never>?
     private var activeDrainRunID: UInt64 = 0
 
-    init(renderImage: RenderClosure? = nil) {
+    init(renderImage: RenderClosure? = nil, plateRoot: URL? = nil) {
         if let renderImage {
             renderClosure = renderImage
         } else {
             let box = RendererBox()
             renderClosure = { frame, look in
                 if box.renderer == nil {
-                    box.renderer = try ShotFrameRenderer()
+                    box.renderer = try ShotFrameRenderer(plateRoot: plateRoot)
                 }
                 guard let renderer = box.renderer else {
                     throw ShotsMediaError("Shots couldn't initialize the frame renderer.")
@@ -206,7 +206,7 @@ struct ShotCameraView: View {
         self.onToggleLookThrough = onToggleLookThrough
         self.claimFocusOnAppear = claimFocusOnAppear
         self.onClaimedFocus = onClaimedFocus
-        _session = State(initialValue: session ?? ShotCameraPreviewSession())
+        _session = State(initialValue: session ?? ShotCameraPreviewSession(plateRoot: store.plateRootURL))
     }
 
     var liveSession: ViewportLiveSession {
@@ -268,6 +268,21 @@ struct ShotCameraView: View {
                     onSync: {
                         liveSession.viewportSize = currentSize
                         liveSession.syncSelectionAnnouncement(with: store)
+                    },
+                    onClick: { point in
+                        guard let plate = store.currentPlate else { return }
+                        let x = point.x - (geometry.size.width - rect.width) / 2
+                        let y = point.y - (geometry.size.height - rect.height) / 2
+                        guard x >= 0, y >= 0, x <= rect.width, y <= rect.height,
+                              let position = plate.placementPoint(
+                                  at: Point2(
+                                      x: x / rect.width * Double(canvas.width),
+                                      y: y / rect.height * Double(canvas.height)
+                                  ),
+                                  size: canvas.pixelSize, setPieces: store.frame?.setPieces ?? [],
+                                  camera: store.frame?.camera
+                              ) else { return }
+                        store.moveSelectedToPlatePoint(position)
                     },
                     onKeyDown: { characters, keyCode, modifiers in
                         liveSession.viewportSize = currentSize
@@ -336,6 +351,11 @@ struct ShotCameraView: View {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: size.width, height: size.height)
+                if store.showsPlateCalibration, let frame = activeRenderedRequest?.frame, frame.plate != nil {
+                    ShotsPlateOverlay(frame: frame)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
 
                 Text(captionText)
                     .font(.system(size: 11, weight: .medium))

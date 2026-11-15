@@ -18,7 +18,7 @@ public enum ShotsCommandLine {
             let job = try Job(arguments: arguments)
             let catalog = try ContentCatalog.bundled()
             let (scene, shotID) = try job.shot(catalog: catalog)
-            let package = try await ShotExporter(catalog: catalog).export(
+            let package = try await ShotExporter(catalog: catalog, plateRoot: job.plateRoot).export(
                 scene: scene,
                 shotID: shotID,
                 options: job.options,
@@ -113,6 +113,11 @@ struct Job {
         } else if input == .sample, values["--shot"] != nil {
             throw UsageError("--sample exports the sample's one shot, so it takes no --shot.")
         }
+    }
+
+    var plateRoot: URL? {
+        guard case let .document(path, _) = input else { return nil }
+        return URL(fileURLWithPath: path).deletingLastPathComponent()
     }
 
     /// The scene to export and the shot within it, with Blockout input's overrides applied.

@@ -7,6 +7,10 @@ import SwiftUI
 enum ConceptStudioLaunch {
     @MainActor
     static func main() async {
+        if ProcessInfo.processInfo.arguments.contains("--shots-plate-self-test") {
+            let code = await ShotsSelfTest.runPlate()
+            exit(code)
+        }
         if ProcessInfo.processInfo.arguments.contains("--shots-self-test") {
             let code = await ShotsSelfTest.run()
             exit(code)
@@ -67,6 +71,7 @@ struct ConceptStudioApp: App {
                     .disabled(session.project == nil)
             }
             JourneyCommands(session: session)
+            ShotsUndoCommands(session: session)
             CommandGroup(replacing: .help) {
                 Button("ConceptStudio Help") { openWindow(id: "help") }
                     .keyboardShortcut("?", modifiers: .command)

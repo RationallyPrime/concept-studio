@@ -42,7 +42,47 @@ private struct SceneChecker {
     }
 
     func problems() -> [ShotsProblem] {
-        entityProblems() + attachmentCycles() + takeProblems() + scene.shots.flatMap(shotProblems)
+        entityProblems() + attachmentCycles() + takeProblems() + plateProblems() + setPieceProblems()
+            + scene.shots.flatMap(shotProblems)
+    }
+
+    private func plateProblems() -> [ShotsProblem] {
+        var out: [ShotsProblem] = []
+        var ids: Set<String> = []
+        for plate in scene.plates {
+            if !ids.insert(plate.id).inserted {
+                out.append(error("Two location plates share the id \(plate.id). Give each plate its own id."))
+            }
+            if plate.imagePath.isEmpty || plate.imagePath.hasPrefix("/")
+                || plate.imagePath.split(separator: "/").contains("..") {
+                out.append(error("\(plate.name) needs an image path relative to the project's .conceptstudio folder."))
+            }
+            if plate.pixelSize.width <= 0 || plate.pixelSize.height <= 0 {
+                out.append(error("\(plate.name) has no valid image dimensions. Import the plate again."))
+            }
+            let camera = plate.calibration
+            if !camera.position.isFinite
+                || ![camera.pan, camera.tilt, camera.roll, camera.focalLength].allSatisfy(\.isFinite)
+                || camera.focalLength <= 0 {
+                out.append(error("\(plate.name) has an invalid camera match. Reset its camera values."))
+            }
+        }
+        return out
+    }
+
+    private func setPieceProblems() -> [ShotsProblem] {
+        var out: [ShotsProblem] = []
+        var ids: Set<String> = []
+        for piece in scene.setPieces {
+            if !ids.insert(piece.id).inserted {
+                out.append(error("Two set pieces share the id \(piece.id). Give each piece its own id."))
+            }
+            if !piece.position.isFinite || !piece.size.isFinite
+                || piece.size.x <= 0 || piece.size.y <= 0 || piece.size.z <= 0 {
+                out.append(error("\(piece.name) needs finite dimensions above zero."))
+            }
+        }
+        return out
     }
 
     // MARK: Entities
@@ -163,6 +203,18 @@ private struct SceneChecker {
             out.append(error(
                 "\(label) has a \(shot.canvas.width) × \(shot.canvas.height) canvas; "
                     + "use multiples of 32 from 64 to 2048.",
+                shot: shot.id
+            ))
+        }
+        if let keyCanvas = shot.keyCanvas, !keyCanvas.isValidKey {
+            out.append(error("\(label) needs a key canvas with multiples of 32 of at least 64 pixels.", shot: shot.id))
+        }
+        if abs(shot.guideCanvas.aspect - shot.canvas.aspect) > 1e-9 {
+            out.append(error("\(label)'s key and control canvases need the same aspect ratio.", shot: shot.id))
+        }
+        if let plateID = shot.plateID, !scene.plates.contains(where: { $0.id == plateID }) {
+            out.append(error(
+                "\(label) refers to the missing plate \(plateID). Select a scene plate.",
                 shot: shot.id
             ))
         }

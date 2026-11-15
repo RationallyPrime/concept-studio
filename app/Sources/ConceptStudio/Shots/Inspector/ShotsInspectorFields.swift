@@ -7,17 +7,31 @@ struct ShotsNumberField: View {
     var range: ClosedRange<Double> = -100_000 ... 100_000
     /// What the number means, for a reader with no film or 3D background. Shown on hover and read by VoiceOver.
     var explanation: String?
+    var commitOnSubmit = false
+    @State private var stagedValue: Double?
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         LabeledContent(title) {
-            TextField(title, value: Binding(get: { value }, set: {
+            TextField(title, value: Binding(get: { stagedValue ?? value }, set: {
                 guard $0.isFinite else { return }
-                value = min(max($0, range.lowerBound), range.upperBound)
+                let clamped = min(max($0, range.lowerBound), range.upperBound)
+                if commitOnSubmit { stagedValue = clamped } else { value = clamped }
             }), format: .number.precision(.fractionLength(0 ... 3)))
                 .textFieldStyle(.roundedBorder).labelsHidden()
                 .accessibilityLabel(ShotsAccessibility.spokenTitle(title))
+                .focused($fieldFocused)
+                .onSubmit { commit() }
+                .onChange(of: fieldFocused) { _, focused in if !focused { commit() } }
+                .onChange(of: value) { _, _ in if !fieldFocused { stagedValue = nil } }
         }
         .help(explanation ?? "")
+    }
+
+    private func commit() {
+        guard let stagedValue else { return }
+        value = stagedValue
+        self.stagedValue = nil
     }
 }
 
@@ -54,19 +68,22 @@ struct ShotsPositionFields: View {
     @Binding var position: Vec3
     /// A car-mounted camera's marks are offsets from its mount, not stage positions (PrevisCore `MountFrame`).
     var fromMount = false
+    var commitOnSubmit = false
 
     var body: some View {
         let origin = fromMount ? ", measured from the camera's mount" : ""
         ShotsNumberField(
-            title: "X (m)", value: $position.x, explanation: "Left and right across the stage, in metres\(origin)."
+            title: "X (m)", value: $position.x, explanation: "Left and right across the stage, in metres\(origin).",
+            commitOnSubmit: commitOnSubmit
         )
         ShotsNumberField(
             title: "Y (m)",
             value: $position.y,
-            explanation: "Height above the ground, in metres\(origin)."
+            explanation: "Height above the ground, in metres\(origin).", commitOnSubmit: commitOnSubmit
         )
         ShotsNumberField(
-            title: "Z (m)", value: $position.z, explanation: "Toward and away from the front, in metres\(origin)."
+            title: "Z (m)", value: $position.z, explanation: "Toward and away from the front, in metres\(origin).",
+            commitOnSubmit: commitOnSubmit
         )
     }
 }

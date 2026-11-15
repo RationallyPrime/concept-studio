@@ -15,6 +15,13 @@ enum ShotsCommand: Codable, Sendable, Equatable {
     case setNotes(ShotID, ShotNotes)
     case setPrompt(ShotID, ShotPrompt?)
     case importScenes([PrevisScene])
+    case putPlate(SceneID, LocationPlate)
+    case putSetPiece(SceneID, PlateSetPiece)
+    case removeSetPiece(SceneID, String)
+    case setPlate(ShotID, String?)
+    case matchPlateCamera(ShotID)
+    case setKeyCanvas(ShotID, ShotCanvas?)
+    case setRequestedFraming(ShotID, Framing.Kind?)
 
     case addEntity(SceneID, PrevisEntity)
     case setPlacement(EntityID, Placement)

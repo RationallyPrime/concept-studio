@@ -31,7 +31,7 @@ struct ShotsExportView: View {
         do {
             let snapshot = try store.exportSnapshot()
             try store.flush()
-            let exporter = try ShotExporter(catalog: store.catalog)
+            let exporter = try ShotExporter(catalog: store.catalog, plateRoot: store.plateRootURL)
             let destination = FolderDestination(parent: projectDirectory.appendingPathComponent(
                 "Shots",
                 isDirectory: true

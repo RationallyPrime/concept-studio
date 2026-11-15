@@ -512,6 +512,7 @@ struct ViewportKeyCaptureOverlay: NSViewRepresentable {
     var claimFocusOnAppear = false
     var onClaimedFocus: (() -> Void)?
     var onSync: (() -> Void)?
+    var onClick: ((CGPoint) -> Void)?
     var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
 
     func makeNSView(context: Context) -> KeyCapturingView {
@@ -531,6 +532,7 @@ struct ViewportKeyCaptureOverlay: NSViewRepresentable {
         session?.hostView = view
         view.onKeyDown = onKeyDown
         view.onClaimedFocus = onClaimedFocus
+        view.onClick = onClick
         if claimFocusOnAppear {
             view.requestFocusIfNeeded()
         }
@@ -539,6 +541,7 @@ struct ViewportKeyCaptureOverlay: NSViewRepresentable {
     final class KeyCapturingView: NSView {
         weak var session: ViewportLiveSession?
         var onClaimedFocus: (() -> Void)?
+        var onClick: ((CGPoint) -> Void)?
         var onKeyDown: ((String?, UInt16, NSEvent.ModifierFlags) -> Bool)?
         private var pendingFocusRequest = false
 
@@ -569,6 +572,8 @@ struct ViewportKeyCaptureOverlay: NSViewRepresentable {
 
         override func mouseDown(with event: NSEvent) {
             window?.makeFirstResponder(self)
+            let point = convert(event.locationInWindow, from: nil)
+            onClick?(CGPoint(x: point.x, y: isFlipped ? point.y : bounds.height - point.y))
         }
 
         override func keyDown(with event: NSEvent) {

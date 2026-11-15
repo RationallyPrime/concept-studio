@@ -13,6 +13,8 @@ import RealityKit
 
     private let environment = Entity()
     private let stage = Entity()
+    private let setPiecesRoot = Entity()
+    private var drawnSetPieces: [PlateSetPiece] = []
     private let camera = Entity()
     private var containers: [EntityID: Entity] = [:]
     private var owners: [ObjectIdentifier: EntityID] = [:]
@@ -33,6 +35,8 @@ import RealityKit
         self.look = look
         root.addChild(environment)
         root.addChild(stage)
+        setPiecesRoot.name = "set-pieces"
+        root.addChild(setPiecesRoot)
         buildEnvironment()
     }
 
@@ -55,7 +59,8 @@ import RealityKit
     }
 
     /// Adds, updates and removes children by (entity id, part id). Idempotent.
-    public func apply(_ frame: SceneFrame) {
+    public func apply(_ frame: SceneFrame, showsSetPieces: Bool = false) {
+        applySetPieces(showsSetPieces ? frame.setPieces : [])
         let present = Set(frame.entities.map(\.id))
         for (id, container) in containers where !present.contains(id) {
             container.removeFromParent()
@@ -65,6 +70,42 @@ import RealityKit
         }
         for entity in frame.entities {
             apply(entity)
+        }
+    }
+
+    /// Shared location solids are wireframes in the free scene view. They remain depth-only in plate exports.
+    private func applySetPieces(_ pieces: [PlateSetPiece]) {
+        guard pieces != drawnSetPieces else { return }
+        drawnSetPieces = pieces
+        for child in Array(setPiecesRoot.children) {
+            child.removeFromParent()
+        }
+        let material = UnlitMaterial(color: .init(srgbRed: 0.75, green: 0.78, blue: 0.8, alpha: 1))
+        for piece in pieces {
+            let container = Entity()
+            container.name = "set-piece:\(piece.id)"
+            let bounds = piece.bounds
+            let corners = (0 ..< 8).map { index in
+                Vec3(
+                    index & 1 == 0 ? bounds.min.x : bounds.max.x,
+                    index & 2 == 0 ? bounds.min.y : bounds.max.y,
+                    index & 4 == 0 ? bounds.min.z : bounds.max.z
+                )
+            }
+            for index in 0 ..< 8 {
+                for bit in [1, 2, 4] where index & bit == 0 {
+                    let a = corners[index], b = corners[index | bit]
+                    let thickness = 0.025
+                    let edge = ModelEntity(mesh: .generateBox(
+                        width: Float(max(abs(b.x - a.x), thickness)),
+                        height: Float(max(abs(b.y - a.y), thickness)),
+                        depth: Float(max(abs(b.z - a.z), thickness))
+                    ), materials: [material])
+                    edge.position = SIMD3(Float((a.x + b.x) / 2), Float((a.y + b.y) / 2), Float((a.z + b.z) / 2))
+                    container.addChild(edge)
+                }
+            }
+            setPiecesRoot.addChild(container)
         }
     }
 

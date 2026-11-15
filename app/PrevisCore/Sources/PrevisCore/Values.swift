@@ -281,13 +281,25 @@ public struct ShotCanvas: Codable, Hashable, Sendable {
         [width, height].allSatisfy { $0 % 32 == 0 && (64 ... 2048).contains($0) }
     }
 
+    /// Key stills can retain the source plate's larger resolution.
+    public var isValidKey: Bool {
+        [width, height].allSatisfy { $0 % 32 == 0 && $0 >= 64 }
+    }
+
     public init(width: Int, height: Int) {
         self.width = width
         self.height = height
     }
 
     public static let portrait = ShotCanvas(width: 640, height: 1152)
+    public static let keyPresets: [ShotCanvas] = [
+        ShotCanvas(width: 576, height: 1024),
+        ShotCanvas(width: 864, height: 1536),
+        ShotCanvas(width: 1440, height: 2560),
+    ]
     public static let presets: [ShotCanvas] = [
+        ShotCanvas(width: 576, height: 1024),
+        ShotCanvas(width: 864, height: 1536),
         ShotCanvas(width: 640, height: 1152),
         ShotCanvas(width: 768, height: 1344),
         ShotCanvas(width: 1152, height: 640),
