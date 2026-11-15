@@ -47,6 +47,16 @@ struct ShotsPlateTests {
             onPlate = try #require(store.currentScene?.shots.first { $0.id == id })
             #expect(onPlate.camera.marks[0].position.y == 1.72)
         }
+        // Renaming the plate is not a new match: a camera the user has since moved stays where they put it.
+        var raised = onPlate.camera.marks[0]
+        raised.position.y = 1.9
+        try store.perform(.updateCameraMark("shot_second", raised))
+        var renamed = corrected
+        renamed.name = "Hall A, reverse"
+        try store.perform(.updatePlate(scene.id, renamed))
+        let kept = try #require(store.currentScene?.shots.first { $0.id == "shot_second" })
+        #expect(kept.camera.marks[0].position.y == 1.9)
+        #expect(store.currentScene?.plates.first?.name == "Hall A, reverse")
         try store.perform(.deletePlate(scene.id, "plate_a"))
         #expect(store.currentScene?.shots.allSatisfy { $0.plateID == nil } == true)
         store.undo()

@@ -22,8 +22,11 @@ enum ShotsPlateCommands {
             guard let index = document.scenes[scene].plates.firstIndex(where: { $0.id == plate.id }) else {
                 throw ShotsEditingError.missing("plate")
             }
+            let matchChanged = document.scenes[scene].plates[index].match != plate.match
             document.scenes[scene].plates[index] = plate
-            // A match is made once per plate: every shot on the plate starts from its camera.
+            // A match is made once per plate: every shot on the plate starts from its camera. A new name or new
+            // guide lines with the same match leave the shots' cameras as the user set them.
+            guard matchChanged else { break }
             for shot in document.scenes[scene].shots.indices
                 where document.scenes[scene].shots[shot].plateID == plate.id {
                 sync(&document.scenes[scene].shots[shot], to: plate)

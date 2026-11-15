@@ -222,6 +222,14 @@ public struct ShotEvaluator: Sendable {
 
     private func sceneFrame(index: Int?, time: Double) -> SceneFrame {
         var poses = entities.map { pose(of: $0, at: time) }
+        // Nobody sinks into a dais or a flight of steps: a person or animal over one stands on its top. This comes
+        // before attachments are resolved, so whoever rides or is carried follows a parent the dais has raised.
+        if !surfaces.isEmpty {
+            for index in poses.indices where entities[index].asset.rig != .none {
+                let position = poses[index].position
+                poses[index].position.y = max(position.y, surfaces.floor(x: position.x, z: position.z))
+            }
+        }
         if let graph {
             graph.resolve(&poses, at: time)
         } else {
@@ -230,11 +238,6 @@ public struct ShotEvaluator: Sendable {
         }
         for index in poses.indices {
             poses[index].time = time
-            // Nobody sinks into a dais or a flight of steps: a person or animal over one stands on its top.
-            if !surfaces.isEmpty, entities[index].asset.rig != .none, poses[index].orientation == nil {
-                let position = poses[index].position
-                poses[index].position.y = max(position.y, surfaces.floor(x: position.x, z: position.z))
-            }
         }
         let frames = zip(entities, poses).map { EntityFrame.posed($0.entity, asset: $0.asset, state: $1) }
         return SceneFrame(

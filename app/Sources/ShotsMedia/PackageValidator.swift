@@ -33,9 +33,11 @@ public enum PackageValidator {
             switch url.pathExtension {
             case "png":
                 let keySized = file.variant?.isKeySized ?? false
+                // A package of the first plate build states each still's own size.
+                let expected = file.pixelSize ?? (keySized ? manifest.keyCanvas?.pixelSize ?? size : size)
                 problems += stillProblems(
-                    url, path: file.path, size: keySized ? manifest.keyCanvas?.pixelSize ?? size : size,
-                    kind: keySized ? "key" : "canvas"
+                    url, path: file.path, size: expected,
+                    kind: file.pixelSize != nil ? "manifest" : keySized ? "key" : "canvas"
                 )
             case "mp4":
                 if file.frameCount != manifest.frameCount {

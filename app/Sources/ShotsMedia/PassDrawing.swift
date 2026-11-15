@@ -78,8 +78,13 @@ enum PassDrawing {
                     ))
                     if visible, runStart == nil { runStart = step }
                     if !visible, let first = runStart {
-                        let a = Self.mix(start, end, Double(first) / Double(steps))
-                        let b = Self.mix(start, end, Double(step) / Double(steps))
+                        // The run's ends are projected from the limb itself: seen in perspective, a fraction of
+                        // the way along a limb is not the same fraction of the way along its picture.
+                        let near = Double(first) / Double(steps), far = Double(step) / Double(steps)
+                        let a = frame.camera.project(Self.mix(from, to, near), size: size)
+                            ?? Self.mix(start, end, near)
+                        let b = frame.camera.project(Self.mix(from, to, far), size: size)
+                            ?? Self.mix(start, end, far)
                         limb(from: a, to: b, index: index)
                         runStart = nil
                     }

@@ -75,6 +75,8 @@ public struct PackageFile: Codable, Sendable, Equatable {
         case guide, control, matte, reference, prompt, description, staging
         case promptSections = "prompt-sections"
         case stagingData = "staging-data"
+        /// Read only: what a plate package of the first plate build (format version 1) lists. Never written.
+        case composition, legend, plate
     }
 
     public enum Position: String, Codable, Sendable { case first, middle, last }
@@ -97,6 +99,8 @@ public struct PackageFile: Codable, Sendable, Equatable {
     public var frameCount: Int?
     public var entityID: EntityID?
     public var entityName: String?
+    /// Read only: a still's own size, as a plate package of the first plate build states it. Never written.
+    public var pixelSize: PixelSize?
 
     public init(
         role: Role,

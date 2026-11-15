@@ -41,7 +41,8 @@ import PrevisCore
         return image
     }
 
-    /// Reads an image file as it is, without resampling or colour changes.
+    /// Reads an image file as it is, without resampling or colour changes. A camera's orientation tag is applied,
+    /// so a plate shot sideways or upside down is read the way it is seen and the way `pixelSize(of:)` counts it.
     public nonisolated static func read(_ url: URL, name: String) throws -> CGImage {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw ShotsMediaError(
@@ -49,11 +50,26 @@ import PrevisCore
                     + "Shots/Plates folder. Add the plate again."
             )
         }
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else {
-            throw ShotsMediaError("\(url.lastPathComponent) isn't an image Shots can read. Use a PNG or JPEG plate.")
+        let unreadable = ShotsMediaError(
+            "\(url.lastPathComponent) isn't an image Shots can read. Use a PNG or JPEG plate."
+        )
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { throw unreadable }
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        let orientation = properties?[kCGImagePropertyOrientation] as? Int ?? 1
+        let longest = max(
+            properties?[kCGImagePropertyPixelWidth] as? Int ?? 0,
+            properties?[kCGImagePropertyPixelHeight] as? Int ?? 0
+        )
+        let image: CGImage? = if orientation == 1 || longest == 0 {
+            CGImageSourceCreateImageAtIndex(source, 0, nil)
+        } else {
+            CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: longest,
+            ] as CFDictionary)
         }
+        guard let image else { throw unreadable }
         return image
     }
 

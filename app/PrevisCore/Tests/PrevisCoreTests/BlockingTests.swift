@@ -99,6 +99,10 @@ struct BlockingTests {
             ),
             .init(name: "Man", frameX: 0.73, show: .waistUp, relation: .on, piece: "Dais", facing: .camera),
         ])
+        // A scene-and-setup number is a shot's name too, so two rows make two shots.
+        let rows = ["12A plate C, medium. Woman frame left.", "12b plate C, medium. Man frame right."]
+        #expect(rows.map { BlockingReader.brief(from: $0, scene: scene).shot } == ["12A", "12b"])
+        #expect(BlockingReader.brief(from: "Woman frame left.", scene: scene).shot == "New shot")
     }
 
     @Test func aBriefSurvivesJSONWithItsFacingAsOneWord() throws {
@@ -173,5 +177,25 @@ struct OwnBlockingTests {
         // The wide is still the wide it was before the close-up was blocked.
         #expect(try ShotEvaluator(scene: scene, shotID: wide.shotID, catalog: catalog).staging() == wideStaging)
         #expect(Set(scene.shots.map(\.blockingTakeID)).count == scene.shots.count)
+    }
+
+    @Test func aCharacterABriefAddsKeepsTheirPlaceInEachShot() throws {
+        var scene = ShotsSamples.plateStaging().scenes[0]
+        scene.entities.removeAll { $0.id == table }
+        let wide = try BlockingSolver.apply(
+            BlockingBrief(shot: "Wide", characters: [.init(name: "Guard", frameX: 0.5, show: .headToBoots)]),
+            to: &scene, catalog: catalog
+        )
+        func guardInTheWide(_ scene: PrevisScene) throws -> Vec3 {
+            let frame = try ShotEvaluator(scene: scene, shotID: wide.shotID, catalog: catalog).frame(0)
+            return try #require(frame.entities.first { $0.name == "Guard" }).position
+        }
+        let before = try guardInTheWide(scene)
+        // Blocking the guard again, for another shot, moves them in that shot only.
+        _ = try BlockingSolver.apply(
+            BlockingBrief(shot: "TS-01", characters: [.init(name: "Guard", frameX: 0.2, show: .waistUp)]),
+            to: &scene, catalog: catalog
+        )
+        #expect(try guardInTheWide(scene) == before)
     }
 }

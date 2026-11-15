@@ -140,12 +140,14 @@ public enum BlockingSolver {
         }
         working.shots[shotIndex].block(over: plate)
         let shotID = working.shots[shotIndex].id
+        // Everyone the brief names exists before the takes part, so a new character is pinned in each take like
+        // the rest, and a later brief for another shot can't move them in this one.
+        let ids = try characters(of: brief, in: &working, near: match, catalog: catalog)
         // A brief stages people for this shot alone, so the shot gets its own blocking when it shares one.
         let takeID = working.giveOwnBlocking(to: shotID, takeID: PrevisIDs.make("take")) ?? take.id
+        working.pinActorsWhenTakesDiffer()
         let canvas = working.shots[shotIndex].canvas.pixelSize
         let camera = match.camera(aspect: canvas.aspect)
-
-        let ids = try characters(of: brief, in: &working, near: match, catalog: catalog)
 
         let count = Double(brief.characters.count)
         for (index, character) in brief.characters.enumerated() {
@@ -541,16 +543,19 @@ public enum BlockingReader {
         return nil
     }
 
-    /// A leading shot code such as "TS-01" or "FRC-10b".
+    /// A leading shot code such as "TS-01" or "FRC-10b", or a scene-and-setup number such as "12A".
     private static func shotName(in text: String) -> String? {
         let first = text.split(whereSeparator: { " \t|:,\n".contains($0) }).first.map(String.init) ?? ""
+        guard first.count <= 12 else { return nil }
         let letters = first.prefix { $0.isLetter && $0.isUppercase }
         let rest = first.dropFirst(letters.count)
         let digits = rest.drop { $0 == "-" || $0 == "_" }
-        guard (1 ... 5).contains(letters.count), let lead = digits.first, lead.isNumber, first.count <= 12 else {
-            return nil
-        }
-        return first
+        if (1 ... 5).contains(letters.count), let lead = digits.first, lead.isNumber { return first }
+        // Digits, then at most two letters: "12A", "7", "12b".
+        let number = first.prefix { $0.isNumber }
+        let setup = first.dropFirst(number.count)
+        if (1 ... 4).contains(number.count), setup.count <= 2, setup.allSatisfy(\.isLetter) { return first }
+        return nil
     }
 
     /// "plate c", "plate B".

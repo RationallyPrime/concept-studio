@@ -183,4 +183,28 @@ struct PlateExportTests {
             ?? []
         #expect(left.isEmpty)
     }
+
+    @Test func aPlateWithAnOrientationTagIsReadTheWayItIsSeen() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("shots-sideways-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        // 40 × 20 stored pixels, tagged as shot with the camera on its side: seen, it is 20 × 40.
+        let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
+        let provider = try #require(CGDataProvider(data: Data([UInt8](repeating: 200, count: 40 * 20 * 4)) as CFData))
+        let stored = try #require(CGImage(
+            width: 40, height: 20, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 40 * 4, space: space,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue), provider: provider,
+            decode: nil, shouldInterpolate: false, intent: .defaultIntent
+        ))
+        let url = folder.appendingPathComponent("sideways.jpg")
+        let destination = try #require(
+            CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        )
+        CGImageDestinationAddImage(destination, stored, [kCGImagePropertyOrientation: 6] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        #expect(PlateImages.pixelSize(of: url) == PixelSize(width: 20, height: 40))
+        let read = try PlateImages.read(url, name: "Sideways")
+        #expect(read.width == 20 && read.height == 40)
+    }
 }

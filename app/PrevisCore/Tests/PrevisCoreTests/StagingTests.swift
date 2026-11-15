@@ -74,6 +74,21 @@ struct StagingTests {
         #expect(abs((stepped?.position.y ?? 0) - 0.3) < 1e-9)
     }
 
+    @Test func someoneAttachedToAPersonOnTheDaisStaysUpThereWithThem() throws {
+        var (scene, _) = try sample { scene in
+            let index = scene.entities.firstIndex { $0.id == woman }!
+            scene.entities[index].placement.position = Vec3(-0.3, 0, -7.4)
+        }
+        let shotID = scene.shots[0].id
+        let index = try #require(scene.entities.firstIndex { $0.id == woman })
+        scene.entities[index].attachment = try Attachments.attachment(
+            child: woman, parent: man, scene: scene, shotID: shotID, atFrame: 0, catalog: catalog
+        )
+        let frame = try ShotEvaluator(scene: scene, shotID: shotID, catalog: catalog).frame(0)
+        let heights = [woman, man].compactMap { id in frame.entities.first { $0.id == id }?.position.y }
+        #expect(heights.count == 2 && heights.allSatisfy { abs($0 - 0.45) < 1e-9 })
+    }
+
     @Test func standingInsideTheTableIsReported() throws {
         let (_, evaluator) = try sample { scene in
             let index = scene.entities.firstIndex { $0.id == woman }!
