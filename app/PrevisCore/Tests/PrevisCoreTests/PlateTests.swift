@@ -118,6 +118,23 @@ struct PlateTests {
         #expect(frame.project(point) == projected)
     }
 
+    @Test func framingUsesThePlateAspectNotTheCanvasAspect() throws {
+        var plated = try scene()
+        plated.shots[0].canvas = ShotCanvas(width: 768, height: 768)
+        var plain = try scene()
+        plain.shots[0].plateID = nil
+        plain.shots[0].canvas = ShotCanvas(width: 576, height: 1024)
+        let framed = try Framing.cameraMark(
+            .full, scene: plated, shotID: plated.shots[0].id, subjects: ["actor"], atFrame: 0,
+            catalog: .bundled()
+        )
+        let expected = try Framing.cameraMark(
+            .full, scene: plain, shotID: plain.shots[0].id, subjects: ["actor"], atFrame: 0,
+            catalog: .bundled()
+        )
+        #expect((framed.position - expected.position).length < 1e-8)
+    }
+
     @Test func stagingAndDiagnosticsDescribeActualOcclusion() throws {
         let scene = try scene()
         let shot = scene.shots[0]
