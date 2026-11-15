@@ -180,15 +180,17 @@ struct OwnBlockingTests {
     }
 
     @Test func aCharacterABriefAddsKeepsTheirPlaceInEachShot() throws {
+        let catalog = try ContentCatalog.bundled()
         var scene = ShotsSamples.plateStaging().scenes[0]
-        scene.entities.removeAll { $0.id == table }
+        scene.entities.removeAll { $0.id == "ent_000000000101" } // an open floor
         let wide = try BlockingSolver.apply(
             BlockingBrief(shot: "Wide", characters: [.init(name: "Guard", frameX: 0.5, show: .headToBoots)]),
             to: &scene, catalog: catalog
         )
         func guardInTheWide(_ scene: PrevisScene) throws -> Vec3 {
             let frame = try ShotEvaluator(scene: scene, shotID: wide.shotID, catalog: catalog).frame(0)
-            return try #require(frame.entities.first { $0.name == "Guard" }).position
+            let posed = try #require(frame.entities.first { $0.name == "Guard" })
+            return posed.position
         }
         let before = try guardInTheWide(scene)
         // Blocking the guard again, for another shot, moves them in that shot only.
