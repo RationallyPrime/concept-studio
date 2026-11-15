@@ -32,32 +32,63 @@ enum PassDrawing {
     /// colour on top, without antialiasing, so a keypoint's pixel carries its exact colour. A keypoint behind the
     /// camera is left out, with its limbs.
     static func drawPose(_ frame: SceneFrame, in context: CGContext) {
-        if frame.plate != nil {
-            drawPlatePose(frame, in: context)
-            return
-        }
         let size = frame.canvas.pixelSize
         context.setShouldAntialias(false)
         context.setFillColor(color((0, 0, 0)))
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
         // OpenPose's stickwidth: the limb's half-width and the joint radius, 4 px on a 640 px canvas.
         let stick = max(1, Double(size.width) / 160)
-        let people = frame.entities.map { entity in
-            Dictionary(entity.keypoints.compactMap { keypoint in
-                frame.camera.project(keypoint.position, size: size).map { (keypoint.name, $0) }
-            }, uniquingKeysWith: { first, _ in first })
+        // A set piece or prop in front hides what is behind it, so the control never asks for a leg in front of
+        // the table it stands behind.
+        let sight = SightLines(frame: frame)
+        let bodies = frame.entities.map { entity in
+            Dictionary(entity.keypoints.map { ($0.name, $0.position) }, uniquingKeysWith: { first, _ in first })
         }
-        for pixels in people {
-            for (index, limb) in limbs.enumerated() {
-                guard let start = pixels[limb.0], let end = pixels[limb.1] else { continue }
-                let (red, green, blue) = openPoseColors[index]
-                context.setFillColor(color((red * 3 / 5, green * 3 / 5, blue * 3 / 5)))
-                context.saveGState()
-                context.translateBy(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
-                context.rotate(by: atan2(end.y - start.y, end.x - start.x))
-                let length = hypot(end.x - start.x, end.y - start.y)
-                context.fillEllipse(in: CGRect(x: -length / 2, y: -stick, width: length, height: 2 * stick))
-                context.restoreGState()
+        let people = bodies.map { body in
+            body.filter { !sight.isHidden($0.value) }.compactMapValues { frame.camera.project($0, size: size) }
+        }
+        func limb(from start: Point2, to end: Point2, index: Int) {
+            let (red, green, blue) = openPoseColors[index]
+            context.setFillColor(color((red * 3 / 5, green * 3 / 5, blue * 3 / 5)))
+            context.saveGState()
+            context.translateBy(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
+            context.rotate(by: atan2(end.y - start.y, end.x - start.x))
+            let length = hypot(end.x - start.x, end.y - start.y)
+            context.fillEllipse(in: CGRect(x: -length / 2, y: -stick, width: length, height: 2 * stick))
+            context.restoreGState()
+        }
+        for body in bodies {
+            for (index, pair) in limbs.enumerated() {
+                guard let from = body[pair.0], let to = body[pair.1],
+                      let start = frame.camera.project(from, size: size),
+                      let end = frame.camera.project(to, size: size)
+                else { continue }
+                if sight.isEmpty {
+                    limb(from: start, to: end, index: index)
+                    continue
+                }
+                // The visible stretches of the limb, found by walking along it.
+                let steps = 16
+                var runStart: Int?
+                for step in 0 ... steps {
+                    let visible = step < steps && !sight.isHidden(Self.mix(
+                        from,
+                        to,
+                        (Double(step) + 0.5) / Double(steps)
+                    ))
+                    if visible, runStart == nil { runStart = step }
+                    if !visible, let first = runStart {
+                        // The run's ends are projected from the limb itself: seen in perspective, a fraction of
+                        // the way along a limb is not the same fraction of the way along its picture.
+                        let near = Double(first) / Double(steps), far = Double(step) / Double(steps)
+                        let a = frame.camera.project(Self.mix(from, to, near), size: size)
+                            ?? Self.mix(start, end, near)
+                        let b = frame.camera.project(Self.mix(from, to, far), size: size)
+                            ?? Self.mix(start, end, far)
+                        limb(from: a, to: b, index: index)
+                        runStart = nil
+                    }
+                }
             }
         }
         for pixels in people {
@@ -80,13 +111,10 @@ enum PassDrawing {
         context.setShouldAntialias(false)
         context.setFillColor(color((255, 255, 255)))
         context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
-        if frame.plate != nil {
-            var rasterizer = PlateRasterizer(frame: frame, camera: frame.camera, context: context)
-            rasterizer.draw(layout: true)
-            return
-        }
+        let staged = StagingAnalysis.characters(in: frame)
         for (index, entity) in frame.entities.filter(\.isActor).enumerated() {
-            guard let box = projectedBounds(entity.bounds, camera: frame.camera, size: size) else { continue }
+            guard let box = layoutRect(of: entity, staged: staged[index], camera: frame.camera, size: size)
+            else { continue }
             if let label = entity.label {
                 context.setFillColor(CGColor(
                     srgbRed: label.color.r,
@@ -101,71 +129,27 @@ enum PassDrawing {
         }
     }
 
-    /// Samples each 3D limb before projection so an intervening table can hide part of a limb.
-    private static func drawPlatePose(_ frame: SceneFrame, in context: CGContext) {
-        let size = PixelSize(width: context.width, height: context.height)
-        context.setShouldAntialias(false)
-        context.setFillColor(color((0, 0, 0)))
-        context.fill(CGRect(x: 0, y: 0, width: size.width, height: size.height))
-        context.saveGState()
-        defer { context.restoreGState() }
-        if let plate = frame.plate {
-            let rect = plate.imageRect(in: size)
-            context.clip(to: CGRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height))
-        }
-        let stick = max(1, Double(size.width) / 160)
-        context.setLineCap(.round)
-        context.setLineWidth(stick * 2)
-        for entity in frame.entities {
-            let points = Dictionary(
-                entity.keypoints.map { ($0.name, $0.position) },
-                uniquingKeysWith: { first, _ in first }
-            )
-            for (index, limb) in limbs.enumerated() {
-                guard let a = points[limb.0], let b = points[limb.1] else { continue }
-                let (red, green, blue) = openPoseColors[index]
-                context.setStrokeColor(color((red * 3 / 5, green * 3 / 5, blue * 3 / 5)))
-                context.beginPath()
-                var drawing = false
-                for sample in 0 ... 160 {
-                    let t = Double(sample) / 160
-                    let point = Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
-                    guard !frame.isOccluded(point),
-                          let pixel = frame.project(point, size: size) else {
-                        drawing = false
-                        continue
-                    }
-                    let position = CGPoint(x: pixel.x, y: pixel.y)
-                    if drawing { context.addLine(to: position) } else { context.move(to: position) }
-                    drawing = true
-                }
-                context.strokePath()
-            }
-            for (name, point) in points.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
-                guard !frame.isOccluded(point),
-                      let pixel = frame.project(point, size: size) else { continue }
-                context.setFillColor(color(openPoseColors[name.rawValue]))
-                context.fillEllipse(in: CGRect(
-                    x: pixel.x - stick,
-                    y: pixel.y - stick,
-                    width: 2 * stick,
-                    height: 2 * stick
-                ))
-            }
-        }
+    /// An actor's layout box: its projected bounds, cut where a set piece or prop hides the rest of it. Nil when
+    /// nothing of the actor shows.
+    static func layoutRect(
+        of entity: EntityFrame, staged: StagedCharacter, camera: CameraFrame, size: PixelSize
+    ) -> CGRect? {
+        guard let full = projectedBounds(entity.bounds, camera: camera, size: size) else { return nil }
+        guard case .hidden = staged.cut else { return full }
+        guard staged.isVisible, let seen = staged.box else { return nil }
+        let rows = CGRect(
+            x: full.minX, y: seen.y * Double(size.height), width: full.width, height: seen.height * Double(size.height)
+        )
+        let cut = full.intersection(rows)
+        return cut.isNull || cut.isEmpty ? nil : cut
     }
 
-    static func plateProjectedBounds(_ bounds: Box3, frame: SceneFrame, size: PixelSize) -> CGRect? {
-        guard let plate = frame.plate else { return projectedBounds(bounds, camera: frame.camera, size: size) }
-        guard let box = projectedBounds(bounds, camera: frame.camera, size: plate.pixelSize) else { return nil }
-        let content = plate.imageRect(in: size)
-        let scale = content.width / Double(plate.pixelSize.width)
-        return CGRect(
-            x: content.x + box.minX * scale,
-            y: content.y + box.minY * scale,
-            width: box.width * scale,
-            height: box.height * scale
-        )
+    static func mix(_ a: Vec3, _ b: Vec3, _ t: Double) -> Vec3 {
+        Vec3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
+    }
+
+    static func mix(_ a: Point2, _ b: Point2, _ t: Double) -> Point2 {
+        Point2(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
     }
 
     /// The pixel rectangle covering a box's visible part, clipped to the canvas; nil when nothing is left. Edges that

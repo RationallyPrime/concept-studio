@@ -3,308 +3,170 @@ import Foundation
 import Testing
 
 struct PlateTests {
-    private func plate() -> LocationPlate {
-        LocationPlate(
-            id: "plate", name: "Hall C", imagePath: "plates/hall.png",
-            pixelSize: PixelSize(width: 1440, height: 2560),
-            calibration: PlateCalibration(focalLength: 20, confirmed: true)
+    private let size = PixelSize(width: 1440, height: 2560)
+
+    /// The line a camera sees between two world points, as the user would draw it over the plate.
+    private func line(_ a: Vec3, _ b: Vec3, through camera: CameraFrame) throws -> PlateLine {
+        let start = try #require(camera.project(a, size: size)), end = try #require(camera.project(b, size: size))
+        func fraction(_ pixel: Point2) -> Point2 {
+            Point2(x: pixel.x / Double(size.width), y: pixel.y / Double(size.height))
+        }
+        return PlateLine(a: fraction(start), b: fraction(end))
+    }
+
+    @Test func linesAndAHeightReferenceRecoverTheCameraThatTookThePlate() throws {
+        let truth = PlateMatch(
+            position: Vec3(0, 1.7, 0), pan: 0.3, tilt: -0.15, roll: 0.03, focalLength: 30, sensor: .super35
         )
-    }
-
-    private func pieces() -> [PlateSetPiece] {
-        [PlateSetPiece(
-            id: "table", name: "Table", position: Vec3(0, 0, 1), size: Vec3(4, 1, 1),
-            supportsStanding: false
-        )]
-    }
-
-    private func scene() throws -> PrevisScene {
-        var scene = try #require(ShotsSamples.twoPersonWalk(small: true).scenes.first)
-        scene.plates = [plate()]
-        scene.setPieces = pieces()
-        scene.shots[0].plateID = "plate"
-        scene.shots[0].canvas = ShotCanvas(width: 576, height: 1024)
-        scene.shots[0].keyCanvas = ShotCanvas(width: 1440, height: 2560)
-        scene.shots[0].requestedFraming = .full
-        scene.shots[0].camera.marks = [CameraMark(
-            id: "plate-camera", time: 0, hold: 0, easeIn: 0, easeOut: 0,
-            position: scene.plates[0].calibration.position, pan: 0, tilt: 0, roll: 0, focalLength: 20
-        )]
-        scene.entities = [PrevisEntity(
-            id: "actor", assetID: "person.man", name: "Speaker",
-            placement: Placement(position: .zero, heading: .pi, scale: 1)
-        )]
-        scene.blocking[0].tracks = []
-        return scene
-    }
-
-    @Test func oldDocumentsKeepTheirOriginalCanvasAndHaveNoPlate() throws {
-        let data = Data(#"{"scenes":[{"id":"s","shots":[{"id":"a"}]}]}"#.utf8)
-        let document = try JSONDecoder().decode(ShotsDocument.self, from: data)
-        let scene = try #require(document.scenes.first)
-        let shot = try #require(scene.shots.first)
-        #expect(scene.plates.isEmpty)
-        #expect(shot.plateID == nil)
-        #expect(shot.keyCanvas == nil)
-        #expect(shot.guideCanvas == .portrait)
-    }
-
-    @Test func platesAndKeyCanvasRoundTripWithScene() throws {
-        let document = try ShotsDocument(version: 1, scenes: [scene()])
-        let data = try JSONEncoder().encode(document)
-        #expect(try JSONDecoder().decode(ShotsDocument.self, from: data) == document)
-        #expect(try ShotsValidation.problems(in: document, catalog: .bundled()).isEmpty)
-        #expect(document.scenes[0].shots[0].guideCanvas == ShotCanvas(width: 1440, height: 2560))
-        #expect(!document.scenes[0].shots[0].guideCanvas.isValid)
-        #expect(document.scenes[0].shots[0].guideCanvas.isValidKey)
-    }
-
-    @Test func matchUsesTheSameProjectionAsTheShotCameraAtEveryDepth() throws {
-        let plate = plate()
-        let size = plate.pixelSize
-        let camera = plate.calibration.frame(aspect: size.aspect)
-        for point in [Vec3(0, 0, 0), Vec3(1, 0, -3), Vec3(-1, 0, 2)] {
-            let pixel = try #require(camera.project(point, size: size))
-            let placed = try #require(plate.placementPoint(at: pixel, size: size, setPieces: []))
-            #expect((placed - point).length < 1e-8)
-        }
-        #expect(plate.calibration.matches(camera, aspect: size.aspect))
-        var moved = camera
-        moved.position.x += 0.1
-        #expect(!plate.calibration.matches(moved, aspect: size.aspect))
-    }
-
-    @Test func tableOccludesTheLowerBodyAndDaisSupportsPlacement() throws {
-        let plate = plate()
-        let camera = plate.calibration.frame(aspect: plate.pixelSize.aspect)
-        #expect(plate.isOccluded(Vec3(0, 0.4, 0), camera: camera, setPieces: pieces()))
-        #expect(!plate.isOccluded(Vec3(0, 1.8, 0), camera: camera, setPieces: pieces()))
-        #expect(!plate.isOccluded(Vec3(0, 0.4, 3), camera: camera, setPieces: pieces()))
-        let dais = [PlateSetPiece(
-            id: "dais", name: "Dais", position: Vec3(0, 0, 0), size: Vec3(4, 0.5, 4)
-        )]
-        #expect(plate.surfaceHeight(at: .zero, setPieces: dais) == 0.5)
-        #expect(plate.surfaceHeight(at: Vec3(3, 0, 0), setPieces: dais) == 0)
-        let pixel = try #require(camera.project(Vec3(0, 0.5, 0), size: plate.pixelSize))
-        #expect(try #require(plate.placementPoint(at: pixel, size: plate.pixelSize, setPieces: dais)).y == 0.5)
-    }
-
-    @Test func rayIntersectionHandlesParallelMissesInsideAndBehind() {
-        let piece = pieces()[0]
-        #expect(piece.rayIntersection(origin: Vec3(0, 0.5, 6), direction: Vec3(0, 0, -1)) == 4.5)
-        #expect(piece.rayIntersection(origin: Vec3(3, 0.5, 6), direction: Vec3(0, 0, -1)) == nil)
-        #expect(piece.rayIntersection(origin: Vec3(0, 0.5, 1), direction: Vec3(1, 0, 0)) == 0)
-        #expect(piece.rayIntersection(origin: Vec3(0, 0.5, 6), direction: Vec3(0, 0, 1)) == nil)
-    }
-
-    @Test func fittedPlateProjectionAndPlacementAgreeWithLetterboxing() throws {
-        var plate = plate()
-        plate.pixelSize = PixelSize(width: 1920, height: 1080)
-        let size = PixelSize(width: 576, height: 1024)
-        let camera = plate.calibration.frame(aspect: plate.pixelSize.aspect)
-        let rect = plate.imageRect(in: size)
-        #expect(rect.width == 576)
-        #expect(rect.height == 324)
-        #expect(rect.y == 350)
-        let point = Vec3(0, 0, 0)
-        let projected = try #require(plate.project(point, camera: camera, size: size))
-        let placed = try #require(plate.placementPoint(at: projected, size: size, setPieces: []))
-        #expect((placed - point).length < 1e-8)
-        #expect(plate.placementPoint(at: Point2(x: 288, y: 100), size: size, setPieces: []) == nil)
-        var scene = try scene()
-        scene.plates = [plate]
-        let frame = try ShotEvaluator(scene: scene, shotID: scene.shots[0].id, catalog: .bundled()).frame(0)
-        #expect(abs(frame.camera.verticalFOV - camera.verticalFOV) < 1e-10)
-        #expect(frame.project(point) == projected)
-    }
-
-    @Test func framingUsesThePlateAspectNotTheCanvasAspect() throws {
-        var plated = try scene()
-        plated.shots[0].canvas = ShotCanvas(width: 768, height: 768)
-        var plain = try scene()
-        plain.shots[0].plateID = nil
-        plain.shots[0].canvas = ShotCanvas(width: 576, height: 1024)
-        let framed = try Framing.cameraMark(
-            .full, scene: plated, shotID: plated.shots[0].id, subjects: ["actor"], atFrame: 0,
-            catalog: .bundled()
+        let camera = truth.camera(aspect: size.aspect)
+        let guides = try PlateGuides(
+            linesA: [
+                line(Vec3(-2, 0, -4), Vec3(2, 0, -4), through: camera),
+                line(Vec3(-2, 0, -7), Vec3(2, 0, -7), through: camera),
+            ],
+            linesB: [
+                line(Vec3(-1, 0, -3), Vec3(-1, 0, -8), through: camera),
+                line(Vec3(1.5, 0, -3), Vec3(1.5, 0, -8), through: camera),
+            ],
+            heightReference: PlateHeightReference(
+                foot: line(Vec3(0.5, 0, -5), Vec3(0.5, 2, -5), through: camera).a,
+                top: line(Vec3(0.5, 0, -5), Vec3(0.5, 2, -5), through: camera).b,
+                height: 2
+            )
         )
-        let expected = try Framing.cameraMark(
-            .full, scene: plain, shotID: plain.shots[0].id, subjects: ["actor"], atFrame: 0,
-            catalog: .bundled()
+        let solved = try PlateSolve.match(guides: guides, size: size, sensor: .super35)
+        #expect(abs(solved.focalLength - 30) < 0.05)
+        #expect(abs(solved.tilt - truth.tilt) < 1e-4)
+        #expect(abs(solved.roll - truth.roll) < 1e-4)
+        #expect(abs(solved.pan - truth.pan) < 1e-4)
+        #expect(abs(solved.position.y - 1.7) < 1e-3)
+        // The proof that matters: a point on the floor lands on the same pixel through the solved camera.
+        let probe = Vec3(-1.2, 0, -6.5)
+        let expected = try #require(camera.project(probe, size: size))
+        let got = try #require(solved.camera(aspect: size.aspect).project(probe, size: size))
+        #expect(abs(expected.x - got.x) < 0.5 && abs(expected.y - got.y) < 0.5)
+    }
+
+    @Test func aReversePlateTakenOnADaisKeepsItsFacingAndStandsOnTheDais() throws {
+        // The set's floor is the hall's. This plate was taken from a dais 0.6 m above it, looking back down the
+        // hall: the opposite way from the set's first plate.
+        let level = 0.6
+        let truth = PlateMatch(
+            position: Vec3(3, 2.3, -6), pan: .pi - 0.12, tilt: -0.2, roll: 0, focalLength: 28, sensor: .super35
         )
-        #expect((framed.position - expected.position).length < 1e-8)
+        let camera = truth.camera(aspect: size.aspect)
+        let post = try line(Vec3(2.5, level, -2.5), Vec3(2.5, level + 1, -2.5), through: camera)
+        let guides = try PlateGuides(
+            linesA: [
+                line(Vec3(1.5, level, -3), Vec3(4.5, level, -3), through: camera),
+                line(Vec3(1.5, level, -1), Vec3(4.5, level, -1), through: camera),
+            ],
+            linesB: [
+                line(Vec3(2, level, -4), Vec3(2, level, 0), through: camera),
+                line(Vec3(4, level, -4), Vec3(4, level, 0), through: camera),
+            ],
+            heightReference: PlateHeightReference(foot: post.a, top: post.b, height: 1),
+            floorLevel: level
+        )
+        var placed = PlateMatch.unmatched
+        placed.position = Vec3(3, 1, -6)
+        placed.pan = .pi
+        let solved = try PlateSolve.match(guides: guides, size: size, sensor: .super35, current: placed)
+        #expect(abs(angleDifference(solved.pan, truth.pan)) < 1e-4)
+        #expect(abs(solved.position.y - 2.3) < 1e-3)
+        // A stand-in on the hall's floor, below the dais, lands where the plate's camera sees it.
+        let probe = Vec3(3.4, 0, 4)
+        let expected = try #require(camera.project(probe, size: size))
+        let got = try #require(solved.camera(aspect: size.aspect).project(probe, size: size))
+        #expect(abs(expected.x - got.x) < 1 && abs(expected.y - got.y) < 1)
+        // The same lines without a facing to keep give the set's first plate: within a quarter turn of zero.
+        let first = try PlateSolve.match(guides: guides, size: size, sensor: .super35)
+        #expect(abs(first.pan - -0.12) < 1e-4)
     }
 
-    @Test func stagingAndDiagnosticsDescribeActualOcclusion() throws {
-        let scene = try scene()
-        let shot = scene.shots[0]
-        let evaluator = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: .bundled())
-        let frame = evaluator.frame(0)
-        #expect(frame.plate == scene.plates[0])
-        let description = ShotStaging.description(frame: frame, shot: shot)
-        #expect(description.contains("Plate Hall C"))
-        #expect(description.contains("Speaker is centre"))
-        #expect(description.contains("facing the camera"))
-        #expect(description.contains("20 mm"))
-        #expect(!description.contains("visible head to boots"))
-        #expect(evaluator.warnings().contains { $0.message.contains("cannot be seen head to boots") })
-        #expect(!evaluator.warnings().contains { $0.message.contains("matched viewpoint") })
+    @Test func oneSetOfLinesWithAGivenLensFindsTheTiltOfALevelCamera() throws {
+        let truth = PlateMatch(
+            position: Vec3(0, 1.4, 0), pan: 0, tilt: -0.2, roll: 0, focalLength: 24, sensor: .super35
+        )
+        let camera = truth.camera(aspect: size.aspect)
+        let guides = try PlateGuides(linesA: [
+            line(Vec3(-1, 0, -3), Vec3(-1, 0, -9), through: camera),
+            line(Vec3(1, 0, -3), Vec3(1, 0, -9), through: camera),
+        ])
+        let solved = try PlateSolve.match(
+            guides: guides, size: size, sensor: .super35, focalLength: 24, cameraHeight: 1.4
+        )
+        #expect(abs(solved.tilt - truth.tilt) < 1e-4)
+        #expect(abs(solved.pan) < 1e-4)
+        #expect(solved.position.y == 1.4)
     }
 
-    @Test func fourCalibratedViewsShareOneSetAndOneBlockingTake() throws {
-        var scene = try scene()
-        let positions = [Vec3(0, 1.6, 6), Vec3(6, 1.6, 0), Vec3(0, 1.6, -6), Vec3(-6, 1.6, 0)]
-        scene.plates = positions.enumerated().map { index, position in
-            var plate = plate()
-            plate.id = "plate-\(index)"
-            plate.calibration.position = position
-            plate.calibration.pan = Double(index) * .pi / 2
-            return plate
+    @Test func aCameraLookingStraightAlongTheSetKeepsItsLensAndStillFindsItsTilt() throws {
+        // One pair is parallel in the picture, so no lens follows from the lines; the tilt and height still do.
+        let truth = PlateMatch(
+            position: Vec3(0, 1.5, 0), pan: 0, tilt: -0.2, roll: 0, focalLength: 28, sensor: .super35
+        )
+        let camera = truth.camera(aspect: size.aspect)
+        let guides = try PlateGuides(
+            linesA: [
+                line(Vec3(-0.5, 0, -4), Vec3(0.5, 0, -4), through: camera),
+                line(Vec3(-0.5, 0, -8), Vec3(0.5, 0, -8), through: camera),
+            ],
+            linesB: [
+                line(Vec3(-0.5, 0, -4), Vec3(-0.5, 0, -8), through: camera),
+                line(Vec3(0.5, 0, -4), Vec3(0.5, 0, -8), through: camera),
+            ]
+        )
+        #expect(!PlateSolve.linesGiveLens(guides, size: size))
+        var typed = PlateMatch.unmatched
+        typed.focalLength = 28
+        typed.position.y = 1.5
+        let solved = try PlateSolve.match(guides: guides, size: size, sensor: .super35, current: typed)
+        #expect(solved.focalLength == 28)
+        #expect(abs(solved.tilt - truth.tilt) < 1e-4 && abs(solved.pan) < 1e-4 && abs(solved.roll) < 1e-4)
+    }
+
+    @Test func linesThatCannotBeSquareAreRefusedInWords() throws {
+        // Both sets converge to the same side of the picture: no lens makes them square on a floor.
+        let guides = PlateGuides(
+            linesA: [
+                PlateLine(a: Point2(x: 0.1, y: 0.6), b: Point2(x: 0.6, y: 0.5)),
+                PlateLine(a: Point2(x: 0.1, y: 0.9), b: Point2(x: 0.6, y: 0.7)),
+            ],
+            linesB: [
+                PlateLine(a: Point2(x: 0.2, y: 0.6), b: Point2(x: 0.7, y: 0.52)),
+                PlateLine(a: Point2(x: 0.2, y: 0.95), b: Point2(x: 0.7, y: 0.78)),
+            ]
+        )
+        #expect(throws: ShotsError.self) { try PlateSolve.match(guides: guides, size: size, sensor: .super35) }
+    }
+
+    @Test func aPlateCoversACanvasOfItsOwnShapeAndNotAWiderOne() {
+        let same = PlateFit.rect(plate: size, canvas: PixelSize(width: 576, height: 1024), sensor: .super35)
+        #expect(abs(same.x) < 1e-9 && abs(same.width - 576) < 1e-9 && abs(same.height - 1024) < 1e-9)
+        let wider = PlateFit.widthMismatch(plate: size, canvas: PixelSize(width: 544, height: 960), sensor: .super35)
+        #expect(wider > 0.007 && wider < 0.008)
+    }
+
+    @Test func aPlateSavedByTheFirstPlateBuildKeepsItsFileSizeAndConfirmedCamera() throws {
+        let camera = PlateMatch(
+            position: Vec3(0, 1.7, 4), pan: 0.2, tilt: -0.1, roll: 0, focalLength: 30, sensor: .super35
+        )
+        let cameraJSON = try #require(String(bytes: JSONEncoder().encode(camera), encoding: .utf8))
+        func plate(confirmed: Bool) throws -> LocationPlate {
+            let calibration = String(cameraJSON.dropLast()) + ",\"confirmed\":\(confirmed)}"
+            let json = "{\"id\":\"plt_1\",\"name\":\"C\",\"imagePath\":\"plates/c.png\","
+                + "\"pixelSize\":{\"width\":1080,\"height\":1920},\"calibration\":\(calibration)}"
+            return try JSONDecoder().decode(LocationPlate.self, from: Data(json.utf8))
         }
-        let original = scene.shots[0]
-        scene.shots = scene.plates.enumerated().map { index, plate in
-            var shot = original
-            shot.id = "shot-\(index)"
-            shot.plateID = plate.id
-            shot.camera.marks[0].id = "camera-\(index)"
-            shot.camera.marks[0].position = plate.calibration.position
-            shot.camera.marks[0].pan = plate.calibration.pan
-            return shot
-        }
-        let frames = try scene.shots.map {
-            try ShotEvaluator(scene: scene, shotID: $0.id, catalog: .bundled()).frame(0)
-        }
-        #expect(frames.allSatisfy { $0.setPieces == scene.setPieces })
-        #expect(frames.allSatisfy { $0.referencePlates == scene.plates })
-        #expect(frames.allSatisfy { $0.entities[0].position == .zero })
-        #expect(Set(frames.compactMap { $0.plate?.id }).count == 4)
-        #expect(frames.allSatisfy { abs($0.project(Vec3(0, 1, 0))!.x - 288) < 1e-8 })
-        let data = try JSONEncoder().encode(scene)
-        let decoded = try JSONDecoder().decode(PrevisScene.self, from: data)
-        #expect(decoded.setPieces == scene.setPieces)
-    }
-
-    @Test func movingFramesRetainEveryReferenceView() throws {
-        var scene = try scene()
-        var otherView = scene.plates[0]
-        otherView.id = "side-view"
-        otherView.imagePath = "plates/side.png"
-        otherView.calibration.position = Vec3(6, 1.6, 0)
-        otherView.calibration.pan = .pi / 2
-        scene.plates.append(otherView)
-        var destination = scene.shots[0].camera.marks[0]
-        destination.id = "moving-camera"
-        destination.time = scene.shots[0].duration
-        destination.position.x += 2
-        scene.shots[0].camera.marks.append(destination)
-        let evaluator = try ShotEvaluator(scene: scene, shotID: scene.shots[0].id, catalog: .bundled())
-        let first = evaluator.frame(0), last = evaluator.frame(scene.shots[0].frameCount - 1)
-        #expect(first.camera.position != last.camera.position)
-        #expect(first.plate == scene.plates[0])
-        #expect(last.plate == first.plate)
-        #expect(first.referencePlates == scene.plates)
-        #expect(last.referencePlates == first.referencePlates)
-        #expect(last.setPieces == first.setPieces)
-    }
-
-    @Test func reconstructionDiagnosticsExplainMissingMatchesAndSurfacesWithoutBlocking() throws {
-        var scene = try scene()
-        scene.setPieces = []
-        scene.plates[0].calibration.confirmed = false
-        var destination = scene.shots[0].camera.marks[0]
-        destination.id = "moving-camera"
-        destination.time = scene.shots[0].duration
-        destination.position.x += 1
-        scene.shots[0].camera.marks.append(destination)
-        let evaluator = try ShotEvaluator(scene: scene, shotID: scene.shots[0].id, catalog: .bundled())
-        let warnings = evaluator.warnings()
-        #expect(warnings.contains { $0.message.contains("no confirmed reference camera") })
-        #expect(warnings.contains { $0.message.contains("Only the floor has a projection surface") })
-        #expect(warnings.allSatisfy { $0.severity == .warning })
-        #expect(try ShotsValidation.problems(
-            in: ShotsDocument(version: 1, scenes: [scene]), catalog: .bundled()
-        ).isEmpty)
-    }
-
-    @Test func exactReferenceMatchingPrefersTheSelectedDraftPlate() throws {
-        let scene = try scene()
-        let shot = scene.shots[0]
-        var frame = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: .bundled()).frame(0)
-        frame.plate?.calibration.confirmed = false
-        var duplicate = scene.plates[0]
-        duplicate.id = "duplicate"
-        frame.referencePlates = try [duplicate, #require(frame.plate)]
-        #expect(frame.matchedReferencePlate?.id == frame.plate?.id)
-        #expect(!frame.usesProjectedLocation)
-    }
-
-    @Test func alternateExactViewRequiresMatchingAspectAndMovingViewsUseProjection() throws {
-        let scene = try scene()
-        let shot = scene.shots[0]
-        var frame = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: .bundled()).frame(0)
-        var alternate = scene.plates[0]
-        alternate.id = "alternate"
-        alternate.name = "Hall side"
-        alternate.calibration.position.x += 2
-        alternate.calibration.confirmed = false
-        frame.camera = alternate.calibration.frame(aspect: alternate.pixelSize.aspect)
-        var differentAspect = alternate
-        differentAspect.id = "landscape"
-        differentAspect.pixelSize = PixelSize(width: 1920, height: 1080)
-        frame.referencePlates = [differentAspect, alternate]
-        #expect(frame.matchedReferencePlate?.id == alternate.id)
-        #expect(!frame.usesProjectedLocation)
-        #expect(ShotStaging.description(frame: frame, shot: shot).contains("Plate Hall side."))
-        frame.referencePlates = [differentAspect]
-        #expect(frame.matchedReferencePlate == nil)
-        #expect(frame.usesProjectedLocation)
-        #expect(ShotStaging.description(frame: frame, shot: shot).contains("Location view projected from Hall side."))
-        frame.plate = nil
-        #expect(!frame.usesProjectedLocation)
-    }
-
-    @Test func placementUsesTheMovedShotCameraWhenProvided() throws {
-        let plate = plate()
-        let size = plate.pixelSize
-        var camera = plate.calibration.frame(aspect: size.aspect)
-        camera.position.x = 1
-        let target = Vec3(0.5, 0, 0)
-        let pixel = try #require(plate.project(target, camera: camera, size: size))
-        let placed = try #require(plate.placementPoint(at: pixel, size: size, setPieces: [], camera: camera))
-        #expect((placed - target).length < 1e-8)
-        let calibrated = try #require(plate.placementPoint(at: pixel, size: size, setPieces: []))
-        #expect((calibrated - target).length > 0.5)
-    }
-
-    @Test func stagingExcludesActorsInsideThePlateLetterbox() throws {
-        var scene = try scene()
-        scene.plates[0].pixelSize = PixelSize(width: 128, height: 512)
-        scene.entities[0].placement.position.x = -1
-        scene.setPieces = []
-        let shot = scene.shots[0]
-        let frame = try ShotEvaluator(scene: scene, shotID: shot.id, catalog: .bundled()).frame(0)
-        let pixel = try #require(frame.project(Vec3(-1, 1, 0)))
-        let content = scene.plates[0].imageRect(in: frame.canvas.pixelSize)
-        #expect(pixel.x > 0 && pixel.x < content.x)
-        let subject = try #require(ShotStaging.subjects(in: frame).first)
-        #expect(subject.visibleFraction == 0)
-        #expect(subject.horizontal == "off frame left")
-        #expect(subject.visibleBody == "not visible")
-        #expect(PlateDiagnostics.problems(frame: frame, shot: shot, sceneID: scene.id).contains {
-            $0.message.contains("outside the frame or fully hidden")
-        })
-    }
-
-    @Test func invalidReferencesAndMismatchedCanvasesAreReported() throws {
-        var scene = try scene()
-        scene.shots[0].plateID = "missing"
-        scene.shots[0].keyCanvas = ShotCanvas(width: 768, height: 768)
-        scene.setPieces[0].size.x = 0
-        let messages = try ShotsValidation.problems(
-            in: ShotsDocument(version: 1, scenes: [scene]), catalog: .bundled()
-        ).map(\.message)
-        #expect(messages.contains { $0.contains("missing plate") })
-        #expect(messages.contains { $0.contains("same aspect ratio") })
-        #expect(messages.contains { $0.contains("dimensions above zero") })
+        let confirmed = try plate(confirmed: true)
+        #expect(confirmed.file == "c.png" && confirmed.hasPlainFileName)
+        #expect(confirmed.size == PixelSize(width: 1080, height: 1920))
+        #expect(confirmed.match == camera)
+        // A calibration nobody confirmed is not a match: the plate asks for one again.
+        #expect(try plate(confirmed: false).match == nil)
+        // What this build saves reads back as itself.
+        let saved = try JSONDecoder().decode(LocationPlate.self, from: JSONEncoder().encode(confirmed))
+        #expect(saved == confirmed)
     }
 }

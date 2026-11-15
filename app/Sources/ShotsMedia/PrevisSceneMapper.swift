@@ -13,15 +13,14 @@ import RealityKit
 
     private let environment = Entity()
     private let stage = Entity()
-    private let setPiecesRoot = Entity()
-    private var drawnSetPieces: [PlateSetPiece] = []
     private let camera = Entity()
     private var containers: [EntityID: Entity] = [:]
     private var owners: [ObjectIdentifier: EntityID] = [:]
     private var parts: [EntityID: [String: MappedPart]] = [:]
     private var meshes: [PartShape: MeshResource] = [:]
     private var materials: [RGB: SimpleMaterial] = [:]
-    private var matteActor: EntityID?
+    private var matteActors: Set<EntityID>?
+    private var tints: [EntityID: RGB] = [:]
     private let matteWhite = UnlitMaterial(color: .white)
     private let matteBlack = UnlitMaterial(color: .black)
 
@@ -35,8 +34,6 @@ import RealityKit
         self.look = look
         root.addChild(environment)
         root.addChild(stage)
-        setPiecesRoot.name = "set-pieces"
-        root.addChild(setPiecesRoot)
         buildEnvironment()
     }
 
@@ -46,21 +43,32 @@ import RealityKit
         buildEnvironment()
     }
 
-    /// Draws `actor` white and everything else black, unlit, for its matte; nil draws the look again.
-    func setMatte(_ actor: EntityID?) {
-        guard actor != matteActor else { return }
-        matteActor = actor
+    /// Draws `actors` white and everything else black, unlit, for a matte; nil draws the look again.
+    func setMatte(_ actors: Set<EntityID>?) {
+        guard actors != matteActors else { return }
+        matteActors = actors
+        refreshMaterials()
+        buildEnvironment()
+    }
+
+    /// Draws each listed entity in one flat colour instead of its parts' own: the stand-in colours of a
+    /// composition guide. Empty draws the parts' colours again.
+    func setTints(_ tints: [EntityID: RGB]) {
+        guard tints != self.tints else { return }
+        self.tints = tints
+        refreshMaterials()
+    }
+
+    private func refreshMaterials() {
         for (id, mapped) in parts {
             for part in mapped.values {
                 setMaterial(surface(part.color, of: id), on: part.entity)
             }
         }
-        buildEnvironment()
     }
 
     /// Adds, updates and removes children by (entity id, part id). Idempotent.
-    public func apply(_ frame: SceneFrame, showsSetPieces: Bool = false) {
-        applySetPieces(showsSetPieces ? frame.setPieces : [])
+    public func apply(_ frame: SceneFrame) {
         let present = Set(frame.entities.map(\.id))
         for (id, container) in containers where !present.contains(id) {
             container.removeFromParent()
@@ -70,42 +78,6 @@ import RealityKit
         }
         for entity in frame.entities {
             apply(entity)
-        }
-    }
-
-    /// Shared location solids are wireframes in the free scene view. They remain depth-only in plate exports.
-    private func applySetPieces(_ pieces: [PlateSetPiece]) {
-        guard pieces != drawnSetPieces else { return }
-        drawnSetPieces = pieces
-        for child in Array(setPiecesRoot.children) {
-            child.removeFromParent()
-        }
-        let material = UnlitMaterial(color: .init(srgbRed: 0.75, green: 0.78, blue: 0.8, alpha: 1))
-        for piece in pieces {
-            let container = Entity()
-            container.name = "set-piece:\(piece.id)"
-            let bounds = piece.bounds
-            let corners = (0 ..< 8).map { index in
-                Vec3(
-                    index & 1 == 0 ? bounds.min.x : bounds.max.x,
-                    index & 2 == 0 ? bounds.min.y : bounds.max.y,
-                    index & 4 == 0 ? bounds.min.z : bounds.max.z
-                )
-            }
-            for index in 0 ..< 8 {
-                for bit in [1, 2, 4] where index & bit == 0 {
-                    let a = corners[index], b = corners[index | bit]
-                    let thickness = 0.025
-                    let edge = ModelEntity(mesh: .generateBox(
-                        width: Float(max(abs(b.x - a.x), thickness)),
-                        height: Float(max(abs(b.y - a.y), thickness)),
-                        depth: Float(max(abs(b.z - a.z), thickness))
-                    ), materials: [material])
-                    edge.position = SIMD3(Float((a.x + b.x) / 2), Float((a.y + b.y) / 2), Float((a.z + b.z) / 2))
-                    container.addChild(edge)
-                }
-            }
-            setPiecesRoot.addChild(container)
         }
     }
 
@@ -220,8 +192,8 @@ import RealityKit
     }
 
     private func surface(_ color: RGB, of id: EntityID) -> any RealityKit.Material {
-        guard let matteActor else { return material(color) }
-        return id == matteActor ? matteWhite : matteBlack
+        guard let matteActors else { return material(tints[id] ?? color) }
+        return matteActors.contains(id) ? matteWhite : matteBlack
     }
 
     private func material(_ color: RGB) -> SimpleMaterial {
@@ -240,7 +212,7 @@ import RealityKit
             child.removeFromParent()
         }
         let palette = look.palette
-        let groundSurface: any RealityKit.Material = matteActor == nil ? material(palette.ground) : matteBlack
+        let groundSurface: any RealityKit.Material = matteActors == nil ? material(palette.ground) : matteBlack
         let ground = ModelEntity(mesh: .generatePlane(width: 200, depth: 200), materials: [groundSurface])
         environment.addChild(ground)
         for light in palette.lights {

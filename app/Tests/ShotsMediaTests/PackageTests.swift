@@ -107,6 +107,24 @@ struct PackageNamingTests {
         #expect(await PackageValidator.problems(at: package) == ["shot.json is listed more than once."])
     }
 
+    /// A plate package of the first plate build lists roles and sizes this build never writes. It still reads, so
+    /// the validator gets as far as checking its files.
+    @Test func aManifestOfTheFirstPlateBuildStillReads() async throws {
+        let package = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: package) }
+        try Data("{}".utf8).write(to: package.appendingPathComponent("shot.json"))
+        try Data("Ada stands frame left.".utf8).write(to: package.appendingPathComponent("legend.txt"))
+        let manifest = """
+        {"format":"conceptstudio.shot-package","formatVersion":1,"createdBy":"test","frameRate":24,"frameCount":22,
+        "shot":{"id":"shot_1","name":"1A","sceneID":"scene_1","sceneRevision":0},
+        "canvas":{"width":64,"height":64},"keyCanvas":{"width":128,"height":128},"passes":[],
+        "files":[{"role":"description","path":"shot.json"},{"role":"legend","path":"legend.txt"},
+        {"role":"plate","path":"plate/c.jpg","plateID":"plate_c","pixelSize":{"width":90,"height":160}}]}
+        """
+        try Data(manifest.utf8).write(to: package.appendingPathComponent("manifest.json"))
+        #expect(await PackageValidator.problems(at: package) == ["plate/c.jpg is listed but missing."])
+    }
+
     /// The validator checks only the passes the manifest lists: layout alone needs no clean video or mattes.
     @Test @MainActor func aLayoutOnlyExportValidatesWithoutTheOtherPasses() async throws {
         let parent = try scratchFolder()
@@ -115,7 +133,8 @@ struct PackageNamingTests {
         #expect(await PackageValidator.problems(at: package.url) == [])
         #expect(package.manifest.passes == [.layout])
         let roles = Dictionary(grouping: package.manifest.files, by: \.role).mapValues(\.count)
-        #expect(roles == [.guide: 3, .control: 1, .description: 1])
+        // The staging in words and as data goes into every package, whatever its passes.
+        #expect(roles == [.guide: 3, .control: 1, .description: 1, .staging: 1, .stagingData: 1])
     }
 
     @Test(arguments: [
@@ -203,7 +222,15 @@ struct PackageTests {
         let roles = Dictionary(grouping: manifest.files, by: \.role).mapValues(\.count)
         // 3 guide frames × clean, pose, layout; pose and layout videos; the clean video; two actors' mattes with a
         // still at each guide frame; shot.json.
-        #expect(roles == [.guide: 9, .control: 2, .reference: 1, .matte: 8, .description: 1])
+        #expect(roles == [
+            .guide: 9,
+            .control: 2,
+            .reference: 1,
+            .matte: 8,
+            .description: 1,
+            .staging: 1,
+            .stagingData: 1,
+        ])
         let videos = manifest.files.filter { $0.path.hasSuffix(".mp4") }
         #expect(videos.count == 5 && videos.allSatisfy { $0.frameCount == 124 }, "video entries: \(videos)")
         try Self.expectPoseKeypoints(in: package, manifest: manifest)

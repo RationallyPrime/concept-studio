@@ -1,254 +1,430 @@
 import Foundation
 
-/// A still of a real set and its reusable camera match in the scene's shared coordinate system.
-/// `imagePath` is relative to the project's `.conceptstudio` directory.
+// Location plates, CONTRACTS section 5.7. A plate is an approved still of the empty set. A shot blocked over a
+// plate takes its first camera position from the plate's match, so a stand-in on the plate's floor has the size
+// and place a person there would have. Nothing here reads the image: the match is solved from what the user
+// marks on it.
+
+public typealias PlateID = String
+
 public struct LocationPlate: Codable, Sendable, Equatable, Identifiable {
-    public var id: String
+    public var id: PlateID
     public var name: String
-    public var imagePath: String
-    public var pixelSize: PixelSize
-    public var calibration: PlateCalibration
+    public var file: String // the image's file name inside the project's Shots/Plates folder
+    public var size: PixelSize // the image's own pixels
+    public var match: PlateMatch? // nil until the camera has been matched
+    public var guides: PlateGuides // what the user marked to make the match, kept so it can be corrected
+
+    public var aspect: Double {
+        size.aspect
+    }
+
+    /// Whether `file` is one plain file name. A document can come from anywhere, and a name with a folder in it
+    /// ("../x.png", "/etc/x") would read from outside the project's plates folder.
+    public var hasPlainFileName: Bool {
+        !file.isEmpty && file != "." && file != ".." && !file.contains("/") && !file.contains("\\")
+            && !file.contains("\0")
+    }
 
     public init(
-        id: String,
+        id: PlateID,
         name: String,
-        imagePath: String,
-        pixelSize: PixelSize,
-        calibration: PlateCalibration = PlateCalibration()
+        file: String,
+        size: PixelSize,
+        match: PlateMatch? = nil,
+        guides: PlateGuides
     ) {
         self.id = id
         self.name = name
-        self.imagePath = imagePath
-        self.pixelSize = pixelSize
-        self.calibration = calibration
-    }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: AnyKey.self)
-        try self.init(
-            id: c.require("id"),
-            name: c.value("name", "Plate"),
-            imagePath: c.require("imagePath"),
-            pixelSize: c.require("pixelSize"),
-            calibration: c.value("calibration", PlateCalibration())
-        )
-    }
-
-    /// Whether a marked solid is between the camera and a world point.
-    public func isOccluded(_ point: Vec3, camera: CameraFrame, setPieces: [PlateSetPiece]) -> Bool {
-        PlateSetPiece.occludes(point, camera: camera, pieces: setPieces)
-    }
-
-    /// The highest marked standing surface under this X/Z position, or the floor at zero.
-    public func surfaceHeight(at point: Vec3, setPieces: [PlateSetPiece]) -> Double {
-        setPieces.filter { $0.supportsStanding && $0.containsHorizontally(point) }
-            .map { $0.position.y + $0.size.y }.reduce(0, max)
-    }
-
-    /// The complete original plate fits inside the output canvas, with even letterboxing if needed.
-    public func imageRect(in size: PixelSize) -> PlateImageRect {
-        let width = min(Double(size.width), Double(size.height) * pixelSize.aspect)
-        let height = width / pixelSize.aspect
-        return PlateImageRect(
-            x: (Double(size.width) - width) / 2, y: (Double(size.height) - height) / 2,
-            width: width, height: height
-        )
-    }
-
-    public func project(_ point: Vec3, camera: CameraFrame, size: PixelSize) -> Point2? {
-        guard let pixel = camera.project(point, size: pixelSize) else { return nil }
-        let rect = imageRect(in: size)
-        return Point2(
-            x: rect.x + pixel.x / Double(pixelSize.width) * rect.width,
-            y: rect.y + pixel.y / Double(pixelSize.height) * rect.height
-        )
-    }
-
-    /// A ray through the fitted image. Pixels in the letterbox do not intersect the plate.
-    public func ray(through pixel: Point2, camera: CameraFrame, size: PixelSize) -> (origin: Vec3, direction: Vec3)? {
-        let rect = imageRect(in: size)
-        guard pixel.x >= rect.x, pixel.x <= rect.x + rect.width,
-              pixel.y >= rect.y, pixel.y <= rect.y + rect.height else { return nil }
-        let native = Point2(
-            x: (pixel.x - rect.x) / rect.width * Double(pixelSize.width),
-            y: (pixel.y - rect.y) / rect.height * Double(pixelSize.height)
-        )
-        return camera.ray(through: native, size: pixelSize)
-    }
-
-    /// Places a foot on the nearest visible marked standing surface, falling back to the floor.
-    /// The point is expressed in the matched plate's pixel coordinates.
-    public func placementPoint(
-        at pixel: Point2,
-        size: PixelSize,
-        setPieces: [PlateSetPiece],
-        camera: CameraFrame? = nil
-    ) -> Vec3? {
-        let camera = camera ?? calibration.frame(aspect: pixelSize.aspect)
-        guard let ray = ray(through: pixel, camera: camera, size: size), ray.direction.y < -1e-8 else { return nil }
-        var candidates: [(distance: Double, point: Vec3)] = []
-        let floorDistance = -ray.origin.y / ray.direction.y
-        if floorDistance > 0 {
-            candidates.append((floorDistance, ray.origin + ray.direction * floorDistance))
-        }
-        for piece in setPieces where piece.supportsStanding {
-            let distance = (piece.position.y + piece.size.y - ray.origin.y) / ray.direction.y
-            let point = ray.origin + ray.direction * distance
-            if distance > 0, piece.containsHorizontally(point) {
-                candidates.append((distance, point))
-            }
-        }
-        return candidates.min { $0.distance < $1.distance }?.point
+        self.file = file
+        self.size = size
+        self.match = match
+        self.guides = guides
     }
 }
 
-public struct PlateImageRect: Sendable, Equatable {
-    public var x: Double, y: Double, width: Double, height: Double
-}
-
-/// Metres, radians and millimetres, with the same projection as the shot camera.
-public struct PlateCalibration: Codable, Sendable, Equatable {
+/// The camera that took a plate, in the scene's world. The set's floor is the ground plane, y = 0; the floor the
+/// plate shows is that floor unless the plate's guides give it a `floorLevel`.
+public struct PlateMatch: Codable, Sendable, Equatable {
+    public var position: Vec3 // y is the camera's height above the set's floor
+    public var pan: Double, tilt: Double, roll: Double
+    public var focalLength: Double // millimetres
     public var sensor: Sensor
-    public var position: Vec3
-    public var pan: Double
-    public var tilt: Double
-    public var roll: Double
-    public var focalLength: Double
-    public var confirmed: Bool
 
-    public init(
-        sensor: Sensor = .super35,
-        position: Vec3 = Vec3(0, 1.6, 6),
-        pan: Double = 0,
-        tilt: Double = 0,
-        roll: Double = 0,
-        focalLength: Double = 35,
-        confirmed: Bool = false
-    ) {
-        self.sensor = sensor
+    public init(position: Vec3, pan: Double, tilt: Double, roll: Double, focalLength: Double, sensor: Sensor) {
         self.position = position
         self.pan = pan
         self.tilt = tilt
         self.roll = roll
         self.focalLength = focalLength
-        self.confirmed = confirmed
+        self.sensor = sensor
     }
 
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: AnyKey.self)
-        try self.init(
-            sensor: c.value("sensor", .super35),
-            position: c.value("position", Vec3(0, 1.6, 6)),
-            pan: c.value("pan", 0),
-            tilt: c.value("tilt", 0),
-            roll: c.value("roll", 0),
-            focalLength: c.value("focalLength", 35),
-            confirmed: c.value("confirmed", false)
+    /// A level camera at standing eye height: where a plate starts before it is matched.
+    public static let unmatched = PlateMatch(
+        position: Vec3(0, 1.6, 0), pan: 0, tilt: 0, roll: 0, focalLength: 35, sensor: .super35
+    )
+
+    public func camera(aspect: Double) -> CameraFrame {
+        CameraFrame.make(
+            position: position, pan: pan, tilt: tilt, roll: roll, focalLength: focalLength, sensor: sensor,
+            aspect: aspect
         )
     }
 
-    public func frame(aspect: Double) -> CameraFrame {
-        .make(
-            position: position, pan: pan, tilt: tilt, roll: roll,
-            focalLength: focalLength, sensor: sensor, aspect: aspect
+    /// The camera mark a shot on this plate starts from.
+    public func cameraMark(id: MarkID) -> CameraMark {
+        CameraMark(
+            id: id, time: 0, hold: 0, easeIn: 0, easeOut: 0, position: position, pan: pan, tilt: tilt, roll: roll,
+            focalLength: focalLength
         )
     }
 
-    /// Includes lens/sensor equivalence through field of view, so physically equivalent optics match.
-    public func matches(_ camera: CameraFrame, aspect: Double) -> Bool {
-        let reference = frame(aspect: aspect)
-        let angularDifference = abs(atan2(sin(camera.pan - pan), cos(camera.pan - pan)))
-        return (camera.position - position).length <= 0.01
-            && angularDifference <= 0.001
-            && abs(camera.tilt - tilt) <= 0.001
-            && abs(camera.roll - roll) <= 0.001
-            && abs(camera.verticalFOV - reference.verticalFOV) <= 0.001
+    /// Whether `camera` is this plate's camera, closely enough that stand-ins still sit on the plate's floor:
+    /// within a centimetre, a twentieth of a degree and a tenth of a millimetre of lens.
+    public func agrees(with camera: CameraFrame) -> Bool {
+        let offset = camera.position - position
+        return offset.length < 0.01 && abs(angleDifference(camera.pan, pan)) < 0.001
+            && abs(camera.tilt - tilt) < 0.001 && abs(angleDifference(camera.roll, roll)) < 0.001
+            && abs(camera.focalLength - focalLength) < 0.1
+    }
+
+    /// Where the horizon crosses the left and right edges of an image of `size`, in pixels; nil when the camera
+    /// looks straight up or down.
+    public func horizon(size: PixelSize) -> (left: Point2, right: Point2)? {
+        let frame = camera(aspect: size.aspect)
+        let up = frame.orientation.conjugate.rotate(Vec3(0, 1, 0))
+        guard abs(up.y) > 1e-6 else { return nil }
+        let focal = Double(size.height) / 2 / tan(frame.verticalFOV / 2)
+        let half = Double(size.width) / 2
+        func row(_ x: Double) -> Double {
+            // A camera-space direction (x, −y, −f) is level when it is square to `up`.
+            (up.x * x - up.z * focal) / up.y + Double(size.height) / 2
+        }
+        return (Point2(x: 0, y: row(-half)), Point2(x: Double(size.width), y: row(half)))
     }
 }
 
-/// A world-aligned solid whose position is the centre of its bottom face.
-public struct PlateSetPiece: Codable, Sendable, Equatable, Identifiable {
-    public var id: String
-    public var name: String
-    public var position: Vec3
-    public var size: Vec3
-    public var occludes: Bool
-    public var supportsStanding: Bool
+/// A line the user drew on a plate. Both ends are fractions of the plate's width and height, from the top left.
+public struct PlateLine: Codable, Sendable, Equatable {
+    public var a: Point2, b: Point2
+
+    public init(a: Point2, b: Point2) {
+        self.a = a
+        self.b = b
+    }
+}
+
+/// Something of known height standing on the plate's floor: its foot and its top, as fractions of the plate.
+public struct PlateHeightReference: Codable, Sendable, Equatable {
+    public var foot: Point2, top: Point2
+    public var height: Double // metres
+
+    public init(foot: Point2, top: Point2, height: Double) {
+        self.foot = foot
+        self.top = top
+        self.height = height
+    }
+}
+
+public struct PlateGuides: Codable, Sendable, Equatable {
+    /// Two lines that are parallel in the set and level with its floor, such as the two long edges of a table.
+    public var linesA: [PlateLine]
+    /// Two more, square to the first two on the floor, such as the table's short edges.
+    public var linesB: [PlateLine]
+    public var heightReference: PlateHeightReference?
+    /// How far the floor this plate shows lies above the set's floor, in metres. 0 for most plates. A plate taken
+    /// on a dais that stands 0.6 m above the hall has 0.6: its lines and its height reference are marked on the
+    /// dais, and its camera then stands that much higher in a set whose floor is the hall's.
+    public var floorLevel: Double
 
     public init(
-        id: String,
-        name: String,
-        position: Vec3,
-        size: Vec3,
-        occludes: Bool = true,
-        supportsStanding: Bool = true
+        linesA: [PlateLine] = [], linesB: [PlateLine] = [], heightReference: PlateHeightReference? = nil,
+        floorLevel: Double = 0
     ) {
-        self.id = id
-        self.name = name
-        self.position = position
-        self.size = size
-        self.occludes = occludes
-        self.supportsStanding = supportsStanding
+        self.linesA = linesA
+        self.linesB = linesB
+        self.heightReference = heightReference
+        self.floorLevel = floorLevel
     }
 
-    public init(from decoder: Decoder) throws {
+    public static let none = PlateGuides()
+}
+
+public extension LocationPlate {
+    init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: AnyKey.self)
+        let earlier = try EarlierPlate(from: decoder)
+        let match: PlateMatch? = try c.optional("match")
         try self.init(
             id: c.require("id"),
-            name: c.value("name", "Set piece"),
-            position: c.value("position", .zero),
-            size: c.value("size", Vec3(1, 1, 1)),
-            occludes: c.value("occludes", true),
-            supportsStanding: c.value("supportsStanding", true)
+            name: c.value("name", ""),
+            file: c.value("file", earlier.file),
+            size: c.value("size", earlier.size ?? PixelSize(width: 1440, height: 2560)),
+            match: match ?? earlier.match,
+            guides: c.value("guides", .none)
         )
     }
+}
 
-    public var bounds: Box3 {
-        Box3(
-            min: Vec3(position.x - size.x / 2, position.y, position.z - size.z / 2),
-            max: Vec3(position.x + size.x / 2, position.y + size.y, position.z + size.z / 2)
-        )
+/// What the first plate build (main, 2026-11-15) saved for a plate: `imagePath`, `pixelSize` and a typed
+/// `calibration`. Read so that such a document keeps the plate's file name, size and confirmed camera. Its image
+/// stays where that build put it, so the plate is added again to bring the image into `Shots/Plates`.
+private struct EarlierPlate {
+    private struct Confirmation: Decodable {
+        var confirmed: Bool?
     }
 
-    public func containsHorizontally(_ point: Vec3) -> Bool {
-        let box = bounds
-        return point.x >= box.min.x && point.x <= box.max.x && point.z >= box.min.z && point.z <= box.max.z
-    }
+    var file = ""
+    var size: PixelSize?
+    var match: PlateMatch?
 
-    public static func occludes(_ point: Vec3, camera: CameraFrame, pieces: [PlateSetPiece]) -> Bool {
-        let offset = point - camera.position
-        let distance = offset.length
-        guard distance > 0 else { return false }
-        return pieces.contains { piece in
-            guard piece.occludes,
-                  let hit = piece.rayIntersection(origin: camera.position, direction: offset * (1 / distance))
-            else { return false }
-            return hit < distance - 0.001
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        let path: String = try c.value("imagePath", "")
+        file = path.split(separator: "/").last.map(String.init) ?? ""
+        size = try c.optional("pixelSize")
+        let confirmation: Confirmation? = try c.optional("calibration")
+        if confirmation?.confirmed == true {
+            match = try c.optional("calibration")
         }
     }
+}
 
-    /// Distance along `direction` to the first intersection, or nil when the ray misses or points away.
-    /// With a unit direction the result is in metres. A ray beginning inside the solid returns zero.
-    public func rayIntersection(origin: Vec3, direction: Vec3) -> Double? {
-        let box = bounds
-        let axes = [
-            (origin.x, direction.x, box.min.x, box.max.x),
-            (origin.y, direction.y, box.min.y, box.max.y),
-            (origin.z, direction.z, box.min.z, box.max.z),
-        ]
-        var entry = 0.0
-        var exit = Double.infinity
-        for (origin, direction, low, high) in axes {
-            if abs(direction) < 1e-12 {
-                if origin < low || origin > high { return nil }
-            } else {
-                let first = (low - origin) / direction
-                let last = (high - origin) / direction
-                entry = max(entry, min(first, last))
-                exit = min(exit, max(first, last))
-                if exit < entry { return nil }
+public extension PlateMatch {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        let base = PlateMatch.unmatched
+        try self.init(
+            position: c.value("position", base.position),
+            pan: c.value("pan", 0),
+            tilt: c.value("tilt", 0),
+            roll: c.value("roll", 0),
+            focalLength: c.value("focalLength", base.focalLength),
+            sensor: c.value("sensor", base.sensor)
+        )
+    }
+}
+
+public extension PlateGuides {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyKey.self)
+        try self.init(
+            linesA: c.value("linesA", []),
+            linesB: c.value("linesB", []),
+            heightReference: c.optional("heightReference"),
+            floorLevel: c.value("floorLevel", 0)
+        )
+    }
+}
+
+/// Where a plate sits on a canvas when both are seen through the same camera. The plate keeps its shape and is
+/// centred; with a canvas of the plate's own shape it covers the canvas exactly.
+public enum PlateFit {
+    /// A rectangle in canvas pixels, origin at the top left.
+    public struct Rect: Sendable, Equatable {
+        public var x: Double, y: Double, width: Double, height: Double
+    }
+
+    /// The plate's rectangle on the canvas. It can be larger or smaller than the canvas when their shapes differ.
+    public static func rect(plate: PixelSize, canvas: PixelSize, sensor: Sensor) -> Rect {
+        let scale = sensor.gateHeight(aspect: plate.aspect) / sensor.gateHeight(aspect: canvas.aspect)
+        let height = Double(canvas.height) * scale
+        let width = height * plate.aspect
+        return Rect(
+            x: (Double(canvas.width) - width) / 2, y: (Double(canvas.height) - height) / 2, width: width,
+            height: height
+        )
+    }
+
+    /// The part of the plate's width the canvas shows beyond or short of the plate, as a fraction: 0 when the
+    /// shapes agree, positive when the canvas is wider than the plate.
+    public static func widthMismatch(plate: PixelSize, canvas: PixelSize, sensor: Sensor) -> Double {
+        let fit = rect(plate: plate, canvas: canvas, sensor: sensor)
+        return Double(canvas.width) / fit.width - 1
+    }
+}
+
+/// Solves a plate's camera from the lines and the height reference the user marked on it.
+public enum PlateSolve {
+    /// - `focalLength`: the lens in millimetres when the user sets it; nil solves it from the two sets of lines.
+    /// - `cameraHeight`: the camera's height above the floor the plate shows, in metres, when the user sets it;
+    ///   nil solves it from the height reference, or keeps `current`'s.
+    /// - `current`: the match being corrected. Whatever the guides don't determine is kept from it.
+    ///
+    /// The world is turned so that the first set of lines runs along a world axis: set pieces placed square to the
+    /// world then sit square to the plate's furniture. Lines can't tell which of the four ways along those axes
+    /// the camera faces, so the quarter turn nearest `current`'s is kept: a reverse plate stays a reverse.
+    public static func match(
+        guides: PlateGuides,
+        size: PixelSize,
+        sensor: Sensor,
+        focalLength: Double? = nil,
+        cameraHeight: Double? = nil,
+        current: PlateMatch? = nil
+    ) throws -> PlateMatch {
+        let base = current ?? .unmatched
+        let gate = sensor.gateHeight(aspect: size.aspect)
+        let pointA = vanishingPoint(guides.linesA, size: size)
+        let pointB = vanishingPoint(guides.linesB, size: size)
+        if !guides.linesA.isEmpty, pointA == nil {
+            throw problem("The first two lines are the same line. Draw them along two different edges.")
+        }
+        if !guides.linesB.isEmpty, pointB == nil {
+            throw problem("The second two lines are the same line. Draw them along two different edges.")
+        }
+
+        var focalPixels = (focalLength ?? base.focalLength) * Double(size.height) / gate
+        if focalLength == nil, let a = pointA, let b = pointB, linesGiveLens(guides, size: size) {
+            // Two level directions square to each other: their camera-space directions have a zero dot product.
+            let squared = -(a.x * b.x + a.y * b.y) / (a.w * b.w)
+            guard squared > 0 else {
+                throw problem(
+                    "These two sets of lines can't be square to each other through any lens. Draw each set along "
+                        + "edges that are parallel in the set, the two sets at a right angle on the floor, "
+                        + "or set the lens yourself."
+                )
             }
+            focalPixels = squared.squareRoot()
         }
-        return exit >= 0 ? entry : nil
+        let lens = focalPixels * gate / Double(size.height)
+        guard lens.isFinite, (6 ... 400).contains(lens) else {
+            throw problem(
+                "The lines give a \(Int(lens.rounded())) mm lens, which no camera here has. Check that each set "
+                    + "follows parallel edges, or set the lens yourself."
+            )
+        }
+
+        var match = base
+        match.sensor = sensor
+        match.focalLength = lens
+        if let a = pointA {
+            let directionA = Vec3(a.x, -a.y, -focalPixels * a.w).normalized
+            let up: Vec3
+            if let b = pointB {
+                let directionB = Vec3(b.x, -b.y, -focalPixels * b.w).normalized
+                let normal = directionA.cross(directionB)
+                guard normal.length > 1e-6 else {
+                    throw problem("Both sets of lines run the same way. Draw the second set across the first.")
+                }
+                up = normal.y < 0 ? normal.normalized * -1 : normal.normalized
+            } else if abs(a.w) > 1e-9 {
+                // One set of lines and a level horizon: the horizon runs through their vanishing point.
+                let tilt = atan(a.y / a.w / focalPixels)
+                up = Vec3(0, cos(tilt), -sin(tilt))
+            } else {
+                up = base.camera(aspect: size.aspect).orientation.conjugate.rotate(Vec3(0, 1, 0))
+            }
+            let level = directionA - up * directionA.dot(up)
+            guard level.length > 1e-6 else {
+                throw problem("The first set of lines points straight up or down. Draw it along the floor.")
+            }
+            let x = level.normalized
+            let z = x.cross(up)
+            // The camera looks down its own −Z; in the world that is (−x.z, −up.z, −z.z).
+            match.tilt = asin(min(max(-up.z, -1), 1))
+            let quarter = Double.pi / 2
+            let pan = atan2(x.z, z.z)
+            let withinQuarter = pan - (pan / quarter).rounded() * quarter
+            let facing = withinQuarter + ((base.pan - withinQuarter) / quarter).rounded() * quarter
+            match.pan = atan2(sin(facing), cos(facing))
+            match.roll = atan2(up.x, up.y)
+        }
+
+        var height = cameraHeight ?? base.position.y - guides.floorLevel
+        if cameraHeight == nil, let reference = guides.heightReference {
+            height = try Self.height(from: reference, match: match, size: size)
+        }
+        guard height.isFinite, height > 0.05, height < 200 else {
+            throw problem("The camera height comes out at \(height) m. Check the height reference.")
+        }
+        match.position = Vec3(base.position.x, height + guides.floorLevel, base.position.z)
+        return match
+    }
+
+    /// Whether both pairs of lines are there and each converges in the picture. A camera that looks straight
+    /// along the set sees one pair as parallel lines; that pair still gives the horizon, but no lens, and the
+    /// lens of `current` (or the one given) is used.
+    public static func linesGiveLens(_ guides: PlateGuides, size: PixelSize) -> Bool {
+        guard let a = vanishingPoint(guides.linesA, size: size), let b = vanishingPoint(guides.linesB, size: size)
+        else { return false }
+        // A pair that meets further than a hundred picture-heights away is parallel for this purpose.
+        let far = 100 * Double(max(size.width, size.height))
+        func converges(_ point: (x: Double, y: Double, w: Double)) -> Bool {
+            abs(point.w) * far > max(abs(point.x), abs(point.y))
+        }
+        return converges(a) && converges(b)
+    }
+
+    /// The camera height at which something `reference.height` tall, standing on the floor at the marked foot,
+    /// reaches the marked top.
+    private static func height(
+        from reference: PlateHeightReference, match: PlateMatch, size: PixelSize
+    ) throws -> Double {
+        guard reference.height.isFinite, reference.height > 0 else {
+            throw problem("The height reference needs a height above zero, in metres.")
+        }
+        var unit = match
+        unit.position = .zero
+        let camera = unit.camera(aspect: size.aspect)
+        func ray(_ point: Point2) -> Vec3 {
+            camera.ray(
+                through: Point2(x: point.x * Double(size.width), y: point.y * Double(size.height)), size: size
+            ).direction
+        }
+        let foot = ray(reference.foot), top = ray(reference.top)
+        guard foot.y < -1e-6 else {
+            throw problem(
+                "The foot of the height reference is on or above the horizon, so it can't be on the floor. "
+                    + "Put the foot where the object meets the floor."
+            )
+        }
+        // With the camera h above the floor, the foot is h · run away, and the top's ray is h · run · rise higher
+        // than the camera there.
+        let run = hypot(foot.x, foot.z) / -foot.y
+        let rise = top.y / max(hypot(top.x, top.z), 1e-9)
+        let denominator = 1 + run * rise
+        guard denominator > 0.02 else {
+            throw problem("The top of the height reference is below its foot. Drag the top above the foot.")
+        }
+        return reference.height / denominator
+    }
+
+    /// Where two image lines meet, in homogeneous pixels measured from the image centre with y down. `w` near zero
+    /// means the lines are parallel in the image too. Nil when the two are one line, or there are fewer than two.
+    private static func vanishingPoint(_ lines: [PlateLine], size: PixelSize) -> (x: Double, y: Double, w: Double)? {
+        guard lines.count >= 2 else { return nil }
+        let width = Double(size.width), height = Double(size.height)
+        func line(_ line: PlateLine) -> Vec3 {
+            let a = Vec3((line.a.x - 0.5) * width, (line.a.y - 0.5) * height, 1)
+            let b = Vec3((line.b.x - 0.5) * width, (line.b.y - 0.5) * height, 1)
+            return a.cross(b).normalized
+        }
+        let meet = line(lines[0]).cross(line(lines[1]))
+        let largest = max(abs(meet.x), abs(meet.y), abs(meet.z) * max(width, height))
+        guard largest > 1e-9 else { return nil }
+        // Scaled so that x and y are pixels when the lines meet inside or near the image.
+        let scale = 1 / max(abs(meet.x), abs(meet.y), abs(meet.z))
+        return (meet.x * scale, meet.y * scale, meet.z * scale)
+    }
+
+    private static func problem(_ message: String) -> ShotsError {
+        ShotsError.invalid([ShotsProblem(severity: .error, message: message)])
+    }
+}
+
+/// The signed difference `a − b`, wrapped to −π ... π.
+func angleDifference(_ a: Double, _ b: Double) -> Double {
+    var d = (a - b).truncatingRemainder(dividingBy: 2 * .pi)
+    if d > .pi { d -= 2 * .pi }
+    if d < -.pi { d += 2 * .pi }
+    return d
+}
+
+extension Sensor {
+    /// The height of the gate a canvas of `aspect` uses, in millimetres: the full gate height, or less when the
+    /// canvas is wider than the gate.
+    func gateHeight(aspect: Double) -> Double {
+        min(gate.height, gate.width / aspect)
     }
 }

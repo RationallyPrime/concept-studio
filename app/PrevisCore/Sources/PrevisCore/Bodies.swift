@@ -51,6 +51,12 @@ enum Bodies {
     ) {
         var builder = BodyBuilder(position: state.position, orientation: state.frame, scale: entity.placement.scale)
         var keypoints: [Keypoint] = []
+        if let piece = entity.setPiece {
+            for part in piece.parts() {
+                builder.add(part.id, part.shape, at: Mat4.node(part.position, part.rotation), color: part.color.packed)
+            }
+            return (builder.parts, [], bounds(of: builder.parts, fallback: state.position))
+        }
         switch asset.rig {
         case .person:
             keypoints = PersonRig.build(asset: asset, scale: entity.placement.scale, state: state, into: &builder)

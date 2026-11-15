@@ -21,6 +21,8 @@ private struct ShotsWorkspaceContent: View {
     let projectDirectory: URL?
     let session: StudioSession
     @State private var showsShotCamera = false
+    /// The scene view and the shot camera next to each other: block in one and see the plate in the other.
+    @State private var sideBySide = false
     @State private var viewportSession = ViewportLiveSession()
     @State private var preserveViewportFocusOnToggle = false
 
@@ -36,10 +38,6 @@ private struct ShotsWorkspaceContent: View {
             // Capped so the panes above keep most of the height; lanes scroll beyond four people.
             ShotsTimelineView(store: store).frame(minHeight: 150, idealHeight: 210, maxHeight: 250)
         }
-        .onChange(of: store.currentShot?.plateID) { _, plateID in
-            if plateID != nil { showsShotCamera = true }
-        }
-        .onAppear { if store.currentPlate != nil { showsShotCamera = true } }
         .onKeyPress(keys: [.space]) { press in
             guard press.modifiers.isDisjoint(with: [.command, .control, .option, .shift]),
                   !ShotsTimelineView.editingText,
@@ -51,7 +49,7 @@ private struct ShotsWorkspaceContent: View {
 
     private var sceneColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ShotsSceneList(store: store)
+            ShotsSceneList(store: store, projectDirectory: projectDirectory, session: session)
             Divider()
             ShotsAssetLibrary(store: store)
         }
@@ -59,12 +57,33 @@ private struct ShotsWorkspaceContent: View {
 
     private var viewport: some View {
         VStack(spacing: 0) {
-            Picker("View", selection: $showsShotCamera) {
-                Text("Scene view").tag(false)
-                Text("Shot camera").tag(true)
+            Picker("View", selection: Binding(
+                get: { sideBySide ? 2 : showsShotCamera ? 1 : 0 },
+                set: { choice in
+                    viewportSession.cancelActiveHandleDrag(in: store)
+                    sideBySide = choice == 2
+                    showsShotCamera = choice == 1
+                }
+            )) {
+                Text("Scene view").tag(0)
+                Text("Shot camera").tag(1)
+                Text("Side by side").tag(2)
             }
             .pickerStyle(.segmented).padding(12)
-            if showsShotCamera {
+            .help("Scene view: move freely around the stage. Shot camera: what the shot sees, over its plate. "
+                + "Side by side: both at once, so the plate follows while you block.")
+            if sideBySide {
+                HStack(spacing: 8) {
+                    ShotsViewport(
+                        store: store,
+                        externalSession: viewportSession,
+                        onToggleLookThrough: toggleLookThroughFromViewport,
+                        claimFocusOnAppear: preserveViewportFocusOnToggle,
+                        onClaimedFocus: { preserveViewportFocusOnToggle = false }
+                    )
+                    ShotCameraView(store: store)
+                }
+            } else if showsShotCamera {
                 ShotCameraView(
                     store: store,
                     externalSession: viewportSession,
@@ -87,7 +106,9 @@ private struct ShotsWorkspaceContent: View {
     private func toggleLookThroughFromViewport() {
         viewportSession.cancelActiveHandleDrag(in: store)
         preserveViewportFocusOnToggle = true
-        showsShotCamera.toggle()
+        // From side by side, the key goes to the shot camera alone.
+        showsShotCamera = sideBySide ? true : !showsShotCamera
+        sideBySide = false
     }
 
     private var inspector: some View {
@@ -99,11 +120,12 @@ private struct ShotsWorkspaceContent: View {
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Divider()
-                ShotsPlateInspector(store: store)
-                Divider()
                 ShotsInspectorView(store: store, session: session)
                 Divider()
-                ShotsExportView(store: store, projectDirectory: projectDirectory)
+                ShotsExportView(
+                    store: store, projectDirectory: projectDirectory,
+                    folders: ShotsExportFolders(preferences: session.preferences)
+                )
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(12)
         }

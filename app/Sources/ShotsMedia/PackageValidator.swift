@@ -10,7 +10,7 @@ public enum PackageValidator {
               let manifest = try? JSONDecoder().decode(PackageManifest.self, from: data)
         else { return ["manifest.json is missing or doesn't decode."] }
         guard manifest.format == PackageManifest.formatName,
-              manifest.formatVersion == PackageManifest.currentFormatVersion
+              PackageManifest.supportedFormatVersions.contains(manifest.formatVersion)
         else {
             return [
                 "manifest.json is \(manifest.format) version \(manifest.formatVersion), "
@@ -30,13 +30,15 @@ public enum PackageValidator {
                 problems.append("\(file.path) is listed but missing.")
                 continue
             }
-            if file.role == .plate {
-                problems += stillProblems(url, path: file.path, size: file.pixelSize ?? size)
-                continue
-            }
             switch url.pathExtension {
-            case "png", "jpg", "jpeg", "heic", "tif", "tiff":
-                problems += stillProblems(url, path: file.path, size: file.pixelSize ?? size)
+            case "png":
+                let keySized = file.variant?.isKeySized ?? false
+                // A package of the first plate build states each still's own size.
+                let expected = file.pixelSize ?? (keySized ? manifest.keyCanvas?.pixelSize ?? size : size)
+                problems += stillProblems(
+                    url, path: file.path, size: expected,
+                    kind: file.pixelSize != nil ? "manifest" : keySized ? "key" : "canvas"
+                )
             case "mp4":
                 if file.frameCount != manifest.frameCount {
                     problems.append("\(file.path) is listed without the package's frame count \(manifest.frameCount).")
@@ -46,50 +48,21 @@ public enum PackageValidator {
             }
         }
         problems += guideProblems(manifest)
-        if let keyCanvas = manifest.keyCanvas {
-            problems += referencePlateProblems(manifest, packageURL: packageURL)
-            for role in [PackageFile.Role.composition, .staging, .legend, .plate]
-                where !manifest.files.contains(where: { $0.role == role }) {
-                problems.append("The plate-backed package has no \(role.rawValue) file.")
-            }
-            for file in manifest.files where file.role == .composition {
-                if file.frame != 0 || file.pixelSize != keyCanvas.pixelSize {
-                    problems.append("\(file.path) must be frame 0 at the key canvas size.")
-                }
-            }
-        }
+        problems += plateProblems(manifest)
         if manifest.passes.contains(.matte) {
             problems += matteProblems(manifest, packageURL: packageURL)
         }
         return problems
     }
 
-    private static func referencePlateProblems(_ manifest: PackageManifest, packageURL: URL) -> [String] {
-        guard let data = try? Data(contentsOf: packageURL.appendingPathComponent("shot.json")),
-              let description = try? JSONDecoder().decode(DescribedScene.self, from: data) else {
-            return ["shot.json is missing or unreadable, so reference plates cannot be checked."]
-        }
-        return description.scene.plates.compactMap { plate in
-            let listed = manifest.files.contains {
-                $0.role == .plate && $0.plateID == plate.id && $0.path == plate.imagePath
-            }
-            return listed ? nil : "Reference plate \(plate.name) has no matching image in the package."
-        }
-    }
-
-    private static func stillProblems(_ url: URL, path: String, size: PixelSize) -> [String] {
+    private static func stillProblems(_ url: URL, path: String, size: PixelSize, kind: String) -> [String] {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int
         else { return ["\(path) isn't a readable image."] }
-        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
-        let swapsAxes = (5 ... 8).contains(orientation)
-        let displayedWidth = swapsAxes ? height : width
-        let displayedHeight = swapsAxes ? width : height
-        guard displayedWidth == size.width, displayedHeight == size.height else {
-            return ["\(path) is \(displayedWidth) × \(displayedHeight), "
-                + "not the canvas's \(size.width) × \(size.height)."]
+        guard width == size.width, height == size.height else {
+            return ["\(path) is \(width) × \(height), not the \(kind)'s \(size.width) × \(size.height)."]
         }
         return []
     }
@@ -118,6 +91,23 @@ public enum PackageValidator {
         }
     }
 
+    /// A shot blocked over a plate carries the composition guide for its first frame, at a stated key size of the
+    /// canvas's shape, and its staging in words.
+    private static func plateProblems(_ manifest: PackageManifest) -> [String] {
+        guard let plate = manifest.plate else { return [] }
+        var problems: [String] = []
+        if !manifest.files.contains(where: { $0.variant == .composition && $0.position == .first }) {
+            problems.append("The shot is blocked over the plate \"\(plate.name)\" but has no composition guide.")
+        }
+        if !manifest.files.contains(where: { $0.role == .staging }) {
+            problems.append("The shot is blocked over the plate \"\(plate.name)\" but has no staging description.")
+        }
+        if manifest.keyCanvas == nil {
+            problems.append("The shot is blocked over a plate but the manifest gives no key size.")
+        }
+        return problems
+    }
+
     /// With the matte pass, every actor in `shot.json` needs a matte video.
     private static func matteProblems(_ manifest: PackageManifest, packageURL: URL) -> [String] {
         guard let data = try? Data(contentsOf: packageURL.appendingPathComponent("shot.json")),
@@ -137,8 +127,4 @@ private struct DescribedSubjects: Decodable {
 
 private struct DescribedSubject: Decodable {
     var entityID: EntityID, name: String, isActor: Bool
-}
-
-private struct DescribedScene: Decodable {
-    var scene: PrevisScene
 }

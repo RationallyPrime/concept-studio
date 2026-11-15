@@ -3,7 +3,9 @@ import PrevisCore
 /// `manifest.json` of a shot package: every file named by the role it plays in an H3 shot.
 public struct PackageManifest: Codable, Sendable, Equatable {
     public static let formatName = "conceptstudio.shot-package"
-    public static let currentFormatVersion = 1
+    /// 2 added the composition guides, the staging files, `keyCanvas` and `plate`. A version 1 package is still valid.
+    public static let currentFormatVersion = 2
+    public static let supportedFormatVersions = 1 ... 2
 
     public var format: String
     public var formatVersion: Int
@@ -14,7 +16,8 @@ public struct PackageManifest: Codable, Sendable, Equatable {
     public var canvas: ShotCanvas
     public var passes: [PassKind]
     public var files: [PackageFile]
-    public var keyCanvas: ShotCanvas?
+    public var keyCanvas: ShotCanvas? // the size of the composition guides: the key the image model makes
+    public var plate: PlateRef? // the plate the shot is blocked over
 
     public init(
         format: String,
@@ -26,8 +29,11 @@ public struct PackageManifest: Codable, Sendable, Equatable {
         canvas: ShotCanvas,
         passes: [PassKind] = [],
         files: [PackageFile] = [],
-        keyCanvas: ShotCanvas? = nil
+        keyCanvas: ShotCanvas? = nil,
+        plate: PlateRef? = nil
     ) {
+        self.keyCanvas = keyCanvas
+        self.plate = plate
         self.format = format
         self.formatVersion = formatVersion
         self.createdBy = createdBy
@@ -37,7 +43,18 @@ public struct PackageManifest: Codable, Sendable, Equatable {
         self.canvas = canvas
         self.passes = passes
         self.files = files
-        self.keyCanvas = keyCanvas
+    }
+}
+
+public struct PlateRef: Codable, Sendable, Equatable {
+    public var id: PlateID, name: String, file: String
+    public var size: PixelSize
+
+    public init(id: PlateID, name: String, file: String, size: PixelSize) {
+        self.id = id
+        self.name = name
+        self.file = file
+        self.size = size
     }
 }
 
@@ -55,12 +72,24 @@ public struct ShotRef: Codable, Sendable, Equatable {
 
 public struct PackageFile: Codable, Sendable, Equatable {
     public enum Role: String, Codable, Sendable {
-        case guide, control, matte, reference, prompt, description, composition, staging, legend, plate
+        case guide, control, matte, reference, prompt, description, staging
         case promptSections = "prompt-sections"
+        case stagingData = "staging-data"
+        /// Read only: what a plate package of the first plate build (format version 1) lists. Never written.
+        case composition, legend, plate
     }
 
     public enum Position: String, Codable, Sendable { case first, middle, last }
-    public enum Variant: String, Codable, Sendable { case clean, pose, layout, depth } // depth reserved
+    public enum Variant: String, Codable, Sendable {
+        case clean, pose, layout, depth // depth reserved
+        case composition // the plate with stand-ins, at the key's size, for the image model
+        case compositionLabelled = "composition-labelled" // the same with name tags, for people
+
+        /// Composition guides are the key's size; every other still is the canvas's.
+        public var isKeySized: Bool {
+            self == .composition || self == .compositionLabelled
+        }
+    }
 
     public var role: Role
     public var path: String // relative, "/" separators
@@ -70,8 +99,8 @@ public struct PackageFile: Codable, Sendable, Equatable {
     public var frameCount: Int?
     public var entityID: EntityID?
     public var entityName: String?
+    /// Read only: a still's own size, as a plate package of the first plate build states it. Never written.
     public var pixelSize: PixelSize?
-    public var plateID: String?
 
     public init(
         role: Role,
@@ -81,9 +110,7 @@ public struct PackageFile: Codable, Sendable, Equatable {
         frame: Int? = nil,
         frameCount: Int? = nil,
         entityID: EntityID? = nil,
-        entityName: String? = nil,
-        pixelSize: PixelSize? = nil,
-        plateID: String? = nil
+        entityName: String? = nil
     ) {
         self.role = role
         self.path = path
@@ -93,7 +120,5 @@ public struct PackageFile: Codable, Sendable, Equatable {
         self.frameCount = frameCount
         self.entityID = entityID
         self.entityName = entityName
-        self.pixelSize = pixelSize
-        self.plateID = plateID
     }
 }

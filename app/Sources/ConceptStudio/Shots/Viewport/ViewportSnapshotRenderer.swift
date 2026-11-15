@@ -22,15 +22,12 @@ import ShotsMedia
         if let overlayClone {
             ViewportOverlays.orientLabels(in: overlayClone, to: camera)
         }
-        var sceneFrame = frame
-        sceneFrame.plate = nil
         return try await resolvedRenderer.image(
-            of: sceneFrame,
+            of: frame,
             look: look,
             camera: camera.cameraFrame(for: resolvedSize),
             overlay: overlayClone,
-            size: resolvedSize,
-            showsSetPieces: true
+            size: resolvedSize
         )
     }
 
