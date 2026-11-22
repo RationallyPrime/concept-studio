@@ -31,10 +31,24 @@ service_name = "comfyui"
 # names a directory holding logfire_credentials.json. Nothing is read from the working directory.
 # credentials_dir = "/workspace/podtrace/logfire"
 
-# --- the two custom nodes: every file ---------------------------------------------------------
+# --- the two custom nodes ---------------------------------------------------------------------
+
+# Only the files that take part in sampling. The package also holds clients for outside services
+# (image generation, a caption server, a prompt writer); those handle credentials and are left out.
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/__init__.py"
 
 [[include]]
-path = "**/ComfyUI-MMH3-ClipLoops/**/*.py"
+path = "**/ComfyUI-MMH3-ClipLoops/frozen.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/takes.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/cockpit.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/runs.py"
 
 [[include]]
 path = "**/ComfyUI-H3Forge/**/*.py"

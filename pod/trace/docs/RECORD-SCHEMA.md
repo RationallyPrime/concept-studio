@@ -93,6 +93,10 @@ tag `t`.
   `absmean`. Present the first time an (`id`, `ver`) pair is summarized in a trace and omitted on
   later occurrences.
 - `segments`: named groups along the same axis, from a plugin that knows the layout. Optional.
+- `sampled`: present when the statistics and the fingerprint were computed on a strided view
+  instead of the whole tensor, which is done for tensors held in host memory above about 16
+  million elements (a decoded video, for example). It lists the step taken along each dimension.
+  A sampled summary has no `profile`.
 
 NumPy arrays use the same form with `t` = `"ndarray"` and no `ver`.
 

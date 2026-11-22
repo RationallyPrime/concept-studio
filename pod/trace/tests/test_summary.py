@@ -292,3 +292,31 @@ def test_default_edges():
     e = tensors.default_edges(1000, 256)
     assert len(e) == 257 and e[0] == 0 and e[-1] == 1000 and all(b > a for a, b in pairwise(e))
     assert math.isfinite(sum(e))
+
+
+def test_sample_steps_thin_the_longest_dimensions_first():
+    from podtrace.tensors import CPU_SAMPLE_TARGET, sample_steps
+
+    shape = [736, 3, 1024, 576]
+    steps = sample_steps(shape)
+    assert steps[1] == 1  # the short channel dimension is kept whole
+    kept = 1
+    for size, step in zip(shape, steps, strict=True):
+        kept *= -(-size // step)
+    assert kept <= CPU_SAMPLE_TARGET
+    assert sample_steps([4, 5]) == [1, 1]
+
+
+def test_large_host_array_is_summarized_from_a_sample():
+    np = __import__("pytest").importorskip("numpy")
+    from types import SimpleNamespace
+
+    from podtrace import tensors
+
+    a = np.ones((1 << 13, 1 << 12), dtype=np.float32)  # 32 million elements
+    a[::2] = 3.0
+    out = tensors.summarize_numpy(a, "full", 1, SimpleNamespace(profile_bins=256), set(), None)
+    assert out["shape"] == [1 << 13, 1 << 12]
+    assert out["sampled"] != [1, 1]
+    assert "profile" not in out
+    assert out["min"] in (1.0, 3.0) and out["max"] in (1.0, 3.0)

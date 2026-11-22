@@ -3,10 +3,16 @@
 Everything here is duck-typed: ``torch`` and ``numpy`` are only used when the traced program has
 already imported them (``sys.modules``), and nothing is ever written to the inspected object.
 
-Large tensors are reduced in chunks of at most ``CHUNK`` elements, so the temporaries stay well
-below 256 MB whatever the tensor size. On a device, every chunk adds into small accumulators that
-live on the device, and a single transfer at the end brings all scalars (statistics, fingerprint
-parts and the profile) to the host: one synchronisation per summarized tensor.
+Large tensors are reduced in chunks of at most ``CHUNK`` elements, so the temporaries stay
+bounded (a few hundred megabytes) whatever the tensor size. On a device, every chunk adds into
+small accumulators that live on the device, and a single transfer at the end brings all scalars
+(statistics, fingerprint parts and the profile) to the host: one synchronisation per summarized
+tensor.
+
+Host memory is the exception. A decoded video held on the CPU can be several gigabytes, and
+reducing all of it costs minutes per summary. A CPU tensor or array above ``CPU_SAMPLE_ABOVE``
+elements is therefore summarized from a strided view of about ``CPU_SAMPLE_TARGET`` elements, and
+the summary says so in ``sampled`` (the step taken along each dimension).
 """
 
 from __future__ import annotations
@@ -18,7 +24,9 @@ from itertools import pairwise
 from math import isfinite
 from typing import Any
 
-CHUNK = 1 << 22  # elements per chunk: 16 MB as float32, 32 MB as int64
+CHUNK = 1 << 24  # elements per chunk: 64 MB as float32, 128 MB as int64
+CPU_SAMPLE_ABOVE = 1 << 24  # host tensors above this many elements are sampled, not fully read
+CPU_SAMPLE_TARGET = 1 << 22
 PROBE_MIN = 1 << 20  # inference tensors above this are validated by a sampled fingerprint
 PROBE_SAMPLES = 4096
 MASK64 = (1 << 64) - 1
@@ -82,6 +90,24 @@ def _flat_offset(starts: tuple[int, ...], shape: tuple[int, ...]) -> int:
         off += starts[k] * stride
         stride *= shape[k]
     return off
+
+
+def sample_steps(shape: tuple[int, ...] | list[int], target: int = CPU_SAMPLE_TARGET) -> list[int]:
+    """Step per dimension so that the strided view holds about ``target`` elements or fewer.
+
+    The longest dimensions are thinned first, so a batch of frames loses frames before it loses
+    pixels. The view starts at index 0 of every dimension and is the same for the same shape.
+    """
+    steps = [1] * len(shape)
+    sizes = [int(d) for d in shape]
+    for d in sorted(range(len(sizes)), key=lambda i: -sizes[i]):
+        total = _prod(sizes)
+        if total <= target:
+            break
+        step = min(sizes[d], -(-total // target))
+        steps[d] = step
+        sizes[d] = -(-sizes[d] // step)
+    return steps
 
 
 def default_edges(length: int, bins: int) -> list[int]:
@@ -242,7 +268,16 @@ def summarize_torch(
     if hit is not None and (hit[0] or not want_full):
         body = hit[1]
     else:
-        body = _torch_body(t, torch, shape, dtype, numel, want_full, cfg, layout_for)
+        if t.device.type == "cpu" and numel > CPU_SAMPLE_ABOVE:
+            steps = sample_steps(shape)
+            view = t[tuple(slice(None, None, k) for k in steps)]
+            vshape = [int(d) for d in view.shape]
+            body = _torch_body(
+                view, torch, vshape, dtype, _prod(vshape), want_full, cfg, None, profile=False
+            )
+            body["sampled"] = steps
+        else:
+            body = _torch_body(t, torch, shape, dtype, numel, want_full, cfg, layout_for)
         if key is not None:
             cache.put((alias, key), (want_full, body))
     sk = (alias, key) if key is not None else (alias, "fp", body.get("fp"))
@@ -273,6 +308,7 @@ def _torch_body(
     want_full: bool,
     cfg: Any,
     layout_for: Any,
+    profile: bool = True,
 ) -> dict[str, Any]:
     f64, i64 = torch.float64, torch.int64
     dev = t.device
@@ -280,7 +316,7 @@ def _torch_body(
     shp = tuple(shape)
     layout = layout_for(shp) if (want_full and layout_for is not None) else None
     axis = None
-    if want_full and nd in PROFILE_AXIS and shape[PROFILE_AXIS[nd]] > 1:
+    if want_full and profile and nd in PROFILE_AXIS and shape[PROFILE_AXIS[nd]] > 1:
         axis = PROFILE_AXIS[nd]
     if layout is not None:
         axis = layout.axis
@@ -397,11 +433,16 @@ def summarize_numpy(
     if level == "shape" or a.dtype.kind not in "biuf" or a.size == 0:
         return out
     want_full = level == "full"
+    steps = None
+    if a.size > CPU_SAMPLE_ABOVE:
+        steps = sample_steps(shape)
+        a = a[tuple(slice(None, None, k) for k in steps)]
+        shape = [int(d) for d in a.shape]
     nd = len(shape)
     shp = tuple(shape)
-    layout = layout_for(shp) if (want_full and layout_for is not None) else None
+    layout = layout_for(shp) if (want_full and steps is None and layout_for is not None) else None
     axis = None
-    if want_full and nd in PROFILE_AXIS and shape[PROFILE_AXIS[nd]] > 1:
+    if want_full and steps is None and nd in PROFILE_AXIS and shape[PROFILE_AXIS[nd]] > 1:
         axis = PROFILE_AXIS[nd]
     if layout is not None:
         axis = layout.axis
@@ -452,6 +493,8 @@ def summarize_numpy(
         flat_out += prof.tolist()
     body = _assemble(flat_out, shape, dtype, a.size, want_full, axis, alen, layout, cfg)
     out.update(body)
+    if steps is not None:
+        out["sampled"] = steps
     if "profile" in out:
         k = (alias, "nd", out.get("fp"))
         if k in profile_seen:
