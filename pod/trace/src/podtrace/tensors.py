@@ -336,7 +336,8 @@ def _torch_body(
             z = torch.nan_to_num(xf, nan=0.0, posinf=0.0, neginf=0.0)
             acc[0].add_(fin.sum())
             acc[1].add_(z.sum(dtype=f64))
-            acc[2].add_((z * z).sum(dtype=f64))
+            zd = z if z.dtype == f64 else z.to(f64)  # squares in float64, or large means cancel
+            acc[2].add_((zd * zd).sum())
             za = z.abs()
             acc[3].add_(za.sum(dtype=f64))
             acc[4] = torch.minimum(acc[4], xf.masked_fill(~fin, float("inf")).min().to(f64))

@@ -572,3 +572,44 @@ def test_deep_chain_summary_and_diff_do_not_recurse(tmp_path):
     b = write_run(tmp_path / "b", recs)
     assert compare.main([str(a), str(b)]) == 0
     assert compare.main(["--summary", str(a)]) == 0
+
+
+def test_return_value_of_a_coroutine_or_generator_is_compared(tmp_path):
+    def spec(value):
+        return [
+            node(
+                "pkg.co",
+                kind="gen",
+                ret={"t": "gen", "yields": 0},
+                attrs={"return": {"t": "int", "v": value}},
+            )
+        ]
+
+    a, b = run_pair(tmp_path, spec(1), spec(2))
+    res = compare.diff_runs(compare.load_run(a), compare.load_run(b))
+    assert [d.name for d in res.changed] == ["pkg.co"]
+    assert [c.field for c in res.changed[0].changes] == ["ret.return"]
+    assert compare.main([str(a), str(b)]) == 1
+    same_a, same_b = run_pair(tmp_path / "same", spec(1), spec(1))
+    assert compare.main([str(same_a), str(same_b)]) == 0
+
+
+def test_only_and_ignore_look_through_unmatched_subtrees(tmp_path):
+    with_helper = [node("root", [node("helper", [node("pkg.target", ret=scalar(1.0))])])]
+    bare = [node("root")]
+    for side, (spec_a, spec_b) in {
+        "only_a": (with_helper, bare),
+        "only_b": (bare, with_helper),
+    }.items():
+        a, b = run_pair(tmp_path / side, spec_a, spec_b)
+        la, lb = compare.load_run(a), compare.load_run(b)
+        for kwargs in ({"only": ["pkg.target"]}, {"ignore": ["helper"]}):
+            res = compare.diff_runs(la, lb, **kwargs)
+            found = getattr(res, side)
+            assert [d.name for d in found] == ["pkg.target"], (side, kwargs)
+            assert not getattr(res, "only_b" if side == "only_a" else "only_a")
+        assert compare.main([str(a), str(b), "--only", "pkg.target"]) == 1
+        assert compare.main([str(a), str(b), "--ignore", "helper"]) == 1
+        # a filter that selects nothing below the subtree still reports nothing
+        assert compare.main([str(a), str(b), "--only", "nothing.*"]) == 0
+        assert compare.main([str(a), str(b), "--ignore", "helper", "--ignore", "pkg.target"]) == 0

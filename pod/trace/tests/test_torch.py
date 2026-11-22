@@ -267,3 +267,16 @@ def test_in_place_write_to_an_argument_is_a_state_entry(tmp_path):
 
 def test_summary_helper_names_exist():
     assert summary.Summarizer and tensors.summarize_torch
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+def test_std_of_values_with_a_large_mean_keeps_precision(dtype):
+    # float16 and bfloat16 cannot hold 10001, so use values each can represent exactly
+    vals = {
+        torch.float32: [10000.0, 10001.0],
+        torch.float16: [1000.0, 1001.0],
+        torch.bfloat16: [10240.0, 10368.0],
+    }[dtype]
+    t = torch.tensor(vals, dtype=dtype)
+    expected = (vals[1] - vals[0]) / 2
+    assert S(t)["std"] == pytest.approx(expected, rel=1e-6)

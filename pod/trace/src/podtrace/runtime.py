@@ -76,6 +76,7 @@ class _State:
         self.run_started_ns = 0
         self.meta_dirty = False
         self.rotate_lock = threading.RLock()
+        self.active_roots = 0
         self.layout_providers: list[Any] = []
         self.init_hooks: list[Any] = []
         self.started_ns = time.time_ns()
@@ -281,11 +282,19 @@ def _root_start() -> bool:
     if not state.on:
         return False
     ident = (ctl.session, ctl.label)
-    if ident != state.run_ident:
-        with state.rotate_lock:
-            if ident != state.run_ident:
-                _rotate(ident, ctl.label)
+    with state.rotate_lock:
+        # A run is never closed under a root span that is still open (a suspended generator, a
+        # call on another thread): the new root joins the current run until all of them end.
+        if ident != state.run_ident and state.active_roots == 0:
+            _rotate(ident, ctl.label)
+        state.active_roots += 1
     return True
+
+
+def _root_end() -> None:
+    with state.rotate_lock:
+        if state.active_roots > 0:
+            state.active_roots -= 1
 
 
 def _rotate(ident: tuple[int, str | None], label: str | None) -> None:
@@ -513,7 +522,11 @@ def register(path: str, module: str) -> Any:
 
 
 def _plan(fn: Any) -> tuple[Any, ...] | None:
-    """Parameter names, taken from the code object, so binding costs a dict fill."""
+    """Parameter names, taken from the code object, so binding costs a dict fill.
+
+    The plan belongs to the code object, which every closure made from one ``def`` shares, so it
+    holds no defaults: those belong to the function object and are read at each call.
+    """
     code = getattr(fn, "__code__", None)
     if code is None:
         return None
@@ -524,11 +537,13 @@ def _plan(fn: Any) -> tuple[Any, ...] | None:
     vararg = code.co_varnames[idx] if code.co_flags & inspect.CO_VARARGS else None
     idx += 1 if vararg else 0
     varkw = code.co_varnames[idx] if code.co_flags & inspect.CO_VARKEYWORDS else None
-    return (names, n_pos, vararg, varkw, fn.__defaults__ or (), fn.__kwdefaults__ or {})
+    return (names, n_pos, vararg, varkw)
 
 
-def _bind(plan: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
-    names, n_pos, vararg, varkw, defaults, kwdefaults = plan
+def _bind(plan: Any, fn: Any, args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
+    names, n_pos, vararg, varkw = plan
+    defaults = fn.__defaults__ or ()
+    kwdefaults = fn.__kwdefaults__ or {}
     bound: dict[str, Any] = {}
     for i in range(min(len(args), n_pos)):
         bound[names[i]] = args[i]
@@ -626,14 +641,16 @@ def _make_compile_check(torch: Any) -> Any:
 def _begin(site: Site, fn: Any, args: tuple[Any, ...], kwargs: dict[str, Any], parent: Any) -> Any:
     """Start a record. Returns a ``Rec``, ``_CAPPED`` or None (not recorded)."""
     _tls.busy = True
+    counted = False
     try:
         cfg = state.cfg
         assert cfg is not None and state.summ is not None
         if parent is None:
             if not _root_start():
                 return None
+            counted = True
             trace = Trace(_hex(state.rng.getrandbits(128) or 1, 32))
-            label = state.control.label if state.control else None
+            label = state.run_label
         else:
             trace = parent.trace
             label = parent.label
@@ -658,7 +675,7 @@ def _begin(site: Site, fn: Any, args: tuple[Any, ...], kwargs: dict[str, Any], p
         rec.deep = False
         if site.plan is None:
             site.plan = _plan(fn) or ()
-        bound = _bind(site.plan, args, kwargs) if site.plan else {}
+        bound = _bind(site.plan, fn, args, kwargs) if site.plan else {}
         level = site.stats
         summ = state.summ
         seen = trace.seen
@@ -688,6 +705,8 @@ def _begin(site: Site, fn: Any, args: tuple[Any, ...], kwargs: dict[str, Any], p
         rec.start_ns = time.time_ns()
         return rec
     except Exception as exc:
+        if counted:
+            _root_end()
         report_error("begin", exc)
         return None
     finally:
@@ -814,6 +833,7 @@ def _finish(
     if rec.parent is None:
         _tls.busy = True
         try:
+            _root_end()
             end_of_root()
         except Exception as err:
             report_error("flush", err)
@@ -925,7 +945,7 @@ def _diff_attrs(summ: Summarizer, rec: Rec, level: str, seen: set[Any]) -> list[
             {
                 "target": "self",
                 "attr": name,
-                "before": summ.from_key(old, level) if old is not None else None,
+                "before": summ.from_key(old, level, _redact(name)) if old is not None else None,
                 "after": after,
             }
         )
@@ -937,17 +957,21 @@ def _diff_args(summ: Summarizer, rec: Rec, level: str, seen: set[Any]) -> list[d
     out: list[dict[str, Any]] = []
     for kind, name, value, stamp in rec.arg_watch or ():
         target = f"arg:{name}"
+        parent_redact = _redact(name)
         if kind == "dict":
             now = {k: summ.key(v, level) for k, v in list(value.items())}
             for k in stamp.keys() | now.keys():
                 if stamp.get(k) == now.get(k):
                     continue
+                redact = parent_redact or _redact(k)
                 out.append(
                     {
                         "target": target,
                         "attr": f"[{k}]",
-                        "before": summ.from_key(stamp[k], level) if k in stamp else None,
-                        "after": summ.summarize(value[k], level, seen) if k in now else None,
+                        "before": summ.from_key(stamp[k], level, redact) if k in stamp else None,
+                        "after": (
+                            summ.summarize(value[k], level, seen, redact) if k in now else None
+                        ),
                     }
                 )
         elif kind == "list":
@@ -963,8 +987,14 @@ def _diff_args(summ: Summarizer, rec: Rec, level: str, seen: set[Any]) -> list[d
                     {
                         "target": target,
                         "attr": f"[{i}]",
-                        "before": summ.from_key(a, level) if a is not None else None,
-                        "after": summ.summarize(value[i], level, seen) if b is not None else None,
+                        "before": (
+                            summ.from_key(a, level, parent_redact) if a is not None else None
+                        ),
+                        "after": (
+                            summ.summarize(value[i], level, seen, parent_redact)
+                            if b is not None
+                            else None
+                        ),
                     }
                 )
         else:

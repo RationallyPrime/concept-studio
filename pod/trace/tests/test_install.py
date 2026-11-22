@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import types
@@ -265,3 +266,36 @@ def test_diff_without_the_comparison_tool_says_so(monkeypatch, capsys):
     monkeypatch.setitem(sys.modules, "podtrace.compare", None)
     assert cli.main(["diff", "a", "b"]) == 2
     assert "not installed" in capsys.readouterr().err
+
+
+def test_python_dash_m_podtrace_runs_the_cli(tmp_path):
+    out = subprocess.run(
+        [sys.executable, "-m", "podtrace", "--help"], capture_output=True, text=True, cwd=tmp_path
+    )
+    assert out.returncode == 0, out.stderr
+    assert "install" in out.stdout and "status" in out.stdout
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGUSR1"), reason="needs SIGUSR1")
+def test_stack_dump_file_gets_every_thread_on_sigusr1(tmp_path):
+    from podtrace import hook
+
+    out = tmp_path / "deep" / "stacks.log"
+    hook._register_stack_dump(str(out))
+    try:
+        os.kill(os.getpid(), signal.SIGUSR1)
+        text = out.read_text()
+        assert "most recent call first" in text
+        assert "test_stack_dump_file_gets_every_thread_on_sigusr1" in text
+    finally:
+        hook._unregister_stack_dump()
+    # after removal the signal has its previous handling again; nothing more is written
+    assert hook._stack_dump[0] is None
+
+
+def test_stack_dump_file_is_read_from_the_config(tmp_path):
+    from podtrace import config
+
+    cfg = config.from_dict({"stack_dump_file": str(tmp_path / "s.log")})
+    assert cfg.stack_dump_file.endswith("s.log")
+    assert config.from_dict({}).stack_dump_file == ""

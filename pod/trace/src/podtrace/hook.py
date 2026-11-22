@@ -22,6 +22,7 @@ from .config import Config
 _orig_get_code: Any = None
 _PKG_DIR = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/") + "/"
 _decided: list[bool | None] = [None]
+_stack_dump: list[Any] = [None]
 
 
 def _process_ok(cfg: Config) -> bool:
@@ -64,6 +65,34 @@ def _patched_get_code(self: SourceFileLoader, fullname: str) -> Any:
 _patched_get_code.__dict__["__podtrace__"] = True
 
 
+def _register_stack_dump(path: str) -> None:
+    """Make ``kill -USR1 <pid>`` append every thread's Python stack to ``path``.
+
+    A traced program that seems stuck can then be asked where it is, on machines where no
+    debugger may attach. The file stays open for the life of the process.
+    """
+    import faulthandler
+    import signal
+
+    signum = getattr(signal, "SIGUSR1", None)
+    if signum is None or _stack_dump[0] is not None:
+        return
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    fh = open(path, "a", encoding="utf-8")  # noqa: SIM115
+    faulthandler.register(signum, file=fh, all_threads=True, chain=False)
+    _stack_dump[0] = (signum, fh)
+
+
+def _unregister_stack_dump() -> None:
+    entry, _stack_dump[0] = _stack_dump[0], None
+    if entry is None:
+        return
+    import faulthandler
+
+    faulthandler.unregister(entry[0])
+    entry[1].close()
+
+
 def install(cfg: Config) -> bool:
     """Activate the hook for this process. False when the process is not selected."""
     global _orig_get_code
@@ -71,6 +100,11 @@ def install(cfg: Config) -> bool:
     if cfg.process_matches(list(getattr(sys, "argv", ()))) is False:
         _decided[0] = False
         return False
+    if cfg.stack_dump_file:
+        try:
+            _register_stack_dump(cfg.stack_dump_file)
+        except Exception as exc:
+            sys.stderr.write(f"podtrace: no stack dump on signal: {type(exc).__name__}: {exc}\n")
     if getattr(SourceFileLoader.get_code, "__podtrace__", False):
         return True
     _orig_get_code = SourceFileLoader.get_code
@@ -86,3 +120,4 @@ def uninstall() -> None:
     _orig_get_code = None
     _decided[0] = None
     registry.CONFIG = None
+    _unregister_stack_dump()

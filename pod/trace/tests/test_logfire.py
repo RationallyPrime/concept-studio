@@ -1,5 +1,7 @@
+import asyncio
 import json
 import os
+import threading
 import time
 import warnings
 
@@ -11,7 +13,7 @@ pytest.importorskip("opentelemetry.proto.collector.trace.v1.trace_service_pb2")
 from otlp_server import Receiver
 
 from podtrace import config, runtime
-from podtrace.sinks import LogfireSink, logfire_wanted
+from podtrace.sinks import LogfireSink, logfire_wanted, on_server_loop
 
 TOKEN = "pylf_v1_us_testtoken0123456789"
 
@@ -186,6 +188,54 @@ def test_a_burst_of_spans_into_a_slow_receiver_loses_nothing(tmp_path, monkeypat
         assert len(slow.spans) == n
         assert len({sp.span_id for _, sp in slow.spans}) == n
         assert sink.flush_failures == 0
+    finally:
+        slow.close()
+
+
+def test_flush_never_waits_on_the_main_thread_while_it_runs_an_event_loop(tmp_path, monkeypatch):
+    """A route handler traced on the host's server loop must not stall the server on an export."""
+    monkeypatch.setenv("LOGFIRE_TOKEN", TOKEN)
+    slow = Receiver(delay=0.6)
+    try:
+        sink = LogfireSink(sink_config(tmp_path, slow, flush_every=10))
+        sink.start()
+
+        async def handler():
+            assert on_server_loop()
+            t0 = time.monotonic()
+            for i in range(40):  # crosses flush_every four times
+                sink.emit(record(i + 1, None if i == 0 else f"{1001:016x}"))
+            sink.flush()  # what the end of a root span does
+            return time.monotonic() - t0
+
+        took = asyncio.run(handler())
+        assert took < 0.5, f"blocked the event loop for {took:.2f} s"
+        assert not on_server_loop()
+        sink.shutdown()  # the final flush always waits
+        assert len(slow.spans) == 40
+    finally:
+        slow.close()
+
+
+def test_a_worker_thread_still_waits_for_its_flush(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOGFIRE_TOKEN", TOKEN)
+    slow = Receiver(delay=0.05)
+    try:
+        sink = LogfireSink(sink_config(tmp_path, slow))
+        sink.start()
+        seen: list[int] = []
+
+        def work():
+            for i in range(30):
+                sink.emit(record(i + 1, None if i == 0 else f"{1001:016x}"))
+            sink.flush()
+            seen.append(len(slow.spans))
+
+        t = threading.Thread(target=work)
+        t.start()
+        t.join(30)
+        assert seen == [30]
+        sink.shutdown()
     finally:
         slow.close()
 

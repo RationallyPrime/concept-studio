@@ -94,6 +94,8 @@ class Config:
     control_file: str = DEFAULT_CONTROL_PATH
     control_poll_s: float = 0.5
     per_parent_cap: int = 10000
+    # `kill -USR1 <pid>` appends the Python stack of every thread to this file. Empty: off.
+    stack_dump_file: str = ""
     plugins: tuple[str, ...] = ()
     # Record the value of every string, not only those of at most 64 characters.
     text: bool = False
@@ -195,6 +197,7 @@ def from_dict(raw: dict[str, Any], source: str = "") -> Config:
         control_file=str(raw.get("control_file", DEFAULT_CONTROL_PATH)),
         control_poll_s=float(_typed(raw, "control_poll_s", 0.5, (int, float))),
         per_parent_cap=int(_typed(raw, "per_parent_cap", 10000, (int,))),
+        stack_dump_file=str(_typed(raw, "stack_dump_file", "", (str,))),
         plugins=_tuple(raw.get("plugins"), "plugins", ()),
         text=bool(raw.get("text", False)),
         inference_check=str(raw.get("inference_check", "probe")),

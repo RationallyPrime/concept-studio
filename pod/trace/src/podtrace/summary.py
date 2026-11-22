@@ -359,14 +359,17 @@ class Summarizer:
             return (6, callable_name(v) if not isinstance(v, type) else clsname(v), id(v))
         return (5, self.aliases.alias(v), clsname(t))
 
-    def from_key(self, key: tuple[Any, ...], level: str) -> dict[str, Any]:
-        """Best available summary of a value that is gone, rebuilt from its key."""
+    def from_key(self, key: tuple[Any, ...], level: str, redact: bool = False) -> dict[str, Any]:
+        """Best available summary of a value that is gone, rebuilt from its key.
+
+        ``redact`` has the same meaning as for ``summarize``: a string keeps only length and hash.
+        """
         kind = key[0]
         if kind == 0:
-            return self._s(_prim(key), level, set(), Walk(4, 0), 0, False)
+            return self._s(_prim(key), level, set(), Walk(4, 0), 0, redact)
         if kind == 1:
             if isinstance(key[1], str) and len(key) == 2:
-                return self._str(key[1], False)
+                return self._str(key[1], redact)
             return {"t": "str", "len": key[1]}
         if kind == 2:
             _, alias, ver, shape, dtype, device = key

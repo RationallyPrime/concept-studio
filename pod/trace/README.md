@@ -115,6 +115,7 @@ Top level:
 | `control_file` | `/workspace/podtrace/control.json` | the control file. |
 | `control_poll_s` | `0.5` | polling interval. |
 | `per_parent_cap` | `10000` | most child records one parent may emit; the rest are dropped and one `mark` says how many. |
+| `stack_dump_file` | `""` (off) | `kill -USR1 <pid>` appends the Python stack of every thread to this file: where a traced program is when it seems stuck. |
 | `plugins` | `[]` | plugin modules from `podtrace.plugins` (`minimax_h3` learns the packed-layout segments). |
 | `text` | `false` | keep every string value instead of only short ones. |
 | `inference_check` | `"probe"` | how inference tensors (no version counter) are cached: `probe`, `full` (always recompute) or `trust` (identity only). |
@@ -128,7 +129,11 @@ Top level:
 `[logfire]`: `enabled` (true), `service_name` (`comfyui`), `credentials_dir` (empty), `base_url`
 (empty, Logfire's default), `flush_every` 20000 spans, `flush_timeout_s` 300, `queue_size`
 1,000,000. The large queue and periodic flush exist so that spans are not dropped; the batch
-queue is sized through `OTEL_BSP_MAX_QUEUE_SIZE` unless you already set it.
+queue is sized through `OTEL_BSP_MAX_QUEUE_SIZE` unless you already set it. A flush waits for
+the export, on the thread that recorded the span, at the end of each root span and every
+`flush_every` spans. The one exception is the main thread while it runs an asyncio event loop
+(ComfyUI's web server): nothing waits there, because that would freeze the web interface for as
+long as the export takes, and the exporter's own thread sends what is queued.
 
 `[[include]]` rules, first match wins (a file matches at most one rule):
 

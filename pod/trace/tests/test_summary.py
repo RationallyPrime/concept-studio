@@ -320,3 +320,11 @@ def test_large_host_array_is_summarized_from_a_sample():
     assert out["sampled"] != [1, 1]
     assert "profile" not in out
     assert out["min"] in (1.0, 3.0) and out["max"] in (1.0, 3.0)
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
+def test_numpy_std_of_values_with_a_large_mean_keeps_precision(dtype):
+    # float16 cannot hold 10001
+    vals = [10000.0, 10001.0] if dtype == "float32" else [1000.0, 1001.0]
+    out = S(np.array(vals, dtype=dtype))
+    assert out["std"] == pytest.approx(0.5, abs=1e-6)

@@ -97,6 +97,25 @@ def logfire_wanted(cfg: Config, env: Any = None) -> tuple[bool, str]:
     return False, "no LOGFIRE_TOKEN and no credentials_dir in the config"
 
 
+def on_server_loop() -> bool:
+    """True on the main thread while it runs an asyncio event loop: the host's server loop.
+
+    Waiting for an export on that thread stalls every request the host is serving (ComfyUI's web
+    interface and its queue endpoints run there), so nothing here blocks on it. What is queued is
+    sent by the batch exporter's own thread.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        return False
+    asyncio = sys.modules.get("asyncio")
+    if asyncio is None:
+        return False
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
 class LogfireSink:
     """Spans for ``call``/``init``/``gen`` records and logs for ``line``/``mark`` records.
 
@@ -255,8 +274,15 @@ class LogfireSink:
         if self._pending >= self.cfg.logfire_flush_every:
             self.flush()
 
-    def flush(self) -> None:
+    def flush(self, final: bool = False) -> None:
+        """Wait until everything queued has been sent.
+
+        Skipped on the host's server loop unless ``final``: the count of unsent spans is kept, so
+        the next record from any other thread does the waiting.
+        """
         if not self.active:
+            return
+        if not final and on_server_loop():
             return
         self._pending = 0
         ok = self._lf.force_flush(int(self.cfg.logfire_flush_timeout_s * 1000))
@@ -267,7 +293,7 @@ class LogfireSink:
         if not self.active:
             return
         try:
-            self.flush()
+            self.flush(final=True)
             self._lf.shutdown(int(self.cfg.logfire_flush_timeout_s * 1000))
         finally:
             self.active = False

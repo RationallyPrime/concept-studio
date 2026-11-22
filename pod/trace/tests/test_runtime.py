@@ -503,3 +503,138 @@ def test_meta_json_lists_files_with_hashes(h):
         meta["schema"] == 1 and meta["label"] == "t" and meta["python"].startswith(sys.version[:4])
     )
     assert textwrap.dedent("x")
+
+
+def _all_strings(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from _all_strings(k)
+            yield from _all_strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _all_strings(v)
+
+
+def test_state_entries_redact_sensitive_values_before_and_after(h):
+    h.start()
+    m = h.module(
+        """
+        class Client:
+            def __init__(self):
+                self.api_key = 'old-attr-secret'
+                self.plain = 'old-plain'
+            def rotate(self):
+                self.api_key = 'new-attr-secret'
+                self.plain = 'new-plain'
+        def swap(d):
+            d['token'] = 'new-dict-secret'
+            d['config'] = {'password': 'new-nested-secret'}
+        def swap_tokens(tokens):
+            tokens[0] = 'new-token-list'
+        """
+    )
+    c = m.Client()
+    c.rotate()
+    m.swap({"token": "old-dict-secret", "config": {"password": "old-nested-secret"}})
+    m.swap_tokens(["old-token-list"])
+    text = str(h.records())
+    for leaked in (
+        "old-attr-secret",
+        "new-attr-secret",
+        "old-dict-secret",
+        "new-dict-secret",
+        "new-nested-secret",
+        "old-token-list",
+        "new-token-list",
+    ):
+        assert leaked not in text, leaked
+    (rotate,) = h.by_name("Client.rotate")
+    entries = {s["attr"]: s for s in rotate["state"]}
+    assert entries["api_key"]["before"]["sha"] and "v" not in entries["api_key"]["before"]
+    assert entries["plain"]["before"]["v"] == "old-plain"
+    assert entries["plain"]["after"]["v"] == "new-plain"
+    (swap,) = h.by_name(".swap")
+    by_attr = {s["attr"]: s for s in swap["state"]}
+    assert "v" not in by_attr["[token]"]["before"] and "v" not in by_attr["[token]"]["after"]
+    assert by_attr["[token]"]["before"]["len"] == len("old-dict-secret")
+    (tl,) = h.by_name(".swap_tokens")
+    (entry,) = tl["state"]
+    assert "v" not in entry["before"] and "v" not in entry["after"]
+
+
+def test_deep_line_records_redact_sensitive_locals(h):
+    if not hasattr(sys, "monitoring"):
+        pytest.skip("deep mode needs Python 3.12+")
+    h.start()
+    m = h.module(
+        """
+        def local(x):
+            secret = 'old-local-secret'
+            secret = 'new-local-secret'
+            plain = 'visible'
+            return x
+        """
+    )
+    h.record(True, deep=["*.local"])
+    m.local(1)
+    text = str(h.records())
+    assert "old-local-secret" not in text and "new-local-secret" not in text
+    assert "visible" in text
+
+
+def test_label_change_waits_for_an_open_root_before_starting_a_new_run(h):
+    h.start()
+    m = h.module(
+        """
+        def gen():
+            yield 1
+            yield 2
+        def other(): return 0
+        """
+    )
+    g = m.gen()
+    assert next(g) == 1  # a root span is now open
+    h.record(True, label="second")
+    m.other()  # a new root while the generator is still open
+    assert list(g) == [2]
+    m.other()  # nothing is open any more: this one starts the new run
+    assert len(h.run_dirs()) == 2
+    by_label = {d.name.split("-")[0]: i for i, d in enumerate(h.run_dirs())}
+    first, second = h.records(by_label["t"]), h.records(by_label["second"])
+    assert [r["label"] for r in first] == ["t", "t"]
+    assert len({r["seq"] for r in first}) == 2
+    assert [r["label"] for r in second] == ["second"]
+    assert second[0]["seq"] == 1
+
+
+def test_defaults_are_bound_per_function_object_not_per_source_site(h):
+    h.start()
+    m = h.module(
+        """
+        def make(v, w):
+            def f(x=v, *, k=w):
+                x_seen = x
+                return x_seen
+            return f
+        def mutate(d={}):
+            d['n'] = len(d)
+        def mutator(v):
+            def g(d=v):
+                d['hit'] = 1
+            return g
+        """
+    )
+    f1, f2 = m.make(1, 10), m.make(2, 20)
+    f1()
+    f2()
+    calls = [r for r in h.by_name(".f")]
+    assert [(r["args"]["x"]["v"], r["args"]["k"]["v"]) for r in calls] == [(1, 10), (2, 20)]
+    first, second = {}, {}
+    g1, g2 = m.mutator(first), m.mutator(second)
+    g1()
+    g2()
+    states = [r["state"] for r in h.by_name(".g")]
+    assert all(len(s) == 1 and s[0]["attr"] == "[hit]" for s in states)
+    assert first == {"hit": 1} and second == {"hit": 1}

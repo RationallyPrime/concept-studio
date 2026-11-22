@@ -80,6 +80,7 @@ class Rec:
         "name",
         "parent_id",
         "ret",
+        "retval",
         "seq",
         "span_id",
         "start_ns",
@@ -103,6 +104,7 @@ class Rec:
         state: Any,
         attrs: Any,
         tens: bool,
+        retval: Any = None,
     ) -> None:
         self.seq = seq
         self.kind = kind
@@ -118,6 +120,7 @@ class Rec:
         self.state = state
         self.attrs = attrs
         self.tens = tens
+        self.retval = retval
 
 
 class Run:
@@ -248,6 +251,11 @@ class Run:
         }
 
 
+def _return_value(attrs: Any) -> Any:
+    """What a coroutine or generator returned: the recorder keeps it in ``attrs["return"]``."""
+    return attrs.get("return") if isinstance(attrs, dict) else None
+
+
 def _make_rec(obj: dict[str, Any], raw: bytes) -> Rec | None:
     seq = obj.get("seq")
     name = obj.get("name")
@@ -275,6 +283,7 @@ def _make_rec(obj: dict[str, Any], raw: bytes) -> Rec | None:
         state=obj.get("state"),
         attrs=obj.get("attrs") if kind == "mark" else None,
         tens=b'"tensor"' in raw or b'"ndarray"' in raw,
+        retval=_return_value(obj.get("attrs")),
     )
 
 
@@ -321,6 +330,28 @@ def call_path(run: Run, idx: int) -> list[tuple[str, int, int]]:
         out.append((r.name, ords[i], r.seq))
         i = run.parent[i]
     out.reverse()
+    return out
+
+
+def _selected_subtrees(run: Run, idx: int, filt: _Filter) -> list[int]:
+    """The calls to report for an unmatched subtree rooted at ``idx``.
+
+    Without filters that is the root alone. With ``--only`` or ``--ignore`` a root that is not
+    selected is looked through: the topmost selected calls below it are reported instead.
+    """
+    if filt.call_selected(run.recs[idx].name):
+        return [idx]
+    if not (filt.only or filt.ignore):
+        return []
+    out: list[int] = []
+    stack = [idx]
+    while stack:
+        i = stack.pop()
+        if filt.call_selected(run.recs[i].name):
+            out.append(i)
+        else:
+            stack.extend(reversed(run.kids.get(i, ())))
+    out.sort(key=lambda i: run.recs[i].seq)
     return out
 
 
@@ -698,10 +729,17 @@ class _Comparer:
         self.dev = 0.0
         self.dev_where = ""
         self.beyond = False
-        if ra.args == rb.args and ra.ret == rb.ret and ra.exc == rb.exc and ra.state == rb.state:
+        if (
+            ra.args == rb.args
+            and ra.ret == rb.ret
+            and ra.retval == rb.retval
+            and ra.exc == rb.exc
+            and ra.state == rb.state
+        ):
             return self.changes, 0.0, "", False
         self._args(ra.args, rb.args)
         self._walk(ra.ret, rb.ret, "ret")
+        self._walk(ra.retval, rb.retval, "ret.return")
         self._walk(ra.exc, rb.exc, "exc")
         self._state(ra.state, rb.state)
         return self.changes, self.dev, self.dev_where, self.beyond
@@ -1030,18 +1068,18 @@ def diff_runs(
             if all(c.field.startswith(("ret", "exc", "state")) for c in changes):
                 output_only[k] = 1
     below = bytearray(n)
-    for ia, pp in al.only_a:
-        r = a.recs[ia]
-        if filt.call_selected(r.name):
+    for ia0, pp in al.only_a:
+        for ia in _selected_subtrees(a, ia0, filt):
+            r = a.recs[ia]
             d = Difference(
                 "only_a", r.name, ia, -1, r.seq, None, float(r.seq), pp, size=subtree_size(a, ia)
             )
             res.only_a.append(d)
             if pp >= 0:
                 below[pp] = 1
-    for ib, pp, anchor in al.only_b:
-        r = b.recs[ib]
-        if filt.call_selected(r.name):
+    for ib0, pp, anchor in al.only_b:
+        for ib in _selected_subtrees(b, ib0, filt):
+            r = b.recs[ib]
             d = Difference(
                 "only_b",
                 r.name,

@@ -158,6 +158,7 @@ def _snapshot(frame: Any, st: _FrameState) -> dict[str, Any]:
 def _flush(frame: Any, st: _FrameState, final: bool = False) -> None:
     """Report what changed since the previous event, attributed to the line that just ran."""
     from . import runtime
+    from .summary import is_sensitive
 
     snap = _snapshot(frame, st)
     prev = st.keys
@@ -174,12 +175,13 @@ def _flush(frame: Any, st: _FrameState, final: bool = False) -> None:
         new = snap.get(name)
         if new is not None and old == new[0]:
             continue
+        redact = is_sensitive(name)
         entries.append(
             {
                 "target": "local",
                 "attr": name,
-                "before": summ.from_key(old, level) if old is not None else None,
-                "after": summ.summarize(new[1], level, seen) if new is not None else None,
+                "before": summ.from_key(old, level, redact) if old is not None else None,
+                "after": summ.summarize(new[1], level, seen, redact) if new is not None else None,
             }
         )
     if entries:
