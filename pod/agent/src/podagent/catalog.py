@@ -567,7 +567,7 @@ class LtxRunConfig(RunConfig):
 
     # Narrowing the inherited field is how pydantic validates `extra.preprocess` in place (errors
     # at ["extra", "preprocess"]); nothing assigns `extra` after validation.
-    extra: LtxExtra = {}  # ty: ignore[invalid-mutable-override]
+    extra: LtxExtra = {}  # ty: ignore[incompatible-mutable-override]
 
     @model_validator(mode="after")
     def _ai_toolkit_only(self) -> LtxRunConfig:
