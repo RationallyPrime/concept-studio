@@ -1,0 +1,97 @@
+# podtrace configuration for tracing the MiniMax H3 pipeline inside ComfyUI (v0.45.0).
+#
+# Copy to /workspace/podtrace/config.toml (or point PODTRACE_CONFIG at it); `podtrace install
+# --config` does the copy. Without a config file at that location podtrace does nothing at all.
+#
+# Include rules are tried in order and the first one whose path glob matches a file decides what
+# is instrumented in it. A path that does not start with "/" matches any trailing part of the
+# file's path. `names` and `exclude` are fnmatch patterns on the file-local qualified name
+# (`Class.method`, `outer.<locals>.inner`); the default is every function and class.
+
+# Only trace the ComfyUI server process, not helper interpreters run from the same venv.
+argv_glob = ["main.py", "*/ComfyUI/main.py"]
+
+out_dir = "/workspace/podtrace/runs"
+control_file = "/workspace/podtrace/control.json"
+
+# One function may be called this many times under one parent before further calls are only
+# counted (and reported once in a `mark` record when the parent ends).
+per_parent_cap = 10000
+
+# Learn the packed token layout from every PackedLayout construction.
+plugins = ["minimax_h3"]
+
+[jsonl]
+enabled = true
+
+[logfire]
+enabled = true
+service_name = "comfyui"
+# Export happens only when LOGFIRE_TOKEN is set in the environment, or when credentials_dir
+# names a directory holding logfire_credentials.json. Nothing is read from the working directory.
+# credentials_dir = "/workspace/podtrace/logfire"
+
+# --- the two custom nodes ---------------------------------------------------------------------
+
+# Only the files that take part in sampling. The package also holds clients for outside services
+# (image generation, a caption server, a prompt writer); those handle credentials and are left out.
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/__init__.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/frozen.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/takes.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/cockpit.py"
+
+[[include]]
+path = "**/ComfyUI-MMH3-ClipLoops/runs.py"
+
+[[include]]
+path = "**/ComfyUI-H3Forge/**/*.py"
+
+# --- the VAEs: numeric summaries without profile or fingerprint --------------------------------
+# These listings must come before the general minimax rule below.
+
+[[include]]
+path = "**/comfy/ldm/minimax/vae.py"
+stats = "basic"
+
+[[include]]
+path = "**/comfy/ldm/minimax/audio_vae.py"
+stats = "basic"
+
+# --- the H3 transformer and its nodes ----------------------------------------------------------
+
+[[include]]
+path = "**/comfy/ldm/minimax/*.py"
+
+[[include]]
+path = "**/comfy_extras/nodes_minimax_h3.py"
+
+# --- sampling machinery ------------------------------------------------------------------------
+
+[[include]]
+path = "**/comfy/samplers.py"
+
+[[include]]
+path = "**/comfy/sample.py"
+
+[[include]]
+path = "**/comfy/patcher_extension.py"
+
+# Only the sampler functions of k-diffusion: the `sample_*` family (nested helpers included), the
+# multistep solver behind `sample_res_multistep*`, and the generic step sampler. Small numeric
+# helpers (to_d, get_ancestral_step, noise samplers) are left out.
+[[include]]
+path = "**/comfy/k_diffusion/sampling.py"
+names = ["sample_*", "_sample_*", "res_multistep", "generic_step_sampler", "DDPMSampler_step"]
+
+# --- model definition: only the base class and the H3 model class ------------------------------
+
+[[include]]
+path = "**/comfy/model_base.py"
+names = ["BaseModel", "BaseModel.*", "MiniMaxH3", "MiniMaxH3.*"]

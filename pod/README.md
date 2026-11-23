@@ -14,6 +14,9 @@ agent/     podagent: FastAPI control agent on port 8800 (PID 1 in the image). /h
            /tensorboard-session). Bearer token from PODAGENT_TOKEN on every call; refuses to
            start without one.
 podctl/    podctl: one subcommand per endpoint plus `train`, `caption-up` and `pull`; httpx only.
+trace/     podtrace: load-time call, construction and state tracer for ComfyUI (JSONL run
+           directories, optional Logfire export); installed into the ComfyUI venv with a `.pth`.
+           See trace/README.md.
 images/    Dockerfile.base (CUDA + agent + concept-captioner), Dockerfile.aitoolkit,
            Dockerfile.ltx, Dockerfile.musubi (trainers layered on base), Dockerfile.captioning
            (vLLM on top of a trainer image, its `-captioning` tag), Dockerfile.fake +

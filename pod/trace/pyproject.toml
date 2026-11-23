@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "podtrace"
+version = "0.1.0"
+description = "Load-time call, construction and state tracing of chosen source files, exported to JSONL and Pydantic Logfire."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+# No runtime dependencies: the recorder works with whatever is already in the host process.
+dependencies = []
+
+[project.optional-dependencies]
+# The Logfire exporter. Install it into the traced environment only when spans should leave the machine.
+logfire = ["logfire>=5.3,<6"]
+
+[dependency-groups]
+# ruff and ty come from the repository's mise.toml. torch is never declared: tests that need it
+# use pytest.importorskip, and numpy covers the tensor path everywhere else.
+dev = ["pytest>=8.4,<10", "numpy>=1.26", "logfire>=5.3,<6"]
+
+[project.scripts]
+podtrace = "podtrace.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/podtrace"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "RUF001", "RUF012"]
+
+[tool.ty.src]
+# Tests are not type-checked.
+include = ["src"]

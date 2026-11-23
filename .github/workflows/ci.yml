@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tree: [agent, podctl, scripts]
+        tree: [agent, podctl, trace, scripts]
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v5
@@ -69,6 +69,8 @@ jobs:
         run: |
           if [ "${{ matrix.tree }}" = podctl ]; then
             cd pod/podctl && uv sync --locked --python 3.12
+          elif [ "${{ matrix.tree }}" = trace ]; then
+            cd pod/trace && uv sync --locked --python 3.12
           else
             # scripts/ is tested from the agent venv (pod/README.md)
             cd pod/agent && uv sync --locked --extra pod --python 3.12
