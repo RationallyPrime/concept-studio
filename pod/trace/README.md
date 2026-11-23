@@ -195,7 +195,8 @@ installed; the deep-mode tests skip on Python 3.11.
   compiler (on by default) records every allocation of a forward pass; a tensor freed outside the
   scope it was allocated in makes the CUDA allocator abort the process. An earlier version cached
   its probe indices on the device and aborted two full-size renders that way. The cache is in host
-  memory now, but that change has not been run on a GPU, so launch ComfyUI with
-  `--disable-comfy-compiler` for a traced render.
+  memory now, and a full-size traced render (36 window calls, every layer) completed with it under
+  `--disable-comfy-compiler`. It has not been run with the compiler on, so keep that flag for a
+  traced render.
 - Run on CUDA inside ComfyUI v0.45.0 with the real `PackedLayout` (per-frame profiles of the H3
   token stream at 544x960, 90 latent frames). The unit tests run on CPU.
