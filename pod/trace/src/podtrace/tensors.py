@@ -27,6 +27,11 @@ from typing import Any
 CHUNK = 1 << 24  # elements per chunk: 64 MB as float32, 128 MB as int64
 CPU_SAMPLE_ABOVE = 1 << 24  # host tensors above this many elements are sampled, not fully read
 CPU_SAMPLE_TARGET = 1 << 22
+# Tensors on an accelerator above this many elements are summarized from a strided view that keeps
+# the profiled axis whole (a transformer's token stream at video sizes is a billion elements, and
+# full statistics of every such tensor in every call multiply the run time).
+GPU_SAMPLE_ABOVE = 1 << 26
+GPU_SAMPLE_TARGET = 1 << 25
 PROBE_MIN = 1 << 20  # inference tensors above this are validated by a sampled fingerprint
 PROBE_SAMPLES = 4096
 MASK64 = (1 << 64) - 1
@@ -92,15 +97,19 @@ def _flat_offset(starts: tuple[int, ...], shape: tuple[int, ...]) -> int:
     return off
 
 
-def sample_steps(shape: tuple[int, ...] | list[int], target: int = CPU_SAMPLE_TARGET) -> list[int]:
+def sample_steps(
+    shape: tuple[int, ...] | list[int], target: int = CPU_SAMPLE_TARGET, keep: int | None = None
+) -> list[int]:
     """Step per dimension so that the strided view holds about ``target`` elements or fewer.
 
     The longest dimensions are thinned first, so a batch of frames loses frames before it loses
-    pixels. The view starts at index 0 of every dimension and is the same for the same shape.
+    pixels. ``keep`` names a dimension that is thinned last, and only if the others alone cannot
+    reach the target: the axis a profile runs along. The view starts at index 0 of every dimension
+    and is the same for the same shape.
     """
     steps = [1] * len(shape)
     sizes = [int(d) for d in shape]
-    for d in sorted(range(len(sizes)), key=lambda i: -sizes[i]):
+    for d in sorted(range(len(sizes)), key=lambda i: (i == keep, -sizes[i])):
         total = _prod(sizes)
         if total <= target:
             break
@@ -211,6 +220,10 @@ def torch_probe(t: Any) -> int:
         return int(h.sum().item()) & MASK64
 
 
+def _on_accelerator(device_type: str) -> bool:
+    return device_type != "cpu"
+
+
 def summarize_torch(
     t: Any,
     level: str,
@@ -274,6 +287,26 @@ def summarize_torch(
             vshape = [int(d) for d in view.shape]
             body = _torch_body(
                 view, torch, vshape, dtype, _prod(vshape), want_full, cfg, None, profile=False
+            )
+            body["sampled"] = steps
+        elif _on_accelerator(t.device.type) and numel > GPU_SAMPLE_ABOVE:
+            layout = layout_for(tuple(shape)) if (want_full and layout_for is not None) else None
+            nd = len(shape)
+            keep = layout.axis if layout is not None else PROFILE_AXIS.get(nd)
+            steps = sample_steps(shape, GPU_SAMPLE_TARGET, keep=keep)
+            view = t[tuple(slice(None, None, k) for k in steps)]
+            vshape = [int(d) for d in view.shape]
+            whole = keep is not None and steps[keep] == 1
+            body = _torch_body(
+                view,
+                torch,
+                vshape,
+                dtype,
+                _prod(vshape),
+                want_full,
+                cfg,
+                layout_for if whole else None,
+                profile=whole,
             )
             body["sampled"] = steps
         else:

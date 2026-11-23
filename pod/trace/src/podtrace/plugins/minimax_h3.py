@@ -2,8 +2,9 @@
 
 Every ``PackedLayout`` construction is observed (its ``__init__`` is a traced call). The layout is
 a sequence of segments: text, keyframe conditioning (``cond``, ``cond_audio``), references
-(``ref_img``, ``ref_audio``), target ``audio`` and target ``video`` last. A 3-D tensor
-``[batch, tokens, channels]`` whose token axis has the length of a known layout gets a profile
+(``ref_img``, ``ref_audio``), target ``audio`` and target ``video`` last. A tensor
+``[batch, tokens, channels]`` or ``[tokens, channels]`` whose token axis has the length of a known
+layout gets a profile
 with an edge at every segment boundary and, inside the video segment, one per latent frame
 (``latent_h/2 x latent_w/2`` rows each), plus the mean absolute value per named segment.
 
@@ -13,7 +14,7 @@ Only layouts built while recording is on are known; a layout built earlier is no
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 _MAX_LAYOUTS = 64
@@ -75,8 +76,17 @@ def _on_init(obj: Any, name: str) -> dict[str, Any] | None:
 
 
 def _layout_for(shape: tuple[int, ...]) -> TokenLayout | None:
+    """The layout of a packed token tensor: ``[batch, tokens, channels]`` or ``[tokens, channels]``.
+
+    The H3 transformer carries its stream without a batch axis, so the two-dimensional form is the
+    one its blocks and the control network see.
+    """
     if len(shape) == 3:
         return _layouts.get(shape[1])
+    if len(shape) == 2:
+        layout = _layouts.get(shape[0])
+        if layout is not None:
+            return replace(layout, axis=0)
     return None
 
 

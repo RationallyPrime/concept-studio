@@ -328,3 +328,10 @@ def test_numpy_std_of_values_with_a_large_mean_keeps_precision(dtype):
     vals = [10000.0, 10001.0] if dtype == "float32" else [1000.0, 1001.0]
     out = S(np.array(vals, dtype=dtype))
     assert out["std"] == pytest.approx(0.5, abs=1e-6)
+
+
+def test_sample_steps_thins_the_kept_axis_last():
+    assert tensors.sample_steps([1000, 50], 1000, keep=0) == [1, 50]
+    assert tensors.sample_steps([1000, 50], 1000) == [50, 1]
+    steps = tensors.sample_steps([100000, 2], 1000, keep=0)
+    assert steps == [100, 2]

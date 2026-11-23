@@ -94,9 +94,18 @@ tag `t`.
   later occurrences.
 - `segments`: named groups along the same axis, from a plugin that knows the layout. Optional.
 - `sampled`: present when the statistics and the fingerprint were computed on a strided view
-  instead of the whole tensor, which is done for tensors held in host memory above about 16
-  million elements (a decoded video, for example). It lists the step taken along each dimension.
-  A sampled summary has no `profile`.
+  instead of the whole tensor. It lists the step taken along each dimension. Two cases:
+  - tensors held in host memory above about 16 million elements (a decoded video, for example).
+    Such a summary has no `profile`.
+  - tensors on an accelerator above about 64 million elements (a transformer's token stream at
+    video sizes). The profiled axis is thinned last, so its step is normally 1 and the summary
+    keeps `profile` and `segments`; both are then means over the sampled elements of each bin.
+    Fingerprints of sampled summaries compare only with fingerprints taken with the same steps.
+
+A plugin can give a layout for a tensor shape. The `minimax_h3` plugin does so for the packed
+token tensors of the H3 transformer, with or without a batch axis (`[batch, tokens, channels]` or
+`[tokens, channels]`): the profile then has one bin per segment boundary and one per latent frame
+inside the video segment.
 
 NumPy arrays use the same form with `t` = `"ndarray"` and no `ver`.
 

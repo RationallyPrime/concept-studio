@@ -174,6 +174,69 @@ def test_3d_profile_with_plugin_layout_and_segments():
     assert out["segments"] == pytest.approx({"text": 1.0, "video": 4.0})
 
 
+class PackedLayout:  # the plugin goes by the class name
+    def __init__(self, text, frames, rows_per_frame, audio):
+        video = frames * rows_per_frame
+        self.seq_len = text + audio + video
+        self.segments = [
+            (0, text, "text"),
+            (text, text + audio, "audio"),
+            (text + audio, self.seq_len, "video"),
+        ]
+        self.signature = (text, frames, 2, 2 * rows_per_frame, audio)
+
+
+def test_the_h3_stream_without_a_batch_axis_gets_a_profile_per_latent_frame():
+    from podtrace.plugins import minimax_h3
+
+    minimax_h3.reset()
+    try:
+        layout = PackedLayout(text=3, frames=4, rows_per_frame=5, audio=2)
+        assert minimax_h3._on_init(layout, "PackedLayout")["layout"]["seq_len"] == 25
+        s = make()
+        s.layout_for = minimax_h3._layout_for
+        t = torch.ones(25, 6)
+        t[5 + 2 * 5 : 5 + 3 * 5] = 7  # the third latent frame
+        out = s.summarize(t, "full", set())
+        assert out["profile"]["axis"] == 0
+        assert out["profile"]["edges"] == [0, 3, 5, 10, 15, 20, 25]
+        assert out["profile"]["absmean"] == pytest.approx([1, 1, 1, 1, 7, 1])
+        assert out["segments"] == pytest.approx({"text": 1.0, "audio": 1.0, "video": 2.5})
+        # the batched form still works, along its own axis
+        assert s.summarize(t[None].clone(), "full", set())["profile"]["axis"] == 1
+        # a tensor that only happens to be two-dimensional gets nothing
+        assert "profile" not in s.summarize(torch.ones(24, 6), "full", set())
+    finally:
+        minimax_h3.reset()
+
+
+def test_a_huge_accelerator_tensor_is_sampled_with_its_profile_axis_whole(monkeypatch):
+    from podtrace.plugins import minimax_h3
+
+    monkeypatch.setattr(tensors, "_on_accelerator", lambda device_type: True)
+    monkeypatch.setattr(tensors, "GPU_SAMPLE_ABOVE", 1 << 10)
+    monkeypatch.setattr(tensors, "GPU_SAMPLE_TARGET", 1 << 9)
+    minimax_h3.reset()
+    try:
+        layout = PackedLayout(text=3, frames=4, rows_per_frame=5, audio=2)
+        minimax_h3._on_init(layout, "PackedLayout")
+        s = make()
+        s.layout_for = minimax_h3._layout_for
+        t = torch.ones(25, 256)
+        t[5 + 2 * 5 : 5 + 3 * 5] = 7
+        out = s.summarize(t, "full", set())
+        assert out["sampled"][0] == 1 and out["sampled"][1] > 1  # channels thinned, every row kept
+        assert out["profile"]["absmean"] == pytest.approx([1, 1, 1, 1, 7, 1])
+        assert out["segments"]["video"] == pytest.approx(2.5)
+        # a latent keeps its frame axis and loses pixels
+        lat = s.summarize(torch.ones(1, 4, 6, 16, 16), "full", set())
+        assert lat["sampled"][2] == 1 and len(lat["profile"]["absmean"]) == 6
+        # the same tensor twice gives the same summary
+        assert s.summarize(t.clone(), "full", set())["fp"] == out["fp"]
+    finally:
+        minimax_h3.reset()
+
+
 def test_large_tensor_is_reduced_in_bounded_temporaries(monkeypatch):
     # A small CHUNK stands in for a huge tensor: peak temporaries are a function of CHUNK only.
     monkeypatch.setattr(tensors, "CHUNK", 1 << 10)
