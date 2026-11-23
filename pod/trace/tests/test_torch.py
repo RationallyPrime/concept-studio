@@ -127,6 +127,19 @@ def test_inference_probe_notices_a_large_in_place_write(monkeypatch):
     assert b["mean"] == 2.0 and b["fp"] != a["fp"]
 
 
+def test_the_probe_caches_its_indices_in_host_memory_by_element_count(monkeypatch):
+    monkeypatch.setattr(tensors, "_probe_idx", {})
+    t = torch.arange(5000, dtype=torch.float32)
+    first = tensors.torch_probe(t)
+    assert tensors.torch_probe(t.clone()) == first
+    assert list(tensors._probe_idx) == [5000]
+    idx = tensors._probe_idx[5000]
+    assert idx.device.type == "cpu" and idx.numel() == tensors.PROBE_SAMPLES
+    u = t.clone()
+    u[int(idx[0])] += 1.0
+    assert tensors.torch_probe(u) != first
+
+
 def test_shape_only_cases():
     s = make()
     assert "mean" not in s.summarize(torch.zeros(3, device="meta"), "full", set())

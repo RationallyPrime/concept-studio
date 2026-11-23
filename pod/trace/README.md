@@ -190,7 +190,12 @@ installed; the deep-mode tests skip on Python 3.11.
   can share an alias within one run.
 - Before-summaries of attributes come from a cached key; an attribute never summarised before
   carries no statistics in its "before" half.
-- Summarising a tensor may allocate temporaries from the CUDA caching allocator.
-- Verified with torch 2.15 (CPU). CUDA and the torch 2.10 cu128 build in the ComfyUI venv have not
-  been exercised, and the `minimax_h3` plugin has been run against a stand-in, not a real
-  `PackedLayout`.
+- Summarising a tensor allocates temporaries on the tensor's device, and nothing the tracer
+  allocates there outlives the call that made it. Inside ComfyUI v0.45 the model allocation
+  compiler (on by default) records every allocation of a forward pass; a tensor freed outside the
+  scope it was allocated in makes the CUDA allocator abort the process. An earlier version cached
+  its probe indices on the device and aborted two full-size renders that way. The cache is in host
+  memory now, but that change has not been run on a GPU, so launch ComfyUI with
+  `--disable-comfy-compiler` for a traced render.
+- Run on CUDA inside ComfyUI v0.45.0 with the real `PackedLayout` (per-frame profiles of the H3
+  token stream at 544x960, 90 latent frames). The unit tests run on CPU.

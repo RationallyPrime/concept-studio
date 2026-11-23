@@ -197,25 +197,31 @@ def _torch_bits(torch: Any, c: Any) -> Any:
     return c
 
 
-_probe_idx: dict[tuple[str, int], Any] = {}
+_probe_idx: dict[int, Any] = {}
 
 
 def torch_probe(t: Any) -> int:
-    """Cheap fingerprint of ``PROBE_SAMPLES`` scattered elements of a contiguous tensor."""
+    """Cheap fingerprint of ``PROBE_SAMPLES`` scattered elements of a contiguous tensor.
+
+    The cached index tensors stay in host memory and are copied to the tensor's device for each
+    probe. The tracer keeps no tensor on an accelerator beyond the call that made it: a host that
+    plans its allocations (ComfyUI's model compiler) aborts the process when such a tensor is
+    freed later, outside the allocation scope it was made in.
+    """
     torch = sys.modules["torch"]
     n = t.numel()
-    key = (str(t.device), n)
-    idx = _probe_idx.get(key)
+    idx = _probe_idx.get(n)
     if idx is None:
-        if len(_probe_idx) > 16:
+        if len(_probe_idx) > 64:
             _probe_idx.clear()
-        base = torch.arange(PROBE_SAMPLES, dtype=torch.int64, device=t.device)
+        base = torch.arange(PROBE_SAMPLES, dtype=torch.int64)
         idx = (base * 2654435761 + 12345) % n
-        _probe_idx[key] = idx
+        _probe_idx[n] = idx
     with torch.no_grad():
-        sample = t.reshape(-1)[idx]
+        at = idx.to(t.device)
+        sample = t.reshape(-1)[at]
         bits = _torch_bits(torch, sample).to(torch.int64)
-        h = (bits ^ (idx * SK1)) * SK2
+        h = (bits ^ (at * SK1)) * SK2
         h = h ^ (h >> 29)
         return int(h.sum().item()) & MASK64
 
