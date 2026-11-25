@@ -1216,7 +1216,7 @@ public struct PackageFile: Codable, Sendable, Equatable {
 - **Reference** (clean pass): the clean video.
 - **Composition guides** (a shot blocked over a plate, whatever the passes): the plate with a coloured
   stand-in per actor, `composition`, and the same with name tags, `composition-labelled`, for the first
-  frame. Also for the last frame when the blocking differs there and the camera is still the plate's.
+  frame. A matched plate also gets both last-frame variants when the camera view or actor blocking has changed.
 - **Staging:** `staging.txt` and `staging.json`, always.
 - **Description:** `shot.json`, always.
 - **Prompt:** the prompt files, when the shot has a prompt.
@@ -1224,7 +1224,9 @@ public struct PackageFile: Codable, Sendable, Equatable {
 **Media rules.** External tools can rely on these.
 - **Stills:** PNG, 8-bit RGB, sRGB, exactly the canvas size. Composition guides are exactly the key size
   (`keyCanvas`): the shot's `keyCanvas`, or else the plate's own size.
-- **composition:** the plate placed by `PlateFit`, unchanged wherever no stand-in is drawn. Each actor is the
+- **composition:** at a matching viewpoint, the photograph placed by `PlateFit`. At a new viewpoint on a matched
+  plate shot, the background samples calibrated photographs of the scene on the floor and visible surfaces
+  of set pieces marked as present in the plate. A checker marks missing coverage. Each actor is the
   grey-box figure in one flat `StandInPalette` colour, in actor order, with a nose and a dark band across
   the eyes, so it shows position, size and facing and nothing of a person's look. No text. A set piece the plate already shows is not drawn and hides the
   stand-ins behind it.

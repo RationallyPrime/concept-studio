@@ -10,7 +10,7 @@ What crosses a seam: [CONTRACTS.md](../CONTRACTS.md) sections 5.7 to 5.9, 7, 8.1
 | R2 The camera matches the plate | Built | `PlateSolve`, the match screen with its floor grid and reference figure; one match per plate, followed by every shot on it |
 | R3 The set's pieces exist in the shot | Built | Set pieces with their own sizes; they hide what is behind them; people stand on the walkable ones |
 | R4 Impossible framing is caught | Built | Staging warnings in the inspector and in `staging.txt` |
-| R5 Composition guide | Built | `guides/first-f0000-composition.png`, and `-labelled` |
+| R5 Composition guide | Built | `guides/first-f0000-composition.png`, and `-labelled`; last-frame pair when the view or blocking changes on a matched plate |
 | R6 Staging in words | Built | Inspector panel with Copy; `staging.txt`, `staging.json` |
 | R7 Sizes | Built | Canvas presets 576 × 1024, 864 × 1536, 544 × 960; key size per shot, the plate's by default |
 | R13 Control fits plate and key | Built, not rendered through a model | Pose and layout omit what the set hides |
@@ -50,8 +50,6 @@ Shots and follow PLATES.md.
   reverse plate and a plate taken on a dais can share a set with the first plate.
 
 **Open questions:**
-- Plates are stills (owner, 2026-11-13). A shot whose camera travels has no plate under its last frame; a
-  second still at the end position covers that, with no video plate.
 - How does the video graph fit a 9:16 key to a 544 × 960 canvas: crop or stretch? Shots warns about the
   0.7% difference but can't know which.
 - Dragon proportions: at scale 1 (a 10 m standing head height) the spread wings are about 32 m across and the
@@ -75,10 +73,11 @@ a plate saved as `imagePath`, `pixelSize` and a confirmed `calibration` opens wi
 camera. Its image stays in `.conceptstudio/plates/`, so the plate is added again; its set boxes
 (`scene.setPieces`) and `requestedFraming` are not read.
 
+**Restored for composition-guide exports:** The first build projected plates onto the floor and boxes
+when the camera moved. The current exporter uses the matched cameras and the rotated parts of each
+photographed set piece. A checker marks surfaces unseen in any source view.
+
 **Not carried over, still on `ariadne-blocks`:**
-- Projection of the plate photographs onto the floor and the set's boxes when a shot's camera leaves the
-  plate's viewpoint, with a checker where no photograph covers (`PlateRasterizer`, `PlateTextures`). It is one
-  answer to the first open question above. Porting it means teaching it rotated, many-part set pieces.
 - Several calibrated views of one set travelling inside each package, and the package's own copy of the plate.
 
 **From `gemini-blocks` (never merged):** the staging line now says which walkable piece a character stands on

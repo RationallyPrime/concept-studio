@@ -31,6 +31,11 @@ struct PlateExportTests {
                 bytes[offset + 2] = 40
             }
         }
+        try writePlatePixels(bytes, size: size, to: folder.appendingPathComponent("plate.png"))
+        return project
+    }
+
+    private func writePlatePixels(_ bytes: [UInt8], size: PixelSize, to url: URL) throws {
         let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
         let provider = try #require(CGDataProvider(data: Data(bytes) as CFData))
         let image = try #require(CGImage(
@@ -39,13 +44,7 @@ struct PlateExportTests {
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue), provider: provider,
             decode: nil, shouldInterpolate: false, intent: .defaultIntent
         ))
-        let url = folder.appendingPathComponent("plate.png")
-        let destination = try #require(
-            CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)
-        )
-        CGImageDestinationAddImage(destination, image, nil)
-        #expect(CGImageDestinationFinalize(destination))
-        return project
+        try StillWriter.writePNG(image, to: url)
     }
 
     private func scene() -> PrevisScene {
@@ -140,6 +139,113 @@ struct PlateExportTests {
             }
         }
         #expect(drawnBehindTable == 0)
+    }
+
+    private let green: [UInt8] = [15, 223, 64]
+    private let orange: [UInt8] = [242, 117, 26]
+
+    private func pullbackScene(in project: URL) throws -> PrevisScene {
+        let folder = PlateImages.folder(inProject: project)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let size = PixelSize(width: 320, height: 320)
+        func match(_ position: Vec3, pan: Double = 0, tilt: Double = 0) -> PlateMatch {
+            PlateMatch(position: position, pan: pan, tilt: tilt, roll: 0, focalLength: 20, sensor: .super35)
+        }
+        let front = match(Vec3(0, 1, 5))
+        let side = match(Vec3(5, 1, 0), pan: .pi / 2)
+        let ending = match(Vec3(4, 3, 7), pan: atan2(4, 7), tilt: -atan2(2, hypot(4, 7)))
+        let frontPlate = LocationPlate(
+            id: "plate_000000000001", name: "Front", file: "front.png", size: size, match: front, guides: .none
+        )
+        let sidePlate = LocationPlate(
+            id: "plate_000000000002", name: "Side", file: "side.png", size: size, match: side, guides: .none
+        )
+        // Two surveyed paint marks in dais-local metres: (-0.3, 1.15, 1) on the platform face and
+        // (1, 0.85, -1.16) on the side of the first step, beyond the platform body. Pixel coordinates
+        // below are independent pinhole projections (320 * 20 / 18.66 pixels focal length, yaw 0.15).
+        func writePlate(_ plate: LocationPlate, center: (Int, Int), color: [UInt8], grey: UInt8) throws {
+            var bytes = [UInt8](repeating: grey, count: size.width * size.height * 4)
+            for y in center.1 - 6 ... center.1 + 6 {
+                for x in center.0 - 6 ... center.0 + 6 {
+                    let offset = (y * size.width + x) * 4
+                    bytes.replaceSubrange(offset ..< offset + 3, with: color)
+                }
+            }
+            try writePlatePixels(bytes, size: size, to: folder.appendingPathComponent(plate.file))
+        }
+        try writePlate(frontPlate, center: (147, 147), color: green, grey: 142)
+        try writePlate(sidePlate, center: (266, 172), color: orange, grey: 186)
+        let dais = SetPiece(kind: .dais, size: Vec3(2, 2, 2), steps: 2, inPlate: true)
+        let entity = PrevisEntity(
+            id: "ent_000000000001", assetID: dais.assetID, name: "Marked dais",
+            placement: Placement(position: .zero, heading: 0.15, scale: 1), setPiece: dais
+        )
+        var shot = Shot.make(
+            id: "shot_000000000001", name: "Pullback", takeID: "take_000000000001", cameraMarkID: "cam_000000000001"
+        )
+        shot.frameCount = 5
+        shot.canvas = ShotCanvas(width: size.width, height: size.height)
+        shot.plateID = frontPlate.id
+        var last = ending.cameraMark(id: "cam_000000000002")
+        last.time = FrameGrid.time(ofFrame: 4)
+        shot.camera.marks = [front.cameraMark(id: "cam_000000000001"), last]
+        return PrevisScene(
+            id: "scene_000000000001", name: "Two views of a dais", revision: 0, lighting: .interiorWarm,
+            entities: [entity], blocking: [BlockingTake(id: shot.blockingTakeID, name: "Master")],
+            shots: [shot], plates: [frontPlate, sidePlate]
+        )
+    }
+
+    @Test func pullingBackOverTwoPlatesPlacesEachLandmarkAndMarksTheUnseenTop() async throws {
+        let project = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: project) }
+        let scene = try pullbackScene(in: project)
+        let shot = try #require(scene.shots.first)
+        let frontPlate = try #require(scene.plates.first)
+        let folder = PlateImages.folder(inProject: project)
+        let package = try await ShotExporter(catalog: ContentCatalog.bundled()).export(
+            scene: scene, shotID: shot.id, options: .standard(inProject: project),
+            to: FolderDestination(parent: project.appendingPathComponent("Shots")), progress: { _ in }
+        )
+        #expect(await PackageValidator.problems(at: package.url).isEmpty)
+        let original = try pixels(folder.appendingPathComponent(frontPlate.file))
+        for variant in [PackageFile.Variant.composition, .compositionLabelled] {
+            let first = try #require(package.manifest.files.first {
+                $0.role == .guide && $0.position == .first && $0.frame == 0 && $0.variant == variant
+            })
+            let firstImage = try pixels(package.url.appendingPathComponent(first.path))
+            #expect(firstImage.rgba == original.rgba)
+            let last = try #require(package.manifest.files.first {
+                $0.role == .guide && $0.position == .last && $0.frame == 4 && $0.variant == variant
+            })
+            let image = try pixels(package.url.appendingPathComponent(last.path))
+            #expect(image.width == frontPlate.size.width && image.height == frontPlate.size.height)
+            func rgb(_ x: Int, _ y: Int) -> [UInt8] {
+                let offset = (y * image.width + x) * 4
+                return Array(image.rgba[offset ..< offset + 3])
+            }
+            // Check the unique landmark's centroid as well as its presence. A same-view copy, mirrored
+            // camera, bounding-box approximation, or missing second photograph cannot satisfy both marks.
+            func centroid(of color: [UInt8]) throws -> Point2 {
+                var count = 0, sumX = 0.0, sumY = 0.0
+                for y in 0 ..< image.height {
+                    for x in 0 ..< image.width where rgb(x, y) == color {
+                        count += 1
+                        sumX += Double(x) + 0.5
+                        sumY += Double(y) + 0.5
+                    }
+                }
+                try #require(count >= 3)
+                return Point2(x: sumX / Double(count), y: sumY / Double(count))
+            }
+            let a = try centroid(of: green)
+            let b = try centroid(of: orange)
+            #expect(hypot(a.x - 130.59, a.y - 162.43) < 2)
+            #expect(hypot(b.x - 211.25, b.y - 158.94) < 2)
+            // Both source cameras are below the dais top. Its projected centre crosses a checker boundary.
+            #expect(rgb(160, 116) == [97, 44, 89])
+            #expect(rgb(160, 121) == [36, 33, 41])
+        }
     }
 
     @Test(arguments: ["../plate.png", "/etc/hosts", "sub/plate.png", "..", ""])

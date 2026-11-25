@@ -34,8 +34,8 @@ public struct CameraFrame: Sendable, Equatable {
     public var focusDistance: Double?
     public var verticalFOV: Double // radians
 
-    static let near = 0.05
-    static let far = 500.0
+    public static let near = 0.05
+    public static let far = 500.0
 
     public init(
         position: Vec3,
