@@ -1,6 +1,31 @@
 # images
 
-Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.16-20261025`
+Current release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.17-20261026`
+and the trainers’ `-captioning` tags. All seven are published and resolve anonymously. Each is the
+v0.3.16 image of the same name with one patch layer (about 21 KB) carrying two files from `461bb37`:
+`generate_results.py`, whose AI Toolkit comparisons now build the model in the trainer's dtype (Krea 2's
+report failed in the VAE decode with bf16 latents against an fp16 VAE), and the model table, whose
+Krea 2 download note no longer names a trainer. No other image input changed since v0.3.16's source.
+The [release receipt](releases/v0.3.17-20261026.json) records the parents by digest, the file hashes,
+the patch Dockerfile and the checks.
+
+| tag | index digest |
+| --- | --- |
+| `base:v0.3.17-20261026` | `sha256:442a4771332f78ddc6fca9c0c7503b9430ac94fef9837c6d1ba2eb0abd1d9074` |
+| `aitoolkit:v0.3.17-20261026` | `sha256:443429ca297689d0d59e85ea126fcc2c7c9913394a17c7bae75128e087ae23b3` |
+| `ltx:v0.3.17-20261026` | `sha256:40494408c6fe1e62c1c2e59468bd11405f9233280b04a8ba3c07dc804320d5e6` |
+| `musubi:v0.3.17-20261026` | `sha256:ff304cef3e9a5c02a9da2ce7fcc35358a125a5c181b1f7bd3dd84c6469b177ac` |
+| `aitoolkit:v0.3.17-20261026-captioning` | `sha256:262f5aaa2128858b4e1c4c62122a3330e9762cf685ae575aafa5f439d0290c44` |
+| `ltx:v0.3.17-20261026-captioning` | `sha256:0f1e556975f29e8416054fe644e013ea5bb680cb0bd22d4f3327a05df4f87837` |
+| `musubi:v0.3.17-20261026-captioning` | `sha256:00341e96d97013c60fb784623ff5944626e6ba827778f3e91fa389782d2d4cee` |
+
+Compressed downloads are v0.3.16's below plus the patch layer. Checks: every image carries both files
+with the source hashes and loads the table; the pinned toolkit in the AI Toolkit image gives the VAE
+fp16 without the train dtype and bf16 with it. Not yet covered: a GPU render of the Krea 2 comparison.
+
+## Earlier releases
+
+Previous release: `ghcr.io/rationallyprime/concept-captioner-pod-{base,aitoolkit,ltx,musubi}:v0.3.16-20261025`
 and the trainers’ `-captioning` tags. All seven are published and resolve anonymously. This release
 includes the v2 model/trainer table, Krea 2 AI Toolkit regularisation and Turbo sampling, comparison
 checkpoint selection within the chosen published run, and optional key-only SSH with rsync.
@@ -44,7 +69,7 @@ The earlier v0.3.15 publication stopped after four tags when review found checkp
 and report-budget defects. Those four tags remain untouched; the receipt records their digests
 and the reason for completing the repaired seven-image set under v0.3.16.
 
-## Earlier releases
+
 
 These entries preserve each release’s build and acceptance record.
 

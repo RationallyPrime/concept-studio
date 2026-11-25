@@ -1,0 +1,57 @@
+{
+  "release": "v0.3.17-20261026",
+  "sourceCommit": "461bb37",
+  "buildMethod": "One patch layer on each published v0.3.16 image (pulled by digest on cx53): the two files below copied from an exact git archive of the source commit, mode 0664 as in v0.3.16, then generate_results.py --help under the agent interpreter.",
+  "dockerfile": "ARG PARENT\nFROM ${PARENT}\nCOPY --chmod=0664 pod/scripts/generate_results.py /opt/pod/scripts/generate_results.py\nCOPY --chmod=0664 app/Sources/ConceptStudio/Resources/Training/model-table.json /opt/pod/scripts/model-table.json\nRUN /opt/venvs/agent/bin/python -I /opt/pod/scripts/generate_results.py --help > /dev/null",
+  "sourceFileSHA256": {
+    "pod/scripts/generate_results.py": "d53ed3faf8ec128db59b32eeaa2e2b3cebd9dbd99ae1e355fb437800e47e0acf",
+    "app/Sources/ConceptStudio/Resources/Training/model-table.json": "3ca98d8e6209c29c8f359ff741715c980bb1e79e79a0847104642d0a7f3548a2"
+  },
+  "sourceDiffFromParent": "Between v0.3.16's source (86561c4) and 461bb37 the only image inputs that changed are these two files.",
+  "builder": "cx53 (rootless Docker); pushed with the Mac's registry credential against the cx53 daemon",
+  "tags": {
+    "base:v0.3.17-20261026": {
+      "indexDigest": "sha256:442a4771332f78ddc6fca9c0c7503b9430ac94fef9837c6d1ba2eb0abd1d9074",
+      "parent": "base:v0.3.16-20261025",
+      "parentIndexDigest": "sha256:af31df3726d03fb0d5cc59601e2f9e4e03ff25621296a0bddb9eb1db6b1a6680"
+    },
+    "aitoolkit:v0.3.17-20261026": {
+      "indexDigest": "sha256:443429ca297689d0d59e85ea126fcc2c7c9913394a17c7bae75128e087ae23b3",
+      "parent": "aitoolkit:v0.3.16-20261025",
+      "parentIndexDigest": "sha256:2719eb7eafc854dbd51ffb583ed9eeb008fcde9efe2866021156188474e687d1"
+    },
+    "ltx:v0.3.17-20261026": {
+      "indexDigest": "sha256:40494408c6fe1e62c1c2e59468bd11405f9233280b04a8ba3c07dc804320d5e6",
+      "parent": "ltx:v0.3.16-20261025",
+      "parentIndexDigest": "sha256:ebf143f9a4540e174fef75d81ca6486d695da7cad4cab85ba0acbdfc2d244ab7"
+    },
+    "musubi:v0.3.17-20261026": {
+      "indexDigest": "sha256:ff304cef3e9a5c02a9da2ce7fcc35358a125a5c181b1f7bd3dd84c6469b177ac",
+      "parent": "musubi:v0.3.16-20261025",
+      "parentIndexDigest": "sha256:fc2e31dbbec7369641b3ddaf619961b179fb5f47ca5682d6e13839ea40844248"
+    },
+    "aitoolkit:v0.3.17-20261026-captioning": {
+      "indexDigest": "sha256:262f5aaa2128858b4e1c4c62122a3330e9762cf685ae575aafa5f439d0290c44",
+      "parent": "aitoolkit:v0.3.16-20261025-captioning",
+      "parentIndexDigest": "sha256:97c8d6d75c9f9054c0fb2f83a39c22d034a0d66c41308b1b1fc3033693ec89d0"
+    },
+    "ltx:v0.3.17-20261026-captioning": {
+      "indexDigest": "sha256:0f1e556975f29e8416054fe644e013ea5bb680cb0bd22d4f3327a05df4f87837",
+      "parent": "ltx:v0.3.16-20261025-captioning",
+      "parentIndexDigest": "sha256:b5443ab0422cdbce3ad6ac916b4692fd5bdef767f81a575b7565eb8ee00071dc"
+    },
+    "musubi:v0.3.17-20261026-captioning": {
+      "indexDigest": "sha256:00341e96d97013c60fb784623ff5944626e6ba827778f3e91fa389782d2d4cee",
+      "parent": "musubi:v0.3.16-20261025-captioning",
+      "parentIndexDigest": "sha256:fc67ebcaf2e7142e09e3ce8e766b6cb42f2573daa728bafdbce4997ed007ab76"
+    }
+  },
+  "addedCompressedBytes": 21435,
+  "checks": [
+    "Each parent's local image ID equals its published index digest.",
+    "All seven images carry both files with the source hashes above, and the agent interpreter loads the table and resolves the Krea 2 AI Toolkit pairing.",
+    "In the AI Toolkit image, the pinned toolkit's ModelConfig gives the VAE float16 from the captured model block alone and bf16 with the train dtype, the fix's cause and effect.",
+    "All seven tags resolve anonymously from ghcr.io."
+  ],
+  "notCovered": "No GPU render yet: the Krea 2 AI Toolkit comparison awaits a live run."
+}
