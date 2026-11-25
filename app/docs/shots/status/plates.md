@@ -50,6 +50,9 @@ Shots and follow PLATES.md.
   reverse plate and a plate taken on a dais can share a set with the first plate.
 
 **Open questions:**
+- Plates are stills (owner, 2026-11-13). A shot whose camera travels has no plate under its last frame; a
+  second still at the end position covers that, with no video plate. Since #111 the last-frame guide is also
+  projected from the matched stills (PLATES.md); the decision that plates are stills stands.
 - How does the video graph fit a 9:16 key to a 544 × 960 canvas: crop or stretch? Shots warns about the
   0.7% difference but can't know which.
 - Dragon proportions: at scale 1 (a 10 m standing head height) the spread wings are about 32 m across and the
