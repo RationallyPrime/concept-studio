@@ -100,8 +100,16 @@ A package holds:
 | The scene sheet | `staging.json` | The same staging as data |
 
 The stand-ins are flat-coloured mannequins with a nose and a dark band across the eyes, so the guide carries
-position, size and facing and nothing of a person's look. A `last-…-composition.png` is written too when the blocking differs at the last frame and
-the camera has not moved off the plate.
+position, size and facing and nothing of a person's look. On a matched plate, a camera move or a change in
+blocking between the first and last frames also produces `last-…-composition.png` and its labelled version.
+At a matching camera position and lens, the guide uses that photograph directly. From a new viewpoint,
+Shots projects the scene's matched photographs onto the floor and the modeled set pieces marked as present
+in the plates. A checker marks rays that miss the modeled set or hit a surface unseen by any available camera.
+The shot's own photo is required. Other readable matched photos can supply detail hidden in the first.
+
+The plate's floor-level setting gives the height used to calibrate its camera. A dais also needs a modeled
+footprint so Shots can distinguish its top from the lower hall floor. Without that geometry, pixels from
+the dais can project onto the hall floor during a camera move.
 
 For the scene sheet, **Compare all shots…** in the scene's menu shows every shot's first frame side by
 side and copies or saves the framing table: shot, plate, framing, lens, camera position and who is where.

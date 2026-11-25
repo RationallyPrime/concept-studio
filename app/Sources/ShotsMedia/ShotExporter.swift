@@ -26,18 +26,20 @@ import PrevisCore
         }
         let passes = PassKind.allCases.filter(options.passes.contains)
         let plate = shot.plateID.flatMap { id in scene.plates.first { $0.id == id } }
-        let plateImage = try plate.map { plate in
+        let plateImages = try plate.map { plate in
             guard let folder = options.plateFolder else {
                 throw ShotsMediaError(
                     "Shot \"\(shot.name)\" is blocked over the plate \"\(plate.name)\", and this export wasn't "
                         + "told where the project's plate images are."
                 )
             }
-            return try PlateImages.read(PlateImages.url(of: plate, in: folder), name: plate.name)
+            let images = PlateImages(folder: folder)
+            _ = try images.image(for: plate)
+            return images
         }
         let staging = try destination.stagingDirectory()
         do {
-            if renderer == nil, plateImage != nil || passes.contains(where: { $0 == .clean || $0 == .matte }) {
+            if renderer == nil, plateImages != nil || passes.contains(where: { $0 == .clean || $0 == .matte }) {
                 renderer = try ShotFrameRenderer()
             }
             let writer = try PackageWriter(
@@ -49,7 +51,7 @@ import PrevisCore
                 promptFacts: shot.prompt.map { _ in
                     try ShotPromptCompiler.facts(scene: scene, shotID: shotID, catalog: catalog)
                 },
-                plateImage: plateImage,
+                plateImages: plateImages,
                 staged: evaluator.staging(),
                 warnings: evaluator.warnings().map(\.message),
                 progress: progress
@@ -80,7 +82,7 @@ import PrevisCore
     private let renderer: ShotFrameRenderer?
     private let promptFacts: PromptFacts?
     private let plate: LocationPlate?
-    private let plateImage: CGImage?
+    private let plateImages: PlateImages?
     private let staged: Staging?
     private let warnings: [String]
     private let look: PrevisLook
@@ -97,13 +99,13 @@ import PrevisCore
         folder: URL,
         renderer: ShotFrameRenderer?,
         promptFacts: PromptFacts? = nil,
-        plateImage: CGImage? = nil,
+        plateImages: PlateImages? = nil,
         staged: Staging? = nil,
         warnings: [String] = [],
         progress: @escaping @MainActor (ExportProgress) -> Void
     ) {
         plate = shot.plateID.flatMap { id in scene.plates.first { $0.id == id } }
-        self.plateImage = plateImage
+        self.plateImages = plateImages
         self.staged = staged
         self.warnings = warnings
         self.promptFacts = promptFacts
@@ -167,8 +169,8 @@ import PrevisCore
             canvas: shot.canvas,
             passes: passes,
             files: files,
-            keyCanvas: plateImage == nil ? nil : keyCanvas,
-            plate: plateImage == nil ? nil : plate.map {
+            keyCanvas: plate == nil ? nil : keyCanvas,
+            plate: plate.map {
                 PlateRef(id: $0.id, name: $0.name, file: $0.file, size: $0.size)
             }
         )
@@ -182,23 +184,36 @@ import PrevisCore
     }
 
     /// The plate with neutral stand-ins at the key's size, for the image model to compose from, and the same with
-    /// name tags for people. The first frame always; the last frame too when the camera is still the plate's.
+    /// name tags for people. A changed camera or blocking gets its own last guide.
     private func writeCompositionGuides() async throws {
-        guard let plateImage, let plate, let renderer else { return }
+        guard let plateImages, let plate, let renderer else { return }
         progress(ExportProgress(step: "Drawing the composition guide over the plate…", fractionCompleted: 1))
         var wanted: [(position: PackageFile.Position, frame: Int)] = [(.first, 0)]
         let last = frames.count - 1
-        if last > 0, let match = plate.match, match.agrees(with: frames[last].camera),
-           Self.blockingDiffers(frames[0], frames[last]) {
+        let first = frames[0].camera
+        let startView = PlateMatch(
+            position: first.position, pan: first.pan, tilt: first.tilt, roll: first.roll,
+            focalLength: first.focalLength, sensor: shot.camera.sensor
+        )
+        if last > 0, plate.match != nil,
+           !startView.agrees(with: frames[last].camera) || Self.blockingDiffers(frames[0], frames[last]) {
             wanted.append((.last, last))
         }
         for guide in wanted {
+            try Task.checkCancellation()
+            var frame = frames[guide.frame]
+            let camera = frame.camera
+            frame.camera.verticalFOV = CameraFrame.make(
+                position: camera.position, pan: camera.pan, tilt: camera.tilt, roll: camera.roll,
+                focalLength: camera.focalLength, sensor: shot.camera.sensor, aspect: keyCanvas.pixelSize.aspect
+            ).verticalFOV
+            let background = try await compositionBackground(for: frame, plate: plate, images: plateImages)
             for (variant, options) in [
                 (PackageFile.Variant.composition, StandInOptions.guide),
                 (.compositionLabelled, .labelledGuide),
             ] {
                 let image = try await renderer.image(
-                    of: frames[guide.frame], over: plateImage, look: look, options: options,
+                    of: frame, over: background, look: look, options: options,
                     sensor: shot.camera.sensor, size: keyCanvas.pixelSize
                 )
                 let file = PackageFile(
@@ -210,6 +225,29 @@ import PrevisCore
                 files.append(file)
             }
         }
+    }
+
+    /// At a matched viewpoint, keep the original photograph, including details outside the modeled set.
+    /// For a different viewpoint only photographed surfaces visible from a source camera supply pixels.
+    private func compositionBackground(
+        for frame: SceneFrame,
+        plate: LocationPlate,
+        images: PlateImages
+    ) async throws -> CGImage {
+        func matchesView(_ source: LocationPlate) -> Bool {
+            source.match?.sensor == shot.camera.sensor && source.match?.agrees(with: frame.camera) == true
+        }
+        let activeImage = try images.image(for: plate)
+        guard plate.match != nil, !matchesView(plate) else { return activeImage }
+        let auxiliary = scene.plates.filter { $0.id != plate.id && $0.match != nil }
+        for source in auxiliary where matchesView(source) {
+            if let image = try? images.image(for: source) { return image }
+        }
+        var sources = [(plate: plate, image: activeImage)]
+        for source in auxiliary where !matchesView(source) {
+            if let image = try? images.image(for: source) { sources.append((source, image)) }
+        }
+        return try await PlateReprojection.image(for: frame, size: keyCanvas.pixelSize, sources: sources)
     }
 
     /// Whether anyone stands, faces or is posed differently in two frames, beyond a standing figure's idle sway.

@@ -155,7 +155,7 @@ enum PassDrawing {
     /// The pixel rectangle covering a box's visible part, clipped to the canvas; nil when nothing is left. Edges that
     /// cross the camera's near plane are cut there, so a box reaching behind the camera still covers all it shows.
     static func projectedBounds(_ box: Box3, camera: CameraFrame, size: PixelSize) -> CGRect? {
-        let view = camera.viewMatrix(), near = PrevisSceneMapper.nearClip
+        let view = camera.viewMatrix(), near = CameraFrame.near
         // Corner i takes max x, y or z where bit 0, 1 or 2 is set; edges join corners one bit apart.
         let corners = (0 ..< 8).map { index in
             view.transform(Vec3(
@@ -208,11 +208,11 @@ enum PassDrawing {
     }
 
     /// An image of `size` made by `draw`, in the renderer's pixel format.
-    static func image(size: PixelSize, _ draw: (CGContext) -> Void) throws -> CGImage {
+    static func image(size: PixelSize, _ draw: (CGContext) throws -> Void) throws -> CGImage {
         guard let context = context(data: nil, width: size.width, height: size.height, bytesPerRow: 0) else {
             throw ShotsMediaError("Shots couldn't draw a \(size.width) × \(size.height) image.")
         }
-        draw(context)
+        try draw(context)
         guard let image = context.makeImage() else { throw ShotsMediaError("Shots couldn't finish a drawn image.") }
         return image
     }
