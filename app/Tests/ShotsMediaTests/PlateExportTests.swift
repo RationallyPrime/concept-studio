@@ -248,6 +248,39 @@ struct PlateExportTests {
         }
     }
 
+    @Test(arguments: [false, true])
+    func unavailableAuxiliaryPhotoLeavesTheSameGuideAsOmittingIt(exactEndpoint: Bool) async throws {
+        let project = try scratchFolder()
+        defer { try? FileManager.default.removeItem(at: project) }
+        let folder = PlateImages.folder(inProject: project)
+        var scene = try pullbackScene(in: project)
+        let auxiliary = scene.plates.removeLast()
+        if exactEndpoint {
+            let match = try #require(auxiliary.match)
+            var endpoint = match.cameraMark(id: "cam_000000000002")
+            endpoint.time = FrameGrid.time(ofFrame: 4)
+            scene.shots[0].camera.marks[1] = endpoint
+        }
+        func endingGuide(_ scene: PrevisScene, in directory: String) async throws -> [UInt8] {
+            let package = try await ShotExporter(catalog: ContentCatalog.bundled()).export(
+                scene: scene, shotID: scene.shots[0].id, options: ExportOptions(passes: [.layout], plateFolder: folder),
+                to: FolderDestination(parent: project.appendingPathComponent(directory)), progress: { _ in }
+            )
+            let guide = try #require(package.manifest.files
+                .first { $0.position == .last && $0.variant == .composition })
+            return try pixels(package.url.appendingPathComponent(guide.path)).rgba
+        }
+        let baseline = try await endingGuide(scene, in: "baseline")
+        var absent = auxiliary
+        absent.file = "unavailable.png"
+        scene.plates.append(absent)
+        let missing = try await endingGuide(scene, in: "missing")
+        #expect(missing == baseline)
+        try Data("invalid PNG".utf8).write(to: folder.appendingPathComponent(absent.file))
+        let unreadable = try await endingGuide(scene, in: "unreadable")
+        #expect(unreadable == baseline)
+    }
+
     @Test(arguments: ["../plate.png", "/etc/hosts", "sub/plate.png", "..", ""])
     func aPlateFileNameThatLeavesThePlatesFolderIsRefused(file: String) async throws {
         let project = try project()

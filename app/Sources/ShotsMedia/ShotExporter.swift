@@ -234,17 +234,20 @@ import PrevisCore
         plate: LocationPlate,
         images: PlateImages
     ) async throws -> CGImage {
-        guard plate.match != nil else { return try images.image(for: plate) }
-        let sources = [plate] + scene.plates.filter { $0.id != plate.id && $0.match != nil }
-        if let matching = sources.first(where: {
-            $0.match?.sensor == shot.camera.sensor && $0.match?.agrees(with: frame.camera) == true
-        }) {
-            return try images.image(for: matching)
+        func matchesView(_ source: LocationPlate) -> Bool {
+            source.match?.sensor == shot.camera.sensor && source.match?.agrees(with: frame.camera) == true
         }
-        return try await PlateReprojection.image(
-            for: frame, size: keyCanvas.pixelSize,
-            sources: sources.map { try ($0, images.image(for: $0)) }
-        )
+        let activeImage = try images.image(for: plate)
+        guard plate.match != nil, !matchesView(plate) else { return activeImage }
+        let auxiliary = scene.plates.filter { $0.id != plate.id && $0.match != nil }
+        for source in auxiliary where matchesView(source) {
+            if let image = try? images.image(for: source) { return image }
+        }
+        var sources = [(plate: plate, image: activeImage)]
+        for source in auxiliary where !matchesView(source) {
+            if let image = try? images.image(for: source) { sources.append((source, image)) }
+        }
+        return try await PlateReprojection.image(for: frame, size: keyCanvas.pixelSize, sources: sources)
     }
 
     /// Whether anyone stands, faces or is posed differently in two frames, beyond a standing figure's idle sway.
