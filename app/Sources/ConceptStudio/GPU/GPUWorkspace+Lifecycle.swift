@@ -147,6 +147,7 @@ extension GPUWorkspace {
         }
         isStopping = true
         defer { isStopping = false }
+        stopRefused = false
         operationTask?.cancel()
         await operationTask?.value
         guard let provider, let pod else { return }
@@ -178,8 +179,10 @@ extension GPUWorkspace {
                 try await Task.sleep(for: .seconds(1))
             }
             message = "Stop was requested, but RunPod has not confirmed it. Keep this window open and retry Stop."
+            stopRefused = true
         } catch {
             message = "Could not confirm the cloud GPU is stopped. Retry Stop or stop it in your RunPod account."
+            stopRefused = true
         }
     }
 
