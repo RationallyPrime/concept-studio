@@ -11,7 +11,9 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.0.2"),
-        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", exact: "1.24.2"),
+        // Mirror of Microsoft's 1.24.2 bindings and checksum-verified release archives.
+        .package(url: "https://github.com/tryAGI/onnxruntime-swift-package-manager.git",
+                 revision: "39ec45a96a53b3cacbef38a6fbf0fb27fa6d5369"),
         .package(path: "PrevisCore"),
     ],
     targets: [
