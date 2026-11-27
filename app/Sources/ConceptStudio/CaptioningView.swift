@@ -64,7 +64,7 @@ struct CaptioningView: View {
                         if session.hasH3Clips {
                             H3AudioControls(workspace: session.gpu).disabled(session.busy)
                         }
-                        if !session.demoMode && !(session.endpointKind == "openai" && session.openAIUsesChatGPT) {
+                        if !session.demoMode, !(session.endpointKind == "openai" && session.openAIUsesChatGPT) {
                             if let modelCatalogStatus {
                                 Text(modelCatalogStatus)
                                     .font(.callout)
